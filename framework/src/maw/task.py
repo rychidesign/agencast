@@ -145,8 +145,9 @@ class _Loop:
         prompt = run.text(self.t["prompt"], "task.prompt")
         max_turns = self.t.get("max_turns", self.agent.data["limits"]["max_turns"])
         messages = [{"role": "user", "content": prompt}]
-        st = {"level": self.m.get("structured_output", "native_schema") if self.schema else None,
-              "feedback": [], "prev": None, "turn": 0}
+        # vždy od tool_wrapper, bez ohledu na alias: nativní schéma v každém tahu svádí model (Haiku)
+        # odpovědět JSONem bez volání nástrojů (BUGS 7, ISSUES 36); alias platí jen pro ask
+        st = {"level": "tool_wrapper" if self.schema else None, "feedback": [], "prev": None, "turn": 0}
         run.rec.write(f"{info.folder}/prompt.md", "# System prompt\n\n" + system + "\n\n# Zpráva\n\n" + prompt)
 
         def build(attempt, last):

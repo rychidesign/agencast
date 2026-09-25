@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 import pytest
+import yaml
 from conftest import FAKE_MCP, events, model_ids, run, scenario
 
 from maw import ConfigErrors
@@ -214,18 +215,22 @@ def test_max_turns_is_budget_and_retry_not_counted(wf):
     assert len(events(r, "tool_call")) == 1                                        # poslední tah nástroje nespustí
 
 
-def test_schema_native_and_cascade_to_tool_wrapper(wf):
+def test_schema_always_tool_wrapper_and_cascade_to_prompt(wf):
+    """BUGS 7 / ISSUES 36: task se schema začíná na tool_wrapper i u aliasu native_schema (chytry)."""
     setup(wf)
+    assert "structured_output" not in yaml.safe_load((wf / "config.yaml").read_text())["models"]["chytry"]
     r, fake = run(task_sc(wf, ", schema: { pocet: integer }"),
                   script={"t": [calls(("fs__read_text_file", {"path": "x"})), {"text": "nejde o JSON"}, {}]})
     assert r.status == "succeeded", r.error
     mc = events(r, "model_call")
-    assert [(e["turn"], e["structured_output"]) for e in mc] == [(1, "native_schema"), (2, "native_schema"),
-                                                                  (2, "tool_wrapper")]
-    last = fake.calls[-1][2]
-    assert "_submit_output" in [t["function"]["name"] for t in last["tools"]] and "tool_choice" not in last
+    assert [(e["turn"], e["structured_output"]) for e in mc] == [(1, "tool_wrapper"), (2, "tool_wrapper"),
+                                                                  (2, "prompt")]
+    first = fake.calls[0][2]
+    assert "response_format" not in first and "tool_choice" not in first
+    assert "_submit_output" in [t["function"]["name"] for t in first["tools"]]
     assert r.values["steps"]["t"] == {"pocet": 1}
     assert all(e["tool"] != "_submit_output" for e in events(r, "tool_call"))  # nikdy do dispatch
+    assert "(prompt)" in r.rows["t"]["note"]
 
 
 def test_tool_timeout_is_timeout_class(wf):

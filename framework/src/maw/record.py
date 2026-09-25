@@ -160,7 +160,7 @@ def plan_md(p: Project, offers: dict | None = None) -> str:
                         + ("; ".join(f"{s}: {', '.join(ts)}" for s, ts in tools.items()) or "žádné")
                         + (f"; skilly: {', '.join(n for n, _, _ in agent.skills)}" if agent.skills else "")
                         + f"; max_turns {t.get('max_turns', agent.data['limits'].get('max_turns'))}"
-                        + (f"; schema: {', '.join(t['schema'])}" if "schema" in t else "; text")
+                        + (f"; schema: {', '.join(t['schema'])} (kaskáda od tool_wrapper)" if "schema" in t else "; text")
                         + ("; dedupe_key" if "dedupe_key" in st else ""))
             cond = f"`{st['when']}`" if "when" in st else ""
             lines.append(f"| {info.nn} | {'↳ ' * indent}{info.id} | {k} | {cond} | {what} | {_limits(p, st, k)} |")
