@@ -1,0 +1,14 @@
+# Ukázka mcp.yaml — registr MCP serverů. Mění jen vlastník.
+# Tokeny jen jménem proměnné prostředí. Specifikace: docs/spec/config.md
+version: 1
+
+servers:
+  filesystem:
+    description: Čtení a zápis souborů ve složce běhu
+    command: npx
+    args: ["@modelcontextprotocol/server-filesystem", "/runs"]
+
+  instagram:
+    description: Publikace na Instagram (vzdálený server, adresa je příklad)
+    url: https://mcp.example.com/instagram
+    bearer_token_env: IG_MCP_TOKEN

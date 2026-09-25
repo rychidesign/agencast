@@ -1,0 +1,81 @@
+version: 1
+name: ig-post
+description: Návrh IG příspěvku ke schválení (část 1; publikaci dělá část 2 přes n8n)
+
+inputs:
+  tema:
+    type: string
+    required: true
+    description: O čem má příspěvek být
+
+outputs:
+  caption:  { type: string, description: Text příspěvku }
+  hashtags: { type: list,   description: Hashtagy včetně # }
+  image:    { type: file,   description: Fotka k příspěvku — v callbacku jako URL }
+
+steps:
+  # 1. Copywriter napíše text, hashtagy a nápad na fotku.
+  - id: copy
+    ask:
+      agent: copywriter
+      prompt: "Napiš IG příspěvek na téma: {{ inputs.tema }}"
+      schema:
+        caption: string
+        hashtags: [string]
+        image_idea: string
+
+  # 2. Jev zkontroluje, že text sedí na tón značky.
+  - id: kontrola
+    jev:
+      state: "{{ steps.copy.caption }}"
+      questions:
+        on_brand:
+          type: noul
+          instructions: >-
+            Odpovídá text tónu značky THTD — česky, krátce, s energií,
+            tyká, bez reklamních klišé?
+
+  # 3. Když ne, běh skončí chybou a n8n pošle upozornění.
+  - id: stop
+    when: steps.kontrola.on_brand < 0.7
+    fail: "Text neodpovídá značce (on_brand = {{ steps.kontrola.on_brand }})"
+
+  # 4. Fotograf z nápadu udělá přesný prompt pro generátor.
+  - id: foto_prompt
+    ask:
+      agent: photographer
+      prompt: |
+        Text příspěvku: {{ steps.copy.caption }}
+        Nápad na fotku: {{ steps.copy.image_idea }}
+      schema:
+        prompt: string
+
+  # 5. Poskytovatel sám nic neodmítne, proto prompt kontrolujeme my.
+  - id: kontrola_obrazku
+    jev:
+      state: "{{ steps.foto_prompt.prompt }}"
+      questions:
+        skutecna_osoba:
+          type: noul
+          instructions: Popisuje prompt konkrétní skutečnou nebo známou osobu?
+        cizi_znacka:
+          type: noul
+          instructions: Zmiňuje prompt logo nebo značku jiné firmy než THTD?
+
+  - id: stop_obrazek
+    when: steps.kontrola_obrazku.skutecna_osoba > 0.5 or steps.kontrola_obrazku.cizi_znacka > 0.5
+    fail: "Prompt obrázku porušuje pravidla obsahu: {{ steps.foto_prompt.prompt }}"
+
+  # 6. Vygeneruje se fotka ve formátu pro Instagram.
+  - id: foto
+    image:
+      model: gemini-image
+      prompt: "{{ steps.foto_prompt.prompt }}"
+      aspect_ratio: "4:5"
+
+  # 7. Výsledek pro n8n: text, hashtagy a URL fotky ke schválení.
+  - id: out
+    output:
+      caption: "{{ steps.copy.caption }}"
+      hashtags: "{{ steps.copy.hashtags }}"
+      image: "{{ steps.foto.file }}"
