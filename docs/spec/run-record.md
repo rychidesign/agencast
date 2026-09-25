@@ -183,7 +183,7 @@ Když poskytovatel cenu nevrátí, je `cost_usd: null` a vznikne varování
 
 | Pole | Co to je |
 |---|---|
-| `class` | třída chyby (scenario.md §6): `transient`, `schema`, `content`, `budget`, `timeout`, `config`, `fail`, `internal` |
+| `class` | třída chyby (scenario.md §6): `transient`, `schema`, `content`, `budget`, `timeout`, `config`, `expression`, `fail`, `internal` |
 | `message` | přesná hláška (u API včetně `error.message` poskytovatele) |
 | `attempt` | pokus, ve kterém chyba nastala |
 | `will_retry` | `true`, když následuje další pokus |

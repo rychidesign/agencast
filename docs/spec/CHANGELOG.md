@@ -27,10 +27,28 @@ schválení v [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md):
 - `schema` se píše uvnitř `ask`/`task` (jako v §6), ne na úrovni kroku,
 - rozpočet kroku se píše `budget_usd` (jako `limits.budget_usd` u agenta),
 - scénář deklaruje `outputs` v hlavičce; krok `output` je poslední,
-- nové třídy chyb `fail` a `internal`,
-- ve výrazech `true` / `false` / `null`, ne pythonovské `True` / `None`.
+- nové třídy chyb `fail` a `internal`.
 
 Přidáno, protože to vyžaduje DESIGN, i když ne ve výčtu D1d: `default`
 (§5.4), `dedupe_key` (§5.2). Přidáno kvůli referenčnímu scénáři: pole
 `aspect_ratio` kroku `image` (IG 4:5) a `max_tokens` u aliasu modelu
 (reasoning modely, `finish_reason: length`).
+
+### Doplněno 2026-09-25 — jazyk výrazů (spike (c))
+
+- [scenario.md §5](scenario.md#výrazy) popisuje jazyk výrazů přesně: co v
+  něm je (seznamový literál, `in`, `%`, záporný index, `["klíč"]`) a co
+  ne (podmínka `if/else`, řezy, `**`, metody, přiřazení, `lambda`,
+  comprehension, atributy, `import`); tečka = čtení klíče; přísné typy
+  (porovnání napříč typy je chyba kromě `== null` / `!= null`, `boolean`
+  není číslo, text + číslo je chyba, `/` je vždy desetinné); 8 funkcí
+  s typovou kontrolou; `round` půlku od nuly; `str(null)` = `"null"`;
+  limity 2000 znaků / hloubka 100; příklady hlášek.
+- Rozhodnuto: literály `true` / `false` / `null` (OPEN-QUESTIONS 7).
+- Nová třída chyby `expression` (chyba výrazu nebo šablony za běhu; chová
+  se jako `fail` kroku, neopakuje se). Statická kontrola výrazů ve
+  `validate` zůstává třída `config`. Třída doplněna i do výčtu v
+  [run-record.md](run-record.md).
+- `null` v šabloně je chyba, výjimkou je výslovný `default`.
+- Nové otevřené otázky 8–10 (rozhodnutí koordinátora s výchozí volbou).
+- JSON Schema beze změny (výrazy jsou řetězce).

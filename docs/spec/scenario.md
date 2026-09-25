@@ -510,7 +510,8 @@ klíče se tak do promptu nedostanou ani omylem (§5.2).
 
 ### Šablony `{{ }}`
 
-- Uvnitř `{{ }}` smí být **jen cesta k hodnotě**: tečky a číselný index,
+- Uvnitř `{{ }}` smí být **jen cesta k hodnotě** se stejnými pravidly
+  jako ve výrazech ([tečka a hranaté závorky](#cesta-k-hodnotě-tečka-a-hranaté-závorky)),
   např. `{{ steps.copy.hashtags[0] }}`. Žádné operátory ani funkce —
   výpočet patří do kroku `set`.
 - **Hodnota je celá jedna šablona** (`"{{ steps.copy.hashtags }}"`) →
@@ -518,8 +519,14 @@ klíče se tak do promptu nedostanou ani omylem (§5.2).
   číslem, soubor souborem).
 - **Šablona uvnitř textu** (`"Téma: {{ inputs.tema }}"`) → výsledek je
   text; text se vloží beze změny, číslo jako číslo (`0.62`), `true` /
-  `false`, seznam a objekt jako JSON. `null` v textu je chyba (hodnota
-  chybí — nic se nevloží potichu).
+  `false`, seznam a objekt jako JSON.
+- **`null` se nevkládá potichu.** Odkaz `{{ x }}`, kde `x` je `null`, je
+  chyba — v `validate` (třída `config`), když to jde poznat předem, jinak
+  za běhu (třída `expression`). Platí pro celou hodnotu i pro šablonu
+  v textu. Jediná výjimka: `null` pochází z výslovného `default` kroku
+  (autor ho zvolil vědomě) — pak se vloží `null`, v textu jako `null`
+  (stejně jako `str(null)`). (§5.4; rozhodnutí koordinátora, viz
+  OPEN-QUESTIONS 10.)
 - Výsledek šablony se **nikdy znovu nevyhodnocuje** (§5.4): když model
   napíše do textu `{{ inputs.x }}`, zůstane to doslova.
 - Šablony se vyhodnocují nad už načteným YAML, takže uvozovky nebo
@@ -529,39 +536,128 @@ klíče se tak do promptu nedostanou ani omylem (§5.2).
 
 ### Výrazy
 
-Bezpečně vyhodnocované výrazy v pythonovském stylu (D1c):
+Bezpečně vyhodnocované výrazy v pythonovském stylu (D1c). Tato část
+popisuje **jazyk** — co smí autor scénáře napsat a co se stane. Výrazy
+vyhodnocuje vlastní malý evaluátor frameworku (rozhodnutí po spiku (c),
+`spikes/expressions/REPORT.md` na větvi `spike-expressions`); Python se
+nikdy nespouští.
+
+#### Co v jazyce je
 
 | Co | Příklad |
 |---|---|
-| cesta k hodnotě | `steps.copy.caption`, `steps.copy.hashtags[0]` |
-| text, číslo, `true`, `false`, `null` | `"cs"`, `0.7`, `true` |
+| cesta k hodnotě | `steps.copy.caption`, `steps.copy.hashtags[0]`, `steps.copy.hashtags[-1]` |
+| literály: text, číslo, `true`, `false`, `null` | `"cs"`, `'cs'`, `0.7`, `3`, `true`, `null` |
+| seznamový literál | `["cs", "sk"]` |
 | porovnání | `==`, `!=`, `<`, `<=`, `>`, `>=` |
-| logika | `and`, `or`, `not` |
-| aritmetika | `+`, `-`, `*`, `/` (`+` spojí i dva texty) |
+| obsahuje | `in` — prvek v seznamu, podřetězec v textu: `inputs.jazyk in ["cs", "sk"]` |
+| logika | `and`, `or`, `not` — jen nad `true`/`false` |
+| aritmetika | `+`, `-`, `*`, `/`, `%` (`+` spojí i dva texty) |
 | závorky | `(a or b) and c` |
-| funkce | `len(x)`, `min(a, b)`, `max(a, b)`, `round(x, 2)`, `str(x)`, `int(x)`, `float(x)`, `join(seznam, oddělovač)` |
+| funkce | jen `len`, `min`, `max`, `round`, `str`, `int`, `float`, `join` (níže) |
 
-Zakázané (chyba `validate`): volání metod (`x.upper()`), `import`, jiné
-funkce, `{{ }}` uvnitř výrazu, podtržítko na začátku jména.
+Literály `true`, `false`, `null` se píšou stejně jako v YAML a JSON, ne
+pythonovské `True`/`False`/`None` (rozhodnuto, OPEN-QUESTIONS 7).
+`True` nebo `None` je neznámé jméno → chyba `validate`.
 
-Pravidla typů (§5.4):
+#### Co v jazyce není
+
+Chyba `validate`, běh se nespustí: podmínka `x if c else y`, řezy
+`xs[1:3]`, mocnina `**`, volání metod (`"x".upper()`,
+`steps.copy.caption.lower()`), přiřazení (`=`, `:=`), `lambda`,
+comprehension (`[x for x in …]`), atributy a dunder (`__class__`),
+`import`, jiné funkce než ty z tabulky, `{{ }}` uvnitř výrazu.
+
+#### Cesta k hodnotě: tečka a hranaté závorky
+
+- **Tečka čte klíč z objektu**, nic jiného. `steps.copy.hashtags` funguje
+  i pro kroky a pole pojmenované `copy`, `items`, `keys`, `get`, `values`
+  … (tečka nikdy nesahá na vnitřek Pythonu).
+- **Hranaté závorky** jsou index do seznamu (i záporný: `[-1]` = poslední)
+  nebo klíč objektu jako text: `steps.kontrola.details["on_brand"]`.
+- Chybějící klíč nebo index mimo seznam je chyba (viz níže), nikdy tiché
+  `null`.
+
+#### Typy (§5.4)
 
 - Typy `string`, `number` (celé i desetinné), `boolean`, `null`, `list`,
-  `object`, `file` se nemíchají: `steps.jev.on_brand < "0.7"` je chyba
-  `validate`. Převod musí být výslovný: `float(x)`, `str(x)`.
-- Porovnání s `null` (`x == null`, `x != null`) je dovolené u každého typu.
-- `when` musí dát `true`/`false`. Text nebo číslo se „nepravdivostí"
-  nepřevádí.
-- Co `validate` staticky nepozná (např. index mimo seznam), skončí za
-  běhu chybou `config` s přesnou hláškou a jménem kroku.
+  `object`, `file` se nemíchají. Převod musí být výslovný: `float(x)`,
+  `int(x)`, `str(x)`.
+- **Porovnání napříč typy je chyba** (`==` i `<`):
+  `steps.kontrola.on_brand < "0.7"`, `inputs.limit == "3"`. Jediná
+  výjimka: `x == null` a `x != null` jsou dovolené u každého typu.
+- **`and`, `or`, `not` berou jen `true`/`false`.** Žádná pythonová
+  „pravdivost" textu, čísla nebo seznamu: `steps.copy.hashtags and …` je
+  chyba s radou napsat porovnání, např. `len(steps.copy.hashtags) > 0`.
+  (Rozhodnutí koordinátora, OPEN-QUESTIONS 8.)
+- **`boolean` není číslo:** `true + 1` je chyba.
+- **Text + číslo je chyba:** `"on_brand = " + 0.9` → napiš
+  `"on_brand = " + str(0.9)`.
+- **`/` dává vždy desetinné číslo:** `7 / 2` = `3.5`, `4 / 2` = `2.0`.
+  `%` je zbytek po dělení. Dělení nulou je chyba.
+- `when` a `switch.value` musí dát `boolean`, resp. `string`.
 
-Literály `true`, `false`, `null` se píšou stejně jako v YAML a JSON
-(ne pythonovské `True`/`None`) — **návrh**, aby uživatel neviděl dva
-zápisy téhož.
+#### Funkce
 
-Na co dát v YAML pozor: výraz, který začíná uvozovkou, `[` nebo `{`, nebo
-obsahuje `: ` či ` #`, obal celý do jednoduchých uvozovek:
-`when: '"x" == inputs.jazyk'`.
+| Funkce | Co dělá | Typy |
+|---|---|---|
+| `len(x)` | délka | `string`, `list`, `object` → `number` |
+| `min(a, b, …)`, `max(a, b, …)` | nejmenší / největší | čísla (nebo jeden seznam čísel) → `number` |
+| `round(x)`, `round(x, n)` | zaokrouhlí na `n` desetinných míst (výchozí 0) | `number` → `number` |
+| `str(x)` | převod na text | cokoliv → `string` |
+| `int(x)`, `float(x)` | převod na celé / desetinné číslo | `number` nebo `string` s číslem → `number` |
+| `join(seznam, oddělovač)` | spojí seznam textů | `list` textů, `string` → `string` |
+
+- **`round` zaokrouhluje půlku směrem od nuly:** `round(2.5)` = `3`,
+  `round(-2.5)` = `-3`, `round(0.125, 2)` = `0.13`. To je **výslovná
+  odchylka od Pythonu** (ten zaokrouhluje bankéřsky: `round(2.5)` = `2`),
+  protože autor scénáře čeká školní zaokrouhlení. (Rozhodnutí
+  koordinátora, OPEN-QUESTIONS 9.)
+- `str` dává stejný text jako šablona: `str(null)` = `"null"`,
+  `str(true)` = `"true"`, `str(0.62)` = `"0.62"`.
+- Funkce kontrolují typy argumentů; špatný typ je chyba s hláškou.
+
+#### Limity
+
+Výraz má nejvýš **2000 znaků** a hloubku vnoření (závorky, operátory)
+nejvýš **100**. Kontroluje se **před** čtením výrazu, takže ani
+obrovský výraz nemůže shodit framework.
+
+#### Kdy se chyba výrazu pozná
+
+| Kdy | Co | Třída | Následek |
+|---|---|---|---|
+| `validate` (staticky, před během) | syntaxe; zakázaná konstrukce; neznámá funkce nebo jméno (`True`, `open`); překročený limit; odkaz na neexistující krok, na krok níž nebo v jiné větvi `parallel`; odkaz na krok, který nemusí proběhnout, bez `default`; neznámé pole kroku, jehož výstup je známý (`schema`, `jev`, `set`, `outputs` při `call`); porovnání nebo operace napříč typy, když jsou typy známé předem; `null` v šabloně, když je to vidět předem | `config` | běh se vůbec nespustí |
+| za běhu | chybějící klíč (např. v `details` od Jev), špatný typ hodnoty, index mimo seznam, dělení nulou, převod `int("abc")`, `null` v šabloně | `expression` | krok selže, **neopakuje se**; běh končí `failed` (jako `fail` kroku), pokud krok nemá `on_error: continue` |
+
+#### Chybové hlášky
+
+Hlášky jsou česky, ukazují výraz, stříškou `^` místo chyby a u
+chybějícího klíče vyjmenují dostupné klíče. Příklady:
+
+```
+config: krok "stop", when: porovnání number s string — převeď typ výslovně (float(), str())
+  steps.kontrola.on_brand < "0.7"
+                            ^
+```
+
+```
+expression: krok "souhrn": 'steps' nemá klíč 'kontrol' (dostupné: copy, kontrola, foto_prompt)
+  steps.kontrol.on_brand
+        ^
+```
+
+```
+config: krok "podle_delky", when: 'and' chce true/false, dostal list — porovnej výslovně (např. len(x) > 0)
+  steps.copy.hashtags and inputs.jazyk == "cs"
+  ^
+```
+
+#### Pozor na YAML
+
+Výraz, který začíná uvozovkou, `[` nebo `{`, nebo obsahuje `: ` či ` #`,
+obal celý do jednoduchých uvozovek: `when: '"x" == inputs.jazyk'`,
+`when: '["cs", "sk"] == inputs.jazyky'`.
 
 ### Přeskočené kroky a `default` (§5.4)
 
@@ -587,7 +683,8 @@ nese třídu chyby, `id` kroku a zprávu (§5.1). Nic neselže potichu.
 | `content` | model nebo filtr odmítl obsah: HTTP 403 (`content_policy_violation`, `refusal`), HTTP 200 s `finish_reason: content_filter` nebo vyplněným `refusal`, `image` bez obrázku | neopakuje, chyba |
 | `budget` | překročen `budget_usd` kroku, agenta nebo běhu; `max_turns` bez odpovědi; HTTP 402 (došel kredit / limit klíče) | ukončí, neopakuje |
 | `timeout` | překročen `timeout` kroku nebo běhu | ukončí, neopakuje |
-| `config` | chyba ve scénáři, agentovi nebo konfiguraci — hlavně z `validate` před během; za běhu HTTP 400/401/403 (mimo obsah)/404, `finish_reason: length` (useknuto limitem `max_tokens`; opakování nepomůže — zvyš `max_tokens` aliasu v `config.yaml`), chyba výrazu za běhu | ukončí, neopakuje |
+| `config` | chyba ve scénáři, agentovi nebo konfiguraci — hlavně z `validate` před během (včetně statické kontroly výrazů a šablon, viz [§5](#kdy-se-chyba-výrazu-pozná)); za běhu HTTP 400/401/403 (mimo obsah)/404, `finish_reason: length` (useknuto limitem `max_tokens`; opakování nepomůže — zvyš `max_tokens` aliasu v `config.yaml`) | ukončí, neopakuje |
+| `expression` | výraz nebo šablona selhaly **za běhu**: chybějící klíč, špatný typ hodnoty, index mimo seznam, dělení nulou, `null` v šabloně (viz [§5](#kdy-se-chyba-výrazu-pozná)) | chová se jako `fail` kroku: neopakuje, ukončí (pokud krok nemá `on_error: continue`) |
 | `fail` | krok `fail` (**návrh**) | ukončí |
 | `internal` | chyba frameworku samotného (**návrh**) — vždy s celou hláškou v záznamu | ukončí |
 
@@ -630,8 +727,10 @@ třída `config`:
 - `name` = jméno souboru, `version` je známá,
 - agenti, scénáře (`call`), aliasy modelů, MCP servery a nástroje existují;
   krok nerozšiřuje oprávnění agenta,
-- `id` unikátní, šablony a výrazy jdou přečíst, odkazy vedou jen na kroky
-  výš (a ne do jiné větve `parallel`), typy ve výrazech sedí,
+- `id` unikátní; výrazy a šablony podle tabulky „Kdy se chyba výrazu
+  pozná" v [§5](#kdy-se-chyba-výrazu-pozná) (syntaxe, zakázané
+  konstrukce, funkce, limity, odkazy jen na kroky výš a ne do jiné větve
+  `parallel`, typy tam, kde jsou známé předem),
 - odkaz na krok, který nemusí proběhnout, má `default`,
 - `output` je poslední a sedí na `outputs`; `call` sedí na `inputs` a
   `outputs` volaného scénáře; žádné cykly, hloubka v limitu,

@@ -46,4 +46,33 @@ chceš přísnější variantu (povinný seznam), je to změna jednoho pravidla.
 D1c říká „výrazy v pythonovském stylu", Python ale píše `True`, `False`,
 `None`. Uživatel přitom stejné hodnoty vidí v YAML, JSON a záznamu běhu
 jako `true` / `false` / `null`.
-**Doporučení:** `true` / `false` / `null` (jeden zápis všude).
+**Rozhodnuto (koordinátor, 2026-09-25):** `true` / `false` / `null`.
+Platí tedy `x == null` a `str(null)` = `"null"`.
+
+---
+
+Otázky 8–10 vznikly ze spiku (c) (`spikes/expressions/REPORT.md` na větvi
+`spike-expressions`). Koordinátor je rozhodl a spec je podle toho napsaná;
+při schvalování je můžeš změnit.
+
+### 8. `and` / `or` / `not` jen nad `true` / `false`
+Python bere i „pravdivost" jiných hodnot (prázdný text nebo seznam =
+nepravda, `0` = nepravda). Spec to zakazuje: `steps.copy.hashtags and …`
+je chyba s radou napsat `len(steps.copy.hashtags) > 0`. Ve scénáři je
+tak vždy vidět, na co se podmínka ptá.
+**Výchozí volba:** jen `true`/`false`. Alternativa: pythonová pravdivost.
+
+### 9. `round` zaokrouhluje půlku od nuly
+Python zaokrouhluje bankéřsky (`round(2.5)` = `2`, `round(3.5)` = `4`).
+Spec definuje školní zaokrouhlení: `round(2.5)` = `3`, `round(-2.5)` =
+`-3` — výslovná odchylka od Pythonu.
+**Výchozí volba:** půlka od nuly. Alternativa: jako Python.
+
+### 10. `null` v šabloně je chyba
+`{{ x }}`, kde `x` je `null`, se nevloží potichu: chyba v `validate`
+(`config`), když to jde poznat předem, jinak za běhu (`expression`).
+Výjimka: `null` z výslovného `default` kroku se vloží jako `null` (v textu
+jako `null`).
+**Výchozí volba:** chyba s výjimkou pro výslovný `default`.
+Alternativa: vkládat vždy text `null` (nic neselže, ale chybějící hodnota
+může potichu projít až do promptu nebo callbacku).
