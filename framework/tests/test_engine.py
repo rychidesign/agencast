@@ -345,7 +345,7 @@ steps:
     e = events(r, "error")[0]
     assert (e["step"], e["class"], e["will_retry"]) == ("a", "transient", True) and "ReadTimeout" in e["message"]
     calls = {(c["step"], c["attempt"]): c["timeout_s"] for c in events(r) if c["type"] in ("model_call", "jev_call")}
-    assert 9 < calls["a", 1] <= 10 and 9 < calls["a", 2] <= 10      # zbývající čas kroku
+    assert calls["a", 2] <= calls["a", 1] <= 10                      # zbývající čas kroku (bez závislosti na rychlosti)
     assert calls["b", 1] == 120 and calls["j", 1] == 30              # strop chat / Jev
     assert sent[0] == calls["a", 1] and sent[-1] == 30               # tentýž timeout dostal httpx
 

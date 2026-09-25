@@ -48,6 +48,22 @@ class Receiver:
         return [json.loads(b) for _, b in self.got]
 
 
+def finished(hook, run_id, timeout=10.0):
+    """Běh je celý hotový včetně callbacku a jeho událostí — server maže záznam fronty až potom.
+    (Přijímač má callback dřív, než framework zapíše callback_sent: čekat jen na něj je souběh.)"""
+    end = time.monotonic() + timeout
+    while (hook.qdir / f"{run_id}.json").exists():
+        assert time.monotonic() < end, f"běh {run_id} nedoběhl"
+        time.sleep(0.02)
+
+
+def hold(hook) -> threading.Event:
+    """Pracovní vlákno nezačne běh, dokud test nezavolá .set() — pořadí ve frontě bez spoléhání na časy."""
+    gate, execute = threading.Event(), hook.execute
+    hook.execute = lambda entry: (gate.wait(10), execute(entry))[1]
+    return gate
+
+
 def start(wf, script=None):
     hook = Webhook(wf, fake=Fake(script, model_ids(wf)))
     hook.start()
@@ -140,6 +156,7 @@ def test_202_and_signed_callback(wf, server):
     run_id = r.json()["run_id"]
     assert r.json()["queue_position"] == 1
     cb = rcv.wait()[0]
+    finished(hook, run_id)
     headers, raw = rcv.got[0]
     assert headers["x-run-id"] == run_id
     assert headers["x-signature"] == "sha256=" + hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest()
@@ -150,22 +167,18 @@ def test_202_and_signed_callback(wf, server):
     assert json.loads((d / "callback.json").read_text()) == cb
     sent = [json.loads(x) for x in (d / "events.jsonl").read_text().splitlines() if '"callback_sent"' in x]
     assert sent[0]["url"].endswith("/cb") and "tajne" not in sent[0]["url"]  # z URL se loguje jen cesta bez query
-    for _ in range(100):  # záznam fronty zmizí až po callbacku
-        if not (hook.qdir / f"{run_id}.json").exists():
-            break
-        time.sleep(0.02)
     st = client.get(f"/runs/{run_id}").json()
     assert st["status"] == "succeeded" and st["callback_failed"] is False
     assert client.get("/runs/20260925-140311-nic-a1b2").status_code == 404
 
 
 def test_request_key_is_idempotent_across_restart(wf, server):
-    _, _, client = server()
+    hook, _, client = server()
     rcv = Receiver()
     first = client.post("/runs", json=req(rcv, request_key="n8n-4711")).json()
     again = client.post("/runs", json=req(rcv, request_key="n8n-4711"))
     assert again.status_code == 200 and again.json() == {"run_id": first["run_id"], "queue_position": None}
-    rcv.wait()
+    finished(hook, first["run_id"])  # jinak by nový server vzal nedokončený záznam fronty jako přerušený běh
     _, _, client2 = server()  # restart: nový server nad stejnou složkou běhů
     third = client2.post("/runs", json=req(rcv, request_key="n8n-4711"))
     assert third.status_code == 200 and third.json()["run_id"] == first["run_id"]
@@ -175,12 +188,13 @@ def test_request_key_is_idempotent_across_restart(wf, server):
 
 
 def test_queue_runs_one_after_another(wf, server):
-    hook, _, client = server({"kontrola": {"sleep": 0.3}})
-    rcv = Receiver()
+    hook, _, client = server()
+    gate, rcv = hold(hook), Receiver()
     a = client.post("/runs", json=req(rcv)).json()
     b = client.post("/runs", json=req(rcv)).json()
     assert (a["queue_position"], b["queue_position"]) == (1, 2)
     assert client.get(f"/runs/{b['run_id']}").json() == {"run_id": b["run_id"], "status": "queued", "queue_position": 2}
+    gate.set()
     cbs = rcv.wait(2)
     assert [c["run_id"] for c in cbs] == [a["run_id"], b["run_id"]]
 
@@ -193,11 +207,12 @@ def test_queue_runs_one_after_another(wf, server):
 
 
 def test_validate_failing_after_dequeue_still_sends_callback(wf, server):
-    _, _, client = server({"kontrola": {"sleep": 0.3}})
-    rcv = Receiver()
+    hook, _, client = server()
+    gate, rcv = hold(hook), Receiver()
     client.post("/runs", json=req(rcv))
     b = client.post("/runs", json=req(rcv, scenario="ukazka-call", inputs={"tema": "káva"})).json()
     (wf / "agents" / "copywriter.md").unlink()  # změna souborů, zatímco požadavek čeká ve frontě
+    gate.set()
     cb = rcv.wait(2)[1]
     assert cb["run_id"] == b["run_id"] and cb["status"] == "failed"
     assert cb["error"]["class"] == "config" and "agent 'copywriter' neexistuje" in cb["error"]["message"]
@@ -207,12 +222,8 @@ def test_callback_failed_after_three_attempts(wf, server):
     hook, _, client = server()
     rcv = Receiver(status=500)
     run_id = client.post("/runs", json=req(rcv)).json()["run_id"]
-    rcv.wait(3)
-    for _ in range(100):
-        st = client.get(f"/runs/{run_id}").json()
-        if st.get("callback_failed"):
-            break
-        time.sleep(0.02)
+    finished(hook, run_id)
+    st = client.get(f"/runs/{run_id}").json()
     assert st["status"] == "succeeded" and st["callback_failed"] is True  # stav běhu se nemění
     events = [json.loads(x) for x in (hook.runs / run_id / "events.jsonl").read_text().splitlines()]
     assert [e["attempt"] for e in events if e["type"] == "callback_sent"] == [1, 2, 3]

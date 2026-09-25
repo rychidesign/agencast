@@ -24,7 +24,21 @@ Formát: spec v1 beze změny. Opravy chyb z `docs/tutorials/BUGS.md`:
 - Testy: testovací config přebírá aliasy ze skutečného
   `workflows/config.yaml` (klíče, limity a úložiště zůstávají testovací),
   falešné `GET /models` zná jejich id — nový alias vlastníka nerozbije
-  zlaté testy (BUGS 6). Testy: +8 (368 celkem).
+  zlaté testy (BUGS 6).
+- Čtecí timeout HTTP volání poskytovatele (ISSUES 34): u každého volání
+  min(zbývající čas kroku, 120 s chat/obrázek/tah `task`, 30 s Jev);
+  vypršení = `transient`, opakuje se podle `retry`. `model_call`
+  a `jev_call` mají nové pole `timeout_s` (run-record.md, zpětně
+  kompatibilně). Dřív zaseknuté spojení čekalo až na timeout kroku.
+- Nestabilní test `test_webhook.py::test_202_and_signed_callback`
+  (pod zátěží 1 selhání z 8 běhů): test četl `events.jsonl`, jakmile
+  přijímač dostal callback, ale `callback_sent` framework zapíše až po
+  odpovědi přijímače. Webhook testy teď čekají na konec běhu (smazání
+  záznamu fronty) a pořadí ve frontě drží závorou místo `sleep` —
+  totéž se týkalo restartu v `test_request_key_is_idempotent_across_restart`.
+  Marker `live` (síť, skutečný npx server) registrovaný v pyproject,
+  běžný `uv run pytest` ho přeskočí; žádný test ho zatím nepotřebuje —
+  celá sada prošla i bez sítě. Testy: +9 (369 celkem).
 
 ## 0.2.0 — 2026-09-25 (Fáze 3)
 
