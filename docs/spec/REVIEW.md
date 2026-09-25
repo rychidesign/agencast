@@ -543,3 +543,58 @@ Souhrn: **6 BLOKUJÍCÍCH, 23 DŮLEŽITÝCH, 12 DROBNÝCH**.
   (R2) se špatně čte.
 - **Návrh:** „`<nn>` = pořadí kroku v souboru (hloubkově, včetně větví),
   pevné pro scénář. Skutečné pořadí startu je vidět z `ts` v `events.jsonl`.“
+
+---
+
+## Stav oprav
+
+Opraveno 2026-09-25 (worker `task_06392950748f`) podle návrhů výše; kde
+koordinátor rozhodl jinak, platí jeho rozhodnutí. Ověřeno
+`uv run docs/spec/tools/check.py` (YAML 1.2 loader + jsonschema) na všech
+ukázkách a úryvcích: agent 4×, config 2×, mcp 2×, scénář 13×, skill 2×,
+**0 chyb**; nová pravidla schémat ověřena 9 záměrně chybnými případy (vše
+odmítnuto).
+
+| Nález | Stav | Poznámka |
+|---|---|---|
+| B1 skilly | hotovo | `task`: seznam + `load_skill` (`_skills` v záznamu), `ask`: celé; `skill.md`, `skill.schema.json`, ukázka `skills/thtd-hlas`; OPEN-QUESTIONS 11 |
+| B2 `tools` povinné | hotovo | `dependentRequired`, klíče `tools` = `mcp`, `--dry-run` vypíše nabídku; OQ 6 vyřešena podle §5.8 |
+| B3 kaskáda | hotovo | `models.<alias>.structured_output`, `_submit_output`, přechod o úroveň níž po `schema` |
+| B4 dedupe | hotovo | `<runs>/_dedupe/<sha256>.json`, atomicky; OQ 12 |
+| B5 webhook | hotovo | nový `webhook.md` (`POST /runs`, 202/200/401/422); callback vždy od `run_id` |
+| B6 YAML 1.2 | hotovo | text ve všech spec souborech; `tools/check.py`; `cases.propertyNames`; CHANGELOG: ověření stejným loaderem |
+| D1 oprávnění MCP | odchylka (koordinátor) | vlastník v `mcp.yaml`: povinné `agents`, navíc volitelné `scenarios` a `tools` |
+| D2 obejití schválení | odchylka (koordinátor) | `callable` ve scénáři ano; místo `scenarios` v agentovi je `scenarios` u serveru v `mcp.yaml` (agenty píší ostatní) |
+| D3 typ `file` | hotovo | jen z `image`/nástroje, cesta uvnitř běhu, `null` z `default`, selhání nahrání = `transient` |
+| D4 kořen filesystemu | hotovo | `{run_dir}` v `args`, ukázka `{run_dir}/work` |
+| D5 uhodnutelná URL | hotovo | `<run_id>-<32 hex>/<jméno>` pro všechny soubory; `run_started.storage_prefix` |
+| D6 tajné ve výsledcích | hotovo | nahrazení `<tajné: JMENO>` v záznamu i callbacku |
+| D7 dedupe `started` | hotovo | `started` před 1. voláním nástroje; `started` bez `succeeded` = `config` „ověř ručně" |
+| D8 rozpočet | hotovo | kontrola před voláním, překročení o 1 volání/větev, chybějící cena → `transient` → `budget`; `run_finished.image_duration_s`, samostatný časový limit obrázků ve v1 není |
+| D9 `max_turns` × `retry` | hotovo | opakování se do `max_turns` nepočítá |
+| D10 `image` bez obrázku | hotovo | `refusal`/`content_filter` → `content`, jinak `transient` → `content`; kontrola poměru stran ±2 % |
+| D11 `parallel` zrušení | hotovo | `step_finished.status: cancelled`; `budget_usd`/`timeout` na `parallel`/`call` = součet / celá doba |
+| D12 úplný `default` | hotovo | všechna pole, `details` se doplní |
+| D13 `switch` nad `null` | hotovo | `expression`; chyba ve `when` pokrývá `on_error`; `cases` ⊆ `criteria` |
+| D14 pole se šablonami | hotovo | uzavřený seznam, `{{` jinde = `validate` |
+| D15 `*`, `in` | hotovo | typy operátorů, výsledek max 100 000, `in` nad seznamem/textem/objektem |
+| D16 MCP timeouty | hotovo | `timeouts` v `mcp.yaml`, událost `mcp_server`, `stderr` do `mcp/`, start 1× za běh; `mode="legacy"` je implementační detail z DESIGN §5.8 |
+| D17 validace argumentů | hotovo | validace proti původnímu schématu, `invalid_args`, kolize jmen po normalizaci = `config` |
+| D18 obrázky z nástrojů | hotovo | nahrazení base64/`reasoning_details` ve všech souborech `calls/`; `tool-<NN>-<k>.png`, user zpráva |
+| D19 prostředí stdio | hotovo | 6 proměnných SDK + `env`; zakázaná jména ve schématu |
+| D20 nedoručený callback | hotovo | `callback_sent` za pokus, `callback_failed`, stav běhu beze změny |
+| D21 `validate` × `/models` | hotovo | cache 24 h `_models.json`, bez sítě `transient`, kontrola `tools`/`structured_outputs` |
+| D22 `file` přes `call` | hotovo | `inputs.type: file` jen pro `call`; nesoulad za běhu = `expression` |
+| D23 kořen `schema` | hotovo | `schema_root` = mapa |
+| M1 komentáře ig-post | hotovo | 1–8 shodně se summary, vysvětlení `noul` a prahů |
+| M2 `popis_fotky` | hotovo | ukázka, spec, agent photographer |
+| M3 `max_turns` | hotovo | povinné jen s `mcp`; `task` bez něj = `config`; z ukázek odstraněno |
+| M4 `outputs: {}` | hotovo | `minProperties: 1` |
+| M5 HTTP/SSE | hotovo | `url` i `http://127.0.0.1`/`localhost`; `transport: streamable-http|sse` |
+| M6 `base_url`, sdílené env | hotovo | pattern; stejná hodnota ve dvou `_env` = `config` |
+| M7 `runs_dir` | hotovo | pole v `config.yaml` (výchozí `./runs`) |
+| M8 čísla | hotovo | `int`, `round` bez `n` celé, `nan`/`inf`, `2.0` jako `integer`, zápis v textu, hloubka nad AST |
+| M9 `tools` mimo `mcp`, podsložky | hotovo | obojí chyba `config` |
+| M10 odchylky od DESIGN | hotovo | OPEN-QUESTIONS **13 a 14** (12 je dedupe) |
+| M11 CLAUDE.md, DESIGN | částečně (koordinátor) | věta do `CLAUDE.md` přidána; kopie `docs/DESIGN.md` ve větvi se nesjednocuje — udělá to sloučení s `main` |
+| M12 `<nn>` | hotovo | pořadí v souboru, hloubkově |

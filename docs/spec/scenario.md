@@ -111,7 +111,7 @@ outputs:
 
 | Pole výstupu | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
-| `type` | ano | Jako u vstupů, navíc `file` (soubor z kroku `image`). | Chyba `config`. | `type: file` |
+| `type` | ano | Jako u vstupů včetně `file` (soubor z kroku `image`). | Chyba `config`. | `type: file` |
 | `description` | ne | Vysvětlení pro člověka. | Nic. | |
 
 Hodnota typu `file` se na konci běhu nahraje do úložiště z `config.yaml`
