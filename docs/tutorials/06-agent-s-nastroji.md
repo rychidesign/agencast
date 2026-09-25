@@ -403,6 +403,15 @@ smyčka končí. Zapsané je to v `docs/tutorials/BUGS.md` (sekce maw 0.2.1)
 i s tím, co pomohlo (alias s `structured_output: tool_wrapper` — to je
 rozhodnutí vlastníka v `config.yaml`).
 
+**Od `maw` 0.2.2** framework u `task` požadovaný tvar JSON v tazích
+neposílá: se `schema` začíná vždy na úrovni `tool_wrapper` — model
+odevzdá výsledek nástrojem `_submit_output`, až bude hotový
+(`docs/spec/ISSUES.md`, bod 36). `structured_output` aliasu platí už jen
+pro `ask`. Právě tahle varianta v kontrolním běhu (BUGS.md, bod 7)
+zapsala oba soubory správně. V poznámce kroku pak uvidíš
+`(tool_wrapper)`, případně `(prompt)`, když model výsledek nástrojem
+neodevzdal a kaskáda šla o úroveň níž.
+
 Z toho plynou dvě pravidla, která platí i po opravě:
 
 1. **Agentovi s nástroji nevěř, ověř záznam.** Poznáš to v `summary.md`

@@ -340,7 +340,7 @@ maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlin
 ```
 
 ```
-běh 20260925-152109-tutorial-01-nazvy-8e97: úspěch · 0,0 s · 0,0001 USD
+běh 20260925-163820-tutorial-01-nazvy-26eb: úspěch · 0,0 s · 0,0001 USD
 ```
 
 Falešné n8n vypsalo:
@@ -348,9 +348,9 @@ Falešné n8n vypsalo:
 ```
 POST /webhook-waiting/4711
 Content-Type: application/json
-X-Run-Id: 20260925-152109-tutorial-01-nazvy-8e97
-X-Signature: sha256=db2349c82058367a50eaad251879583dc86da4ef9d5b919a62c11173aa6af601
-{"run_id": "20260925-152109-tutorial-01-nazvy-8e97", "scenario": "tutorial-01-nazvy", "request_key": "n8n-4711", "status": "succeeded", "outputs": {"nazvy": "Ovesňák\nMrazík Oves\nZmrzlá Pláň"}, "error": null, "warnings": [], "cost_usd": 0.0001, "duration_s": 0.001, "report_url": null, "sent_at": "2026-09-25T15:21:09.996Z"}
+X-Run-Id: 20260925-163820-tutorial-01-nazvy-26eb
+X-Signature: sha256=ccebf60ebacc5ff2160fcf507a3d68326c6959804b64c3d75a57538ee7ec38fc
+{"run_id": "20260925-163820-tutorial-01-nazvy-26eb", "scenario": "tutorial-01-nazvy", "request_key": "n8n-4711", "status": "succeeded", "outputs": {"nazvy": "Ovesňák\nMrazík Oves\nZmrzlá Pláň"}, "error": null, "warnings": [], "cost_usd": 0.0001, "duration_s": 0.001, "report_url": "file:///…/outputs/20260925-163820-tutorial-01-nazvy-26eb-ed13aae87c48c49d241de2ab0633a6ab/report.html", "sent_at": "2026-09-25T16:38:20.885Z"}
 ```
 
 Pole těla:
@@ -363,7 +363,7 @@ Pole těla:
 | `warnings` | např. obrázek selhal s `on_error: continue` (díl 4) |
 | `request_key` | co poslalo n8n (`--request-key`), aby spárovalo odpověď |
 | `cost_usd`, `duration_s` | pro přehled útraty |
-| `report_url` | zatím vždy `null` (HTML záznam přijde později) |
+| `report_url` | adresa `report.html` v úložišti (od `maw` 0.2.0; souhrn běhu s prompty a odpověďmi, díl 7); `null`, jen když se report nepodařilo vytvořit nebo nahrát (pak je o tom varování) |
 
 Typ `file` v `outputs` je **adresa** souboru v úložišti, ne soubor. U nás
 `storage.type: local` → `file://…` cesta, se kterou Instagram nic
