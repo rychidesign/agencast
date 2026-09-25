@@ -1,0 +1,43 @@
+version: 1
+name: tutorial-03-vyrazy
+description: Hřiště výrazů — jen krok set, žádný model, nic nestojí (tutoriál, díl 3)
+
+inputs:
+  jazyk:
+    type: string
+    default: cs
+  delitel:
+    type: number
+    default: 2
+
+outputs:
+  vysledky:
+    type: object
+    description: Všechny spočítané hodnoty
+
+steps:
+  - id: ukazky
+    set:
+      # Zaokrouhlení: půlka jde vždy od nuly (jinak než v Pythonu).
+      round_2_5: round(2.5)
+      round_minus_2_5: round(-2.5)
+      round_0_125_na_2: round(0.125, 2)
+      # Dělení dává vždy desetinné číslo.
+      sedm_lomeno_dvema: 7 / 2
+      ctyri_lomeno_dvema: 4 / 2
+      deleni_vstupem: 10 / inputs.delitel
+      # Převody musí být výslovné.
+      text_plus_cislo: '"verze " + str(2)'
+      z_textu_na_cislo: float("0.7") + 0.1
+      a_zaokrouhlene: round(float("0.7") + 0.1, 2)
+      # in: prvek v seznamu, podřetězec v textu.
+      cesky_nebo_slovensky: inputs.jazyk in ["cs", "sk"]
+      obsahuje_ves: '"oves" in "ovesné mléko"'
+      # null lze porovnat s čímkoli.
+      jazyk_zadan: inputs.jazyk != null
+      # Logika jen nad true/false.
+      obe_podminky: len(inputs.jazyk) == 2 and not (inputs.delitel < 0)
+
+  - id: out
+    output:
+      vysledky: "{{ steps.ukazky }}"
