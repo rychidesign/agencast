@@ -3,6 +3,29 @@
 Semver podle DESIGN §5.9 bod 5: oprava = patch, přidání = minor, nová
 verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
+## 0.2.1 — 2026-09-25 (opravy z tutoriálů)
+
+Formát: spec v1 beze změny. Opravy chyb z `docs/tutorials/BUGS.md`:
+
+- Varování „poskytovatel nevrátil cenu" jen u úspěšné odpovědi bez
+  `usage.cost`; chybová odpověď (HTTP 429, 400, `error` v těle) nic
+  nestojí a varování nedá (BUGS 1).
+- `{{ }}` ve výrazu (`set`, `when`, `switch.value`): jen hláška „šablona
+  tu není povolená", nově se stříškou; druhá hláška o AST uzlu `Set`
+  zmizela (BUGS 2).
+- Konkrétní id modelu v agentovi (`model: anthropic/claude-haiku-4.5`):
+  hláška „model '…' není alias v config.yaml (aliasy: …)" místo regexu
+  ze schématu; schéma beze změny (BUGS 3).
+- Chyba syntaxe YAML: česká věta s radou (hodnota s `{`, `[`, `: ` nebo
+  ` #` do uvozovek, scenario.md §5 „Pozor na YAML") a řádkem, původní
+  hláška parseru jako druhý řádek. Duplicitní klíč beze změny (BUGS 4).
+- Skloňování počtů: `validate` „(1 krok / 2 kroky / 9 kroků)", `serve`
+  „ve frontě 2 běhy", poznámka kroku `call` v `summary.md` (BUGS 5).
+- Testy: testovací config přebírá aliasy ze skutečného
+  `workflows/config.yaml` (klíče, limity a úložiště zůstávají testovací),
+  falešné `GET /models` zná jejich id — nový alias vlastníka nerozbije
+  zlaté testy (BUGS 6). Testy: +8 (368 celkem).
+
 ## 0.2.0 — 2026-09-25 (Fáze 3)
 
 Formát: spec v1 beze změny.
