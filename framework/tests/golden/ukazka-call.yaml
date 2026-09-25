@@ -1,0 +1,5 @@
+# Skriptované odpovědi pro workflows/scenarios/ukazka-call.yaml (kroky volaného scénáře mají cestu ton/…).
+copy:
+  json: { caption: "Ranní káva, co tě nakopne. Dáš si?" }
+ton/kontrola:
+  answers: { on_brand: 0.91 }

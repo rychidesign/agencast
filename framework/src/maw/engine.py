@@ -6,16 +6,19 @@ Rozpočty a lhůty mají vlastníka: vyčerpání limitu jiného než vlastního
 kroku `on_error: continue` nepřebije (scenario.md §6).
 """
 import asyncio
+import copy
 import hashlib
 import hmac
 import json
 import os
 import secrets
 import shutil
+import tempfile
 import time
 import traceback
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
@@ -26,9 +29,9 @@ from .loader import nested_lists
 from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         parse_chat, parse_image, parse_jev, prompt_level_suffix)
-from .record import Record, cz, now_iso, plan_md, scrub, summary_md
+from .record import Record, cz, now_iso, plan_md, report_html, scrub, summary_md
 from .task import dedupe_skip, run_task  # 3a
-from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, effective_tools, env_fields, seconds
+from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
 
 RETRY_BASE_S = 2.0           # prodleva 2 s, 4 s, 8 s… (scenario.md §3 retry); testy ji stáhnou na 0
 CALLBACK_DELAYS = (5, 30)    # 3 pokusy (run-record.md callback_sent, návrh)
@@ -88,12 +91,11 @@ def preflight(p: Project, *, fake: bool, callback_url: str | None) -> str | None
         if not key:
             errs.append(f"chybí proměnná prostředí {name} (klíč OpenRouteru; .env nebo prostředí)")
     if callback_url:
-        if not callback_url.startswith("https://"):
+        if not callback_url.startswith(("https://", "http://127.0.0.1:", "http://127.0.0.1/")):  # 3b: 127.0.0.1 pro testy
             errs.append("callback URL musí začínat https://")
         if not os.environ.get(p.config["callback"]["secret_env"]):
             errs.append(f"chybí proměnná prostředí {p.config['callback']['secret_env']} (podpis callbacku)")
-    for srv in sorted({s for st in p.steps.values() if st.kind == "task"  # 3a: klíče MCP serverů, které běh použije
-                       for s in effective_tools(p.agents[st.data["task"]["agent"]].data, st.data["task"])}):
+    for srv in sorted(mcp_servers_used(p)):  # 3a: klíče MCP serverů, které běh použije
         spec = p.mcp[srv]
         for var in secret_names({srv: spec}):
             if not os.environ.get(var):
@@ -119,9 +121,12 @@ class Run:
         self.status, self.error, self.outputs, self.callback_failed = "failed", None, None, False
         self.started_at = now_iso()
         self.mcp = Pool(p.mcp, record.dir.resolve(), record)  # 3a: servery se startují při prvním task
+        self.depth = 0  # 3b: hloubka call; vnořený běh soubory nenahrává
+        self.report_url = None
 
     # --- běh -----------------------------------------------------------------------
-    async def execute(self) -> str:
+    async def execute(self, error: MawError | None = None) -> str:
+        """`error` = běh, který nezačne (3b: validate selhal až po vyzvednutí z fronty) — jen záznam a callback."""
         t0, loop = time.monotonic(), asyncio.get_running_loop()
         cfg, lim, sc = self.p.config, self.p.config["limits"], self.p.scenario
         self.run_budget = Scope("běhu (run_budget_usd)", lim["run_budget_usd"], None)
@@ -136,6 +141,10 @@ class Run:
         root = Ctx([self.run_budget], [(loop.time() + seconds(lim["run_timeout"]),
                                          f"běhu (run_timeout {lim['run_timeout']})", None)])
         try:
+            if error:  # 3b
+                self.rec.event("error", **{"class": error.cls}, message=error.message, attempt=None,
+                               will_retry=False, http_status=None)
+                raise error
             await self.run_list(sc["steps"], root)
             self.status = "succeeded"
         except MawError as e:
@@ -149,6 +158,7 @@ class Run:
             await self.client.aclose()
         self.duration = round(time.monotonic() - t0, 3)
         self.warnings += [f"tajná hodnota {n} byla v záznamu nahrazena textem <tajné: {n}>" for n in sorted(self.rec.masked)]
+        self.publish_report()  # 3b: před run_finished, aby varování o nahrání bylo i v něm
         self.rec.event("run_finished", status=self.status, error=self.error, warnings=self.warnings,
                        duration_s=self.duration, usage={"input_tokens": None, "output_tokens": None,
                                                         "cost_usd": round(self.cost, 8)} | self.tokens(),
@@ -156,7 +166,7 @@ class Run:
         body = {"run_id": self.run_id, "scenario": sc["name"], "request_key": self.request_key,
                 "status": self.status, "outputs": self.outputs if self.status == "succeeded" else None,
                 "error": self.error, "warnings": self.warnings, "cost_usd": round(self.cost, 8),
-                "duration_s": self.duration, "report_url": None, "sent_at": now_iso()}
+                "duration_s": self.duration, "report_url": self.report_url, "sent_at": now_iso()}
         data = self.rec.mask(json.dumps(body, ensure_ascii=False)).encode()
         self.rec.write("callback.json", json.loads(data))
         if self.callback_url:
@@ -209,7 +219,7 @@ class Run:
             out = await getattr(self, f"step_{k}")(info, ctx)
             output_file = None
             if out is not None:
-                self.values["steps"][sid] = out
+                self.values["steps"][info.key] = out  # 3b: key = id v souboru (sid je u call cesta)
                 output_file = self.rec.write(f"{info.folder}/output.json", out)
             self.finish(info, "succeeded", t0, output_file=output_file)
         except asyncio.CancelledError:
@@ -225,7 +235,7 @@ class Run:
                 self.rec.event("error", step=sid, **{"class": e.cls}, message=e.message, attempt=None,
                                will_retry=False, http_status=e.http_status)
                 e.logged = True
-            cont = st.get("on_error") == "continue" and not e.fatal and e.step == sid
+            cont = st.get("on_error") == "continue" and not e.fatal and (e.step == sid or e.step.startswith(sid + "/"))  # 3b
             self.finish(info, "failed", t0, continued=cont)
             if cont:
                 self.rows[sid]["status"] = "continued"
@@ -250,8 +260,8 @@ class Run:
             d = dict(info.data["default"])
             if info.kind == "jev":
                 d.setdefault("details", {q: {} for q in info.data["jev"]["questions"]})
-            self.values["steps"][info.id] = d
-            self.defaulted.add(info.id)
+            self.values["steps"][info.key] = d  # 3b
+            self.defaulted.add(info.key)
 
     def skip(self, st: dict, code: str, reason: str):
         """Krok neproběhl: důvod do záznamu, výstup = default; totéž pro kroky uvnitř."""
@@ -471,7 +481,7 @@ class Run:
                                     or want != "file" and not _matches(want, val)):
                 raise MawError("expression", f"output.{k}: výstup má být {want}, hodnota je {kind(val)}")
             values[k] = val
-            public[k] = self.upload(k, val) if isinstance(val, FileRef) else val
+            public[k] = self.upload(k, val) if isinstance(val, FileRef) and not self.depth else val  # 3b
         self.outputs = public
         return values
 
@@ -482,8 +492,8 @@ class Run:
         if not src.is_relative_to(run_dir) or not src.is_file():
             raise MawError("config", f"soubor {ref.path} není uvnitř složky běhu")
         st = self.p.config["storage"]
-        if st["type"] != "local":  # validate to hlídá; R2 = Fáze 3
-            raise MawError("config", "úložiště r2 framework zatím neumí (Fáze 3)")
+        if st["type"] != "local":  # validate to hlídá; R2 zatím není
+            raise MawError("config", "úložiště r2 framework zatím neumí — nastav storage.type: local")
         key = f"{self.storage_prefix}/{name}{src.suffix}"
         dest = self.p.base / st["local"]["path"] / key
         try:
@@ -522,6 +532,50 @@ class Run:
         await self.run_list(chosen, ctx.inner(info, branch=v))
         return None
 
+    # --- 3b: call a report --------------------------------------------------------------
+    async def step_call(self, info: StepInfo, ctx: Ctx):
+        """Vnořený scénář ve stejném běhu (§5.3): stejný záznam, rozpočet a lhůty; kroky mají cestu
+        `navrh/copy` a složky `steps/03-navrh/steps/01-copy/` (run-record.md)."""
+        c = info.data["call"]
+        callee, given, inputs = self.p.callees[c["scenario"]], c.get("inputs") or {}, {}
+        for k, sp in (callee.scenario.get("inputs") or {}).items():
+            if k not in given:
+                inputs[k] = sp["default"]
+                continue
+            v = self.tpl(given[k], f"call.inputs.{k}") if isinstance(given[k], str) else given[k]
+            if not _matches(sp["type"], v):
+                raise MawError("expression", f"call.inputs.{k}: vstup scénáře '{c['scenario']}' má být {sp['type']}, "
+                                             f"hodnota je {kind(v)}")
+            inputs[k] = v
+        self.rec.write(f"{info.folder}/inputs.json", inputs)
+        sub = copy.copy(self)  # sdílí záznam, klienta, rozpočty, varování a ceny kroků (klíč = cesta)
+        sub.p = replace(callee, steps={k: replace(s, id=f"{info.id}/{s.id}", dir=f"{info.folder}/")
+                                       for k, s in callee.steps.items()})
+        sub.inputs, sub.values, sub.defaulted, sub.rows, sub.outputs = inputs, {"inputs": inputs, "steps": {}}, set(), {}, None
+        sub.cost = sub.image_cost = sub.image_duration = 0.0
+        sub.depth = self.depth + 1
+        try:
+            await sub.run_list(callee.scenario["steps"], ctx.inner(info))
+        except MawError as e:
+            if e.fatal and f"kroku '{info.id}' (" in e.message:  # vlastní budget_usd/timeout kroku call pokryje jeho on_error
+                e.fatal = False
+            raise
+        finally:
+            self.cost += sub.cost
+            self.image_cost += sub.image_cost
+            self.image_duration += sub.image_duration
+            self.rows[info.id]["note"] = f"scénář {c['scenario']} (kroků: {len(sub.rows)})"
+        return sub.outputs or {}
+
+    def publish_report(self):
+        """report.html do složky běhu a do úložiště; URL jde do callbacku (run-record.md)."""
+        try:  # chyba reportu nesmí zastavit callback
+            rel = self.rec.write("report.html", report_html(self))
+            self.report_url = self.upload("report", FileRef(rel))
+        except Exception as e:
+            why = f"{e.cls}: {e.message}" if isinstance(e, MawError) else f"{type(e).__name__}: {e}"
+            self.warnings.append(f"report.html se nepodařilo vytvořit nebo nahrát ({why}) — report_url je null")
+
     # --- callback --------------------------------------------------------------------
     async def send_callback(self, data: bytes) -> bool:
         """POST na callback URL, HMAC-SHA256 nad přesnými bajty těla (run-record.md Podpis)."""
@@ -554,23 +608,47 @@ def _leaves(eg: BaseExceptionGroup) -> list:
 
 
 def dry_run(p: Project, inputs: dict) -> Record:
-    """Složka jen s plan.md a inputs.json (run-record.md)."""
+    """Složka jen s plan.md a inputs.json (run-record.md); u task i nástroje, které MCP servery nabízejí."""
+    servers = mcp_servers_used(p)
+    offers = asyncio.run(mcp_offers(p, servers)) if servers else None
     rec = Record(p.runs_dir / new_run_id(p.scenario["name"]), secret_values(p))
-    rec.write("plan.md", plan_md(p))
+    rec.write("plan.md", plan_md(p, offers))
     rec.write("inputs.json", inputs)
     return rec
 
 
+async def mcp_offers(p: Project, servers: set) -> dict:
+    """3a: spustí servery jen kvůli tools/list (scenario.md §7 --dry-run) v dočasné složce — složka
+    plánu tak zůstane jen s plan.md; chyba startu se vypíše do plánu místo seznamu."""
+    offers = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        rec = Record(Path(tmp) / "run", secret_values(p))
+        pool = Pool(p.mcp, rec.dir, rec)
+        try:
+            for s in sorted(servers):
+                try:
+                    offers[s] = sorted((await pool.get(s)).tools)
+                except MawError as e:
+                    offers[s] = e.message
+        finally:
+            await pool.close()
+    return offers
+
+
 def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, request_key=None,
-                 callback_transport=None) -> Run:
-    """Spustí ověřený scénář; `fake` = maw.fake.Fake místo sítě."""
-    key = preflight(p, fake=fake is not None, callback_url=callback_url)
-    run_id = new_run_id(p.scenario["name"])
-    rec = Record(p.runs_dir / run_id, secret_values(p))
-    rec.write("plan.md", plan_md(p))
-    rec.write("inputs.json", inputs)
+                 callback_transport=None, run_id=None, error: MawError | None = None) -> Run:
+    """Spustí ověřený scénář; `fake` = maw.fake.Fake místo sítě.
+
+    3b (webhook): `run_id` přidělený už při přijetí požadavku; `error` = běh nezačne, jen záznam
+    a callback (validate selhal po vyzvednutí z fronty, běh přerušen restartem serveru)."""
+    key = preflight(p, fake=fake is not None or error is not None, callback_url=callback_url)
+    run_id = run_id or new_run_id(p.scenario["name"])
+    rec = Record(p.runs_dir / run_id, secret_values(p), exist_ok=error is not None)
+    if error is None:
+        rec.write("plan.md", plan_md(p))
+        rec.write("inputs.json", inputs)
     client = Client(p.config["openrouter"]["base_url"], key, fake.transport() if fake else None)
     run = Run(p, inputs, rec, client, run_id, callback_url=callback_url, request_key=request_key,
               callback_transport=callback_transport)
-    asyncio.run(run.execute())
+    asyncio.run(run.execute(error))
     return run

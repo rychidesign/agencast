@@ -27,7 +27,7 @@ rozhoduje koordinátor nebo uživatel.
    completions" padlo ve Fázi 2 podle zadání.
 5. **`report_url`**: `report.html` Fáze 2 negeneruje, `report_url` je
    `null` bez varování. Spec počítá s `null` + varováním jen při selhání
-   nahrání.
+   nahrání. *(Vyřešeno ve 3b: report se generuje a nahrává.)*
 6. **`callback.json` bez `--callback-url`**: zapisuje se vždy (tělo, které
    by odešlo), ač spec říká „přesně to, co odešlo v callbacku".
 7. **`details` v `default` kroku `jev`**: spec „`details` se doplní jako
@@ -50,54 +50,103 @@ rozhoduje koordinátor nebo uživatel.
 12. **Timeout kroku s agentem**: `timeout` kroku, jinak `limits.timeout`
     agenta, jinak výchozí podle typu, vždy nejvýš `limits.timeout` agenta.
 
+## Fáze 3b (call, webhook, report.html)
+
+13. **Složka kroku `call`**: zadání 3b zmiňuje `steps/<nn>-<id>/call/`,
+    spec (run-record.md) `steps/03-navrh/steps/01-copy/`. Framework drží
+    spec; navíc zapisuje `steps/<nn>-<id>/inputs.json` (vstupy volání)
+    a `output.json` (výstup = `outputs` volaného scénáře). `summary.md`
+    má v tabulce jen kroky volajícího scénáře (u `call` poznámka se
+    jménem scénáře), vnořené kroky jsou v `events.jsonl` a `report.html`.
+14. **`callback_url` na `http://127.0.0.1`**: spec chce „jen `https://`".
+    Framework povolí i `http://127.0.0.1:<port>/…` (testy, lokální
+    přijímač podle zadání 3b) — ve webhooku i v `maw run --callback-url`.
+    `localhost` ani jiné `http://` ne.
+15. **`queue_position`**: počet požadavků ve frontě včetně právě
+    běžícího a tohoto (1 = začne hned). Spec jen „pozice ve frontě".
+16. **`GET /runs/<run_id>`** ve spec není (zadání 3b ano): chce stejný
+    token; vrací `{status: queued, queue_position}`, `{status: running}`,
+    nebo tělo `callback.json` + `callback_failed`; neznámý běh 404.
+17. **Tělo webhooku**: neznámé pole je 422 (jako „překlep je chyba"
+    u formátů). Opakovaný `request_key` vrátí 200 s původním `run_id`
+    i tehdy, když se zbytek těla liší (kontroluje se hned po tokenu).
+18. **Běh, který nezačne** (validate selže po vyzvednutí z fronty, nebo
+    běh přerušil restart serveru): složka má `run_started` se
+    `scenario_version: null` a bez kroků, `error` a `run_finished`
+    s třídou `config` / `internal`, `report.html` a callback. Přerušený
+    běh se neopakuje (mohl mít vedlejší účinky) a callback nese
+    `internal`, i když běh mohl doběhnout, jen callback neodešel.
+19. **`on_error: continue` u `call`** pokryje i chybu kroku uvnitř
+    volaného scénáře (`error.step` zůstává cesta `navrh/copy`) a
+    vyčerpání vlastního `budget_usd`/`timeout` kroku `call`; rozpočet
+    a čas běhu ne (scenario.md §6).
+20. **`report.html` vzniká před `run_finished`**, aby varování
+    o nepovedeném nahrání bylo v `run_finished` i v callbacku; stav
+    doručení callbacku proto v reportu není (je v `summary.md`
+    a `events.jsonl`).
+
+21. **Prodleva `retry` u chyby `schema`** (scenario.md §3 `retry`: „při
+    chybě `transient` nebo `schema` … Prodleva 2 s, 4 s, 8 s…"): framework
+    čeká jen po `transient`; po `schema` zkouší hned další úroveň kaskády
+    (běh `tutorial-02-nazev-a-slogan` s fixturou `text:` místo `json:`
+    trval 0,003 s). Čekání u `schema` nic nepřináší, ale spec ho čte jinak.
+    (Zjištěno při psaní tutoriálů.)
+22. **URL callbacku v záznamu bez portu** (run-record.md „Z URL callbacku
+    se loguje jen `schéma://host/cesta`"): `--callback-url
+    https://127.0.0.1:8443/webhook-waiting/4711` je v `callback_sent` jako
+    `https://127.0.0.1/webhook-waiting/4711`. Doslova podle spec, ale při
+    ladění n8n na nestandardním portu port chybí. (Zjištěno při psaní
+    tutoriálů.)
+
 ## Fáze 3a (krok `task`, MCP, skilly, `dedupe_key`; framework 0.2.0)
 
-13. **Kořen `{run_dir}/…` neexistuje:** server-filesystem neexistující
+23. **Kořen `{run_dir}/…` neexistuje:** server-filesystem neexistující
     povolenou složku odmítne. Framework před startem stdio serveru vytvoří
     složku pro každý argument, který začíná `{run_dir}` (u ukázky
     `runs/<běh>/work`).
-14. **Kdy vzniká `dedupe` `started`:** před prvním voláním **MCP** nástroje
+24. **Kdy vzniká `dedupe` `started`:** před prvním voláním **MCP** nástroje
     (vedlejší účinek), ne před `load_skill`. Krok, který žádný MCP nástroj
     nezavolal, zapíše rovnou `succeeded`. Soubor obsahuje přesně
     `{state, run_id, output}`. Klíč se počítá ze jména scénáře, v němž krok
-    je (u budoucího `call` jméno volaného scénáře).
-15. **Poslední tah `max_turns`:** když model v posledním povoleném tahu
+    je (u `call` jméno volaného scénáře a `id` kroku v jeho souboru).
+25. **Poslední tah `max_turns`:** když model v posledním povoleném tahu
     chce další nástroje, framework je **nespustí** (model by výsledek
     neviděl, vedlejší účinek bez kontroly) a krok končí `budget`.
-16. **Selhání handshaku MCP** se neopakuje (`retry` kroku platí pro volání
+26. **Selhání handshaku MCP** se neopakuje (`retry` kroku platí pro volání
     API): krok selže třídou `transient` (vzdálený server: síť, 5xx,
     timeout) nebo `config` (stdio: neznámý příkaz, proces skončil, neodpověděl
     na handshake; vzdálený: 4xx). Opakování běhu řeší n8n.
-17. **Chyba JSON-RPC u `tools/call`** (ne `isError`, např. neznámý nástroj
+27. **Chyba JSON-RPC u `tools/call`** (ne `isError`, např. neznámý nástroj
     −32602) jde modelu jako chyba nástroje (`is_error: true`, krok
     pokračuje) — server volání odmítl. Spadlé spojení = `config`, timeout
     = `timeout`.
-18. **`_submit_output` spolu s jinými nástroji v jednom tahu:** výsledek je
+28. **`_submit_output` spolu s jinými nástroji v jednom tahu:** výsledek je
     `_submit_output`, ostatní nástroje se nespustí a zapíše se varování.
     Volání nástrojů s `finish_reason: stop` se přijímá (jako bod 1).
-19. **`task` na úrovni `tool_wrapper`:** `_submit_output` je mezi nástroji,
+29. **`task` na úrovni `tool_wrapper`:** `_submit_output` je mezi nástroji,
     ale nevynucuje se `tool_choice` (model mezitím volá jiné nástroje).
     Textová odpověď místo `_submit_output` = chyba `schema` → kaskáda na
     `prompt`.
-20. **Proměnné z `mcp.yaml`** (`env`, `bearer_token_env`) nesmí být stejné
+30. **Proměnné z `mcp.yaml`** (`env`, `bearer_token_env`) nesmí být stejné
     jako `*_env` z `config.yaml` (klíč OpenRouteru by odešel MCP serveru) —
     chyba `config`. Mezi servery v `mcp.yaml` sdílení dovoleno. Chybějící
     proměnná se hlásí před během jen u serverů, které běh opravdu použije
     (jako bod 2).
-21. **`scenarios` serveru** se kontroluje u serverů, které krok opravdu
+31. **`scenarios` serveru** se kontroluje u serverů, které krok opravdu
     použije (`task.mcp`, jinak `mcp` agenta), ne u všech serverů agenta.
     `ask` MCP nepřipojuje, proto se tam nekontroluje.
-22. **Nástroj z allowlistu, který server nenabízí** → krok selže `config`
+32. **Nástroj z allowlistu, který server nenabízí** → krok selže `config`
     za běhu (seznam nabízených nástrojů je v hlášce). Spec chce, aby to
-    ukázal `validate --dry-run` (výpis nástrojů serverů a výsledné sady
-    kroku) — **ve 3a neimplementováno**: `plan.md` je v `record.py` a CLI,
-    které paralelně mění Fáze 3b. Doplnit po sloučení.
-23. **Obsah výsledku nástroje:** text a obrázek se předají, jiné typy
+    ukázal `--dry-run`: `maw run … --dry-run` servery, které běh může
+    spustit, kvůli `tools/list` spustí v dočasné složce (složka plánu
+    zůstane jen s `plan.md`) a `plan.md` vypíše, co nabízejí, a výslednou
+    sadu nástrojů každého `task` (doplněno při sloučení 3a + 3b).
+33. **Obsah výsledku nástroje:** text a obrázek se předají, jiné typy
     (`resource`, `audio`, …) jako text `[obsah typu X framework
     nepředává]`; `structuredContent` se nepředává (text ho obvykle nese).
     `calls/NN.tool.json` (návrh): `{turn, name, server, tool, arguments,
     allowed, invalid_args, is_error, result, files}`.
-24. **Zaseknuté volání poskytovatele** (naměřeno v ostrém běhu 3a: HTTP
+34. **Zaseknuté volání poskytovatele** (naměřeno v ostrém běhu 3a: HTTP
     spojení bez odpovědi 160 s, stejný požadavek hned poté 2,1 s) se pozná
     až časovým limitem kroku — HTTP klient nemá čtecí timeout jednoho
     volání (Fáze 2, `Timeout(None, connect=15)`), takže se neopakuje jako

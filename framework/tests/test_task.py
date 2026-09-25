@@ -356,3 +356,51 @@ def test_dedupe_without_tool_call_writes_only_succeeded(wf):
     assert r.status == "succeeded"
     f = next((wf.parent / "runs" / "_dedupe").glob("*.json"))
     assert json.loads(f.read_text())["state"] == "succeeded"
+
+
+# --- po sloučení s 3b: --dry-run a task uvnitř call ------------------------------------------
+
+def test_dry_run_lists_server_tools(wf):
+    from maw.engine import dry_run
+    setup(wf, agent_tools="[read_text_file, write_file]")
+    p = validate(task_sc(wf, ", tools: { fs: [read_text_file] }", step='dedupe_key: "k"'), check_models=False)
+    rec = dry_run(p, {})
+    assert sorted(f.name for f in rec.dir.iterdir()) == ["inputs.json", "plan.md"]  # server běžel v dočasné složce
+    plan = (rec.dir / "plan.md").read_text()
+    assert "agent tester → chytry" in plan and "nástroje: fs: read_text_file;" in plan and "dedupe_key" in plan
+    assert "- **fs** (Falešný server pro testy): nabízí broken, complex, get_env," in plan
+    assert children() == []
+
+
+def test_task_with_dedupe_inside_call(wf):
+    setup(wf)
+    scenario(wf, """
+version: 1
+name: dite
+description: Volaný scénář s krokem task
+callable: true
+outputs: { text: { type: string } }
+steps:
+  - id: t
+    dedupe_key: "jednou"
+    task: { agent: tester, prompt: "Udělej úkol" }
+  - id: out
+    output: { text: "{{ steps.t.text }}" }
+""", "dite")
+    path = scenario(wf, HEAD + """
+outputs: { vysledek: { type: string } }
+steps:
+  - id: navrh
+    call: { scenario: dite }
+  - id: out
+    output: { vysledek: "{{ steps.navrh.text }}" }
+""")
+    script = {"navrh/t": [calls(("fs__write_file", {"path": "a.txt", "content": "x"})), {"text": "hotovo"}]}
+    r1, _ = run(path, script=script)
+    assert r1.status == "succeeded", r1.error
+    assert r1.outputs == {"vysledek": "hotovo"}
+    assert (r1.rec.dir / "work" / "a.txt").is_file() and events(r1, "tool_call")[0]["step"] == "navrh/t"
+    r2, fake2 = run(path, script=script)
+    assert r2.status == "succeeded" and r2.outputs == {"vysledek": "hotovo"}
+    assert events(r2, "step_skipped")[0]["reason_code"] == "dedupe" and fake2.calls == []
+    assert children() == []

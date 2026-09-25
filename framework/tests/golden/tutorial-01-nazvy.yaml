@@ -1,0 +1,4 @@
+# Skriptované odpovědi falešného poskytovatele pro tutorial-01-nazvy.
+# Klíč = id kroku, pod ním seznam odpovědí (každé volání vezme další).
+navrh:
+  - text: "Ovesňák\nMrazík Oves\nZmrzlá Pláň"

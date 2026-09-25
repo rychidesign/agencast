@@ -194,7 +194,7 @@ class Pool:
         if "command" in spec:
             args = [a.replace("{run_dir}", str(self.run_dir)) for a in spec.get("args", [])]
             for a, raw in zip(args, spec.get("args", [])):
-                if raw.startswith("{run_dir}"):  # server-filesystem neexistující kořen odmítne (ISSUES 13)
+                if raw.startswith("{run_dir}"):  # server-filesystem neexistující kořen odmítne (ISSUES 23)
                     Path(a).mkdir(parents=True, exist_ok=True)
             env = {k: os.environ[v] for k, v in (spec.get("env") or {}).items()}
             (self.run_dir / "mcp").mkdir(exist_ok=True)

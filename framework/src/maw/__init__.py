@@ -2,8 +2,8 @@
 
 Vrstvy: loader (čtení souborů), validate (statické kontroly), expressions
 (výrazy a šablony), engine (běh scénáře), providers (OpenRouter + falešný),
-record (záznam běhu), mcp_client (MCP servery), task (krok task, dedupe_key),
-cli.
+record (záznam běhu, report.html), mcp_client (MCP servery), task (krok task,
+dedupe_key), server (webhook), cli.
 """
 __version__ = "0.2.0"
 

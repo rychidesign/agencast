@@ -109,7 +109,7 @@ HEAD = "version: 1\nname: NAME\ndescription: x\n"
     ("steps: [{ id: a, fail: x }, { id: b, fail: y }]", "nedosažitelný"),
     ("steps: [{ id: a, fail: 'x {{ inputs.nic }}' }]", "'inputs' nemá klíč 'nic'"),
     ("steps: [{ id: a, task: { agent: publisher, prompt: x } }]", "nesmí spustit agenta se serverem 'instagram'"),
-    ("steps: [{ id: a, call: { scenario: jiny } }]", "call (vnořený scénář)"),
+    ("steps: [{ id: a, call: { scenario: jiny } }]", "scénář 'jiny' neexistuje"),
     ("steps: [{ id: a, set: { x: 1 }, default: { y: 1 } }]", "chybí: x"),
     ("steps: [{ id: a, jev: { state: x, questions: { q: { type: noul, instructions: y } } }, default: {} }]", "chybí: q"),
     ("steps: [{ id: a, set: { x: 1 }, default: { x: text } }]", "default.x"),
