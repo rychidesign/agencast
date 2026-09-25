@@ -42,6 +42,58 @@ Formát: spec v1 beze změny.
 - Testy: +44 (call, webhook s lokálním přijímačem callbacku, report, CLI);
   zlaté scénáře `kontrola-tonu` (`callable: true`) a `ukazka-call`.
 
+### 3a — krok task, MCP servery, skilly, dedupe_key
+
+- **Krok `task`** (`task.py`): smyčka model ↔ nástroje přes OpenRouter
+  chat; nástroje jen z efektivní sady krok ⊆ agent ⊆ `mcp.yaml`;
+  `max_turns` (opakování po `transient`/`schema` se nepočítá; vyčerpání =
+  `budget`), `budget_usd`, `timeout`; `isError` a chyby validace
+  argumentů jdou modelu jako výsledek nástroje; obrázky z nástrojů jako
+  soubor `steps/<nn>-<id>/tool-<NN>-<k>.png` + následná user zpráva;
+  `reasoning_details` zpět; kaskáda výstupu (`native_schema` →
+  `tool_wrapper` s `_submit_output`, který nikdy nejde na server →
+  `prompt`); události `tool_call`, `calls/NN.tool.json`.
+- **MCP klient** (`mcp_client.py`) nad oficiálním SDK `mcp==2.2.*`: stdio,
+  Streamable HTTP, SSE; `mode="legacy"`; timeouty handshaku i volání +
+  vnější pojistka; rozbalení `ExceptionGroup` do tříd `timeout` /
+  `config` / `transient`; stderr serveru do `mcp/<server>.stderr.log`
+  (maskovaný); server startuje při prvním `task` v běhu, sdílí ho větve
+  `parallel`, na konci běhu se ukončí (test: 0 zbylých procesů);
+  události `mcp_server`.
+- **Normalizace schémat nástrojů:** `server__tool` (`[a-zA-Z0-9_-]`, max
+  64), vložení `$ref`, `allOf`/`oneOf`, `const` → `enum`, ne-řetězcový
+  `enum` do `description`; argumenty se validují proti původnímu schématu
+  (`invalid_args`). Kolize jmen po normalizaci = `config`.
+- **`mcp.yaml`:** načtení a validace proti `mcp.schema.json`, jen
+  `{run_dir}`; oprávnění vlastníka ve `validate` (`agents`, `scenarios`,
+  `tools` serveru; krok nesmí rozšířit server, nástroj ani `max_turns`);
+  proměnné serverů se maskují a nesmí být stejné jako `*_env` z
+  `config.yaml`; chybějící proměnná = `config` před během.
+- **Skilly:** u `task` oddíl `## Skilly` se seznamem `- jméno: description`
+  a nástroj `load_skill` (`enum` jmen, chyba se seznamem, tah, server
+  `_skills`); u `ask` beze změny celá těla.
+- **`dedupe_key`:** atomické soubory `<runs>/_dedupe/<sha256>.json`;
+  `started` před prvním voláním MCP nástroje, `succeeded` s výstupem;
+  další běh krok přeskočí (`step_skipped`, `dedupe`), `started` bez
+  `succeeded` = `config` „ověř ručně a smaž <soubor>".
+- `validate`: alias agenta v `task` musí mít `tools` v `GET /models`.
+- Falešný poskytovatel: `tool_calls` ve skriptu. Testy (+30, z toho 2 po
+  sloučení s 3b: `--dry-run` s nástroji serverů, `task` s `dedupe_key`
+  uvnitř `call`): falešný MCP server
+  `tests/fake_mcp_server.py`, `test_task.py`, zlatý scénář
+  `workflows/scenarios/ukazka-task.yaml` (agent `knihovnik`, skill
+  `katalog`, nový `workflows/mcp.yaml`).
+
+Závislosti: přibylo jen `mcp==2.2.*` (zamčeno v `uv.lock`).
+
+- `--dry-run`: `plan.md` u kroku `task` ukazuje agenta, výslednou sadu
+  nástrojů, skilly, `max_turns` a `dedupe_key`; servery, které běh může
+  spustit, se kvůli `tools/list` spustí v dočasné složce a plán vypíše,
+  co nabízejí (nebo proč se nespustily) — scenario.md §7.
+
+Není v 0.2.0: opakování handshaku MCP (ISSUES 26), čtecí timeout HTTP
+volání poskytovatele (ISSUES 34, otevřeno).
+
 ## 0.1.0 — 2026-09-25 (Fáze 2: jádro)
 
 Formát: spec v1 (`version: 1` scénáře, agenta, configu).

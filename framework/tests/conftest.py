@@ -1,8 +1,10 @@
 import shutil
+import sys
 import textwrap
 from pathlib import Path
 
 import pytest
+import yaml
 
 from maw import engine
 from maw.engine import run_scenario
@@ -11,6 +13,7 @@ from maw.validate import resolve_inputs, validate
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / "workflows"
+FAKE_MCP = Path(__file__).resolve().parent / "fake_mcp_server.py"
 
 CONFIG = """\
 version: 1
@@ -49,7 +52,17 @@ def wf(tmp_path) -> Path:
     for d in ("agents", "skills", "scenarios"):
         shutil.copytree(WORKFLOWS / d, w / d)
     (w / "config.yaml").write_text(CONFIG)
+    (w / "mcp.yaml").write_text(fake_mcp_yaml(WORKFLOWS / "mcp.yaml"))
     return w
+
+
+def fake_mcp_yaml(path: Path) -> str:
+    """mcp.yaml, ve kterém každý stdio server nahradí falešný (tests/fake_mcp_server.py, bez sítě a Node)."""
+    data = yaml.safe_load(path.read_text())
+    for s in data["servers"].values():
+        if "command" in s:
+            s["command"], s["args"] = sys.executable, [str(FAKE_MCP), *s.get("args", [])]
+    return yaml.safe_dump(data, allow_unicode=True)
 
 
 def scenario(wf: Path, text: str, name: str = "test") -> Path:

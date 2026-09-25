@@ -1,0 +1,38 @@
+version: 1
+name: ukazka-task
+description: Ukázka kroku task — knihovník zapíše katalog knih do pracovní složky běhu přes MCP server filesystem
+
+inputs:
+  knihy:
+    type: string
+    required: true
+    description: Knihy volným textem (autor, název, rok)
+
+outputs:
+  soubor:
+    type: string
+    description: Cesta k zapsanému katalogu
+  pocet:
+    type: integer
+    description: Kolik knih je v katalogu
+
+steps:
+  # 1. Knihovník je agent s nástroji: sám zjistí složku, načte skill
+  #    katalog, zapíše soubor a přečte ho. Nástroje povoluje mcp.yaml
+  #    (vlastník) a agent; krok by je mohl jen zúžit.
+  - id: katalog
+    task:
+      agent: knihovnik
+      prompt: |
+        Zapiš do katalogu tyto knihy: {{ inputs.knihy }}
+        Pak katalog přečti a zkontroluj.
+      max_turns: 6
+      schema:
+        soubor: string
+        pocet: integer
+
+  # 2. Výsledek: cesta ke katalogu a počet knih.
+  - id: out
+    output:
+      soubor: "{{ steps.katalog.soubor }}"
+      pocet: "{{ steps.katalog.pocet }}"

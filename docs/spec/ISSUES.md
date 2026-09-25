@@ -97,3 +97,59 @@ rozhoduje koordinátor nebo uživatel.
     `https://127.0.0.1/webhook-waiting/4711`. Doslova podle spec, ale při
     ladění n8n na nestandardním portu port chybí. (Zjištěno při psaní
     tutoriálů.)
+
+## Fáze 3a (krok `task`, MCP, skilly, `dedupe_key`; framework 0.2.0)
+
+23. **Kořen `{run_dir}/…` neexistuje:** server-filesystem neexistující
+    povolenou složku odmítne. Framework před startem stdio serveru vytvoří
+    složku pro každý argument, který začíná `{run_dir}` (u ukázky
+    `runs/<běh>/work`).
+24. **Kdy vzniká `dedupe` `started`:** před prvním voláním **MCP** nástroje
+    (vedlejší účinek), ne před `load_skill`. Krok, který žádný MCP nástroj
+    nezavolal, zapíše rovnou `succeeded`. Soubor obsahuje přesně
+    `{state, run_id, output}`. Klíč se počítá ze jména scénáře, v němž krok
+    je (u `call` jméno volaného scénáře a `id` kroku v jeho souboru).
+25. **Poslední tah `max_turns`:** když model v posledním povoleném tahu
+    chce další nástroje, framework je **nespustí** (model by výsledek
+    neviděl, vedlejší účinek bez kontroly) a krok končí `budget`.
+26. **Selhání handshaku MCP** se neopakuje (`retry` kroku platí pro volání
+    API): krok selže třídou `transient` (vzdálený server: síť, 5xx,
+    timeout) nebo `config` (stdio: neznámý příkaz, proces skončil, neodpověděl
+    na handshake; vzdálený: 4xx). Opakování běhu řeší n8n.
+27. **Chyba JSON-RPC u `tools/call`** (ne `isError`, např. neznámý nástroj
+    −32602) jde modelu jako chyba nástroje (`is_error: true`, krok
+    pokračuje) — server volání odmítl. Spadlé spojení = `config`, timeout
+    = `timeout`.
+28. **`_submit_output` spolu s jinými nástroji v jednom tahu:** výsledek je
+    `_submit_output`, ostatní nástroje se nespustí a zapíše se varování.
+    Volání nástrojů s `finish_reason: stop` se přijímá (jako bod 1).
+29. **`task` na úrovni `tool_wrapper`:** `_submit_output` je mezi nástroji,
+    ale nevynucuje se `tool_choice` (model mezitím volá jiné nástroje).
+    Textová odpověď místo `_submit_output` = chyba `schema` → kaskáda na
+    `prompt`.
+30. **Proměnné z `mcp.yaml`** (`env`, `bearer_token_env`) nesmí být stejné
+    jako `*_env` z `config.yaml` (klíč OpenRouteru by odešel MCP serveru) —
+    chyba `config`. Mezi servery v `mcp.yaml` sdílení dovoleno. Chybějící
+    proměnná se hlásí před během jen u serverů, které běh opravdu použije
+    (jako bod 2).
+31. **`scenarios` serveru** se kontroluje u serverů, které krok opravdu
+    použije (`task.mcp`, jinak `mcp` agenta), ne u všech serverů agenta.
+    `ask` MCP nepřipojuje, proto se tam nekontroluje.
+32. **Nástroj z allowlistu, který server nenabízí** → krok selže `config`
+    za běhu (seznam nabízených nástrojů je v hlášce). Spec chce, aby to
+    ukázal `--dry-run`: `maw run … --dry-run` servery, které běh může
+    spustit, kvůli `tools/list` spustí v dočasné složce (složka plánu
+    zůstane jen s `plan.md`) a `plan.md` vypíše, co nabízejí, a výslednou
+    sadu nástrojů každého `task` (doplněno při sloučení 3a + 3b).
+33. **Obsah výsledku nástroje:** text a obrázek se předají, jiné typy
+    (`resource`, `audio`, …) jako text `[obsah typu X framework
+    nepředává]`; `structuredContent` se nepředává (text ho obvykle nese).
+    `calls/NN.tool.json` (návrh): `{turn, name, server, tool, arguments,
+    allowed, invalid_args, is_error, result, files}`.
+34. **Zaseknuté volání poskytovatele** (naměřeno v ostrém běhu 3a: HTTP
+    spojení bez odpovědi 160 s, stejný požadavek hned poté 2,1 s) se pozná
+    až časovým limitem kroku — HTTP klient nemá čtecí timeout jednoho
+    volání (Fáze 2, `Timeout(None, connect=15)`), takže se neopakuje jako
+    `transient`. Návrh: čtecí timeout volání (např. 120 s) → `transient`
+    s `retry`; pozor na pomalé reasoning modely s velkým `max_tokens`.
+    Rozhodne koordinátor.

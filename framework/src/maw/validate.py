@@ -8,23 +8,18 @@ from pathlib import Path
 from . import ConfigErrors, MawError
 from .expressions import ExprError, infer, kind, parse, template_type, tkind
 from .loader import (LoadError, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors,
-                     schema_errors, step_kind, version_error)
+                     schema_errors, seconds, step_kind, version_error)
+from .mcp_client import api_name, load_mcp, secret_names
 from .providers import DEFAULT_BASE_URL, list_models, shape_type
 
 NOOUT = "bez výstupu"  # typ kroku parallel/switch/fail/output
 DEFAULT_TIMEOUT = {"ask": "2m", "task": "15m", "jev": "30s", "image": "3m"}  # scenario.md §3 (návrh)
-# Místa pro další fáze: typ kroku zatím odmítne validate, běh se vůbec nespustí.
-NOT_YET = {"task": "krok task (agent s nástroji, MCP, skilly přes load_skill) framework zatím neumí — Fáze 3"}
 # Kde smí být šablona {{ }} (scenario.md §5); "*" = libovolný klíč/index.
 TEMPLATE_FIELDS = [("ask", "prompt"), ("task", "prompt"), ("image", "prompt"), ("jev", "state"),
                    ("jev", "questions", "*", "instructions"), ("jev", "questions", "*", "criteria", "*"),
                    ("fail",), ("output", "*"), ("call", "inputs", "*"), ("dedupe_key",)]
 INPUT_TYPES = {"string": "string", "number": "number", "integer": "number", "boolean": "boolean",
                "list": "list", "object": "object", "file": "file"}
-
-
-def seconds(duration: str) -> int:
-    return int(duration[:-1]) * {"s": 1, "m": 60, "h": 3600}[duration[-1]]
 
 
 @dataclass
@@ -67,6 +62,7 @@ class Project:
     steps: dict[str, StepInfo]
     order: list[StepInfo] = field(default_factory=list)
     callees: dict[str, "Project"] = field(default_factory=dict)  # 3b: scénáře volané krokem call, podle jména
+    mcp: dict = field(default_factory=dict)  # servery z mcp.yaml
 
     @property
     def base(self) -> Path:
@@ -144,7 +140,8 @@ def load_skill(wf: Path, name: str, errs: list, ref: str):
     return name, fm["description"], body
 
 
-def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = None) -> Agent | None:
+def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = None,
+               mcp: dict | None = None) -> Agent | None:
     where = f"agents/{name}.md"
     p = wf / where
     if not p.is_file():
@@ -170,9 +167,37 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
         errs.append(f"{where}: model '{fm['model']}' není alias v config.yaml (aliasy: {', '.join(config['models'])})")
     if set(fm.get("tools", {})) != set(fm.get("mcp", [])):
         errs.append(f"{where}: klíče tools musí být přesně servery z mcp")
-    # Fáze 3 (task): oprávnění z mcp.yaml — agents, scenarios a tools serveru (config.md).
+    servers = load_mcp(wf, errs) if mcp is None else mcp
+    for srv in fm.get("mcp", []):  # oprávnění drží vlastník v mcp.yaml (config.md, §5.2)
+        s = servers.get(srv)
+        if s is None:
+            errs.append(f"{where}: MCP server '{srv}' není v workflows/mcp.yaml (registr mění jen vlastník, "
+                        "vzor mcp.example.yaml)")
+        elif name not in s["agents"]:
+            errs.append(f"{where}: server '{srv}' agentovi '{name}' vlastník nepovolil "
+                        f"(mcp.yaml → servers.{srv}.agents: {', '.join(s['agents'])})")
+        elif "tools" in s and (extra := [t for t in fm.get("tools", {}).get(srv, []) if t not in s["tools"]]):
+            errs.append(f"{where}: nástroje {', '.join(extra)} serveru '{srv}' vlastník nepovolil "
+                        f"(mcp.yaml → servers.{srv}.tools: {', '.join(s['tools'])})")
     skills = [s for s in (load_skill(wf, s, errs, where) for s in fm.get("skills", [])) if s]
     return Agent(name, fm, body, skills) if len(errs) == n else None
+
+
+def effective_tools(agent: dict, task: dict) -> dict[str, list]:
+    """Nástroje, které krok task smí použít: krok ⊆ agent (§5.2); validate hlídá, že krok nerozšiřuje."""
+    servers = task.get("mcp", agent.get("mcp", []))
+    return {s: (task.get("tools") or {}).get(s, agent.get("tools", {}).get(s, [])) for s in servers}
+
+
+def mcp_servers_used(p: "Project") -> set[str]:
+    """Servery, které běh může spustit: efektivní sady všech kroků task (i ve volaných scénářích)."""
+    projects, used = [p], set()
+    while projects:
+        q = projects.pop()
+        projects += q.callees.values()
+        used |= {s for st in q.steps.values() if st.kind == "task"
+                 for s in effective_tools(q.agents[st.data["task"]["agent"]].data, st.data["task"])}
+    return used
 
 
 # --- vstupy -----------------------------------------------------------------------
@@ -280,6 +305,8 @@ def check_models_list(config: dict, needs: dict, models: list) -> list[str]:
             continue
         if "image" in need and "image" not in m["output_modalities"]:
             errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí výstup obrázku")
+        if "tools" in need and "tools" not in m["supported_parameters"]:
+            errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí tools — agent s ním nemůže běžet v kroku task")
         if "schema" in need and not {"structured_outputs", "tools"} & set(m["supported_parameters"]):
             errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí structured_outputs ani tools — "
                         "krok se schema by nešel vynutit")
@@ -317,9 +344,15 @@ class _Checker:
         self.callees: dict[str, Project] = {}
         self.model_needs: dict[str, set] = {} if model_needs is None else model_needs
         self.inputs_type = {k: INPUT_TYPES[v["type"]] for k, v in (sc.get("inputs") or {}).items()}
+        self.mcp = load_mcp(wf, self.errs)
+        own = {name: path for path, name in env_fields(config)}
+        for name in secret_names(self.mcp):  # klíč z config.yaml by odešel MCP serveru (např. OPENROUTER_API_KEY)
+            if name in own:
+                self.errs.append(f"mcp.yaml: proměnná {name} je už v config.yaml ({own[name]}) — "
+                                 "MCP server musí mít vlastní tajemství")
 
     def project(self, path: Path) -> Project:
-        return Project(path, self.wf, self.sc, self.config, self.agents, self.steps, self.order, self.callees)
+        return Project(path, self.wf, self.sc, self.config, self.agents, self.steps, self.order, self.callees, self.mcp)
 
     def err(self, step, fld, msg):
         prefix = f'{self.where}: krok "{step}"' if step else self.where
@@ -345,7 +378,7 @@ class _Checker:
         outs = self.sc.get("outputs") or {}
         if len(self.stack) == 1 and self.config["storage"]["type"] == "r2" and any(o["type"] == "file" for o in outs.values()):
             self.err(None, None, "výstup typu file potřebuje úložiště, ale storage.type: r2 framework zatím neumí "
-                                 "(Fáze 3) — nastav v config.yaml storage.type: local")
+                                 "— nastav v config.yaml storage.type: local")
         last = self.sc["steps"][-1]
         if self.sc.get("outputs") and step_kind(last) != "output":
             self.err(None, None, "scénář má outputs, ale poslední krok není output")
@@ -429,10 +462,8 @@ class _Checker:
             if "when" in st:
                 self.expr_type(info, "when", st["when"], res, want="boolean")
             out = NOOUT
-            if k in NOT_YET:
-                self.err(sid, None, NOT_YET[k])
-            elif k == "ask":
-                out = self.ask(info, res)
+            if k in ("ask", "task"):
+                out = getattr(self, k)(info, res)
             elif k == "jev":
                 out = self.jev(info, res)
             elif k == "image":
@@ -465,12 +496,13 @@ class _Checker:
 
     def agent(self, name, info) -> Agent | None:
         if name not in self.agents:
-            self.agents[name] = load_agent(self.wf, name, self.config, self.errs, f'{self.where}: krok "{info.id}"')
+            self.agents[name] = load_agent(self.wf, name, self.config, self.errs, f'{self.where}: krok "{info.id}"',
+                                           self.mcp)
         return self.agents[name]
 
-    def ask(self, info, res):
-        st, a = info.data, info.data["ask"]
-        self.template(info, "ask.prompt", a["prompt"], res)
+    def ask(self, info, res, k="ask"):
+        st, a = info.data, info.data[k]
+        self.template(info, f"{k}.prompt", a["prompt"], res)
         agent = self.agent(a["agent"], info)
         if agent:
             self.need(agent.data["model"], "schema" if "schema" in a else None)
@@ -482,6 +514,49 @@ class _Checker:
                 self.err(info.id, "timeout", f"{st['timeout']} je víc než limits.timeout agenta '{agent.name}' "
                                              f"({lim['timeout']}) — krok limity jen snižuje")
         return shape_type(a["schema"]) if "schema" in a else {"text": "string"}
+
+    def task(self, info, res):
+        """Krok task: limity a oprávnění krok ⊆ agent ⊆ mcp.yaml (agent.md Oprávnění, §5.2, §5.8)."""
+        st, t = info.data, info.data["task"]
+        out = self.ask(info, res, "task")
+        if "dedupe_key" in st:
+            self.template(info, "dedupe_key", st["dedupe_key"], res)
+        agent = self.agents.get(t["agent"])
+        if not agent:
+            return out
+        a, name = agent.data, agent.name
+        self.need(a["model"], "tools")
+        if "max_turns" not in a["limits"]:
+            self.err(info.id, "task.agent", f"agent '{name}' nemá limits.max_turns — task musí mít limit tahů (§5.1)")
+        elif t.get("max_turns", 0) > a["limits"]["max_turns"]:
+            self.err(info.id, "task.max_turns", f"{t['max_turns']} je víc než limits.max_turns agenta '{name}' "
+                                                f"({a['limits']['max_turns']}) — krok limity jen snižuje")
+        for srv in t.get("mcp", []):
+            if srv not in a.get("mcp", []):
+                self.err(info.id, "task.mcp", f"server '{srv}' agent '{name}' nepovoluje (mcp: "
+                                              f"{', '.join(a.get('mcp', [])) or '—'}) — krok oprávnění jen zužuje")
+        eff = effective_tools(a, t)
+        for srv, tools in (t.get("tools") or {}).items():
+            if srv not in eff:
+                self.err(info.id, f"task.tools.{srv}", f"server '{srv}' krok nepoužívá (task.mcp / mcp agenta)")
+                continue
+            for tool in tools:
+                if tool not in a.get("tools", {}).get(srv, []):
+                    self.err(info.id, "task.tools", f"krok chce nástroj {srv}.{tool}, agent '{name}' ho nepovoluje "
+                                                    f"(tools.{srv})")
+        names = {}
+        for srv, tools in eff.items():
+            s = self.mcp.get(srv)
+            if s and "scenarios" in s and self.sc["name"] not in s["scenarios"]:
+                self.err(info.id, None, f"scénář '{self.sc['name']}' nesmí spustit agenta se serverem '{srv}' "
+                                        f"(mcp.yaml → servers.{srv}.scenarios: {', '.join(s['scenarios'])})")
+            for tool in tools:
+                n = api_name(srv, tool)
+                if n in names and names[n] != (srv, tool):
+                    self.err(info.id, None, f"nástroje {'.'.join(names[n])} a {srv}.{tool} mají po normalizaci "
+                                            f"stejné jméno {n} (jen [a-zA-Z0-9_-], max 64 znaků)")
+                names[n] = (srv, tool)
+        return out
 
     def jev(self, info, res):
         j = info.data["jev"]

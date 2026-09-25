@@ -9,6 +9,7 @@ odpověď, poslední se opakuje. Bez skriptu se odpověď vyrobí z požadavku
 v poměru `aspect_ratio`). Tvary odpovědi ve skriptu:
 
     json: {...}            strukturovaný výstup (u tool_wrapper jako volání _submit_output)
+    tool_calls: [{name, arguments}]  volání nástrojů (tah kroku task)
     text: "..."            textová odpověď
     answers: {q: hodnota}  odpovědi Jev (chybějící otázky se doplní výchozí)
     image: {width, height} obrázek PNG daných rozměrů
@@ -111,7 +112,7 @@ class Fake:
                 msg["images"] = [{"type": "image_url", "image_url": {"url": url}}]
             cost = spec.get("cost", 0.04)
         elif fr == "stop" and not spec.get("refusal"):
-            fr = self._content(body, spec, msg)
+            fr = self._content(body, spec, msg, n)
         return httpx.Response(200, json={
             "id": f"gen-fake-{n}", "model": body["model"], "provider": "Fake",
             "choices": [{"index": 0, "finish_reason": fr, "native_finish_reason": str(fr).upper(), "message": msg}],
@@ -141,13 +142,20 @@ class Fake:
         return 352, 192  # poměr výchozích 1408×768 (spike (a))
 
     @staticmethod
-    def _content(body, spec, msg):
+    def _content(body, spec, msg, n):
         """Obsah odpovědi chatu podle úrovně kaskády; vrací finish_reason."""
+        if "tool_calls" in spec:
+            msg["tool_calls"] = [{"id": f"call_{n}_{i}", "type": "function",
+                                  "function": {"name": c["name"], "arguments": c["arguments"] if isinstance(
+                                      c.get("arguments"), str) else json.dumps(c.get("arguments") or {}, ensure_ascii=False)}}
+                                 for i, c in enumerate(spec["tool_calls"])]
+            return "tool_calls"
+        tools = {t["function"]["name"]: t["function"] for t in body.get("tools") or []}
         schema = None
         if "response_format" in body:
             schema = body["response_format"]["json_schema"]["schema"]
-        elif body.get("tools"):
-            args = spec.get("json", dummy(body["tools"][0]["function"]["parameters"]))
+        elif SUBMIT_TOOL in tools:
+            args = spec.get("json", dummy(tools[SUBMIT_TOOL]["parameters"]))
             msg["tool_calls"] = [{"id": "call_fake", "type": "function",
                                   "function": {"name": SUBMIT_TOOL, "arguments": json.dumps(args, ensure_ascii=False)}}]
             return "tool_calls"

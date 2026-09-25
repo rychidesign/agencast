@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .expressions import FileRef, to_json
 from .loader import nested_lists
-from .validate import DEFAULT_TIMEOUT, Project
+from .validate import DEFAULT_TIMEOUT, Project, effective_tools
 
 MIN_SECRET_LEN = 8  # kratší hodnoty se nemaskují (run-record.md)
 
@@ -106,8 +106,9 @@ def _limits(p: Project, st: dict, kind: str) -> str:
     return ", ".join(parts)
 
 
-def plan_md(p: Project) -> str:
-    """Plán z validate (run-record.md plan.md, `--dry-run`)."""
+def plan_md(p: Project, offers: dict | None = None) -> str:
+    """Plán z validate (run-record.md plan.md, `--dry-run`). `offers` = server → nabízené nástroje
+    (nebo hláška, proč se nespustil) — scenario.md §7."""
     sc, cfg, lim = p.scenario, p.config, p.config["limits"]
     models = cfg["models"]
     lines = [f"# Plán: {sc['name']}", "", sc["description"], "",
@@ -145,12 +146,28 @@ def plan_md(p: Project) -> str:
                 what = f"podle {st['switch']['value']}: " + ", ".join(list(st["switch"]["cases"]) + ["default"])
             elif k == "call":
                 what = f"scénář {st['call']['scenario']}"
+            elif k == "task":
+                t = st["task"]
+                agent = p.agents[t["agent"]]
+                alias = agent.data["model"]
+                tools = effective_tools(agent.data, t)
+                what = (f"agent {t['agent']} → {alias} ({models[alias]['id']}); nástroje: "
+                        + ("; ".join(f"{s}: {', '.join(ts)}" for s, ts in tools.items()) or "žádné")
+                        + (f"; skilly: {', '.join(n for n, _, _ in agent.skills)}" if agent.skills else "")
+                        + f"; max_turns {t.get('max_turns', agent.data['limits'].get('max_turns'))}"
+                        + (f"; schema: {', '.join(t['schema'])}" if "schema" in t else "; text")
+                        + ("; dedupe_key" if "dedupe_key" in st else ""))
             cond = f"`{st['when']}`" if "when" in st else ""
             lines.append(f"| {info.nn} | {'↳ ' * indent}{info.id} | {k} | {cond} | {what} | {_limits(p, st, k)} |")
             for _, lst in nested_lists(st):
                 rows(lst, indent + 1)
 
     rows(sc["steps"], 0)
+    if offers:
+        lines += ["", "## MCP servery", ""]
+        for s, got in sorted(offers.items()):
+            lines.append(f"- **{s}** ({p.mcp[s]['description']}): "
+                         + (f"nabízí {', '.join(got)}" if isinstance(got, list) else f"nepodařilo se spustit — {got}"))
     return "\n".join(lines)
 
 
