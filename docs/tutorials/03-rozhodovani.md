@@ -543,7 +543,6 @@ config: tutorial-03-rozhodovani.yaml: krok "stop", when: 'steps.kontrola' nemá 
 
 ```
 config: tutorial-03-rozhodovani.yaml: krok "stop", when: šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, jev.questions (instructions, criteria), fail, hodnotách output, call.inputs a dedupe_key
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: konstrukce 'Set' není ve výrazech povolená
   {{ steps.kontrola.zapamatovatelny }} < 0.5
   ^
 ```
@@ -552,7 +551,8 @@ Bez uvozovek (`when: {{ … }} < 0.5`) je to dokonce chyba YAML —
 `{` na začátku hodnoty YAML čte jako mapu:
 
 ```
-config: tutorial-03-rozhodovani.yaml, řádek 56: expected <block end>, but found '<scalar>'
+config: tutorial-03-rozhodovani.yaml, řádek 56: YAML nejde přečíst — hodnota s {, [, ': ' nebo ' #' patří do uvozovek (scenario.md §5 „Pozor na YAML“)
+  expected <block end>, but found '<scalar>'
 ```
 
 **`switch` bez `default`:**

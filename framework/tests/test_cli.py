@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from maw.cli import main
+from maw.record import count
 
 GOLDEN = str(Path(__file__).parent / "golden" / "ukazka-call.yaml")
 
@@ -15,7 +16,7 @@ def test_commands_from_other_cwd_with_project(wf, tmp_path, monkeypatch, capsys)
     assert main(["validate", "kontrola-tonu", "--offline", "--project", str(wf)]) == 0  # i cesta k workflows/
     assert main(["run", "ukazka-call", "-i", "tema=káva", "--fake", GOLDEN, "--project", root]) == 0
     out = capsys.readouterr().out
-    assert "v pořádku: ig-post (kroků: 8" in out and "report: file://" in out
+    assert "v pořádku: ig-post (8 kroků" in out and "report: file://" in out
     run_id = out.split("běh ", 1)[1].split(":", 1)[0]
     assert (wf.parent / "runs" / run_id / "steps/02-ton/steps/01-kontrola").is_dir()
     assert main(["runs", "list", "--project", root]) == 0
@@ -48,3 +49,11 @@ def test_migrate(tmp_path, capsys):
     assert main(["migrate", str(f)]) == 2
     assert "neznámá verze formátu 2" in capsys.readouterr().err
     assert main(["migrate", str(tmp_path / "nic.yaml")]) == 2
+
+
+def test_step_count_czech_plural(wf, capsys):
+    """BUGS.md #5: 1 krok, 2–4 kroky, 0 a 5+ kroků (ne „2 kroků“)."""
+    assert [count(n, "krok", "kroky", "kroků") for n in (0, 1, 2, 4, 5, 9)] == \
+        ["0 kroků", "1 krok", "2 kroky", "4 kroky", "5 kroků", "9 kroků"]
+    assert main(["--project", str(wf.parent), "validate", "tutorial-01-nazvy", "--offline"]) == 0
+    assert "v pořádku: tutorial-01-nazvy (2 kroky, bez kontroly modelů)" in capsys.readouterr().out

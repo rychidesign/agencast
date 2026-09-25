@@ -1,10 +1,14 @@
 # Chyby frameworku nalezené při psaní tutoriálů (maw 0.1.0)
 
-Neopraveno (do `framework/src` tutoriály nesahají). Příkazy se spouští
+Všech šest je opraveno v maw 0.2.1 (větev `fix-tutorial-bugs`, viz
+`framework/CHANGELOG.md`); u každé položky je commit s opravou a testem.
+Níže zůstává původní popis. Příkazy se spouští
 z kořene repozitáře, `maw` = `uv run --project framework maw`. Fixtury
 z `/tmp` jsou v textu u každé položky.
 
 ## 1. Falešné varování „nevrátil cenu" po HTTP chybě (střední)
+
+**Opraveno v 0.2.1 (commit 7dd0d00).** Varování jen u úspěšné odpovědi bez `usage.cost`; test `test_http_error_without_usage_no_cost_warning` (429 i 400).
 
 Volání, které skončí HTTP chybou (429, 400), nemá `usage` — a nic nestojí.
 Framework přesto zapíše varování, jako by chyběla cena u úspěšné
@@ -39,6 +43,8 @@ ceně u odpovědi, ne u chybového statusu.
 
 ## 2. Druhá hláška prozrazuje vnitřek Pythonu (drobné)
 
+**Opraveno v 0.2.1 (commit d5bf1bb).** Jen první hláška, nově se stříškou; test `test_template_in_expression_one_error`.
+
 `{{ }}` ve výrazu (`set`, `when`) dá dvě hlášky; druhá mluví o AST uzlu
 Pythonu, kterému začátečník nerozumí:
 
@@ -59,6 +65,8 @@ množina (`Set`), proto ta druhá.
 
 ## 3. Hláška u id modelu v agentovi neříká „alias" (drobné)
 
+**Opraveno v 0.2.1 (commit b1dcbc1).** Hláška o aliasu místo regexu, schéma beze změny; test `test_agent_model_id_instead_of_alias`.
+
 ```bash
 # v workflows/agents/tutorial-pojmenovavac.md: model: anthropic/claude-haiku-4.5
 maw validate workflows/scenarios/tutorial-01-nazvy.yaml
@@ -74,6 +82,8 @@ v config.yaml (aliasy: chytry, rychly, gemini-image)`. Pro začátečníka
 je regex nesrozumitelný a toto je nejčastější chyba nového agenta.
 
 ## 4. Chyba YAML anglicky a bez rady (drobné)
+
+**Opraveno v 0.2.1 (commit 2447fd4).** Česká věta s radou a řádkem, hláška parseru na druhém řádku; test `test_yaml_syntax_error_czech_hint`.
 
 ```bash
 # v tutorial-03-rozhodovani.yaml: when: {{ steps.kontrola.zapamatovatelny }} < 0.5
@@ -91,6 +101,8 @@ uvozovek", scenario.md §5 „Pozor na YAML").
 
 ## 5. Tvar „(2 kroků)" ve `validate` (kosmetické)
 
+**Opraveno v 0.2.1 (commit 1c28c4d; výstupy v tutoriálech 31b1d5e).** 1 krok, 2–4 kroky, 5+ kroků — i `serve` („ve frontě 2 běhy") a poznámka kroku `call` v `summary.md`; test `test_step_count_czech_plural`.
+
 ```bash
 maw validate workflows/scenarios/tutorial-01-nazvy.yaml
 ```
@@ -102,6 +114,8 @@ v pořádku: tutorial-01-nazvy (2 kroků)
 Česky „2 kroky", „4 kroky", ale „9 kroků", „1 krok". `framework/src/maw/cli.py`, `cmd_validate`.
 
 ## 6. Zlaté testy nečtou `workflows/config.yaml` (střední, ověřeno čtením kódu)
+
+**Opraveno v 0.2.1 (commit f04a099).** Testovací config přebírá aliasy ze skutečného `config.yaml`; test `test_owner_alias_reaches_golden_tests` (dočasný alias `levny` jen v testu).
 
 `framework/tests/conftest.py` má pevný testovací `CONFIG` s aliasy
 `chytry`, `rychly`, `gemini-image` a fixtura `wf` ho zapíše místo

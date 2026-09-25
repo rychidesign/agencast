@@ -55,10 +55,11 @@ class Client:
             base_url=base_url, transport=transport, timeout=httpx.Timeout(None, connect=15),
             headers={"Authorization": f"Bearer {api_key}"} if api_key else {})
 
-    async def post(self, path: str, body: dict, step: str):
-        """(status | None při chybě sítě, tělo jako dict, hlavičky)."""
+    async def post(self, path: str, body: dict, step: str, timeout: float | None = None):
+        """(status | None při chybě sítě, tělo jako dict, hlavičky). Vypršení `timeout` = chyba sítě → transient."""
         try:
-            r = await self.http.post(path, json=body, extensions={"maw_step": step})
+            r = await self.http.post(path, json=body, extensions={"maw_step": step},
+                                     timeout=httpx.Timeout(timeout, connect=15 if timeout is None else min(15, timeout)))
         except httpx.HTTPError as e:
             return None, {"error": {"message": f"chyba sítě: {type(e).__name__}: {e}"}}, {}
         try:

@@ -1,3 +1,4 @@
+import re
 import shutil
 import sys
 import textwrap
@@ -15,6 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / "workflows"
 FAKE_MCP = Path(__file__).resolve().parent / "fake_mcp_server.py"
 
+# Testovací config: aliasy (models) se berou ze skutečného workflows/config.yaml — golden_config().
 CONFIG = """\
 version: 1
 openrouter:
@@ -39,6 +41,21 @@ callback:
 """
 
 
+def golden_config(real: Path = WORKFLOWS / "config.yaml") -> str:
+    """CONFIG s aliasy ze skutečného config.yaml: nový alias vlastníka nerozbije zlaté testy (BUGS.md #6);
+    klíče, limity, base_url a úložiště zůstávají testovací."""
+    if not real.is_file():
+        return CONFIG
+    models = yaml.safe_load(real.read_text())["models"]
+    models = yaml.safe_dump({"models": models}, allow_unicode=True, sort_keys=False)
+    return re.sub(r"models:\n(  .*\n)+", lambda _: models, CONFIG)  # zbytek doslova: testy v něm nahrazují text
+
+
+def model_ids(wf: Path) -> list[str]:
+    """Id modelů z config.yaml v kopii workflows/ — ty zná falešné GET /models."""
+    return [m["id"] for m in yaml.safe_load((wf / "config.yaml").read_text())["models"].values()]
+
+
 @pytest.fixture(autouse=True)
 def no_delays(monkeypatch):
     monkeypatch.setattr(engine, "RETRY_BASE_S", 0)
@@ -47,11 +64,11 @@ def no_delays(monkeypatch):
 
 @pytest.fixture
 def wf(tmp_path) -> Path:
-    """Kopie workflows/ (agenti, skilly, scénáře) s testovacím config.yaml."""
+    """Kopie workflows/ (agenti, skilly, scénáře) s testovacím config.yaml (aliasy ze skutečného)."""
     w = tmp_path / "workflows"
     for d in ("agents", "skills", "scenarios"):
         shutil.copytree(WORKFLOWS / d, w / d)
-    (w / "config.yaml").write_text(CONFIG)
+    (w / "config.yaml").write_text(golden_config())
     (w / "mcp.yaml").write_text(fake_mcp_yaml(WORKFLOWS / "mcp.yaml"))
     return w
 
@@ -62,7 +79,7 @@ def fake_mcp_yaml(path: Path) -> str:
     for s in data["servers"].values():
         if "command" in s:
             s["command"], s["args"] = sys.executable, [str(FAKE_MCP), *s.get("args", [])]
-    return yaml.safe_dump(data, allow_unicode=True)
+    return yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
 
 
 def scenario(wf: Path, text: str, name: str = "test") -> Path:
@@ -77,8 +94,7 @@ def fake_for(p, script=None) -> Fake:
 
 def run(path: Path, inputs=None, script=None, **kw):
     """validate + běh s falešným poskytovatelem; vrací (Run, Fake)."""
-    fake = Fake(script, ["anthropic/claude-haiku-4.5", "google/gemini-3.5-flash-lite",
-                         "google/gemini-3.1-flash-image"])
+    fake = Fake(script, model_ids(path.parents[1]))
     p = validate(path, transport=fake.transport())
     r = run_scenario(p, resolve_inputs(p.scenario, inputs or {}), fake=fake, **kw)
     return r, fake

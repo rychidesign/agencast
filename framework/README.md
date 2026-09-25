@@ -1,6 +1,6 @@
 # framework — jádro `maw` (multiagent-workflows)
 
-Verze 0.2.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
+Verze 0.2.1, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
 v `docs/DESIGN.md`. Jméno příkazu `maw` je jen v `pyproject.toml`
 (`[project.scripts]`) — přejmenování = jeden řádek.
 

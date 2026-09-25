@@ -155,8 +155,9 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
     if v := version_error(fm, where):
         errs.append(v)
         return None
-    if e := schema_errors("agent", fm, where):
-        errs.extend(e)
+    alias = f"{where}: model '{fm.get('model')}' není alias v config.yaml (aliasy: {', '.join(config['models'])})"
+    if e := schema_errors("agent", fm, where):  # id modelu místo aliasu: hláška o aliasu, ne regex ze schématu
+        errs.extend(alias if x.startswith(f"{where}: model: ") else x for x in e)
         return None
     n = len(errs)
     if fm["name"] != name:
@@ -164,7 +165,7 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
     if not body.strip():
         errs.append(f"{where}: tělo (instrukce agenta) je prázdné")
     if fm["model"] not in config["models"]:
-        errs.append(f"{where}: model '{fm['model']}' není alias v config.yaml (aliasy: {', '.join(config['models'])})")
+        errs.append(alias)
     if set(fm.get("tools", {})) != set(fm.get("mcp", [])):
         errs.append(f"{where}: klíče tools musí být přesně servery z mcp")
     servers = load_mcp(wf, errs) if mcp is None else mcp
@@ -371,9 +372,11 @@ class _Checker:
             skip = {p for p, _ in nested_lists(info.data)}
             for p, s in _strings(info.data, skip=skip):
                 if "{{" in s and not _template_field(p):
+                    line = s.replace("\n", " ")
                     self.err(info.id, ".".join(map(str, p)).replace(".#klíč", " (klíč)"),
-                             "šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, jev.questions "
-                             "(instructions, criteria), fail, hodnotách output, call.inputs a dedupe_key")
+                             str(ExprError("šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, "
+                                           "jev.questions (instructions, criteria), fail, hodnotách output, "
+                                           "call.inputs a dedupe_key", line.index("{{"), line)))
         self.walk(self.sc["steps"], {}, top=True)
         outs = self.sc.get("outputs") or {}
         if len(self.stack) == 1 and self.config["storage"]["type"] == "r2" and any(o["type"] == "file" for o in outs.values()):
@@ -430,6 +433,8 @@ class _Checker:
         return resolve
 
     def expr_type(self, info, fld, expr, res, want=None):
+        if "{{" in expr:
+            return None  # už nahlášeno v run(): šablona ve výrazu není povolená
         try:
             t = infer(expr, self.inputs_type, res)
         except ExprError as e:

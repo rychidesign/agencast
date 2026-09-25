@@ -55,7 +55,7 @@ maw run /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzli
 ```
 
 ```
-v pořádku: tutorial-01-nazvy (2 kroků)
+v pořádku: tutorial-01-nazvy (2 kroky)
 …
 | 1 | navrh | ask |  | agent tutorial-pojmenovavac → chytry (google/gemini-3.5-flash-lite); text | 0.01 USD, 2m |
 ```
@@ -508,7 +508,8 @@ diff workflows/scenarios/tutorial-03-rozhodovani.yaml workflows/scenarios/tutori
 
 (Pozor na dvojtečku s mezerou v `description` — první verze měla
 `… řešení cvičení: fixtura …` a YAML ji odmítl:
-`config: tutorial-05-cviceni.yaml, řádek 3: mapping values are not allowed here`.
+`config: tutorial-05-cviceni.yaml, řádek 3: YAML nejde přečíst — hodnota s {, [, ': ' nebo ' #' patří do uvozovek …`
+a pod tím původní hláška parseru `mapping values are not allowed here`.
 Text s `: ` dej do uvozovek, nebo dvojtečku vynech.)
 
 `framework/tests/golden/tutorial-05-cviceni.yaml`:

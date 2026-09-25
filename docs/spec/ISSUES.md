@@ -153,3 +153,17 @@ rozhoduje koordinátor nebo uživatel.
     `transient`. Návrh: čtecí timeout volání (např. 120 s) → `transient`
     s `retry`; pozor na pomalé reasoning modely s velkým `max_tokens`.
     Rozhodne koordinátor.
+    **Vyřešeno v 0.2.1:** timeout každého volání = min(zbývající čas
+    kroku, 120 s chat/obrázek/tah `task`, 30 s Jev), vypršení = `transient`
+    (opakuje se podle `retry`), hodnota v `model_call`/`jev_call` jako
+    `timeout_s`. Je to čtecí timeout httpx (ticho mezi bajty odpovědi),
+    ne celková doba — tu dál hlídá timeout kroku.
+
+35. **Kolize `run_id`** (run-record.md: `<čas>-<scénář>-<4 hex>`): dva běhy
+    téhož scénáře ve stejné sekundě mají shodné id s pravděpodobností
+    1 : 65 536; při dávce 50 požadavků z n8n za sekundu je to ≈ 2 %.
+    Následek: `maw serve` přepíše záznam fronty `<run_id>.json` jiného
+    požadavku, `maw run` spadne na existující složce běhu. Návrh: delší
+    náhodná část, nebo nové id, když složka/záznam fronty už existuje.
+    Neopraveno (mimo zadání 0.2.1). (Zjištěno při hledání nestabilních
+    testů.)

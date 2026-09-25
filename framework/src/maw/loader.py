@@ -67,6 +67,9 @@ def load_yaml(text: str, where: str, line_offset: int = 0):
         mark = getattr(e, "problem_mark", None)
         line = f", řádek {mark.line + 1 + line_offset}" if mark else ""
         problem = getattr(e, "problem", None) or str(e)
+        if not isinstance(e, yaml.constructor.ConstructorError):  # syntaxe; duplicitní klíč má vlastní hlášku
+            problem = ("YAML nejde přečíst — hodnota s {, [, ': ' nebo ' #' patří do uvozovek "
+                       f"(scenario.md §5 „Pozor na YAML“)\n  {problem}")
         raise LoadError(f"{where}{line}: {problem}") from None
 
 

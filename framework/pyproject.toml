@@ -1,6 +1,6 @@
 [project]
 name = "maw"
-version = "0.2.0"
+version = "0.2.1"
 description = "multiagent-workflows — jádro frameworku (scénáře v YAML, agenti v Markdownu, OpenRouter)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -22,3 +22,6 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Testy se sítí nebo skutečným npx serverem: jen `uv run pytest -m live`; běžná sada je hermetická (DESIGN §5.9).
+markers = ["live: potřebuje síť nebo skutečný MCP server přes npx — spouštět jen `-m live`"]
+addopts = "-m 'not live'"

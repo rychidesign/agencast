@@ -323,15 +323,8 @@ Běh prošel — první pokus dostal HTTP 429, druhý uspěl. V `events.jsonl`:
 {"ts":"2026-09-25T15:18:18.099Z","type":"error","step":"navrh","class":"transient","message":"HTTP 429: Rate limit exceeded","attempt":1,"will_retry":true,"http_status":429}
 ```
 
-Pozor na řádek v `summary.md`:
-
-```
-## Varování
-- krok navrh: poskytovatel nevrátil cenu (usage.cost) — rozpočet nejde hlídat přesně
-```
-
-Tohle varování je tu neprávem (odmítnuté volání nic nestojí) — je
-zapsané v [BUGS.md](BUGS.md). Když ho uvidíš po chybě 429, nevšímej si ho.
+V `summary.md` je u varování `žádná` — odmítnuté volání nic nestojí,
+opakování po `transient` je normální provoz.
 
 ### `content` → konec
 

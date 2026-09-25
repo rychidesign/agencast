@@ -77,6 +77,11 @@ def cz(x: float, digits: int) -> str:
     return f"{x:.{digits}f}".replace(".", ",")
 
 
+def count(n: int, one: str, few: str, many: str) -> str:
+    """Počet s tvarem: 1 krok, 2–4 kroky, 0 a 5+ kroků."""
+    return f"{n} {one if n == 1 else few if 2 <= n <= 4 else many}"
+
+
 def cz_value(v) -> str:
     if isinstance(v, str):
         return v if v.startswith(("https://", "http://", "file://")) else f"„{v}\""

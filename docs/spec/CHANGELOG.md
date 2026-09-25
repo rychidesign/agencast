@@ -92,3 +92,9 @@ každého nálezu je na konci REVIEW.md.
   OpenRouter nebo localhost; `env` serveru bez `PATH`, `LD_PRELOAD`, ….
 - **Přejmenováno v ukázce:** výstup fotografa `prompt` → `popis_fotky`.
 - OPEN-QUESTIONS: 6 vyřešeno podle DESIGN §5.8; nové 11–14.
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.2.1)
+
+- [run-record.md](run-record.md): pole `timeout_s` v událostech
+  `model_call` a `jev_call` (timeout HTTP volání, ISSUES 34). Starší
+  záznamy ho nemají; čtenář ho smí ignorovat.

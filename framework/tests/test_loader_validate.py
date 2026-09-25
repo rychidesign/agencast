@@ -20,6 +20,18 @@ def test_yaml_duplicate_key_has_line():
         load_yaml("a: 1\nb: 2\na: 3", "f.yaml")
 
 
+@pytest.mark.parametrize("text,line,problem", [
+    ("id: a\nwhen: {{ steps.k.x }} < 0.5\n", 2, "expected <block end>, but found '<scalar>'"),
+    ("description: Krok: ověř\nx: 1\n", 1, "mapping values are not allowed here"),
+])
+def test_yaml_syntax_error_czech_hint(text, line, problem):
+    """BUGS.md #4: česká věta s radou a řádkem, hláška parseru jako druhý řádek."""
+    with pytest.raises(LoadError) as e:
+        load_yaml(text, "f.yaml")
+    assert str(e.value) == (f"f.yaml, řádek {line}: YAML nejde přečíst — hodnota s {{, [, ': ' nebo ' #' patří "
+                            f"do uvozovek (scenario.md §5 „Pozor na YAML“)\n  {problem}")
+
+
 def test_yaml_on_as_case_key_is_text(wf):
     """`cases: { yes: …, on: … }` — klíče jsou text (YAML 1.2), ne booleany."""
     p = scenario(wf, """
@@ -73,6 +85,15 @@ def test_unknown_agent_version_rejected(wf):
     """)
     with pytest.raises(ConfigErrors, match="agents/copywriter.md: neznámá verze formátu 7"):
         validate(p, check_models=False)
+
+
+def test_agent_model_id_instead_of_alias(wf):
+    """BUGS.md #3: konkrétní id modelu v agentovi → hláška o aliasu, ne regex ze schématu."""
+    f = wf / "agents" / "copywriter.md"
+    f.write_text(f.read_text().replace("model: chytry", "model: anthropic/claude-haiku-4.5"))
+    got = errors(wf, HEAD + "steps: [{ id: a, ask: { agent: copywriter, prompt: x } }]")
+    assert got.startswith("agents/copywriter.md: model 'anthropic/claude-haiku-4.5' není alias v config.yaml "
+                          "(aliasy: chytry, ") and "\n" not in got, got
 
 
 # --- validate ---------------------------------------------------------------------------
@@ -142,6 +163,13 @@ HEAD = "version: 1\nname: NAME\ndescription: x\n"
 def test_validate_errors(wf, body, msg):
     got = errors(wf, HEAD + body)
     assert (msg or "duplicitní klíč") in got, got
+
+
+def test_template_in_expression_one_error(wf):
+    """BUGS.md #2: `{{ }}` ve výrazu (set, when) = jedna hláška se stříškou, nic o AST uzlu Set."""
+    got = errors(wf, HEAD + "steps: [{ id: a, when: '{{ inputs.y }}', set: { x: '{{ inputs.y }}' } }]")
+    assert got.count("šablona {{ }} tu není povolená") == 2 and "Set" not in got, got
+    assert "\n  {{ inputs.y }}\n  ^" in got
 
 
 def test_switch_cases_must_be_jev_criteria(wf):
