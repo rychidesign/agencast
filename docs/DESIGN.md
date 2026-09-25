@@ -1,9 +1,10 @@
 # multiagent-workflows — návrh
 
-**Stav:** návrh v0.2, 2026-09-25 (v0.1 + výsledky spiků + rozhodnutí D3,
-D4, D1c). Zachycuje rozhodnutí z návrhové diskuse mezi rychidesign a
-koordinátorem (FirstBuddy). Dokument je závazný pro workery: co je zde
-rozhodnuto, se neotvírá znovu bez souhlasu uživatele.
+**Stav:** v0.3, 2026-09-25 — spec v1 (`docs/spec/`) schválena uživatelem
+včetně otázek 1–14 ve výchozí volbě; přidán R8 (kompatibilita, §5.9)
+a fakta ze spiků (a)–(d). Zachycuje rozhodnutí z návrhové diskuse mezi
+rychidesign a koordinátorem (FirstBuddy). Dokument je závazný pro
+workery: co je zde rozhodnuto, se neotvírá znovu bez souhlasu uživatele.
 
 ---
 
@@ -32,6 +33,7 @@ obrázek → návrh ke schválení → publikace).
 | R5 | Běh na vlastním serveru nebo na Modal.com; spouštění webhookem. Cron, události a schvalování řeší n8n mimo framework. |
 | R6 | Framework je nástroj, do kterého uživatel nesahá. Pokud je vlastní, ladí a rozvíjí ho agenti (workeři). |
 | R7 | Aktualizace frameworku ani jeho závislostí nesmí vyžadovat změnu agentů a scénářů. Formáty jsou naše, verzované. |
+| R8 | **Stávající scénáře a agenti se při vylepšování frameworku nesmí rozsypat.** Pravidla kompatibility viz §5.9. (Přidáno 2026-09-25 při schválení spec v1.) |
 
 ---
 
@@ -69,9 +71,18 @@ např. `steps.kontrola.on_brand < 0.7 and inputs.jazyk == "cs"`:
 tečkový přístup k `inputs`, `steps`, `item`; porovnání, `and`/`or`/`not`,
 aritmetika, indexování, malá sada povolených funkcí (`len`, `min`, `max`,
 `round`, `str`, `int`, `float`, `join`). Žádný přístup k systému, žádné
-volání metod, žádný import. Konkrétní knihovnu (nebo vlastní evaluátor nad
-`ast`) vybere Fáze 2 podle kritérií: nulový přístup k systému, typové
-chyby s čitelnou hláškou, deterministické chování. Pevná pravidla viz §5.4.
+volání metod, žádný import. Pevná pravidla viz §5.4.
+
+Spike (c) 2026-09-25 (`spikes/expressions/REPORT.md`): rozhodnuto **vlastní
+evaluátor nad `ast`**, žádná knihovna. Z 8 konfigurací (simpleeval, asteval,
+evalidate, RestrictedPython, cel-python, cel-rust, vlastní) splnil D1c + §5.4
+jen vlastní prototyp (207 řádků; odhad s validací 350–500). Knihovny
+v pythonovské syntaxi rozbíjí tečkový přístup u kroku jménem `copy`
+(vrátí `dict.copy`) a tiše vrací `False` u `3 == "3"`; asteval přečte
+soubor přes `open()`; CEL má jinou syntaxi. Z toho pevně: **tečka = čtení
+klíče, ne atribut**; limit délky výrazu **před** parserem; `and/or/not`
+jen nad bool; `round` půlku od nuly; `str(None)` = `"null"`; bez ternáru,
+řezů, `**` a volání metod. Chyba výrazu za běhu = třída `expression`.
 
 **D1d Typy kroků.**
 
@@ -90,8 +101,10 @@ v1 (implementuje se):
 | `fail` | záměrné ukončení běhu s chybou a zprávou |
 | `output` | co běh vrací (JSON + soubory); soubory se nahrají do úložiště a callback nese URL |
 
-Vlastnosti libovolného kroku: `id`, `when`, `retry`, `timeout`, `budget`,
-`schema`, `on_error`.
+Vlastnosti kroků: `id`, `when` (každý krok); `retry`, `timeout`,
+`budget_usd`, `on_error` (jen kroky, kde mají smysl — určuje spec);
+`schema` uvnitř `ask`/`task`. (Upřesněno specifikací v1, viz
+`docs/spec/OPEN-QUESTIONS.md`.)
 
 Plánováno (implementuje se **až když ho potřebuje konkrétní scénář**):
 `foreach`, `repeat`, `http`, `tool` (přímé volání MCP bez modelu), `file`,
@@ -105,7 +118,9 @@ n8n), `embed`/`search`.
 
 - **Běhy jdou jeden za druhým** (fronta). Paralelní kroky *uvnitř* běhu
   (`parallel`) zůstávají. Návrh nesmí paralelním běhům bránit do budoucna:
-  běhy si nesdílí soubory (kromě `state` a úložiště výstupů).
+  běhy si nesdílí soubory (kromě `state`, úložiště výstupů a `_dedupe` —
+  klíčů vedlejších účinků, které jsou samostatné atomicky vytvářené
+  soubory, nikdy jeden sdílený log).
 - **Webhook je asynchronní:** hned vrátí `run_id` a pozici ve frontě,
   výsledek přijde na **callback URL** (n8n). Callback se posílá **vždy**,
   při úspěchu i při chybě.
@@ -237,7 +252,26 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
   scénáři je může jen **zúžit**, nikdy rozšířit.
 - Příchozí webhook chce token; callback je podepsaný (HMAC), n8n ho ověří.
 - Idempotence: klíč požadavku na webhooku (opakované volání nespustí druhý
-  běh) a `dedupe_key` na krocích s vedlejším účinkem (publikace).
+  běh) a `dedupe_key` na krocích s vedlejším účinkem (publikace). Záznam
+  `started` vzniká před prvním voláním nástroje; `started` bez `succeeded`
+  při dalším běhu = chyba `config` „ověř ručně", ne tiché opakování.
+- **Kdo smí co použít, určuje vlastník** v `mcp.yaml`: u každého serveru
+  `agents:` (kteří agenti ho smí použít), volitelně `scenarios:` (které
+  scénáře smí spustit agenta s tímto serverem) a `tools:` (horní allowlist).
+  Agenti i scénáře jsou soubory, které píší ostatní, proto tam tahle
+  omezení být nemohou. Scénář je volatelný přes `call` jen s
+  `callable: true` (výchozí `false`), aby část 1 nemohla obejít schválení
+  v n8n voláním části 2.
+- Tajné hodnoty (proměnné z `*_env` a `env`) framework před zápisem každého
+  souboru záznamu i callbacku nahradí textem `<tajné: JMENO>` — nástroj
+  MCP je může vrátit ve výsledku (spike (d): `get-env`).
+- Klíč souboru v úložišti výstupů = `<run_id>-<32 hex náhodných>/<jméno>`;
+  bucket je veřejný kvůli Instagramu, `run_id` je uhodnutelný, náhodná část
+  je jen v callbacku a záznamu.
+- Soubory se čtou jako **YAML 1.2 core**: jen `true`/`false` jsou booleany
+  (`yes`/`on` je text), `4:5` je text, duplicitní klíč = chyba `config`
+  s číslem řádku. PyYAML to ve výchozím stavu nedělá (spec REVIEW B6) →
+  vlastní `SafeLoader` a ověřování ukázek stejným loaderem.
 
 ### 5.3 `call`
 - `call` je vnořený krok **uvnitř stejného běhu**: stejný rozpočet,
@@ -282,11 +316,33 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
   `anthropic/claude-haiku-4.5`, ne `-4-5`). Jev v tom seznamu **není**.
 
 ### 5.6 Verzování a testy — specifikace je produkt
+- Po schválení uživatelem je závazná i `docs/spec/` (formáty v1). Rozpor
+  spec × DESIGN hlásí worker koordinátorovi, nerozhoduje ho sám.
 - `version: 1` ve scénářích i agentech od prvního dne; changelog formátů.
 - **Konformační scénáře** s falešným poskytovatelem (bez sítě, zdarma)
   běží před každou změnou frameworku. Bez nich R6 nefunguje.
 - Závislosti zamčené v lockfile; update je vědomé rozhodnutí ve větvi
   s proběhlými konformačními testy.
+
+### 5.9 Kompatibilita (R8) — schválená spec v1 je zmražená
+1. **Formát `version: 1` se po schválení jen rozšiřuje:** nová volitelná
+   pole a nové typy kroků ano; přejmenování, odstranění nebo změna významu
+   existujícího pole ne. Nové pole má vždy výchozí hodnotu, která zachová
+   dosavadní chování.
+2. **Zlomová změna = `version: 2`.** Framework podporuje předchozí verzi
+   formátu souběžně a má příkaz `migrate`, který soubory převede a změny
+   vypíše. Starý soubor běží beze změny, dokud ho uživatel sám nepřevede.
+3. **Zlaté scénáře:** každý schválený scénář, agent a skill ve `workflows/`
+   a každá ukázka v `docs/spec/` je součástí konformační sady: musí projít
+   `validate` a doběhnout s falešným poskytovatelem při každé změně
+   frameworku. Přidání scénáře do `workflows/` = přidání testu.
+4. **Zastarávání s varováním:** nedoporučená konstrukce nejdřív vyvolá
+   varování ve `validate` (běh pokračuje), odstranit ji smí až další verze
+   formátu.
+5. **Verze frameworku (semver):** oprava = patch, přidání = minor, nová
+   verze formátu = major. `CHANGELOG.md` frameworku i formátů.
+6. Framework odmítne soubor s verzí formátu, kterou nezná (`config`), nikdy
+   ho tiše neinterpretuje po svém.
 
 ### 5.7 Obrázky a soubory
 - `image` vrací base64 → framework uloží soubor do složky běhu → krok
@@ -310,6 +366,42 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
 - Model bez obrazového výstupu s `modalities: ["image"]` → HTTP 404
   `No endpoints found that support the requested output modalities`
   (třída `config`, zachytí `validate` proti `/models`).
+
+### 5.8 MCP servery, nástroje a skilly (spike (d), `mcp` SDK 2.2)
+- Klient = oficiální `mcp` SDK (zamknout `2.2.*`); stdio, Streamable HTTP
+  i SSE. Stdio server se spouští **per běh** (start ~140 ms lokální
+  balíček, ~300 ms `npx -y`), balíčky předinstalované (sedí s D5).
+- **Timeouty vždy výslovně:** `read_timeout_seconds` u handshaku i
+  `call_tool` + vnější pojistka (`fail_after`); bez nich SDK čeká
+  neomezeně. Výchozí `mode="auto"` přidá u mrtvého serveru pevných 10 s
+  (`server/discover`) → pro servery z `mcp.yaml` `mode="legacy"`, dokud
+  nebudou na protokolu 2026-07-28. Chyby handshaku přicházejí ve dvou
+  vrstvách `ExceptionGroup` — framework je rozbalí do tříd §5.1.
+- **Mapování chyb:** `isError: true` z nástroje = zpětná vazba modelu (krok
+  pokračuje); `timed out` = třída `timeout`; selhání handshaku =
+  `config`/`transient`.
+- **Schémata nástrojů → OpenRouter `tools`** se normalizují (~50 řádků):
+  jméno `server__tool` (jen `[a-zA-Z0-9_-]`, max 64, Claude jinak vrátí
+  400), vložení `$ref`, `allOf`/`oneOf` → `anyOf`, `const` → `enum`,
+  ne-řetězcový `enum` → do `description`. Gemini části schématu **tiše
+  ignoruje** (HTTP 200 a špatné argumenty) → **argumenty se validují na
+  klientovi proti původnímu schématu**, chyba jde modelu jako výsledek
+  nástroje. Konformační scénář aliasu (§5.5) obsahuje `$ref`, `const`
+  a číselný `enum`.
+- **Obrázky z nástrojů** se posílají v následné user zprávě (funguje u
+  Claude i Gemini); v tool zprávě je Gemini odmítne (400). Ukládají se jako
+  soubor, ne base64 do záznamu.
+- **Skilly:** `skills/<name>/SKILL.md` s `name` + `description`; system
+  prompt nese jen seznam `jméno: description`, tělo načte nástroj
+  `load_skill(name)` (`enum` jmen, neznámé jméno → chyba se seznamem).
+  Výstup kroku vynucuje `schema`, ne skill.
+- **Oprávnění (§5.2 konkrétně):** allowlist nástrojů podle jména;
+  efektivní sada = krok ⊆ agent, jinak chyba `validate`; do `tools` i do
+  dispatch jdou jen povolené nástroje (vedlejší efekt −66 až −81 %
+  prompt tokenů). Druhá vrstva = argumenty serveru v `mcp.yaml` (např.
+  povolený kořen filesystemu). Stdio server dědí jen 6 bezpečných
+  proměnných prostředí; klíče pro servery se předávají výslovně přes
+  `env` v `mcp.yaml`. `stderr` serverů jde do záznamu běhu.
 
 ---
 
@@ -410,6 +502,8 @@ token Modalu a přístup k R2.
 | (b) Modal — webhook + fronta | funguje (výhrada: redeploy = stop + deploy) | tamtéž |
 | (b) Modal — Volume + veřejná URL | funguje; R2 neimplementováno (chybí klíče) | tamtéž |
 | (b) Modal — Secrets | funguje | tamtéž |
+| (c) výrazy pro D1c (2026-09-25, větev `spike-expressions`) | funguje: vlastní evaluátor 24/24 + 14/14 + 20/20; žádná knihovna nesplní §5.4 | `spikes/expressions/REPORT.md` |
+| (d) MCP klient + skilly v Pythonu (2026-09-25, větev `spike-mcp-python`) | funguje: `mcp` 2.2 stdio/HTTP/SSE, schémata po normalizaci 18/18, `load_skill` 12/12, allowlist drží; 0,136 USD | `spikes/mcp-python/REPORT.md` |
 
 Útrata: (a) 0,30 USD, (b) řádově centy. Fakta z obou spiků jsou
 zapracována v §5.1 (bod 8), §5.5, §5.7, D5 a §7.
