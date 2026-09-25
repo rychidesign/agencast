@@ -2,8 +2,7 @@
 (`/systemone`). Holé HTTP přes httpx (spike (a), DESIGN D3).
 
 Tady je jen stavba požadavků a čtení odpovědí včetně třídy chyby;
-opakování, rozpočet a záznam dělá engine. Místo pro `task` (smyčka model ↔
-nástroje, MCP) je `assistant_message` + `SUBMIT_TOOL` — Fáze 3.
+opakování, rozpočet a záznam dělá engine; smyčku `task` dělá `task.py`.
 """
 import base64
 import json
@@ -187,11 +186,15 @@ def chat_body(model: str, system: str, messages: list, level: str | None, schema
         body["response_format"] = {"type": "json_schema",
                                    "json_schema": {"name": "output", "strict": True, "schema": schema}}
     elif schema and level == "tool_wrapper":
-        body["tools"] = [{"type": "function", "function": {
-            "name": SUBMIT_TOOL, "description": "Odevzdej výsledek. Zavolej právě jednou, argumenty podle schématu.",
-            "parameters": schema}}]
+        body["tools"] = [submit_tool(schema)]
         body["tool_choice"] = {"type": "function", "function": {"name": SUBMIT_TOOL}}
     return body
+
+
+def submit_tool(schema: dict) -> dict:
+    return {"type": "function", "function": {
+        "name": SUBMIT_TOOL, "description": "Odevzdej výsledek. Zavolej právě jednou, argumenty podle schématu.",
+        "parameters": schema}}
 
 
 def assistant_message(msg: dict) -> dict:
@@ -237,6 +240,32 @@ def parse_chat(status, body, headers, level: str | None, schema: dict | None):
         if errors:
             return meta, None, MawError("schema", "odpověď nesedí na schema: " + "; ".join(errors[:5]))
     return meta, value, _no_cost(meta)
+
+
+# --- task -----------------------------------------------------------------------------
+
+def task_body(model: str, system: str, messages: list, tools: list, level: str | None, schema: dict | None,
+              max_tokens: int | None) -> dict:
+    """Tah kroku `task`: nástroje MCP (+ load_skill); kaskáda jako u `ask`, ale `_submit_output`
+    se nevynucuje (model mezitím volá jiné nástroje) a ukončí smyčku (scenario.md task)."""
+    body = chat_body(model, system, messages, level if level != "tool_wrapper" else None, schema, max_tokens)
+    tools = tools + ([submit_tool(schema)] if schema and level == "tool_wrapper" else [])
+    if tools:
+        body["tools"] = tools
+    return body
+
+
+def parse_task(status, body, headers, level: str | None, schema: dict | None):
+    """(meta, {"calls": [...]} | {"final": výstup}, chyba). Volání nástrojů = další tah;
+    `_submit_output` (tool_wrapper) nebo odpověď bez nástrojů = konec smyčky."""
+    meta, value, err = parse_chat(status, body, headers, level, schema)
+    msg = meta["message"] or {}
+    calls = msg.get("tool_calls") or []
+    submit = schema and level == "tool_wrapper" and any(
+        (c.get("function") or {}).get("name") == SUBMIT_TOOL for c in calls)
+    if calls and not submit and meta["finish_reason"] in ("tool_calls", "stop") and not msg.get("refusal"):
+        return meta, {"calls": calls}, _no_cost(meta)
+    return meta, None if err else {"final": value}, err
 
 
 # --- jev ----------------------------------------------------------------------------

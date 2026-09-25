@@ -23,10 +23,12 @@ import httpx
 from . import ConfigErrors, MawError, __version__
 from .expressions import ExprError, FileRef, evaluate, kind, path_step, render, to_json, to_text
 from .loader import nested_lists
+from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         parse_chat, parse_image, parse_jev, prompt_level_suffix)
 from .record import Record, cz, now_iso, plan_md, scrub, summary_md
-from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, seconds
+from .task import dedupe_skip, run_task  # 3a
+from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, effective_tools, env_fields, seconds
 
 RETRY_BASE_S = 2.0           # prodleva 2 s, 4 s, 8 s… (scenario.md §3 retry); testy ji stáhnou na 0
 CALLBACK_DELAYS = (5, 30)    # 3 pokusy (run-record.md callback_sent, návrh)
@@ -58,8 +60,8 @@ class Ctx:
 
 def secret_values(p: Project) -> dict[str, str]:
     """Hodnoty všech proměnných z polí `*_env` (maskují se v záznamu i callbacku)."""
-    # Fáze 3: přidat env a *_env z mcp.yaml
-    return {name: os.environ[name] for _, name in env_fields(p.config) if os.environ.get(name)}
+    names = [name for _, name in env_fields(p.config)] + secret_names(p.mcp)  # 3a: env a *_env z mcp.yaml
+    return {name: os.environ[name] for name in names if os.environ.get(name)}
 
 
 def new_run_id(name: str) -> str:
@@ -90,6 +92,12 @@ def preflight(p: Project, *, fake: bool, callback_url: str | None) -> str | None
             errs.append("callback URL musí začínat https://")
         if not os.environ.get(p.config["callback"]["secret_env"]):
             errs.append(f"chybí proměnná prostředí {p.config['callback']['secret_env']} (podpis callbacku)")
+    for srv in sorted({s for st in p.steps.values() if st.kind == "task"  # 3a: klíče MCP serverů, které běh použije
+                       for s in effective_tools(p.agents[st.data["task"]["agent"]].data, st.data["task"])}):
+        spec = p.mcp[srv]
+        for var in secret_names({srv: spec}):
+            if not os.environ.get(var):
+                errs.append(f"chybí proměnná prostředí {var} (MCP server {srv} v mcp.yaml)")
     if errs:
         raise ConfigErrors(errs)
     return key
@@ -110,6 +118,7 @@ class Run:
         self.cost = self.image_cost = self.image_duration = self.duration = 0.0
         self.status, self.error, self.outputs, self.callback_failed = "failed", None, None, False
         self.started_at = now_iso()
+        self.mcp = Pool(p.mcp, record.dir.resolve(), record)  # 3a: servery se startují při prvním task
 
     # --- běh -----------------------------------------------------------------------
     async def execute(self) -> str:
@@ -136,6 +145,7 @@ class Run:
             self.rec.event("error", **{"class": "internal"}, message=self.error["message"], attempt=None,
                            will_retry=False, http_status=None)
         finally:
+            await self.mcp.close()  # 3a
             await self.client.aclose()
         self.duration = round(time.monotonic() - t0, 3)
         self.warnings += [f"tajná hodnota {n} byla v záznamu nahrazena textem <tajné: {n}>" for n in sorted(self.rec.masked)]
@@ -193,6 +203,8 @@ class Run:
                 if not ok:
                     self.skip(st, "when", f"when: {st['when']} → false")
                     return
+            if "dedupe_key" in st and dedupe_skip(self, info):  # 3a: krok už proběhl v jiném běhu
+                return
             start()
             out = await getattr(self, f"step_{k}")(info, ctx)
             output_file = None
@@ -285,7 +297,8 @@ class Run:
         except TimeoutError:
             raise MawError("timeout", f"překročen časový limit {dl[1]}", fatal=dl[2] != info.id) from None
 
-    async def call_api(self, info, ctx, scopes, path, build, parse, event_type, on_value=None, image=False):
+    async def call_api(self, info, ctx, scopes, path, build, parse, event_type, on_value=None, image=False,
+                       record=scrub):  # 3a: record = úprava těla pro záznam (obrázky z nástrojů)
         sid, retries, attempt, last = info.id, info.data.get("retry", 2), 0, None
         while True:
             attempt += 1
@@ -295,7 +308,7 @@ class Run:
                                    fatal=s.owner != sid)
             body, fields = build(attempt, last)
             n = self.calls[sid] = self.calls.get(sid, 0) + 1
-            req = self.rec.write(f"{info.folder}/calls/{n:02d}.request.json", scrub(body))
+            req = self.rec.write(f"{info.folder}/calls/{n:02d}.request.json", record(body))
             t = time.monotonic()
             status, rbody, headers = await self.client.post(path, body, sid)
             dur = round(time.monotonic() - t, 3)
@@ -385,6 +398,9 @@ class Run:
             "model_call"))
         self.rows[info.id]["note"] = f"{alias} → {m['id']}" + (f" ({st['level']})" if schema else "")
         return value if schema else {"text": value}
+
+    async def step_task(self, info: StepInfo, ctx: Ctx):  # 3a
+        return await run_task(self, info, ctx)
 
     async def step_jev(self, info: StepInfo, ctx: Ctx):
         j = info.data["jev"]

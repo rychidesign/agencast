@@ -98,6 +98,11 @@ def load_dotenv(path: Path):
             os.environ.setdefault(key.strip(), value)
 
 
+def seconds(duration: str) -> int:
+    """Trvání `<číslo>s|m|h` v sekundách."""
+    return int(duration[:-1]) * {"s": 1, "m": 60, "h": 3600}[duration[-1]]
+
+
 def version_error(data, where: str) -> str | None:
     """Neznámou verzi framework odmítne, nikdy ji nečte po svém (§5.9 bod 6)."""
     if not isinstance(data, dict):

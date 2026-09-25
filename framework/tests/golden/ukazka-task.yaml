@@ -1,0 +1,12 @@
+# Skriptované odpovědi falešného poskytovatele pro ukazka-task.yaml
+# (MCP server je v testech tests/fake_mcp_server.py s filesystem nástroji).
+katalog:
+  - tool_calls:
+      - { name: filesystem__list_allowed_directories, arguments: {} }
+      - { name: load_skill, arguments: { name: katalog } }
+  - tool_calls:
+      - name: filesystem__write_file
+        arguments: { path: katalog.md, content: "# Katalog\n- Čapek: R.U.R. (1920)\n" }
+  - tool_calls:
+      - { name: filesystem__read_text_file, arguments: { path: katalog.md } }
+  - json: { soubor: katalog.md, pocet: 1 }
