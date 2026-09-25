@@ -1,0 +1,23 @@
+# tajné klíče
+.env
+.env.*
+!.env.example
+
+# běhy a výstupy
+runs/
+outputs/
+*.log
+
+# jazykové runtime
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+dist/
+build/
+.bun/
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
