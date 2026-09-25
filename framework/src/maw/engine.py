@@ -6,6 +6,7 @@ Rozpočty a lhůty mají vlastníka: vyčerpání limitu jiného než vlastního
 kroku `on_error: continue` nepřebije (scenario.md §6).
 """
 import asyncio
+import contextvars
 import copy
 import hashlib
 import hmac
@@ -35,6 +36,9 @@ from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, 
 
 RETRY_BASE_S = 2.0           # prodleva 2 s, 4 s, 8 s… (scenario.md §3 retry); testy ji stáhnou na 0
 CALLBACK_DELAYS = (5, 30)    # 3 pokusy (run-record.md callback_sent, návrh)
+# Čtecí timeout jednoho HTTP volání poskytovatele (ISSUES 34): min(zbývající čas kroku, strop); vypršení = transient.
+CALL_TIMEOUT_S = {"chat": 120, "jev": 30}  # chat = ask, tah task, image
+STEP_DEADLINE = contextvars.ContextVar("step_deadline", default=None)  # lhůta kroku (čas smyčky) z with_deadline
 IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
 
@@ -301,11 +305,14 @@ class Run:
         loop = asyncio.get_running_loop()
         dl = min(ctx.deadlines + [(loop.time() + seconds(timeout), f"kroku ({timeout})", info.id)],
                  key=lambda d: d[0])
+        token = STEP_DEADLINE.set(dl[0])
         try:
             async with asyncio.timeout_at(dl[0]):
                 return await coro
         except TimeoutError:
             raise MawError("timeout", f"překročen časový limit {dl[1]}", fatal=dl[2] != info.id) from None
+        finally:
+            STEP_DEADLINE.reset(token)
 
     async def call_api(self, info, ctx, scopes, path, build, parse, event_type, on_value=None, image=False,
                        record=scrub):  # 3a: record = úprava těla pro záznam (obrázky z nástrojů)
@@ -319,8 +326,10 @@ class Run:
             body, fields = build(attempt, last)
             n = self.calls[sid] = self.calls.get(sid, 0) + 1
             req = self.rec.write(f"{info.folder}/calls/{n:02d}.request.json", record(body))
-            t = time.monotonic()
-            status, rbody, headers = await self.client.post(path, body, sid)
+            t, deadline = time.monotonic(), STEP_DEADLINE.get()
+            cap = CALL_TIMEOUT_S["jev" if event_type == "jev_call" else "chat"]
+            timeout_s = round(min(cap, deadline - asyncio.get_running_loop().time()) if deadline else cap, 3)
+            status, rbody, headers = await self.client.post(path, body, sid, timeout_s)
             dur = round(time.monotonic() - t, 3)
             meta, value, err = parse(status, rbody, headers)
             note = None
@@ -336,7 +345,7 @@ class Run:
                 self.warnings.append(f"krok {sid}: poskytovatel nevrátil cenu (usage.cost) — rozpočet nejde hlídat přesně")
             self.rec.event(event_type, step=sid, attempt=attempt, **fields, **meta,
                            **({"budget_exceeded_usd": over} if over else {}),
-                           duration_s=dur, request_file=req, response_file=resp)
+                           timeout_s=timeout_s, duration_s=dur, request_file=req, response_file=resp)
             if err is None:
                 return value
             retry = err.cls in ("transient", "schema") and attempt <= retries

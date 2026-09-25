@@ -163,6 +163,7 @@ Když poskytovatel cenu nevrátí, je `cost_usd: null` a vznikne varování
 | `finish_reason`, `native_finish_reason` | jak volání skončilo (§5.1 bod 8) |
 | `structured_output` | použitá úroveň kaskády (§5.5): `native_schema`, `tool_wrapper`, `prompt`; bez `schema` `null` |
 | `budget_exceeded_usd` | o kolik volání překročilo rozpočet (volání se dokončí a platí), jinak chybí |
+| `timeout_s` | timeout HTTP volání: min(zbývající čas kroku, 120 s); vypršení = `transient` (od frameworku 0.2.1) |
 | `duration_s`, `usage` | trvání, normalizovaná spotřeba |
 | `request_file`, `response_file` | cesty do `calls/` |
 
@@ -186,6 +187,7 @@ Když poskytovatel cenu nevrátí, je `cost_usd: null` a vznikne varování
 | `model`, `response_model` | poslaný model a datovaná verze z odpovědi (`typesafe/jev-1.13-20260917`) |
 | `http_status` | status odpovědi |
 | `answers` | hodnoty odpovědí, např. `{"on_brand": 0.91}` |
+| `timeout_s` | timeout HTTP volání: min(zbývající čas kroku, 30 s); vypršení = `transient` (od frameworku 0.2.1) |
 | `duration_s`, `usage` | trvání, normalizovaná spotřeba |
 | `request_file`, `response_file` | cesty do `calls/` |
 

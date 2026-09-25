@@ -153,3 +153,8 @@ rozhoduje koordinátor nebo uživatel.
     `transient`. Návrh: čtecí timeout volání (např. 120 s) → `transient`
     s `retry`; pozor na pomalé reasoning modely s velkým `max_tokens`.
     Rozhodne koordinátor.
+    **Vyřešeno v 0.2.1:** timeout každého volání = min(zbývající čas
+    kroku, 120 s chat/obrázek/tah `task`, 30 s Jev), vypršení = `transient`
+    (opakuje se podle `retry`), hodnota v `model_call`/`jev_call` jako
+    `timeout_s`. Je to čtecí timeout httpx (ticho mezi bajty odpovědi),
+    ne celková doba — tu dál hlídá timeout kroku.

@@ -7,9 +7,10 @@ import re
 
 import httpx
 import pytest
-from conftest import events, run, scenario
+from conftest import events, model_ids, run, scenario
 
-from maw.engine import dry_run
+from maw.engine import dry_run, run_scenario
+from maw.fake import Fake
 from maw.validate import validate
 
 HEAD = "version: 1\nname: NAME\ndescription: Testovací scénář\n"
@@ -316,6 +317,37 @@ def test_step_timeout(wf):
     p = scenario(wf, HEAD + "steps: [{ id: a, timeout: 1s, ask: { agent: copywriter, prompt: x } }]")
     r, _ = run(p, script={"a": {"sleep": 3}})
     assert err(r) == ("timeout", "překročen časový limit kroku (1s)")
+
+
+def test_read_timeout_is_transient_and_capped(wf):
+    """ISSUES 34: čtecí timeout volání = min(zbývající čas kroku, 120 s chat / 30 s Jev); vypršení → transient + retry."""
+    p = scenario(wf, HEAD + """
+steps:
+  - { id: a, timeout: 10s, ask: { agent: copywriter, prompt: x } }
+  - { id: b, timeout: 5m, ask: { agent: copywriter, prompt: x } }
+  - { id: j, timeout: 5m, jev: { state: x, questions: { q: { type: noul, instructions: y } } } }
+""")
+    fake, sent = Fake(None, model_ids(wf)), []
+    handle = fake.handle
+
+    def hang_once(request):
+        if request.url.path.endswith("/models"):
+            return handle(request)
+        sent.append(request.extensions["timeout"]["read"])
+        if len(sent) == 1:
+            raise httpx.ReadTimeout("zaseknuté spojení", request=request)
+        return handle(request)
+
+    fake.handle = hang_once
+    pr = validate(p, transport=fake.transport())
+    r = run_scenario(pr, {}, fake=fake)
+    assert r.status == "succeeded", r.error
+    e = events(r, "error")[0]
+    assert (e["step"], e["class"], e["will_retry"]) == ("a", "transient", True) and "ReadTimeout" in e["message"]
+    calls = {(c["step"], c["attempt"]): c["timeout_s"] for c in events(r) if c["type"] in ("model_call", "jev_call")}
+    assert 9 < calls["a", 1] <= 10 and 9 < calls["a", 2] <= 10      # zbývající čas kroku
+    assert calls["b", 1] == 120 and calls["j", 1] == 30              # strop chat / Jev
+    assert sent[0] == calls["a", 1] and sent[-1] == 30               # tentýž timeout dostal httpx
 
 
 def test_run_timeout_not_overridden_by_continue(wf):
