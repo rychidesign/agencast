@@ -218,7 +218,8 @@ běh 20260925-161539-tutorial-07-skladani-ffe2: úspěch · 0,0 s · 0,0003 USD
 | 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
 | 2 | slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
 | 3 | ton | call | ✓ | 0,0 s | 0,0001 | scénář kontrola-tonu (3 kroky) |
-| 4 | out | output | ✓ | 0,0 s | 0,0000 |  |
+| 4 | out | output | ✓ | 0,0 s | 0 |  |
+| | Celkem | | | | 0,0003 |  |
 …
 ## Výstup
 - nazev: „Ovena"
@@ -642,7 +643,8 @@ v ceně (`cost_usd` 0.0004 vs. **0.0**) a v `summary.md` druhého běhu:
 
 ```
 | 1 | zapis | task | přeskočeno |  |  | dedupe_key 'archiv-2026-09-25': krok už proběhl v běhu 20260925-161842-tutorial-07-archiv-5637 |
-| 2 | out | output | ✓ | 0,0 s | 0,0000 |  |
+| 2 | out | output | ✓ | 0,0 s | 0 |  |
+| | Celkem | | | | 0 |  |
 ```
 
 Druhý běh nemá složku `work/` ani `mcp/` — server se vůbec nespustil.
@@ -688,7 +690,7 @@ budget v kroku zapis: max_turns 5 vyčerpán bez finální odpovědi (model dál
 běh 20260925-161858-tutorial-07-archiv-63f7: chyba · 0,8 s · 0,0005 USD
 …
 config v kroku zapis: krok mohl proběhnout jen částečně (dedupe_key 'archiv-2026-09-26', běh 20260925-161858-tutorial-07-archiv-63f7), ověř ručně a smaž …/runs/_dedupe-fake/bb7e315cde46b31154a770c34ace3ddf790d1dca42166e01502c7b2592e8d3a5.json
-běh 20260925-161859-tutorial-07-archiv-8627: chyba · 0,0 s · 0,0000 USD
+běh 20260925-161859-tutorial-07-archiv-8627: chyba · 0,0 s · 0 USD
 ```
 
 Druhý běh krok **nespustil**. Framework neví, jestli první běh stihl
@@ -761,7 +763,7 @@ podpis: sedí
 ```
 | 1 | navrh | ask | ✓ | 1,4 s | 0,0003 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
 | 2 | slogan | call | ✓ | 2,0 s | 0,0004 | scénář tutorial-07-slogan (2 kroky) |
-| 3 | ton | call | ✓ | 0,4 s | 0,0000 | scénář kontrola-tonu (3 kroky) |
+| 3 | ton | call | ✓ | 0,4 s | 0,00002 | scénář kontrola-tonu (3 kroky) |
 ```
 
 `on_brand` 0,25 — slogan s vykřičníkem a „zdraví v každé lžici" není
@@ -927,7 +929,8 @@ maw run tutorial-07-cviceni -i nazev=Ovena --fake framework/tests/golden/tutoria
 | 1 | varianty | parallel | ✓ | 0,0 s | 0,0002 |  |
 | 2 | hravy_slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
 | 3 | vazny_slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
-| 4 | out | output | ✓ | 0,0 s | 0,0000 |  |
+| 4 | out | output | ✓ | 0,0 s | 0 |  |
+| | Celkem | | | | 0,0002 |  |
 …
 ## Výstup
 - hravy: „Ovena. Lžička, co se směje."

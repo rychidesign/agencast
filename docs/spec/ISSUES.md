@@ -191,3 +191,14 @@ rozhoduje koordinátor nebo uživatel.
     `workflows/scenarios/`. Když agent nebo cíl `call` neexistuje, ale
     stejnojmenný soubor leží o úroveň níž v podsložce, hláška to dodá:
     „(soubor je v podsložce agents/archiv/, podsložky se nečtou)".
+38. **Ceny celé, řádek Celkem** (rozhodli koordinátor a uživatel
+    2026-09-25, framework 0.2.4). Běh na `mistralai/mistral-nemo` stál
+    4.482e-06 USD, `summary.md` i `report.html` ukázaly „0,0000 USD"
+    (4 místa) a `callback.json` 4.48e-06 (`round(…, 8)`) — z reportu nešlo
+    poznat, kolik běh stál (R2). Nově: cena volání = přesně `usage.cost`
+    od poskytovatele, součty zaokrouhlené jen na 10 míst kvůli šumu
+    floatů, pro člověka desetinně s čárkou, aspoň 4 místa, víc jen pro
+    uložené číslice, skutečná nula `0`. Tabulka kroků končí řádkem
+    **Celkem** = cena běhu (stejné číslo jako `cost_usd` v `run_finished`
+    a callbacku), u obrázků s poznámkou „z toho obrázky …"; čas prázdný.
+    Formát JSON se nemění, jen přesnost → zpětně kompatibilní.

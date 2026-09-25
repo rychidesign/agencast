@@ -91,6 +91,13 @@ Každý řádek je jeden JSON objekt. Společná pole:
 | `step` | cesta ke kroku (`id`, u `call` `navrh/copy`); u událostí běhu chybí | `"copy"` |
 
 Časy trvání jsou v sekundách (`duration_s`), ceny v USD (`cost_usd`).
+Cena volání je přesně hodnota, kterou vrátil poskytovatel (`usage.cost`),
+bez zaokrouhlení. Součty (krok, běh, obrázky, `budget_exceeded_usd`) se
+zaokrouhlují jen na 10 desetinných míst kvůli šumu floatů
+(0.30000000000000004 → 0.3). V `summary.md`, `report.html` a výpisech
+`maw` je cena desetinně s čárkou (nikdy exponent), aspoň na 4 místa, víc
+jen když je potřeba ukázat všechny číslice (`0,000004482`); skutečná nula
+je `0` (od frameworku 0.2.4, ISSUES 38).
 
 ### Normalizované `usage` (§5.5)
 
@@ -278,7 +285,7 @@ Pro člověka, česky, vždy stejná stavba (**návrh**):
 # ig-post — úspěch
 
 Návrh IG příspěvku ke schválení
-Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,0693 USD (z toho obrázky 0,0672 USD)
+Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,06934 USD (z toho obrázky 0,0672 USD)
 
 ## Vstupy
 - tema: nová káva
@@ -287,13 +294,14 @@ Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,0
 | # | Krok | Typ | Stav | Čas | Cena | Poznámka |
 |---|---|---|---|---|---|---|
 | 1 | copy | ask | ✓ | 3,7 s | 0,0015 | chytry → anthropic/claude-haiku-4.5 |
-| 2 | kontrola | jev | ✓ | 0,3 s | 0,0000 | on_brand = 0,91 |
+| 2 | kontrola | jev | ✓ | 0,3 s | 0,00002 | on_brand = 0,91 |
 | 3 | stop | fail | přeskočeno | | | when: steps.kontrola.on_brand < 0.7 → false |
 | 4 | foto_prompt | ask | ✓ | 1,8 s | 0,0006 | rychly → google/gemini-3.5-flash-lite |
-| 5 | kontrola_obrazku | jev | ✓ | 0,3 s | 0,0000 | skutecna_osoba = 0,02, cizi_znacka = 0,01 |
+| 5 | kontrola_obrazku | jev | ✓ | 0,3 s | 0,00002 | skutecna_osoba = 0,02, cizi_znacka = 0,01 |
 | 6 | stop_obrazek | fail | přeskočeno | | | when: … → false |
 | 7 | foto | image | ✓ | 10,6 s | 0,0672 | image.png, 1408×768 |
-| 8 | out | output | ✓ | | | |
+| 8 | out | output | ✓ | 0,0 s | 0 | |
+| | Celkem | | | | 0,06934 | z toho obrázky 0,0672 |
 
 ## Varování
 žádná
@@ -303,6 +311,13 @@ Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,0
 - hashtags: #kava, #thtd
 - image: https://files.example.com/20260925-140311-ig-post-a1b2-3f9c1e7a0b5d4c2e8a6f1d9b7c3e5a0f/image.png
 ```
+
+Poslední řádek tabulky **Celkem** má cenu běhu (`cost_usd`
+v `run_finished` a `callback.json`) a u běhu s obrázky poznámku „z toho
+obrázky …"; čas je prázdný (kroky v `parallel` se překrývají, čas běhu je
+v hlavičce). Cena `parallel`, `switch` a `call` už obsahuje ceny kroků
+uvnitř, proto Celkem není prostý součet sloupce. Řádek Celkem má i
+neúspěšný běh (dosavadní cena). Od frameworku 0.2.4.
 
 Při chybě je nadpis `— chyba`, hned pod ním blok **Chyba** s třídou,
 krokem a přesnou hláškou, a v tabulce kroků je vidět, kde běh skončil.

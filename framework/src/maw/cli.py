@@ -17,7 +17,7 @@ from . import ConfigErrors, __version__
 from .loader import LoadError, load_dotenv, read_frontmatter, read_yaml, version_error
 from .engine import dry_run, run_scenario
 from .fake import Fake
-from .record import count, cz, run_status
+from .record import count, cz, cz_usd, run_status
 from .validate import load_config, resolve_inputs, validate
 
 
@@ -99,7 +99,7 @@ def cmd_run(a) -> int:
     except (ConfigErrors, LoadError) as e:
         return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
     ok = run.status == "succeeded"
-    print(f"běh {run.run_id}: {'úspěch' if ok else 'chyba'} · {cz(run.duration, 1)} s · {cz(run.cost, 4)} USD")
+    print(f"běh {run.run_id}: {'úspěch' if ok else 'chyba'} · {cz(run.duration, 1)} s · {cz_usd(run.cost)} USD")
     if run.error:
         print(run.rec.mask(f"{run.error['class']} v kroku {run.error['step']}: {run.error['message']}"), file=sys.stderr)
     if run.callback_failed:
@@ -134,7 +134,7 @@ def cmd_runs(a) -> int:
             print(f"{run_id:45} ve frontě (maw serve)")
         for d in dirs:
             s = run_status(d)
-            cost = "" if s["cost_usd"] is None else f"{cz(s['cost_usd'], 4)} USD"
+            cost = "" if s["cost_usd"] is None else f"{cz_usd(s['cost_usd'])} USD"
             dur = "" if s["duration_s"] is None else f"{cz(s['duration_s'], 1)} s"
             print(f"{s['run_id']:45} {s['status']:30} {dur:>8} {cost:>12} {s['callback']}")
         if not dirs and not queued:

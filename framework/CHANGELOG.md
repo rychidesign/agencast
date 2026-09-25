@@ -3,6 +3,22 @@
 Semver podle DESIGN §5.9 bod 5: oprava = patch, přidání = minor, nová
 verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
+## 0.2.4 — 2026-09-25 (celá cena, řádek Celkem)
+
+Formát: spec v1, jen zpřesnění (ISSUES 38):
+
+- **Cena bez zaokrouhlení:** cena volání jde do `events.jsonl`,
+  `calls/*.json`, `step_finished`, `run_finished` i `callback.json`
+  přesně tak, jak ji vrátil OpenRouter. Součty (krok, běh, obrázky,
+  `budget_exceeded_usd`) se zaokrouhlují na 10 desetinných míst (dřív 8,
+  takže callback ukázal 4.48e-06 místo 4.482e-06).
+- **Zobrazení:** `summary.md`, `report.html`, závěrečný řádek `maw run`,
+  `maw runs list/show` a hlášky rozpočtu ukazují cenu desetinně
+  (`0,000004482`, dřív `0,0000`), aspoň na 4 místa; krok bez volání
+  modelu má cenu `0`. Hlášky rozpočtu mají nově desetinnou čárku.
+- **Řádek Celkem** na konci tabulky kroků v `summary.md` i `report.html`
+  (i u neúspěšného běhu): cena běhu, u obrázků „z toho obrázky …".
+
 ## 0.2.3 — 2026-09-25 (podsložky se ignorují)
 
 Formát: spec v1, jen zpětně kompatibilní uvolnění (ISSUES 37):

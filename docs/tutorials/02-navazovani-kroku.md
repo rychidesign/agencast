@@ -191,8 +191,9 @@ Běh `20260925-151207-tutorial-02-nazev-a-slogan-6952` · 25. 9. 2026 15:12:07 U
 |---|---|---|---|---|---|---|
 | 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
 | 2 | slogan | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 3 | souhrn | set | ✓ | 0,0 s | 0,0000 |  |
-| 4 | out | output | ✓ | 0,0 s | 0,0000 |  |
+| 3 | souhrn | set | ✓ | 0,0 s | 0 |  |
+| 4 | out | output | ✓ | 0,0 s | 0 |  |
+| | Celkem | | | | 0,0002 |  |
 
 ## Varování
 žádná
@@ -262,8 +263,9 @@ Z `summary.md`:
 ```
 | 1 | navrh | ask | ✓ | 2,0 s | 0,0004 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
 | 2 | slogan | ask | ✓ | 2,2 s | 0,0004 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 3 | souhrn | set | ✓ | 0,0 s | 0,0000 |  |
-| 4 | out | output | ✓ | 0,0 s | 0,0000 |  |
+| 3 | souhrn | set | ✓ | 0,0 s | 0 |  |
+| 4 | out | output | ✓ | 0,0 s | 0 |  |
+| | Celkem | | | | 0,0008 |  |
 
 ## Varování
 žádná
@@ -451,7 +453,8 @@ končí. V `summary.md`:
 Běh skončil v kroku slogan.
 …
 | 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | slogan | ask | chyba | 0,0 s | 0,0000 | viz Chyba |
+| 2 | slogan | ask | chyba | 0,0 s | 0 | viz Chyba |
+| | Celkem | | | | 0,0001 |  |
 ```
 
 Rozdíl, který stojí za zapamatování:

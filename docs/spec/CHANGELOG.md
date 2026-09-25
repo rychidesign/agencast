@@ -105,3 +105,11 @@ každého nálezu je na konci REVIEW.md.
   `workflows/agents/` a `workflows/scenarios/` už nejsou chyba `config`,
   ale tiše se ignorují (hodí se třeba na archiv). Čtou se dál jen soubory
   přímo ve složce. Co dřív prošlo, projde dál (ISSUES 37, REVIEW M9).
+
+## version 1 — zpětně kompatibilní zpřesnění (framework 0.2.4)
+
+- [run-record.md](run-record.md): ceny volání se ukládají přesně tak, jak
+  je vrátil poskytovatel, součty se zaokrouhlují jen na 10 desetinných
+  míst (dřív 8). Tvar polí se nemění, jen přesnost. `summary.md` a
+  `report.html` ukazují celou cenu (`0,000004482` místo `0,0000`) a na
+  konci tabulky kroků řádek **Celkem** (ISSUES 38).

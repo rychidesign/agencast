@@ -1,10 +1,13 @@
 """report.html (run-record.md): jeden soubor bez externích zdrojů, kroky, prompty
-a odpovědi v <details>, chyba; nikdy base64 ani tajné hodnoty."""
+a odpovědi v <details>, chyba; nikdy base64 ani tajné hodnoty. Ceny v summary.md
+a report.html: celé, řádek Celkem."""
+import json
 from pathlib import Path
 
 from conftest import events, run
 
 from maw.loader import read_yaml
+from maw.record import cz_usd
 
 GOLDEN = read_yaml(Path(__file__).parent / "golden" / "ig-post.yaml")
 SECRET = "tajna-hodnota-callbacku-789"
@@ -42,3 +45,45 @@ def test_report_long_prompt_is_cut(wf):
     html = (r.rec.dir / "report.html").read_text()
     assert "zkráceno" in html and long not in html
     assert long in (r.rec.dir / "steps/01-copy/prompt.md").read_text()  # celý zůstává v záznamu
+
+
+# --- ceny: celé, řádek Celkem (0.2.4) -----------------------------------------------------
+
+def test_cz_usd():
+    assert [cz_usd(x) for x in (0, 0.0015, 4.482e-06, 0.0693, 1, 0.1 + 0.2)] == \
+        ["0", "0,0015", "0,000004482", "0,0693", "1,0000", "0,3000"]
+
+
+def total(r):
+    fin = events(r, "run_finished")[0]
+    cb = json.loads((r.rec.dir / "callback.json").read_text())
+    assert fin["usage"]["cost_usd"] == cb["cost_usd"]
+    return fin["usage"]["cost_usd"]
+
+
+def test_call_cost_exact_and_total_row(wf):
+    r, _ = run(wf / "scenarios" / "ig-post.yaml", {"tema": "káva"}, {**GOLDEN, "copy": {**GOLDEN["copy"][0], "cost": 4.482e-06}})
+    assert r.status == "succeeded", r.error
+    call = events(r, "model_call")[0]
+    assert call["step"] == "copy" and call["usage"]["cost_usd"] == 4.482e-06  # beze změny od poskytovatele
+    assert json.loads((r.rec.dir / call["response_file"]).read_text())["usage"]["cost"] == 4.482e-06
+    assert [e["cost_usd"] for e in events(r, "step_finished") if e["step"] == "copy"] == [4.482e-06]
+    cost = total(r)
+    assert cost == round(4.482e-06 + 3 * 0.0001 + 0.04, 10)
+    md = (r.rec.dir / "summary.md").read_text()
+    assert f"· {cz_usd(cost)} USD (z toho obrázky 0,0400 USD)" in md
+    assert "| 1 | copy | ask | ✓ |" in md and "| 0,000004482 | chytry" in md
+    assert "| 8 | out | output | ✓ | 0,0 s | 0 |  |" in md  # krok bez volání modelu
+    assert f"| | Celkem | | | | {cz_usd(cost)} | z toho obrázky 0,0400 |\n\n## Varování" in md
+    html = (r.rec.dir / "report.html").read_text()
+    assert f"<td>Celkem</td><td></td><td></td><td></td><td>{cz_usd(cost)}</td><td>z toho obrázky 0,0400</td>" in html
+    assert "0,000004482 USD" in html  # hlavička volání v detailu kroku
+
+
+def test_total_row_on_failed_run(wf):
+    r, _ = run(wf / "scenarios" / "ig-post.yaml", {"tema": "káva"}, {"kontrola": {"answers": {"on_brand": 0.2}}})
+    assert r.status == "failed"
+    cost = total(r)
+    assert cost == 0.0002
+    assert "| | Celkem | | | | 0,0002 |  |" in (r.rec.dir / "summary.md").read_text()
+    assert "<td>Celkem</td><td></td><td></td><td></td><td>0,0002</td><td></td>" in (r.rec.dir / "report.html").read_text()

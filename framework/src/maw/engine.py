@@ -30,7 +30,7 @@ from .loader import nested_lists
 from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
-from .record import Record, count, cz, now_iso, plan_md, report_html, scrub, summary_md
+from .record import SUM_DIGITS, Record, count, cz, cz_usd, now_iso, plan_md, report_html, scrub, summary_md
 from .task import dedupe_skip, run_task  # 3a
 from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
 
@@ -166,11 +166,11 @@ class Run:
         self.publish_report()  # 3b: před run_finished, aby varování o nahrání bylo i v něm
         self.rec.event("run_finished", status=self.status, error=self.error, warnings=self.warnings,
                        duration_s=self.duration, usage={"input_tokens": None, "output_tokens": None,
-                                                        "cost_usd": round(self.cost, 8)} | self.tokens(),
-                       image_cost_usd=round(self.image_cost, 8), image_duration_s=round(self.image_duration, 3))
+                                                        "cost_usd": round(self.cost, SUM_DIGITS)} | self.tokens(),
+                       image_cost_usd=round(self.image_cost, SUM_DIGITS), image_duration_s=round(self.image_duration, 3))
         body = {"run_id": self.run_id, "scenario": sc["name"], "request_key": self.request_key,
                 "status": self.status, "outputs": self.outputs if self.status == "succeeded" else None,
-                "error": self.error, "warnings": self.warnings, "cost_usd": round(self.cost, 8),
+                "error": self.error, "warnings": self.warnings, "cost_usd": round(self.cost, SUM_DIGITS),
                 "duration_s": self.duration, "report_url": self.report_url, "sent_at": now_iso()}
         data = self.rec.mask(json.dumps(body, ensure_ascii=False)).encode()
         self.rec.write("callback.json", json.loads(data))
@@ -252,7 +252,7 @@ class Run:
 
     def finish(self, info: StepInfo, status: str, t0: float, continued=False, output_file=None):
         dur = round(time.monotonic() - t0, 3)
-        cost = round(self.step_cost.get(info.id, 0.0), 8)
+        cost = round(self.step_cost.get(info.id, 0.0), SUM_DIGITS)
         self.rec.event("step_finished", step=info.id, kind=info.kind, status=status, continued=continued,
                        duration_s=dur, cost_usd=cost, **({"output_file": output_file} if output_file else {}))
         row = self.rows[info.id]
@@ -322,7 +322,7 @@ class Run:
             attempt += 1
             for s in scopes:
                 if s.limit is not None and s.spent >= s.limit:
-                    raise MawError("budget", f"rozpočet {s.label} vyčerpán ({s.spent:.4f} z {s.limit} USD)",
+                    raise MawError("budget", f"rozpočet {s.label} vyčerpán ({cz_usd(s.spent)} z {s.limit} USD)",
                                    fatal=s.owner != sid)
             body, fields = build(attempt, last)
             n = self.calls[sid] = self.calls.get(sid, 0) + 1
@@ -375,8 +375,8 @@ class Run:
             s.spent += cost
             if s.limit is not None and s.spent > s.limit:
                 over = max(over, s.spent - s.limit)
-                self.warnings.append(f"rozpočet {s.label} překročen o {s.spent - s.limit:.4f} USD (krok {info.id})")
-        return round(over, 8) or None
+                self.warnings.append(f"rozpočet {s.label} překročen o {cz_usd(s.spent - s.limit)} USD (krok {info.id})")
+        return round(over, SUM_DIGITS) or None
 
     # --- typy kroků -----------------------------------------------------------------
     async def step_ask(self, info: StepInfo, ctx: Ctx):

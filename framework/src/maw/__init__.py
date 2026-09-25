@@ -5,7 +5,7 @@ Vrstvy: loader (čtení souborů), validate (statické kontroly), expressions
 record (záznam běhu, report.html), mcp_client (MCP servery), task (krok task,
 dedupe_key), server (webhook), cli.
 """
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 # Verze formátů, které framework umí číst (DESIGN §5.9 bod 6).
 FORMAT_VERSIONS = (1,)

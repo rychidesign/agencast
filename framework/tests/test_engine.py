@@ -291,7 +291,7 @@ steps:
     r, fake = run(p, script={"a": {"text": "ok", "cost": 0.0003}})
     assert len(fake.calls) == 1                         # druhé volání se nespustilo
     assert err(r)[0] == "budget" and r.error["step"] == "b" and "běhu (run_budget_usd) vyčerpán" in err(r)[1]
-    assert any("překročen o 0.0002 USD" in w for w in r.warnings)  # volání, které překročí, se dokončí
+    assert any("překročen o 0,0002 USD" in w for w in r.warnings)  # volání, které překročí, se dokončí
     assert events(r, "model_call")[0]["budget_exceeded_usd"] == 0.0002
 
 

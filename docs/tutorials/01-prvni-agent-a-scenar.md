@@ -407,7 +407,8 @@ Běh `20260925-151000-tutorial-01-nazvy-8d6a` · 25. 9. 2026 15:10:00 UTC · 1,6
 | # | Krok | Typ | Stav | Čas | Cena | Poznámka |
 |---|---|---|---|---|---|---|
 | 1 | navrh | ask | ✓ | 1,6 s | 0,0002 | chytry → anthropic/claude-haiku-4.5 |
-| 2 | out | output | ✓ | 0,0 s | 0,0000 |  |
+| 2 | out | output | ✓ | 0,0 s | 0 |  |
+| | Celkem | | | | 0,0002 |  |
 
 ## Varování
 žádná

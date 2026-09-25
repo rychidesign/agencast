@@ -13,6 +13,7 @@ from .loader import nested_lists
 from .validate import DEFAULT_TIMEOUT, Project, effective_tools
 
 MIN_SECRET_LEN = 8  # kratší hodnoty se nemaskují (run-record.md)
+SUM_DIGITS = 10  # součty cen se zaokrouhlují jen kvůli šumu floatů (0.30000000000000004 → 0.3)
 
 
 def now_iso() -> str:
@@ -75,6 +76,15 @@ class Record:
 
 def cz(x: float, digits: int) -> str:
     return f"{x:.{digits}f}".replace(".", ",")
+
+
+def cz_usd(x: float) -> str:
+    """Cena pro člověka: desetinně (nikdy exponent), aspoň 4 místa, víc jen kvůli uloženým
+    číslicím (max 10), desetinná čárka; skutečná nula → `0`."""
+    if not x:
+        return "0"
+    whole, frac = f"{x:.{SUM_DIGITS}f}".split(".")
+    return f"{whole},{frac.rstrip('0').ljust(4, '0')}"
 
 
 def count(n: int, one: str, few: str, many: str) -> str:
@@ -186,9 +196,9 @@ def summary_md(p: Project, run) -> str:
     ok = run.status == "succeeded"
     started = datetime.fromisoformat(run.started_at.replace("Z", "+00:00"))
     head = (f"Běh `{run.run_id}` · {started.day}. {started.month}. {started.year} {started:%H:%M:%S} UTC · "
-            f"{cz(run.duration, 1)} s · {cz(run.cost, 4)} USD")
+            f"{cz(run.duration, 1)} s · {cz_usd(run.cost)} USD")
     if run.image_cost:
-        head += f" (z toho obrázky {cz(run.image_cost, 4)} USD)"
+        head += f" (z toho obrázky {cz_usd(run.image_cost)} USD)"
     lines = [f"# {sc['name']} — {'úspěch' if ok else 'chyba'}", "", sc["description"], head, ""]
     if run.fake:
         lines += ["**Falešný běh** (`--fake`) — odpovědi modelů jsou vymyšlené, dedupe v `_dedupe-fake/`.", ""]
@@ -206,9 +216,10 @@ def summary_md(p: Project, run) -> str:
     lines += ["", "## Kroky", "| # | Krok | Typ | Stav | Čas | Cena | Poznámka |", "|---|---|---|---|---|---|---|"]
     for r in sorted(run.rows.values(), key=lambda r: r["nn"]):
         t = f"{cz(r['duration'], 1)} s" if r.get("duration") is not None else ""
-        c = cz(r["cost"], 4) if r.get("duration") is not None else ""
+        c = cz_usd(r["cost"]) if r.get("duration") is not None else ""
         note = str(r.get("note") or "").replace("|", "\\|").replace("\n", " ")
         lines.append(f"| {r['nn']} | {r['id']} | {r['kind']} | {STATUS_CS[r['status']]} | {t} | {c} | {note} |")
+    lines.append(f"| | Celkem | | | | {cz_usd(run.cost)} | {total_note(run)} |")
     lines += ["", "## Varování"] + ([f"- {w}" for w in run.warnings] or ["žádná"])
     lines += ["", "## Výstup"]
     if ok and run.outputs is not None:
@@ -216,6 +227,12 @@ def summary_md(p: Project, run) -> str:
     else:
         lines.append("žádný")
     return "\n".join(lines)
+
+
+def total_note(run) -> str:
+    """Poznámka řádku Celkem. Cena Celkem = cena běhu (run_finished); vnořené kroky jsou už
+    v ceně nadřazeného parallel/switch/call, proto se sloupec nesčítá."""
+    return f"z toho obrázky {cz_usd(run.image_cost)}" if run.image_cost else ""
 
 
 def run_status(run_dir: Path) -> dict:
@@ -303,7 +320,7 @@ def report_html(run) -> str:
         return str(info.nn) if info and "/" not in path else ""
 
     started = datetime.fromisoformat(run.started_at.replace("Z", "+00:00"))
-    cost = f"{cz(run.cost, 4)} USD" + (f" (z toho obrázky {cz(run.image_cost, 4)} USD)" if run.image_cost else "")
+    cost = f"{cz_usd(run.cost)} USD" + (f" (z toho obrázky {cz_usd(run.image_cost)} USD)" if run.image_cost else "")
     out = [f"<!doctype html><html lang=\"cs\"><head><meta charset=\"utf-8\"><title>{e(sc['name'])} — "
            f"{'úspěch' if ok else 'chyba'}</title><style>{CSS}</style></head><body>",
            f"<h1>{e(sc['name'])} — <span class=\"{'ok' if ok else 'err'}\">{'úspěch' if ok else 'chyba'}</span></h1>",
@@ -328,8 +345,9 @@ def report_html(run) -> str:
         out.append(f"<tr><td>{nn(path, s)}</td><td>{e(path)}</td><td>{e(s['kind'] or '')}</td>"
                    f"<td class=\"{cls}\">{e(STATUS_CS.get(s['status'], s['status']))}</td>"
                    f"<td>{'' if s['duration'] is None else cz(s['duration'], 1) + ' s'}</td>"
-                   f"<td>{'' if s['cost'] is None else cz(s['cost'], 4)}</td><td>{e(note)}</td></tr>")
-    out.append("</table>")
+                   f"<td>{'' if s['cost'] is None else cz_usd(s['cost'])}</td><td>{e(note)}</td></tr>")
+    out.append(f"<tr><td></td><td>Celkem</td><td></td><td></td><td></td><td>{cz_usd(run.cost)}</td>"
+               f"<td>{e(total_note(run))}</td></tr></table>")
     out.append("<h2>Výstup</h2>")
     if ok and run.outputs is not None:
         out.append("<ul>" + "".join(
@@ -351,7 +369,7 @@ def report_html(run) -> str:
             head = (f"Volání {c['attempt']}" + (f" · {c['alias']} → {c['model']}" if "alias" in c else f" · {c['model']}")
                     + (f" · {c['finish_reason']}" if c.get("finish_reason") else "")
                     + f" · {usage.get('input_tokens')}+{usage.get('output_tokens')} tokenů"
-                    + ("" if usage.get("cost_usd") is None else f" · {cz(usage['cost_usd'], 4)} USD")
+                    + ("" if usage.get("cost_usd") is None else f" · {cz_usd(usage['cost_usd'])} USD")
                     + f" · {cz(c['duration_s'], 1)} s")
             out.append(_pre(head, _answer(d / c["response_file"])))
         if f and (f / "output.json").is_file():

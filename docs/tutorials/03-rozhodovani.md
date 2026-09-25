@@ -214,8 +214,9 @@ v `summary.md`:
 | 5 | slogan_hravy | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
 | 6 | slogan_vazny | ask | přeskočeno |  |  | switch: podle_tonu = "hravy" |
 | 7 | neznamy_ton | fail | přeskočeno |  |  | switch: podle_tonu = "hravy" |
-| 8 | vysledek | set | ✓ | 0,0 s | 0,0000 |  |
-| 9 | out | output | ✓ | 0,0 s | 0,0000 |  |
+| 8 | vysledek | set | ✓ | 0,0 s | 0 |  |
+| 9 | out | output | ✓ | 0,0 s | 0 |  |
+| | Celkem | | | | 0,0003 |  |
 
 ## Varování
 žádná
@@ -300,14 +301,15 @@ záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151536-t
 
 ```
 | 1 | navrh | ask | ✓ | 3,6 s | 0,0003 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | kontrola | jev | ✓ | 0,5 s | 0,0000 | zapamatovatelny = 0,85, ton = hravy, originalita = 0,64 |
+| 2 | kontrola | jev | ✓ | 0,5 s | 0,00002 | zapamatovatelny = 0,85, ton = hravy, originalita = 0,64 |
 | 3 | stop | fail | přeskočeno |  |  | when: steps.kontrola.zapamatovatelny < 0.5 → false |
 | 4 | podle_tonu | switch | ✓ | 1,8 s | 0,0004 | větev hravy |
 | 5 | slogan_hravy | ask | ✓ | 1,8 s | 0,0004 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
 | 6 | slogan_vazny | ask | přeskočeno |  |  | switch: podle_tonu = "hravy" |
 | 7 | neznamy_ton | fail | přeskočeno |  |  | switch: podle_tonu = "hravy" |
-| 8 | vysledek | set | ✓ | 0,0 s | 0,0000 |  |
-| 9 | out | output | ✓ | 0,0 s | 0,0000 |  |
+| 8 | vysledek | set | ✓ | 0,0 s | 0 |  |
+| 9 | out | output | ✓ | 0,0 s | 0 |  |
+| | Celkem | | | | 0,0007 |  |
 …
 ## Výstup
 - nazev: „Ověnka"
@@ -316,7 +318,7 @@ záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151536-t
 - zapamatovatelnost: 85
 ```
 
-Jev stál 0,00002 USD (v tabulce se zaokrouhlí na 0,0000). Co vrátil
+Jev stál 0,00002 USD (v tabulce je celá cena). Co vrátil
 doopravdy:
 
 ```bash
@@ -420,7 +422,7 @@ cat runs/20260925-151532-tutorial-03-vyrazy-6194/steps/01-ukazky/output.json
 ```
 
 ```
-běh 20260925-151532-tutorial-03-vyrazy-6194: úspěch · 0,0 s · 0,0000 USD
+běh 20260925-151532-tutorial-03-vyrazy-6194: úspěch · 0,0 s · 0 USD
 záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151532-tutorial-03-vyrazy-6194/summary.md
 {
   "round_2_5": 3,
@@ -466,7 +468,7 @@ maw run workflows/scenarios/tutorial-03-vyrazy.yaml --fake -i delitel=0
 expression v kroku ukazky: set.deleni_vstupem: dělení nulou
   10 / inputs.delitel
        ^
-běh 20260925-151526-tutorial-03-vyrazy-9181: chyba · 0,0 s · 0,0000 USD
+běh 20260925-151526-tutorial-03-vyrazy-9181: chyba · 0,0 s · 0 USD
 záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151526-tutorial-03-vyrazy-9181/summary.md
 ```
 
@@ -677,7 +679,8 @@ běh 20260925-151553-tutorial-03-cviceni-c3c6: chyba · 0,0 s · 0,0002 USD
 | 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
 | 2 | kontrola | jev | ✓ | 0,0 s | 0,0001 | zapamatovatelny = 0,95, ton = hravy, originalita = 0,20 |
 | 3 | stop | fail | přeskočeno |  |  | when: steps.kontrola.zapamatovatelny < 0.5 → false |
-| 4 | stop_originalita | fail | chyba | 0,0 s | 0,0000 | viz Chyba |
+| 4 | stop_originalita | fail | chyba | 0,0 s | 0 | viz Chyba |
+| | Celkem | | | | 0,0002 |  |
 ```
 
 Krok musí být **za** `kontrola` (čte její výstup) a **před** `podle_tonu`
