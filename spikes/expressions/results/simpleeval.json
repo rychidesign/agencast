@@ -1,0 +1,556 @@
+[
+ {
+  "cand": "simpleeval",
+  "id": "V01",
+  "expr": "steps.kontrola.on_brand < 0.7 and inputs.jazyk == \"cs\"",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.124,
+  "us_median": 41.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V02",
+  "expr": "not (steps.kontrola.on_brand >= 0.7)",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.068,
+  "us_median": 15.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V03",
+  "expr": "steps.kontrola.on_brand < 0.7 or inputs.limit > 10",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.069,
+  "us_median": 18.2,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V04",
+  "expr": "inputs.limit * 2 + 1",
+  "result": 7,
+  "result_type": "int",
+  "ms": 0.055,
+  "us_median": 11.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V05",
+  "expr": "item.cena / 4",
+  "result": 147.5,
+  "result_type": "float",
+  "ms": 0.049,
+  "us_median": 10.2,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V06",
+  "expr": "item.cena // 100 % 3",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.06,
+  "us_median": 12.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V07",
+  "expr": "steps.copy.hashtags[0]",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'hashtags' does not exist in expression 'steps.copy.hashtags[0]'",
+  "ms": 0.095,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V08",
+  "expr": "steps.copy.hashtags[-1]",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'hashtags' does not exist in expression 'steps.copy.hashtags[-1]'",
+  "ms": 0.068,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V09",
+  "expr": "steps[\"kontrola\"][\"on_brand\"]",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.052,
+  "us_median": 12.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V10",
+  "expr": "len(steps.copy.hashtags)",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'hashtags' does not exist in expression 'len(steps.copy.hashtags)'",
+  "ms": 0.066,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V11",
+  "expr": "min(steps.kontrola.skore)",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.07,
+  "us_median": 15.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V12",
+  "expr": "max(1, inputs.limit)",
+  "result": 3,
+  "result_type": "int",
+  "ms": 0.061,
+  "us_median": 12.8,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V13",
+  "expr": "round(steps.kontrola.on_brand * 100)",
+  "result": 40,
+  "result_type": "int",
+  "ms": 0.077,
+  "us_median": 17.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V14",
+  "expr": "str(item.cena) + \" Kč\"",
+  "result": "590 Kč",
+  "result_type": "str",
+  "ms": 0.104,
+  "us_median": 28.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V15",
+  "expr": "int(\"42\") + float(\"0.5\")",
+  "result": 42.5,
+  "result_type": "float",
+  "ms": 0.061,
+  "us_median": 14.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V16",
+  "expr": "join(steps.copy.hashtags, \" \")",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'hashtags' does not exist in expression 'join(steps.copy.hashtags, \" \")'",
+  "ms": 0.076,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V17",
+  "expr": "steps.copy.caption == \"Léto je tady\"",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'caption' does not exist in expression 'steps.copy.caption == \"Léto je tady\"'",
+  "ms": 0.072,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V18",
+  "expr": "inputs.poznamka == None",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.089,
+  "us_median": 24.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V19",
+  "expr": "inputs.poznamka is None",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.091,
+  "us_median": 23.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V20",
+  "expr": "\"#thtd\" in steps.copy.hashtags",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'hashtags' does not exist in expression '\"#thtd\" in steps.copy.hashtags'",
+  "ms": 0.066,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V21",
+  "expr": "inputs.jazyk in [\"cs\", \"sk\"]",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, List is not available in this evaluator",
+  "ms": 0.065,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V22",
+  "expr": "steps.copy.caption != \"\" and len(steps.copy.caption) <= 280",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'caption' does not exist in expression 'steps.copy.caption != \"\" and len(steps.copy.caption) <= 280'",
+  "ms": 0.082,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V23",
+  "expr": "-item.cena + 600",
+  "result": 10,
+  "result_type": "int",
+  "ms": 0.052,
+  "us_median": 10.2,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "V24",
+  "expr": "round(2.5)",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.044,
+  "us_median": 9.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E01",
+  "expr": "steps.neexistuje.x",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'neexistuje' does not exist in expression 'steps.neexistuje.x'",
+  "ms": 0.087,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E02",
+  "expr": "steps.kontrola.chybi > 1",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'chybi' does not exist in expression 'steps.kontrola.chybi > 1'",
+  "ms": 0.066,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E03",
+  "expr": "steps.copy.hashtags[10]",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'hashtags' does not exist in expression 'steps.copy.hashtags[10]'",
+  "ms": 0.092,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E04",
+  "expr": "steps.kontrola.on_brand < \"0.7\"",
+  "error_type": "builtins.TypeError",
+  "error": "'<' not supported between instances of 'float' and 'str'",
+  "ms": 0.065,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E05",
+  "expr": "inputs.limit == \"3\"",
+  "result": false,
+  "result_type": "bool",
+  "ms": 0.075,
+  "grade": "silent"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E06",
+  "expr": "True + 1",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.038,
+  "grade": "silent"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E07",
+  "expr": "item.cena / 0",
+  "error_type": "builtins.ZeroDivisionError",
+  "error": "division by zero",
+  "ms": 0.055,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E08",
+  "expr": "steps.kontrola.on_brand <",
+  "error_type": "builtins.SyntaxError",
+  "error": "invalid syntax (<unknown>, line 1)",
+  "ms": 0.048,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E09",
+  "expr": "inputs.jazyk = \"cs\"",
+  "result": "cs",
+  "result_type": "str",
+  "ms": 0.217,
+  "grade": "silent"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E10",
+  "expr": "int(\"abc\")",
+  "error_type": "builtins.ValueError",
+  "error": "invalid literal for int() with base 10: 'abc'",
+  "ms": 0.046,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E11",
+  "expr": "len(item.cena)",
+  "error_type": "builtins.TypeError",
+  "error": "object of type 'int' has no len()",
+  "ms": 0.055,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E12",
+  "expr": "neznama_promenna",
+  "error_type": "simpleeval.NameNotDefined",
+  "error": "'neznama_promenna' is not defined for expression 'neznama_promenna'",
+  "ms": 0.058,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E13",
+  "expr": "inputs.poznamka + 1",
+  "error_type": "builtins.TypeError",
+  "error": "unsupported operand type(s) for +: 'NoneType' and 'int'",
+  "ms": 0.079,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "E14",
+  "expr": "steps.copy.hashtags and inputs.jazyk == \"cs\"",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'hashtags' does not exist in expression 'steps.copy.hashtags and inputs.jazyk == \"cs\"'",
+  "ms": 0.067,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H01",
+  "expr": "__import__('os').getcwd()",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function '__import__' not defined, for expression '__import__('os').getcwd()'.",
+  "ms": 0.054,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H02",
+  "expr": "().__class__.__bases__[0].__subclasses__()",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, access to __attributes  or func_ attributes is not available. (__subclasses__)",
+  "ms": 0.053,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H03",
+  "expr": "open('/etc/passwd').read()",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'open' not defined, for expression 'open('/etc/passwd').read()'.",
+  "ms": 0.051,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H04",
+  "expr": "getattr(inputs, 'jazyk')",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'getattr' not defined, for expression 'getattr(inputs, 'jazyk')'.",
+  "ms": 0.049,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H05",
+  "expr": "(lambda: 1)()",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Lambda Functions not implemented",
+  "ms": 0.046,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H06",
+  "expr": "[x for x in steps.copy.hashtags]",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, ListComp is not available in this evaluator",
+  "ms": 0.046,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H07",
+  "expr": "item.__class__.__init__.__globals__",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, access to __attributes  or func_ attributes is not available. (__globals__)",
+  "ms": 0.039,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H08",
+  "expr": "\"{0.__class__}\".format(1)",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, this method is not available. (format)",
+  "ms": 0.066,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H09",
+  "expr": "steps.copy.caption.upper()",
+  "error_type": "simpleeval.AttributeDoesNotExist",
+  "error": "Attribute 'caption' does not exist in expression 'steps.copy.caption.upper()'",
+  "ms": 0.061,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H10",
+  "expr": "inputs.keys()",
+  "result": "dict_keys(['jazyk', 'tema', 'limit', 'poznamka'])",
+  "result_type": "dict_keys",
+  "ms": 0.053,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H11",
+  "expr": "inputs.__class__",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, access to __attributes  or func_ attributes is not available. (__class__)",
+  "ms": 0.048,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H12",
+  "expr": "type(inputs)",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'type' not defined, for expression 'type(inputs)'.",
+  "ms": 0.045,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H13",
+  "expr": "print(\"x\")",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'print' not defined, for expression 'print(\"x\")'.",
+  "ms": 0.043,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H14",
+  "expr": "(x := 1)",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, NamedExpr is not available in this evaluator",
+  "ms": 0.039,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H15",
+  "expr": "rand()",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'rand' not defined, for expression 'rand()'.",
+  "ms": 0.045,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H16",
+  "expr": "\"a\" * 10**9",
+  "error_type": "simpleeval.IterableTooLong",
+  "error": "Sorry, I will not evaluate something that long.",
+  "ms": 0.046,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H17",
+  "expr": "10**10**10",
+  "error_type": "simpleeval.NumberTooHigh",
+  "error": "Sorry! I don't want to evaluate 10 ** 10000000000",
+  "ms": 0.041,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H18",
+  "expr": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+… (100001 znaků)",
+  "error_type": "builtins.RecursionError",
+  "error": "maximum recursion depth exceeded during ast construction",
+  "ms": 24.499,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H19",
+  "expr": "------------------------------------------------------------… (100001 znaků)",
+  "error_type": "builtins.MemoryError",
+  "error": "Parser stack overflowed - Python source too complex to parse",
+  "ms": 0.92,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval",
+  "id": "H20",
+  "expr": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((… (2001 znaků)",
+  "error_type": "builtins.SyntaxError",
+  "error": "too many nested parentheses (<unknown>, line 1)",
+  "ms": 0.402,
+  "grade": "ok"
+ }
+]

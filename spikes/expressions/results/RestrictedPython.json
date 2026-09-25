@@ -1,0 +1,555 @@
+[
+ {
+  "cand": "RestrictedPython",
+  "id": "V01",
+  "expr": "steps.kontrola.on_brand < 0.7 and inputs.jazyk == \"cs\"",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.193,
+  "us_median": 71.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V02",
+  "expr": "not (steps.kontrola.on_brand >= 0.7)",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.144,
+  "us_median": 51.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V03",
+  "expr": "steps.kontrola.on_brand < 0.7 or inputs.limit > 10",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.176,
+  "us_median": 69.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V04",
+  "expr": "inputs.limit * 2 + 1",
+  "result": 7,
+  "result_type": "int",
+  "ms": 0.114,
+  "us_median": 34.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V05",
+  "expr": "item.cena / 4",
+  "result": 147.5,
+  "result_type": "float",
+  "ms": 0.164,
+  "us_median": 61.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V06",
+  "expr": "item.cena // 100 % 3",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.111,
+  "us_median": 34.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V07",
+  "expr": "steps.copy.hashtags[0]",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.153,
+  "grade": "error"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V08",
+  "expr": "steps.copy.hashtags[-1]",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.27,
+  "grade": "error"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V09",
+  "expr": "steps[\"kontrola\"][\"on_brand\"]",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.122,
+  "us_median": 41.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V10",
+  "expr": "len(steps.copy.hashtags)",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.14,
+  "grade": "error"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V11",
+  "expr": "min(steps.kontrola.skore)",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.148,
+  "us_median": 48.5,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V12",
+  "expr": "max(1, inputs.limit)",
+  "result": 3,
+  "result_type": "int",
+  "ms": 0.129,
+  "us_median": 36.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V13",
+  "expr": "round(steps.kontrola.on_brand * 100)",
+  "result": 40,
+  "result_type": "int",
+  "ms": 0.142,
+  "us_median": 54.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V14",
+  "expr": "str(item.cena) + \" Kč\"",
+  "result": "590 Kč",
+  "result_type": "str",
+  "ms": 0.124,
+  "us_median": 36.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V15",
+  "expr": "int(\"42\") + float(\"0.5\")",
+  "result": 42.5,
+  "result_type": "float",
+  "ms": 0.126,
+  "us_median": 29.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V16",
+  "expr": "join(steps.copy.hashtags, \" \")",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.154,
+  "grade": "error"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V17",
+  "expr": "steps.copy.caption == \"Léto je tady\"",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'caption'",
+  "ms": 0.211,
+  "grade": "error"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V18",
+  "expr": "inputs.poznamka == None",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.112,
+  "us_median": 31.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V19",
+  "expr": "inputs.poznamka is None",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.108,
+  "us_median": 31.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V20",
+  "expr": "\"#thtd\" in steps.copy.hashtags",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.138,
+  "grade": "error"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V21",
+  "expr": "inputs.jazyk in [\"cs\", \"sk\"]",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.127,
+  "us_median": 37.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V22",
+  "expr": "steps.copy.caption != \"\" and len(steps.copy.caption) <= 280",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'caption'",
+  "ms": 0.351,
+  "grade": "error"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V23",
+  "expr": "-item.cena + 600",
+  "result": 10,
+  "result_type": "int",
+  "ms": 0.109,
+  "us_median": 33.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "V24",
+  "expr": "round(2.5)",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.091,
+  "us_median": 18.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E01",
+  "expr": "steps.neexistuje.x",
+  "error_type": "builtins.AttributeError",
+  "error": "neexistuje",
+  "ms": 0.142,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E02",
+  "expr": "steps.kontrola.chybi > 1",
+  "error_type": "builtins.AttributeError",
+  "error": "chybi",
+  "ms": 0.201,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E03",
+  "expr": "steps.copy.hashtags[10]",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.16,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E04",
+  "expr": "steps.kontrola.on_brand < \"0.7\"",
+  "error_type": "builtins.TypeError",
+  "error": "'<' not supported between instances of 'float' and 'str'",
+  "ms": 0.153,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E05",
+  "expr": "inputs.limit == \"3\"",
+  "result": false,
+  "result_type": "bool",
+  "ms": 0.112,
+  "grade": "silent"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E06",
+  "expr": "True + 1",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.071,
+  "grade": "silent"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E07",
+  "expr": "item.cena / 0",
+  "error_type": "builtins.ZeroDivisionError",
+  "error": "division by zero",
+  "ms": 0.117,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E08",
+  "expr": "steps.kontrola.on_brand <",
+  "error_type": "builtins.SyntaxError",
+  "error": "Line 1: SyntaxError: invalid syntax at statement: 'steps.kontrola.on_brand <'",
+  "ms": 0.044,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E09",
+  "expr": "inputs.jazyk = \"cs\"",
+  "error_type": "builtins.SyntaxError",
+  "error": "Line 1: SyntaxError: invalid syntax at statement: 'inputs.jazyk = \"cs\"'",
+  "ms": 0.043,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E10",
+  "expr": "int(\"abc\")",
+  "error_type": "builtins.ValueError",
+  "error": "invalid literal for int() with base 10: 'abc'",
+  "ms": 0.122,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E11",
+  "expr": "len(item.cena)",
+  "error_type": "builtins.TypeError",
+  "error": "object of type 'int' has no len()",
+  "ms": 0.119,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E12",
+  "expr": "neznama_promenna",
+  "error_type": "builtins.NameError",
+  "error": "name 'neznama_promenna' is not defined",
+  "ms": 0.068,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E13",
+  "expr": "inputs.poznamka + 1",
+  "error_type": "builtins.TypeError",
+  "error": "unsupported operand type(s) for +: 'NoneType' and 'int'",
+  "ms": 0.187,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "E14",
+  "expr": "steps.copy.hashtags and inputs.jazyk == \"cs\"",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.17,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H01",
+  "expr": "__import__('os').getcwd()",
+  "error_type": "builtins.SyntaxError",
+  "error": "Line 1: \"__import__\" is an invalid variable name because it starts with \"_\"",
+  "ms": 0.096,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H02",
+  "expr": "().__class__.__bases__[0].__subclasses__()",
+  "error_type": "builtins.SyntaxError",
+  "error": "Line 1: \"__subclasses__\" is an invalid attribute name because it starts with \"_\".; Line 1: \"__bases__\" is an invalid attribute name because it starts with \"_\".; Line 1: \"__class__\" is an invalid attribute name because it starts with \"_\".",
+  "ms": 0.152,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H03",
+  "expr": "open('/etc/passwd').read()",
+  "error_type": "builtins.NameError",
+  "error": "name 'open' is not defined",
+  "ms": 0.129,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H04",
+  "expr": "getattr(inputs, 'jazyk')",
+  "error_type": "builtins.NameError",
+  "error": "name 'getattr' is not defined",
+  "ms": 0.101,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H05",
+  "expr": "(lambda: 1)()",
+  "result": 1,
+  "result_type": "int",
+  "ms": 0.091,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H06",
+  "expr": "[x for x in steps.copy.hashtags]",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.19,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H07",
+  "expr": "item.__class__.__init__.__globals__",
+  "error_type": "builtins.SyntaxError",
+  "error": "Line 1: \"__globals__\" is an invalid attribute name because it starts with \"_\".; Line 1: \"__init__\" is an invalid attribute name because it starts with \"_\".; Line 1: \"__class__\" is an invalid attribute name because it starts with \"_\".",
+  "ms": 0.123,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H08",
+  "expr": "\"{0.__class__}\".format(1)",
+  "error_type": "builtins.NotImplementedError",
+  "error": "Using the format*() methods of `str` is not safe",
+  "ms": 0.109,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H09",
+  "expr": "steps.copy.caption.upper()",
+  "error_type": "builtins.AttributeError",
+  "error": "'builtin_function_or_method' object has no attribute 'caption'",
+  "ms": 0.166,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H10",
+  "expr": "inputs.keys()",
+  "result": "dict_keys(['jazyk', 'tema', 'limit', 'poznamka'])",
+  "result_type": "dict_keys",
+  "ms": 0.114,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H11",
+  "expr": "inputs.__class__",
+  "error_type": "builtins.SyntaxError",
+  "error": "Line 1: \"__class__\" is an invalid attribute name because it starts with \"_\".",
+  "ms": 0.126,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H12",
+  "expr": "type(inputs)",
+  "error_type": "builtins.NameError",
+  "error": "name 'type' is not defined",
+  "ms": 0.133,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H13",
+  "expr": "print(\"x\")",
+  "error_type": "builtins.NameError",
+  "error": "name '_print' is not defined",
+  "ms": 0.098,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H14",
+  "expr": "(x := 1)",
+  "result": 1,
+  "result_type": "int",
+  "ms": 0.075,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H15",
+  "expr": "rand()",
+  "error_type": "builtins.NameError",
+  "error": "name 'rand' is not defined",
+  "ms": 0.08,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H16",
+  "expr": "\"a\" * 10**9",
+  "result": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "result_type": "str",
+  "ms": 327.32,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H17",
+  "outcome": "timeout",
+  "grade": "FAIL"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H18",
+  "expr": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+… (100001 znaků)",
+  "error_type": "builtins.RecursionError",
+  "error": "maximum recursion depth exceeded during ast construction",
+  "ms": 24.61,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H19",
+  "expr": "------------------------------------------------------------… (100001 znaků)",
+  "error_type": "builtins.MemoryError",
+  "error": "Parser stack overflowed - Python source too complex to parse",
+  "ms": 0.899,
+  "grade": "ok"
+ },
+ {
+  "cand": "RestrictedPython",
+  "id": "H20",
+  "expr": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((… (2001 znaků)",
+  "error_type": "builtins.SyntaxError",
+  "error": "Line 1: SyntaxError: too many nested parentheses at statement: '((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((",
+  "ms": 0.426,
+  "grade": "ok"
+ }
+]

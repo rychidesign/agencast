@@ -1,0 +1,570 @@
+[
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V01",
+  "expr": "steps.kontrola.on_brand < 0.7 and inputs.jazyk == \"cs\"",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.068,
+  "us_median": 17.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V02",
+  "expr": "not (steps.kontrola.on_brand >= 0.7)",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.058,
+  "us_median": 13.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V03",
+  "expr": "steps.kontrola.on_brand < 0.7 or inputs.limit > 10",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.062,
+  "us_median": 16.2,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V04",
+  "expr": "inputs.limit * 2 + 1",
+  "result": 7,
+  "result_type": "int",
+  "ms": 0.066,
+  "us_median": 21.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V05",
+  "expr": "item.cena / 4",
+  "result": 147.5,
+  "result_type": "float",
+  "ms": 0.045,
+  "us_median": 9.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V06",
+  "expr": "item.cena // 100 % 3",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.046,
+  "us_median": 10.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V07",
+  "expr": "steps.copy.hashtags[0]",
+  "result": "#leto",
+  "result_type": "str",
+  "ms": 0.051,
+  "us_median": 11.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V08",
+  "expr": "steps.copy.hashtags[-1]",
+  "result": "#drop",
+  "result_type": "str",
+  "ms": 0.051,
+  "us_median": 12.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V09",
+  "expr": "steps[\"kontrola\"][\"on_brand\"]",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.052,
+  "us_median": 12.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V10",
+  "expr": "len(steps.copy.hashtags)",
+  "result": 3,
+  "result_type": "int",
+  "ms": 0.063,
+  "us_median": 13.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V11",
+  "expr": "min(steps.kontrola.skore)",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.053,
+  "us_median": 13.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V12",
+  "expr": "max(1, inputs.limit)",
+  "result": 3,
+  "result_type": "int",
+  "ms": 0.05,
+  "us_median": 11.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V13",
+  "expr": "round(steps.kontrola.on_brand * 100)",
+  "result": 40,
+  "result_type": "int",
+  "ms": 0.094,
+  "us_median": 30.5,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V14",
+  "expr": "str(item.cena) + \" Kč\"",
+  "result": "590 Kč",
+  "result_type": "str",
+  "ms": 0.077,
+  "us_median": 25.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V15",
+  "expr": "int(\"42\") + float(\"0.5\")",
+  "result": 42.5,
+  "result_type": "float",
+  "ms": 0.06,
+  "us_median": 13.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V16",
+  "expr": "join(steps.copy.hashtags, \" \")",
+  "result": "#leto #thtd #drop",
+  "result_type": "str",
+  "ms": 0.058,
+  "us_median": 13.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V17",
+  "expr": "steps.copy.caption == \"Léto je tady\"",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.053,
+  "us_median": 13.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V18",
+  "expr": "inputs.poznamka == None",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.043,
+  "us_median": 9.5,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V19",
+  "expr": "inputs.poznamka is None",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.044,
+  "us_median": 9.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V20",
+  "expr": "\"#thtd\" in steps.copy.hashtags",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.071,
+  "us_median": 12.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V21",
+  "expr": "inputs.jazyk in [\"cs\", \"sk\"]",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, List is not available in this evaluator",
+  "ms": 0.089,
+  "grade": "error"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V22",
+  "expr": "steps.copy.caption != \"\" and len(steps.copy.caption) <= 280",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.084,
+  "us_median": 22.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V23",
+  "expr": "-item.cena + 600",
+  "result": 10,
+  "result_type": "int",
+  "ms": 0.043,
+  "us_median": 9.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "V24",
+  "expr": "round(2.5)",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.061,
+  "us_median": 19.2,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E01",
+  "expr": "steps.neexistuje.x",
+  "error_type": "builtins.KeyError",
+  "error": "\"'steps' nemá klíč 'neexistuje'\"",
+  "ms": 0.053,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E02",
+  "expr": "steps.kontrola.chybi > 1",
+  "error_type": "builtins.KeyError",
+  "error": "\"'steps.kontrola' nemá klíč 'chybi'\"",
+  "ms": 0.068,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E03",
+  "expr": "steps.copy.hashtags[10]",
+  "error_type": "builtins.IndexError",
+  "error": "list index out of range",
+  "ms": 0.059,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E04",
+  "expr": "steps.kontrola.on_brand < \"0.7\"",
+  "error_type": "builtins.TypeError",
+  "error": "'<' not supported between instances of 'float' and 'str'",
+  "ms": 0.06,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E05",
+  "expr": "inputs.limit == \"3\"",
+  "result": false,
+  "result_type": "bool",
+  "ms": 0.049,
+  "grade": "silent"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E06",
+  "expr": "True + 1",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.034,
+  "grade": "silent"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E07",
+  "expr": "item.cena / 0",
+  "error_type": "builtins.ZeroDivisionError",
+  "error": "division by zero",
+  "ms": 0.055,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E08",
+  "expr": "steps.kontrola.on_brand <",
+  "error_type": "builtins.SyntaxError",
+  "error": "invalid syntax (<unknown>, line 1)",
+  "ms": 0.045,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E09",
+  "expr": "inputs.jazyk = \"cs\"",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, Assign is not available in this evaluator",
+  "ms": 0.054,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E10",
+  "expr": "int(\"abc\")",
+  "error_type": "builtins.ValueError",
+  "error": "invalid literal for int() with base 10: 'abc'",
+  "ms": 0.051,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E11",
+  "expr": "len(item.cena)",
+  "error_type": "builtins.TypeError",
+  "error": "object of type 'int' has no len()",
+  "ms": 0.057,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E12",
+  "expr": "neznama_promenna",
+  "error_type": "simpleeval.NameNotDefined",
+  "error": "'neznama_promenna' is not defined for expression 'neznama_promenna'",
+  "ms": 0.037,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E13",
+  "expr": "inputs.poznamka + 1",
+  "error_type": "builtins.TypeError",
+  "error": "unsupported operand type(s) for +: 'NoneType' and 'int'",
+  "ms": 0.048,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "E14",
+  "expr": "steps.copy.hashtags and inputs.jazyk == \"cs\"",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.071,
+  "grade": "silent"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H01",
+  "expr": "__import__('os').getcwd()",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function '__import__' not defined, for expression '__import__('os').getcwd()'.",
+  "ms": 0.049,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H02",
+  "expr": "().__class__.__bases__[0].__subclasses__()",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, Tuple is not available in this evaluator",
+  "ms": 0.054,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H03",
+  "expr": "open('/etc/passwd').read()",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'open' not defined, for expression 'open('/etc/passwd').read()'.",
+  "ms": 0.049,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H04",
+  "expr": "getattr(inputs, 'jazyk')",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'getattr' not defined, for expression 'getattr(inputs, 'jazyk')'.",
+  "ms": 0.049,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H05",
+  "expr": "(lambda: 1)()",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Lambda Functions not implemented",
+  "ms": 0.07,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H06",
+  "expr": "[x for x in steps.copy.hashtags]",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, ListComp is not available in this evaluator",
+  "ms": 0.047,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H07",
+  "expr": "item.__class__.__init__.__globals__",
+  "error_type": "builtins.KeyError",
+  "error": "\"'item' nemá klíč '__class__'\"",
+  "ms": 0.054,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H08",
+  "expr": "\"{0.__class__}\".format(1)",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "atributy/metody nejsou povolené (.format)",
+  "ms": 0.048,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H09",
+  "expr": "steps.copy.caption.upper()",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "atributy/metody nejsou povolené (.upper)",
+  "ms": 0.054,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H10",
+  "expr": "inputs.keys()",
+  "error_type": "builtins.KeyError",
+  "error": "\"'inputs' nemá klíč 'keys'\"",
+  "ms": 0.052,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H11",
+  "expr": "inputs.__class__",
+  "error_type": "builtins.KeyError",
+  "error": "\"'inputs' nemá klíč '__class__'\"",
+  "ms": 0.049,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H12",
+  "expr": "type(inputs)",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'type' not defined, for expression 'type(inputs)'.",
+  "ms": 0.061,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H13",
+  "expr": "print(\"x\")",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'print' not defined, for expression 'print(\"x\")'.",
+  "ms": 0.044,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H14",
+  "expr": "(x := 1)",
+  "error_type": "simpleeval.FeatureNotAvailable",
+  "error": "Sorry, NamedExpr is not available in this evaluator",
+  "ms": 0.041,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H15",
+  "expr": "rand()",
+  "error_type": "simpleeval.FunctionNotDefined",
+  "error": "Function 'rand' not defined, for expression 'rand()'.",
+  "ms": 0.042,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H16",
+  "expr": "\"a\" * 10**9",
+  "error_type": "simpleeval.IterableTooLong",
+  "error": "Sorry, I will not evaluate something that long.",
+  "ms": 0.043,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H17",
+  "expr": "10**10**10",
+  "error_type": "simpleeval.NumberTooHigh",
+  "error": "Sorry! I don't want to evaluate 10 ** 10000000000",
+  "ms": 0.044,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H18",
+  "expr": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+… (100001 znaků)",
+  "error_type": "builtins.RecursionError",
+  "error": "maximum recursion depth exceeded during ast construction",
+  "ms": 25.456,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H19",
+  "expr": "------------------------------------------------------------… (100001 znaků)",
+  "error_type": "builtins.MemoryError",
+  "error": "Parser stack overflowed - Python source too complex to parse",
+  "ms": 0.852,
+  "grade": "ok"
+ },
+ {
+  "cand": "simpleeval+dictonly",
+  "id": "H20",
+  "expr": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((… (2001 znaků)",
+  "error_type": "builtins.SyntaxError",
+  "error": "too many nested parentheses (<unknown>, line 1)",
+  "ms": 0.392,
+  "grade": "ok"
+ }
+]

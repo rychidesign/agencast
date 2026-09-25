@@ -1,0 +1,571 @@
+[
+ {
+  "cand": "cel-rust",
+  "id": "V01",
+  "expr": "steps.kontrola.on_brand < 0.7 && inputs.jazyk == \"cs\"",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.909,
+  "us_median": 22.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V02",
+  "expr": "!(steps.kontrola.on_brand >= 0.7)",
+  "result": true,
+  "result_type": "bool",
+  "ms": 1.208,
+  "us_median": 42.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V03",
+  "expr": "steps.kontrola.on_brand < 0.7 || inputs.limit > 10",
+  "result": true,
+  "result_type": "bool",
+  "ms": 1.427,
+  "us_median": 57.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V04",
+  "expr": "inputs.limit * 2 + 1",
+  "result": 7,
+  "result_type": "int",
+  "ms": 0.832,
+  "us_median": 14.2,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V05",
+  "expr": "double(item.cena) / 4.0",
+  "result": 147.5,
+  "result_type": "float",
+  "ms": 0.828,
+  "us_median": 17.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V06",
+  "expr": "item.cena / 100 % 3",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.744,
+  "us_median": 14.5,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V07",
+  "expr": "steps.copy.hashtags[0]",
+  "result": "#leto",
+  "result_type": "str",
+  "ms": 0.791,
+  "us_median": 15.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V08",
+  "expr": "steps.copy.hashtags[size(steps.copy.hashtags) - 1]",
+  "result": "#drop",
+  "result_type": "str",
+  "ms": 1.308,
+  "us_median": 65.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V09",
+  "expr": "steps[\"kontrola\"][\"on_brand\"]",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 1.116,
+  "us_median": 37.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V10",
+  "expr": "size(steps.copy.hashtags)",
+  "result": 3,
+  "result_type": "int",
+  "ms": 0.782,
+  "us_median": 14.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V11",
+  "expr": "min(steps.kontrola.skore)",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.795,
+  "us_median": 15.8,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V12",
+  "expr": "max(1, inputs.limit)",
+  "result": 3,
+  "result_type": "int",
+  "ms": 0.774,
+  "us_median": 16.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V13",
+  "expr": "round(steps.kontrola.on_brand * 100.0)",
+  "result": 40,
+  "result_type": "int",
+  "ms": 1.306,
+  "us_median": 19.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V14",
+  "expr": "string(item.cena) + \" Kč\"",
+  "result": "590 Kč",
+  "result_type": "str",
+  "ms": 0.876,
+  "us_median": 23.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V15",
+  "expr": "double(int(\"42\")) + double(\"0.5\")",
+  "result": 42.5,
+  "result_type": "float",
+  "ms": 1.114,
+  "us_median": 56.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V16",
+  "expr": "join(steps.copy.hashtags, \" \")",
+  "result": "#leto #thtd #drop",
+  "result_type": "str",
+  "ms": 0.767,
+  "us_median": 19.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V17",
+  "expr": "steps.copy.caption == \"Léto je tady\"",
+  "result": true,
+  "result_type": "bool",
+  "ms": 1.402,
+  "us_median": 44.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V18",
+  "expr": "inputs.poznamka == null",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.766,
+  "us_median": 11.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V19",
+  "expr": "inputs.poznamka == null",
+  "result": true,
+  "result_type": "bool",
+  "ms": 1.143,
+  "us_median": 30.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V20",
+  "expr": "\"#thtd\" in steps.copy.hashtags",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.798,
+  "us_median": 13.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V21",
+  "expr": "inputs.jazyk in [\"cs\", \"sk\"]",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.924,
+  "us_median": 19.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V22",
+  "expr": "steps.copy.caption != \"\" && size(steps.copy.caption) <= 280",
+  "result": true,
+  "result_type": "bool",
+  "ms": 1.405,
+  "us_median": 64.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V23",
+  "expr": "-item.cena + 600",
+  "result": 10,
+  "result_type": "int",
+  "ms": 0.783,
+  "us_median": 11.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "V24",
+  "expr": "round(2.5)",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.649,
+  "us_median": 10.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E01",
+  "expr": "steps.neexistuje.x",
+  "error_type": "builtins.KeyError",
+  "error": "'neexistuje'",
+  "ms": 1.022,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E02",
+  "expr": "steps.kontrola.chybi > 1",
+  "error_type": "builtins.KeyError",
+  "error": "'chybi'",
+  "ms": 1.017,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E03",
+  "expr": "steps.copy.hashtags[10]",
+  "error_type": "builtins.IndexError",
+  "error": "index out of bounds: 10",
+  "ms": 0.871,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E04",
+  "expr": "steps.kontrola.on_brand < \"0.7\"",
+  "error_type": "builtins.TypeError",
+  "error": "No such overload: the operation is not defined for the given operand types. CEL does not coerce between types, so common causes are mixing int with uint or double (1 + 2u, 1 + 2.5), indexing into a string, or calling a function with the wrong argument types. Convert explicitly with int(x), uint(x), double(x) or string(x), or check the CEL specification.",
+  "ms": 0.8,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E05",
+  "expr": "inputs.limit == \"3\"",
+  "result": false,
+  "result_type": "bool",
+  "ms": 1.111,
+  "grade": "silent"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E06",
+  "expr": "true + 1",
+  "error_type": "builtins.TypeError",
+  "error": "Unsupported operation: bool + int. CEL does not coerce between types — both operands must be the same type. Convert explicitly with int(x), uint(x), double(x) or string(x) as appropriate.",
+  "ms": 0.597,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E07",
+  "expr": "item.cena / 0",
+  "error_type": "builtins.ZeroDivisionError",
+  "error": "division by zero in CEL expression",
+  "ms": 0.758,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E08",
+  "expr": "steps.kontrola.on_brand <",
+  "error_type": "builtins.ValueError",
+  "error": "Failed to parse expression 'steps.kontrola.on_brand <': ERROR: <input>:1:26: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n| steps.kontrola.on_brand <\n| .........................^",
+  "ms": 1.21,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E09",
+  "expr": "inputs.jazyk = \"cs\"",
+  "error_type": "builtins.ValueError",
+  "error": "Failed to parse expression 'inputs.jazyk = \"cs\"': ERROR: <input>:1:14: Syntax error: token recognition error at: '= '\n| inputs.jazyk = \"cs\"\n| .............^\nERROR: <input>:1:16: Syntax error: extraneous input '\"cs\"' expecting <EOF>\n| inputs.jazyk = \"cs\"\n| ...............^",
+  "ms": 0.725,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E10",
+  "expr": "int(\"abc\")",
+  "error_type": "builtins.RuntimeError",
+  "error": "Function 'int' error: string parse error: invalid digit found in string. Check function arguments and their types.",
+  "ms": 0.618,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E11",
+  "expr": "size(item.cena)",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'size'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 0.739,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E12",
+  "expr": "neznama_promenna",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'neznama_promenna'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 0.812,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E13",
+  "expr": "inputs.poznamka + 1",
+  "error_type": "builtins.TypeError",
+  "error": "Unsupported operation: null + int. CEL does not coerce between types — both operands must be the same type. Convert explicitly with int(x), uint(x), double(x) or string(x) as appropriate.",
+  "ms": 0.793,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "E14",
+  "expr": "steps.copy.hashtags && inputs.jazyk == \"cs\"",
+  "error_type": "builtins.TypeError",
+  "error": "No such overload: the operation is not defined for the given operand types. CEL does not coerce between types, so common causes are mixing int with uint or double (1 + 2u, 1 + 2.5), indexing into a string, or calling a function with the wrong argument types. Convert explicitly with int(x), uint(x), double(x) or string(x), or check the CEL specification.",
+  "ms": 0.837,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H01",
+  "expr": "__import__('os').getcwd()",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: '__import__'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 0.705,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H02",
+  "expr": "().__class__.__bases__[0].__subclasses__()",
+  "error_type": "builtins.ValueError",
+  "error": "Failed to parse expression '().__class__.__bases__[0].__subclasses__()': ERROR: <input>:1:2: Syntax error: extraneous input ')' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n| ().__class__.__bases__[0].__subclasses__()\n| .^\nERROR: <input>:1:43: Syntax error: missing ')' at '<EOF>'\n| ().__class__.__bases__[0].__subclasses__()\n| ..........................................^",
+  "ms": 1.182,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H03",
+  "expr": "open('/etc/passwd').read()",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'open'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 0.759,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H04",
+  "expr": "getattr(inputs, 'jazyk')",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'getattr'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 0.686,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H05",
+  "expr": "(lambda: 1)()",
+  "error_type": "builtins.ValueError",
+  "error": "Failed to parse expression '(lambda: 1)()': ERROR: <input>:1:8: Syntax error: mismatched input ':' expecting {'==', '!=', 'in', '<', '<=', '>=', '>', '&&', '||', '[', ')', '.', '-', '?', '+', '*', '/', '%'}\n| (lambda: 1)()\n| .......^",
+  "ms": 0.609,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H06",
+  "expr": "[x for x in steps.copy.hashtags]",
+  "error_type": "builtins.ValueError",
+  "error": "Failed to parse expression '[x for x in steps.copy.hashtags]': ERROR: <input>:1:4: Syntax error: mismatched input 'for' expecting {']', ','}\n| [x for x in steps.copy.hashtags]\n| ...^\nERROR: <input>:1:32: Syntax error: extraneous input ']' expecting <EOF>\n| [x for x in steps.copy.hashtags]\n| ...............................^",
+  "ms": 0.866,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H07",
+  "expr": "item.__class__.__init__.__globals__",
+  "error_type": "builtins.KeyError",
+  "error": "'__class__'",
+  "ms": 1.066,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H08",
+  "expr": "\"{0.__class__}\".format(1)",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'format'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 0.723,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H09",
+  "expr": "steps.copy.caption.upperAscii()",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'upperAscii'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 0.762,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H10",
+  "expr": "inputs.keys()",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'keys'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 1.033,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H11",
+  "expr": "inputs.__class__",
+  "error_type": "builtins.KeyError",
+  "error": "'__class__'",
+  "ms": 0.959,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H12",
+  "expr": "type(inputs)",
+  "result": "map",
+  "result_type": "str",
+  "ms": 0.651,
+  "grade": "ok-computed"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H13",
+  "expr": "print(\"x\")",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'print'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 1.038,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H14",
+  "expr": "(x := 1)",
+  "error_type": "builtins.ValueError",
+  "error": "Failed to parse expression '(x := 1)': ERROR: <input>:1:4: Syntax error: mismatched input ':' expecting {'==', '!=', 'in', '<', '<=', '>=', '>', '&&', '||', '[', ')', '.', '-', '?', '+', '*', '/', '%'}\n| (x := 1)\n| ...^\nERROR: <input>:1:5: Syntax error: token recognition error at: '= '\n| (x := 1)\n| ....^",
+  "ms": 0.94,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H15",
+  "expr": "rand()",
+  "error_type": "builtins.RuntimeError",
+  "error": "Undefined variable or function: 'rand'. Check that the variable is defined in the context or that the function name is spelled correctly.",
+  "ms": 0.703,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H16",
+  "expr": "\"a\" * 1000000000",
+  "error_type": "builtins.TypeError",
+  "error": "Unsupported operation: string * int. CEL does not coerce between types — both operands must be the same type. Convert explicitly with int(x), uint(x), double(x) or string(x) as appropriate.",
+  "ms": 0.638,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H17",
+  "expr": "10**10**10",
+  "error_type": "builtins.ValueError",
+  "error": "Failed to parse expression '10**10**10': ERROR: <input>:1:4: Syntax error: extraneous input '*' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n| 10**10**10\n| ...^\nERROR: <input>:1:8: Syntax error: extraneous input '*' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n| 10**10**10\n| .......^",
+  "ms": 0.617,
+  "grade": "ok"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H18",
+  "outcome": "crash",
+  "returncode": -11,
+  "stderr": "",
+  "grade": "FAIL"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H19",
+  "expr": "------------------------------------------------------------… (100001 znaků)",
+  "result": 1,
+  "result_type": "int",
+  "ms": 38.485,
+  "grade": "ok-computed"
+ },
+ {
+  "cand": "cel-rust",
+  "id": "H20",
+  "expr": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((… (2001 znaků)",
+  "error_type": "builtins.ValueError",
+  "error": "Failed to parse expression '((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((",
+  "ms": 1.597,
+  "grade": "ok"
+ }
+]
