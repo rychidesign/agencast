@@ -13,8 +13,10 @@ Formát: spec v1, jen zpětně kompatibilní doplňky. Opravy z
   nikdy se nečtou křížem. Dřív ostrý běh po zkoušce s `--fake` krok
   přeskočil a vrátil vymyšlený výstup. `run_started` má nové pole
   `fake` (run-record.md), `summary.md` a `report.html` falešný běh
-  označí. Záznamy v `_dedupe/` z falešných běhů 0.2.1 zůstávají — smaž
-  je ručně (tutoriál 7, krok 8).
+  označí. Záznamy v `_dedupe/` z falešných běhů 0.2.1 oprava nepozná
+  a nesmaže — po zkouškách s `--fake` je najdi (`grep -l <scénář>
+  runs/_dedupe/*.json`) a smaž ručně jen ty, o kterých víš, že patří
+  zkouškám.
 - **`task` se `schema` vždy od `tool_wrapper` (BUGS 7, ISSUES 36):**
   strukturovaný výstup se v kroku `task` vynucuje nástrojem
   `_submit_output` bez ohledu na `models.<alias>.structured_output`;
