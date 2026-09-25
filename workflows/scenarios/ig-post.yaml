@@ -9,9 +9,15 @@ inputs:
     description: O čem má příspěvek být
 
 outputs:
-  caption:  { type: string, description: Text příspěvku }
-  hashtags: { type: list,   description: Hashtagy včetně # }
-  image:    { type: file,   description: Fotka k příspěvku — v callbacku jako URL }
+  caption:
+    type: string
+    description: Text příspěvku
+  hashtags:
+    type: list
+    description: Hashtagy, každý začíná znakem mřížky
+  image:
+    type: file
+    description: Fotka k příspěvku — v callbacku jako URL
 
 steps:
   # 1. Copywriter napíše text, hashtagy a nápad na fotku.

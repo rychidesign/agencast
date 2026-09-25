@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multiagent-workflows.local/spec/v1/mcp.schema.json",
+  "title": "mcp.yaml, formát v1",
+  "description": "Viz docs/spec/config.md. Server je buď místní (command, stdio), nebo vzdálený (url, Streamable HTTP).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "servers"],
+  "properties": {
+    "version": { "const": 1 },
+    "servers": {
+      "type": "object",
+      "propertyNames": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["description", "command"],
+            "properties": {
+              "description": { "type": "string", "minLength": 1 },
+              "command": { "type": "string", "minLength": 1 },
+              "args": { "type": "array", "items": { "type": "string" } },
+              "env": {
+                "type": "object",
+                "propertyNames": { "$ref": "#/$defs/env" },
+                "additionalProperties": { "$ref": "#/$defs/env" }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["description", "url"],
+            "properties": {
+              "description": { "type": "string", "minLength": 1 },
+              "url": { "type": "string", "pattern": "^https://" },
+              "bearer_token_env": { "$ref": "#/$defs/env" }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "env": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" }
+  }
+}
