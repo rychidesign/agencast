@@ -74,9 +74,25 @@ scénáře: `copy` (Claude Haiku přes Amazon Bedrock, `native_schema`,
 0,27–0,41 s, 0,000016 USD) → záměrný `fail` pod prahem 0,7. Záznam
 (summary, events, request/response bez klíče) je kompletní.
 
-Proč ne dál: kontrola tónu značky text od copywritera dvakrát zamítla,
-takže `foto_prompt` (`tool_wrapper` na Gemini), `kontrola_obrazku`
-a `image` s `aspect_ratio: "4:5"` naživo neproběhly. Podle zadání
-nejvýš 2 pokusy — třetí jsem nespouštěl. Obsah textu a práh jsou ve
-vrstvě uživatele (agent `copywriter`, `ig-post.yaml`), ne ve frameworku.
-Kroky `tool_wrapper` a `image` jsou ověřené jen s falešným poskytovatelem.
+**Práh 0,7 je pro text od Haiku přísný; scénář se choval správně.** Jev
+text copywritera (Claude Haiku 4.5) dvakrát ohodnotil pod prahem (0,68
+a 0,63), takže běh skončil záměrným `fail` dřív, než došel k fotce. Obsah
+textu a práh jsou ve vrstvě uživatele (agent `copywriter`,
+`ig-post.yaml`), ne ve frameworku. Třetí běh `ig-post` jsem podle zadání
+(nejvýš 2 pokusy) nespouštěl.
+
+Zbylé kroky ověřil se souhlasem koordinátora **jeden** ostrý běh
+dočasného scénáře `live-image` (mimo `workflows/`, nekomitovaný):
+`ask` s agentem `photographer` + `image` s `aspect_ratio: "4:5"`.
+
+| Běh | Krok | Výsledek | Čas | Cena |
+|---|---|---|---|---|
+| `runs/20260925-150206-live-image-7210` (úspěch, celkem 11,0 s, 0,0676 USD) | `foto_prompt` | `google/gemini-3.5-flash-lite` přes `tool_wrapper`: `finish_reason: tool_calls` (nativně `STOP`), `_submit_output` napoprvé platný | 1,5 s | 0,0003 USD |
+| | `foto` | `google/gemini-3.1-flash-image`, `image_config.aspect_ratio: "4:5"` → PNG **928×1152** (1,83 MB), poměr 0,806 proti 0,8 = odchylka 0,7 % → **4:5 platí** (kontrola spec D10, tolerance 2 %) | 9,5 s | 0,0672 USD |
+
+Záznam: base64 ani `reasoning_details` v `calls/*.json` nejsou (jen
+`<soubor: steps/02-foto/image.png, 1834634 B>`), obrázek je ve složce
+kroku a zkopírovaný do `outputs/<run_id>-<32 hex>/image.png`.
+
+**Útrata Fáze 2 celkem 0,0702 USD** (2× `ig-post` 0,0026 + `live-image`
+0,0676; `GET /models` zdarma).

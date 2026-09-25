@@ -7,7 +7,8 @@ rozhoduje koordinátor nebo uživatel.
 1. **`tool_wrapper` a `finish_reason`** (scenario.md ask, §6): spec chce
    `tool_calls`. Framework přijme i `stop`, když odpověď obsahuje volání
    `_submit_output` (s vynuceným `tool_choice` to někteří poskytovatelé
-   hlásí jako `stop`). Jiný `finish_reason` → `transient`.
+   hlásí jako `stop`). Jiný `finish_reason` → `transient`. Naživo Gemini
+   3.5 Flash-Lite vrátil `tool_calls` (nativně `STOP`).
 2. **Které proměnné prostředí jsou povinné před během** (config.md „Chybějící
    proměnná → config"): framework kontroluje jen ty, které běh opravdu
    použije: `OPENROUTER_API_KEY` (ne s `--fake`), `callback.secret_env` jen
@@ -19,8 +20,11 @@ rozhoduje koordinátor nebo uživatel.
 4. **`aspect_ratio` u chat completions** (scenario.md image): framework
    posílá `image_config: {aspect_ratio}` (pole `ChatRequest.image_config`,
    <https://openrouter.ai/docs/llms-full.txt>, staženo 2026-09-25) a poměr
-   kontroluje podle hlavičky souboru (±2 %). Naživo ve Fázi 2 neověřeno —
-   oba ostré běhy skončily dřív (viz `framework/README.md`).
+   kontroluje podle hlavičky souboru (±2 %). **Ověřeno naživo
+   2026-09-25:** `google/gemini-3.1-flash-image` s `"4:5"` vrátil
+   928×1152 (odchylka 0,7 %), endpoint `aspect_ratio` neignoruje.
+   Spec zmiňuje jen Image API (`POST /api/v1/images`); rozhodnutí „chat
+   completions" padlo ve Fázi 2 podle zadání.
 5. **`report_url`**: `report.html` Fáze 2 negeneruje, `report_url` je
    `null` bez varování. Spec počítá s `null` + varováním jen při selhání
    nahrání.
