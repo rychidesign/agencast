@@ -10,13 +10,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
 import pytest
-from conftest import scenario
+from conftest import model_ids, scenario
 
 from maw.fake import Fake
 from maw.server import Server, Webhook
 
 TOKEN, SECRET = "token-webhooku-123", "podpis-callbacku-456"
-MODELS = ["anthropic/claude-haiku-4.5", "google/gemini-3.5-flash-lite", "google/gemini-3.1-flash-image"]
 
 
 class Receiver:
@@ -50,7 +49,7 @@ class Receiver:
 
 
 def start(wf, script=None):
-    hook = Webhook(wf, fake=Fake(script, MODELS))
+    hook = Webhook(wf, fake=Fake(script, model_ids(wf)))
     hook.start()
     srv = Server(hook, "127.0.0.1", 0)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -245,4 +244,4 @@ def test_server_needs_token_env(wf, monkeypatch):
     monkeypatch.delenv("WEBHOOK_TOKEN", raising=False)
     monkeypatch.setenv("CALLBACK_SECRET", SECRET)
     with pytest.raises(Exception, match="WEBHOOK_TOKEN"):
-        Webhook(wf, fake=Fake(None, MODELS))
+        Webhook(wf, fake=Fake(None, model_ids(wf)))

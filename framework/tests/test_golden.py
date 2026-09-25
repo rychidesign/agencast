@@ -10,7 +10,8 @@ import shutil
 from pathlib import Path
 
 import pytest
-from conftest import CONFIG, REPO, WORKFLOWS, run
+import yaml
+from conftest import REPO, WORKFLOWS, golden_config, run
 
 from maw.expressions import parse, parse_path, template_parts
 from maw.loader import (load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors, schema_errors,
@@ -42,6 +43,18 @@ def test_workflow_agent_valid(wf, path):
     errs = []
     cfg = load_config(wf, errs)
     assert load_agent(wf, path.stem, cfg, errs) and not errs, errs
+
+
+def test_owner_alias_reaches_golden_tests(wf, tmp_path):
+    """BUGS.md #6: alias, který vlastník přidá do config.yaml, znají i zlaté testy (dočasný alias jen v testu)."""
+    owner = yaml.safe_load((WORKFLOWS / "config.yaml").read_text())
+    owner["models"]["levny"] = {"id": "test/levny-1"}
+    (tmp_path / "config.yaml").write_text(yaml.safe_dump(owner))
+    (wf / "config.yaml").write_text(golden_config(tmp_path / "config.yaml"))
+    agent = wf / "agents" / "tutorial-pojmenovavac.md"
+    agent.write_text(agent.read_text().replace("model: chytry", "model: levny"))
+    test_workflow_agent_valid(wf, agent)
+    test_workflow_scenario_runs_with_fake(wf, WORKFLOWS / "scenarios" / "tutorial-01-nazvy.yaml")
 
 
 @pytest.mark.parametrize("path", sorted((WORKFLOWS / "skills").glob("*/SKILL.md")), ids=lambda p: p.parent.name)
@@ -104,7 +117,7 @@ def test_spec_yaml_examples(tmp_path, md, block):
         wf = tmp_path / "workflows"
         for d in ("agents", "skills", "scenarios"):
             shutil.copytree(WORKFLOWS / d, wf / d)
-        (wf / "config.yaml").write_text(CONFIG)
+        (wf / "config.yaml").write_text(golden_config())
         (wf / "scenarios" / f"{data['name']}.yaml").write_text(block)
         r, _ = run(wf / "scenarios" / f"{data['name']}.yaml", _sample_inputs(data))
         assert r.status == "succeeded", r.error
