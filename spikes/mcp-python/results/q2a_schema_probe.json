@@ -1,0 +1,568 @@
+{
+ "normalize": false,
+ "rows": [
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "real_filesystem_14_tools",
+   "status": 200,
+   "latency_s": 1.62,
+   "finish_reason": "tool_calls",
+   "cost": 0.003337,
+   "calls": [
+    {
+     "name": "list_directory",
+     "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+    }
+   ],
+   "content": "Vypiš obsah adresáře ~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox.",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "real_everything_13_tools",
+   "status": 200,
+   "latency_s": 1.5,
+   "finish_reason": "tool_calls",
+   "cost": 0.002449,
+   "calls": [
+    {
+     "name": "get-sum",
+     "arguments": "{\"a\": 2, \"b\": 3}"
+    }
+   ],
+   "content": "Sečtu čísla 2 a 3 pro vás.",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_anyOf_null",
+   "status": 200,
+   "latency_s": 1.21,
+   "finish_reason": "tool_calls",
+   "cost": 0.000885,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"title\": \"Nový projekt\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_type_array_null",
+   "status": 200,
+   "latency_s": 1.25,
+   "finish_reason": "tool_calls",
+   "cost": 0.000876,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"title\": \"Nový projekt\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_ref_defs",
+   "status": 200,
+   "latency_s": 1.2,
+   "finish_reason": "tool_calls",
+   "cost": 0.000941,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"tag\": {\"label\":\"Ověřeno\"}}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_additionalProperties_false_nested",
+   "status": 200,
+   "latency_s": 1.23,
+   "finish_reason": "tool_calls",
+   "cost": 0.001023,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"post\": {\"title\":\"Moje první příspěvek\",\"likes\":42}}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_additionalProperties_schema_map",
+   "status": 200,
+   "latency_s": 1.3,
+   "finish_reason": "tool_calls",
+   "cost": 0.001079,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"labels\": {\"kategorie\":\"zpráva\",\"priorita\":\"vysoká\",\"stav\":\"nový\",\"autor\":\"uživatel\"}}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_oneOf_allOf",
+   "status": 200,
+   "latency_s": 1.08,
+   "finish_reason": "tool_calls",
+   "cost": 0.001016,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"value\": 42, \"meta\": {\"a\":\"test\"}}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_format_pattern",
+   "status": 200,
+   "latency_s": 1.26,
+   "finish_reason": "tool_calls",
+   "cost": 0.001171,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"url\": \"https://example.com/report\", \"when\": \"2024-01-15T14:30:00Z\", \"code\": \"ABC\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_const_enum_int_default",
+   "status": 200,
+   "latency_s": 1.09,
+   "finish_reason": "tool_calls",
+   "cost": 0.000973,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"kind\": \"post\", \"level\": 2}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_no_properties_key",
+   "status": 200,
+   "latency_s": 1.25,
+   "finish_reason": "tool_calls",
+   "cost": 0.000753,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_schema_draft07_empty",
+   "status": 200,
+   "latency_s": 1.0,
+   "finish_reason": "tool_calls",
+   "cost": 0.000778,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "synth_schema_2020_12",
+   "status": 200,
+   "latency_s": 1.72,
+   "finish_reason": "tool_calls",
+   "cost": 0.000924,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"title\": \"Nový projekt - Implementace systému\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "name_dot",
+   "status": 400,
+   "latency_s": 1.87,
+   "error": {
+    "message": "Provider returned error",
+    "code": 400,
+    "metadata": {
+     "raw": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"tools.0.custom.name: String should match pattern '^[a-zA-Z0-9_-]{1,128}$'\"},\"request_id\":\"req_011CfQEcYP5u5tbec5y8Vhbu\"}",
+     "provider_name": "Azure",
+     "is_byok": false,
+     "previous_errors": [
+      {
+       "code": 400,
+       "message": "Provider returned error",
+       "provider_name": "Amazon Bedrock",
+       "raw": "{\"message\":\"tools.0.custom.name: String should match pattern '^[a-zA-Z0-9_-]{1,128}$'\"}"
+      },
+      {
+       "code": 400,
+       "message": "Provider returned error",
+       "provider_name": "Anthropic",
+       "raw": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"tools.0.custom.name: String should match pattern '^[a-zA-Z0-9_-]{1,128}$'\"},\"request_id\":\"req_011CfQEcThoKYn2utgvF6Xvc\"}"
+      },
+      {
+       "code": 400,
+       "message": "Provider returned error",
+       "provider_name": "Google",
+       "raw": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"tools.0.custom.name: String should match pattern '^[a-zA-Z0-9_-]{1,128}$'\"},\"request_id\":\"req_vrtx_011CfQEcVK3DjC1KdJchaJpv\"}"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "name_double_underscore",
+   "status": 200,
+   "latency_s": 1.1,
+   "finish_reason": "tool_calls",
+   "cost": 0.001122,
+   "calls": [
+    {
+     "name": "fs__list_directory",
+     "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "variant": "name_70_chars",
+   "status": 200,
+   "latency_s": 1.15,
+   "finish_reason": "tool_calls",
+   "cost": 0.001164,
+   "calls": [
+    {
+     "name": "fs__xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "real_filesystem_14_tools",
+   "status": 200,
+   "latency_s": 1.03,
+   "finish_reason": "tool_calls",
+   "cost": 0.0004889,
+   "calls": [
+    {
+     "name": "list_directory",
+     "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "real_everything_13_tools",
+   "status": 200,
+   "latency_s": 0.59,
+   "finish_reason": "tool_calls",
+   "cost": 0.0002478,
+   "calls": [
+    {
+     "name": "get-sum",
+     "arguments": "{\"a\":2,\"b\":3}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_anyOf_null",
+   "status": 200,
+   "latency_s": 0.74,
+   "finish_reason": "tool_calls",
+   "cost": 5.59e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"title\":\"Záznam\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_type_array_null",
+   "status": 200,
+   "latency_s": 0.94,
+   "finish_reason": "tool_calls",
+   "cost": 6.47e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"title\":\"Smysluplný záznam\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_ref_defs",
+   "status": 200,
+   "latency_s": 0.62,
+   "finish_reason": "tool_calls",
+   "cost": 5.72e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"tag\":\"vysledek\"}"
+    }
+   ],
+   "content": "",
+   "ok": false,
+   "why": "argumenty neprošly: 'vysledek' is not of type 'object'\n\nFailed validating 'type' in schema['properties']['tag']:\n    {'type': 'object',\n     'properties': {'label': {'type': 'strin"
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_additionalProperties_false_nested",
+   "status": 200,
+   "latency_s": 0.7,
+   "finish_reason": "tool_calls",
+   "cost": 8.46e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"post\":{\"title\":\"První automatický příspěvek\",\"likes\":42}}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_additionalProperties_schema_map",
+   "status": 200,
+   "latency_s": 0.92,
+   "finish_reason": "tool_calls",
+   "cost": 7.91e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"labels\":{\"kategorie\":\"test\",\"stav\":\"uspěšný\"}}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_oneOf_allOf",
+   "status": 200,
+   "latency_s": 1.47,
+   "finish_reason": "tool_calls",
+   "cost": 0.0001012,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"meta\":\"Automatické odeslání\",\"value\":\"Smysluplná a platná hodnota\"}"
+    }
+   ],
+   "content": "",
+   "ok": false,
+   "why": "argumenty neprošly: 'Smysluplná a platná hodnota' is too long\n\nFailed validating 'maxLength' in schema[0]:\n    {'type': 'string', 'maxLength': 20}\n\nOn instance:\n    'Smysluplná a p"
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_format_pattern",
+   "status": 200,
+   "latency_s": 0.95,
+   "finish_reason": "tool_calls",
+   "cost": 0.0001532,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"code\":\"EUR\",\"url\":\"https://example.com/api/submit\",\"when\":\"2023-10-27T10:00:00Z\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_const_enum_int_default",
+   "status": 200,
+   "latency_s": 0.97,
+   "finish_reason": "tool_calls",
+   "cost": 3.23e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{}"
+    }
+   ],
+   "content": "",
+   "ok": false,
+   "why": "argumenty neprošly: 'kind' is a required property\n\nFailed validating 'required' in schema:\n    {'type': 'object',\n     'properties': {'kind': {'const': 'post'},\n                   "
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_no_properties_key",
+   "status": 200,
+   "latency_s": 0.51,
+   "finish_reason": "tool_calls",
+   "cost": 3.23e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_schema_draft07_empty",
+   "status": 200,
+   "latency_s": 0.52,
+   "finish_reason": "tool_calls",
+   "cost": 3.23e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "synth_schema_2020_12",
+   "status": 200,
+   "latency_s": 0.49,
+   "finish_reason": "tool_calls",
+   "cost": 6.41e-05,
+   "calls": [
+    {
+     "name": "submit",
+     "arguments": "{\"title\":\"Smysluplný název\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "name_dot",
+   "status": 200,
+   "latency_s": 1.36,
+   "finish_reason": "tool_calls",
+   "cost": 0.0001446,
+   "calls": [
+    {
+     "name": "fs.list_directory",
+     "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "name_double_underscore",
+   "status": 200,
+   "latency_s": 0.62,
+   "finish_reason": "tool_calls",
+   "cost": 0.0001558,
+   "calls": [
+    {
+     "name": "fs__list_directory",
+     "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "variant": "name_70_chars",
+   "status": 200,
+   "latency_s": 0.67,
+   "finish_reason": "tool_calls",
+   "cost": 0.0001726,
+   "calls": [
+    {
+     "name": "fs__xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+    }
+   ],
+   "content": "",
+   "ok": true,
+   "why": ""
+  }
+ ],
+ "spent_total_usd": 0.0204576
+}

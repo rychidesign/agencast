@@ -1,0 +1,330 @@
+{
+ "system_prompt": "Jsi asistent marketingu kavárny Lípa. Máš k dispozici skilly — podrobné návody k určitým úkolům. Když je některý skill relevantní pro zadání, nejdřív ho načti nástrojem load_skill a řiď se jím. Když relevantní není, odpověz rovnou bez něj.\n\nDostupné skilly:\n- hashtag-check: Kontrola seznamu hashtagů k příspěvku podle pravidel značky (počet, tvar, zakázané).\n- ig-caption: Psaní captionu na Instagram v tónu značky kavárny Lípa (tón, délka, struktura, podpis).",
+ "runs": [
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 1.35,
+     "calls": [
+      {
+       "name": "load_skill",
+       "arguments": "{\"name\": \"ig-caption\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 3.2,
+     "calls": []
+    }
+   ],
+   "cost": 0.003345,
+   "latency_s": 4.549290150025627,
+   "final": "Tady je caption na tvoje nové dýňové latté:\n\n---\n\n🌿 Podzim v šálku\n\nDýňové latté je tady. Voňavá směs koření, jemná sladkost a naše oblíbené mléko — to je to, co potřebuješ v těchto dnech. Přijď si ho vychutnat k nám.\n\nUvidíme se u okna.\n\n---\n\nCaption je v tónu značky Lípa — klidný a přátelský, bez vykřičníků. Pokud chceš, mohu ti také připravit seznam hashtagů k tomuto příspěvku.",
+   "error": null,
+   "case": "caption",
+   "loaded": [
+    "ig-caption"
+   ],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": false
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 1.5,
+     "calls": [
+      {
+       "name": "load_skill",
+       "arguments": "{\"name\": \"ig-caption\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 4.14,
+     "calls": []
+    }
+   ],
+   "cost": 0.003345,
+   "latency_s": 5.641879000962945,
+   "final": "Tady je caption na tvoje nové dýňové latté:\n\n---\n\n🌿 Podzim v šálku\n\nDýňové latté je tady. Voňavá směs koření, jemná sladkost a naše oblíbené mléko — to je to, co potřebuješ v těchto dnech. Přijď si ho vychutnat k nám.\n\nUvidíme se u okna.\n\n---\n\nCaption je v tónu značky Lípa — klidný a přátelský, bez vykřičníků. Pokud chceš, mohu ti také připravit seznam hashtagů k tomuto příspěvku.",
+   "error": null,
+   "case": "caption",
+   "loaded": [
+    "ig-caption"
+   ],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": false
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 1.07,
+     "calls": [
+      {
+       "name": "load_skill",
+       "arguments": "{\"name\": \"hashtag-check\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 2.25,
+     "calls": []
+    }
+   ],
+   "cost": 0.003121,
+   "latency_s": 3.3272611970023718,
+   "final": "Teď provedu kontrolu podle pravidel:\n\n```\nVERDIKT: NEOK\n\nPORUŠENÍ:\n- Počet hashtagů: 7 (maximum je 5)\n- Zakázaný hashtag: #follow4follow\n- Diakritika: #kavárna (obsahuje háček)\n\nOPRAVENO:\n#kava #latte #brno #podzim #coffee\n```\n\n**Doporučení:** Odstraň #follow4follow (zakázaný), sniž počet hashtagů na 5 a změň #kavárna na #kavarna (bez diakritiky). Navržený seznam výše je připraven k použití.",
+   "error": null,
+   "case": "hashtags",
+   "loaded": [
+    "hashtag-check"
+   ],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 1.01,
+     "calls": [
+      {
+       "name": "load_skill",
+       "arguments": "{\"name\": \"hashtag-check\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 2.29,
+     "calls": []
+    }
+   ],
+   "cost": 0.003121,
+   "latency_s": 3.296140522987116,
+   "final": "Teď provedu kontrolu podle pravidel:\n\n```\nVERDIKT: NEOK\n\nPORUŠENÍ:\n- Počet hashtagů: 7 (maximum je 5)\n- Zakázaný hashtag: #follow4follow\n- Diakritika: #kavárna (obsahuje háček)\n\nOPRAVENO:\n#kava #latte #brno #podzim #coffee\n```\n\n**Doporučení:** Odstraň #follow4follow (zakázaný), sniž počet hashtagů na 5 a změň #kavárna na #kavarna (bez diakritiky). Navržený seznam výše je připraven k použití.",
+   "error": null,
+   "case": "hashtags",
+   "loaded": [
+    "hashtag-check"
+   ],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "stop",
+     "latency_s": 2.3,
+     "calls": []
+    }
+   ],
+   "cost": 0.001433,
+   "latency_s": 2.301554756995756,
+   "final": "Toto není otázka související s marketingem kavárny Lípa, takže ti odpovím přímo: Mléko v páře na 65 °C při 1,5 barech se obvykle zahřívá přibližně 3–5 minut, ale přesný čas závisí na objemu a počátečné teplotě mléka.\n\nJak ti mohu jinak pomoci s marketingem Lípy?",
+   "error": null,
+   "case": "irrelevant",
+   "loaded": [],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "stop",
+     "latency_s": 2.05,
+     "calls": []
+    }
+   ],
+   "cost": 0.001433,
+   "latency_s": 2.0506727549945936,
+   "final": "Toto není otázka související s marketingem kavárny Lípa, takže ti odpovím přímo: Mléko v páře na 65 °C při 1,5 barech se obvykle zahřívá přibližně 3–5 minut, ale přesný čas závisí na objemu a počátečné teplotě mléka.\n\nJak ti mohu jinak pomoci s marketingem Lípy?",
+   "error": null,
+   "case": "irrelevant",
+   "loaded": [],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 0.72,
+     "calls": [
+      {
+       "name": "load_skill",
+       "arguments": "{\"name\":\"ig-caption\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 0.95,
+     "calls": []
+    }
+   ],
+   "cost": 0.00041,
+   "latency_s": 1.6691772900230717,
+   "final": "🌿 Podzim je tady a voní po dýni.\n\nNamíchali jsme pro tebe nové dýňové latté s poctivým kořením a jemnou pěnou. Zastav se na chvíli a vychutnej si ho u nás.\n\nUvidíme se u okna.",
+   "error": null,
+   "case": "caption",
+   "loaded": [
+    "ig-caption"
+   ],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 0.86,
+     "calls": [
+      {
+       "name": "load_skill",
+       "arguments": "{\"name\":\"ig-caption\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 0.93,
+     "calls": []
+    }
+   ],
+   "cost": 0.00041,
+   "latency_s": 1.7890269880008418,
+   "final": "🌿 Podzim se hlásí o slovo.\n\nNačerpej sílu u našeho nového dýňového latté s domácím sirupem a špetkou koření. Vychutnej si ho v klidu u nás v kavárně.\n\nUvidíme se u okna.",
+   "error": null,
+   "case": "caption",
+   "loaded": [
+    "ig-caption"
+   ],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 0.71,
+     "calls": [
+      {
+       "name": "load_skill",
+       "arguments": "{\"name\":\"hashtag-check\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 0.75,
+     "calls": []
+    }
+   ],
+   "cost": 0.0004063,
+   "latency_s": 1.4626566489750985,
+   "final": "VERDIKT: NEOK\nPORUŠENÍ: Příliš mnoho hashtagů (7, maximum je 5), velká písmena, diakritika, zakázaný hashtag (#follow4follow).\nOPRAVENO: #kava #latte #brno #podzim #kavarna",
+   "error": null,
+   "case": "hashtags",
+   "loaded": [
+    "hashtag-check"
+   ],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 0.88,
+     "calls": [
+      {
+       "name": "load_skill",
+       "arguments": "{\"name\":\"hashtag-check\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 0.81,
+     "calls": []
+    }
+   ],
+   "cost": 0.00041380000000000003,
+   "latency_s": 1.6960615799762309,
+   "final": "VERDIKT: NEOK\nPORUŠENÍ: Příliš mnoho hashtagů (7 místo max. 5), obsahují velká písmena a diakritiku, použit zakázaný hashtag (#follow4follow).\nOPRAVENO: #kava #latte #brno #podzim #kavarna",
+   "error": null,
+   "case": "hashtags",
+   "loaded": [
+    "hashtag-check"
+   ],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "stop",
+     "latency_s": 0.99,
+     "calls": []
+    }
+   ],
+   "cost": 0.0002023,
+   "latency_s": 0.9864082820131443,
+   "final": "Mlékobaterii s tlakem 1,5 baru obvykle trvá zhruba 15 až 20 sekund, než napění džbánek mléka na požadovanou teplotu 65 °C.",
+   "error": null,
+   "case": "irrelevant",
+   "loaded": [],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "stop",
+     "latency_s": 0.87,
+     "calls": []
+    }
+   ],
+   "cost": 0.0002073,
+   "latency_s": 0.8734499889833387,
+   "final": "Mléko v páře o tlaku 1,5 baru dosáhne teploty 65 °C přibližně za 15 až 25 sekund, podle množství mléka a hloubky ponoru trysky.",
+   "error": null,
+   "case": "irrelevant",
+   "loaded": [],
+   "ok_decision": true,
+   "ok_follows": true,
+   "clean_output": true
+  }
+ ],
+ "spent_total_usd": 0.1289756
+}

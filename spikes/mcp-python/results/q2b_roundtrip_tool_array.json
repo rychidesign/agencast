@@ -1,0 +1,213 @@
+{
+ "image_mode": "tool_array",
+ "runs": [
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 1.71,
+     "calls": [
+      {
+       "name": "fs__read_text_file",
+       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+      },
+      {
+       "name": "fs__read_media_file",
+       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 1.43,
+     "calls": []
+    }
+   ],
+   "cost": 0.006378999999999999,
+   "latency_s": 3.1381991560047027,
+   "final": "V souboru hello.txt je text \"Ahoj ze sandboxu.\" a obrázek barva.png má červenou barvu.",
+   "error": null,
+   "ok_text": true,
+   "ok_color": true,
+   "ok": true
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 3.86,
+     "calls": [
+      {
+       "name": "fs__read_text_file",
+       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+      },
+      {
+       "name": "fs__read_media_file",
+       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 1.26,
+     "calls": []
+    }
+   ],
+   "cost": 0.006378999999999999,
+   "latency_s": 5.125954187009484,
+   "final": "V souboru hello.txt je text \"Ahoj ze sandboxu.\" a obrázek barva.png má červenou barvu.",
+   "error": null,
+   "ok_text": true,
+   "ok_color": true,
+   "ok": true
+  },
+  {
+   "model": "anthropic/claude-haiku-4.5",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 1.73,
+     "calls": [
+      {
+       "name": "fs__read_text_file",
+       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+      },
+      {
+       "name": "fs__read_media_file",
+       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+      }
+     ]
+    },
+    {
+     "finish_reason": "stop",
+     "latency_s": 1.11,
+     "calls": []
+    }
+   ],
+   "cost": 0.006378999999999999,
+   "latency_s": 2.8442156920209527,
+   "final": "V souboru hello.txt je text \"Ahoj ze sandboxu.\" a obrázek barva.png má červenou barvu.",
+   "error": null,
+   "ok_text": true,
+   "ok_color": true,
+   "ok": true
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 1.17,
+     "calls": [
+      {
+       "name": "fs__read_text_file",
+       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+      },
+      {
+       "name": "fs__read_media_file",
+       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+      }
+     ]
+    }
+   ],
+   "cost": 0.0006774,
+   "latency_s": 1.5331999360059854,
+   "final": null,
+   "error": {
+    "status": 400,
+    "body": {
+     "message": "Provider returned error",
+     "code": 400,
+     "metadata": {
+      "raw": "{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Requests ending with a model turn are not supported.\",\n    \"status\": \"INVALID_ARGUMENT\"\n  }\n}\n",
+      "provider_name": "Google",
+      "is_byok": false,
+      "provider_error_code": "400"
+     }
+    }
+   },
+   "ok_text": false,
+   "ok_color": false,
+   "ok": false
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 0.81,
+     "calls": [
+      {
+       "name": "fs__read_text_file",
+       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+      },
+      {
+       "name": "fs__read_media_file",
+       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+      }
+     ]
+    }
+   ],
+   "cost": 0.0006774,
+   "latency_s": 1.00856109400047,
+   "final": null,
+   "error": {
+    "status": 400,
+    "body": {
+     "message": "Provider returned error",
+     "code": 400,
+     "metadata": {
+      "raw": "{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Requests ending with a model turn are not supported.\",\n    \"status\": \"INVALID_ARGUMENT\"\n  }\n}\n",
+      "provider_name": "Google",
+      "is_byok": false,
+      "provider_error_code": "400"
+     }
+    }
+   },
+   "ok_text": false,
+   "ok_color": false,
+   "ok": false
+  },
+  {
+   "model": "google/gemini-3.5-flash-lite",
+   "turns": [
+    {
+     "finish_reason": "tool_calls",
+     "latency_s": 0.94,
+     "calls": [
+      {
+       "name": "fs__read_text_file",
+       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+      },
+      {
+       "name": "fs__read_media_file",
+       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+      }
+     ]
+    }
+   ],
+   "cost": 0.0006774,
+   "latency_s": 1.3969325349899009,
+   "final": null,
+   "error": {
+    "status": 400,
+    "body": {
+     "message": "Provider returned error",
+     "code": 400,
+     "metadata": {
+      "raw": "{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Requests ending with a model turn are not supported.\",\n    \"status\": \"INVALID_ARGUMENT\"\n  }\n}\n",
+      "provider_name": "Google",
+      "is_byok": false,
+      "provider_error_code": "400"
+     }
+    }
+   },
+   "ok_text": false,
+   "ok_color": false,
+   "ok": false
+  }
+ ],
+ "spent_total_usd": 0.0693344
+}
