@@ -2,40 +2,175 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://multiagent-workflows.local/spec/v1/mcp.schema.json",
   "title": "mcp.yaml, formát v1",
-  "description": "Viz docs/spec/config.md. Server je buď místní (command, stdio), nebo vzdálený (url, Streamable HTTP).",
+  "description": "Viz docs/spec/config.md. Server je buď místní (command, stdio), nebo vzdálený (url, Streamable HTTP / SSE). Oprávnění drží vlastník: agents, scenarios, tools.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "servers"],
+  "required": [
+    "version",
+    "servers"
+  ],
   "properties": {
-    "version": { "const": 1 },
+    "version": {
+      "const": 1
+    },
     "servers": {
       "type": "object",
-      "propertyNames": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
       "additionalProperties": {
         "oneOf": [
           {
             "type": "object",
             "additionalProperties": false,
-            "required": ["description", "command"],
+            "required": [
+              "description",
+              "agents",
+              "command"
+            ],
             "properties": {
-              "description": { "type": "string", "minLength": 1 },
-              "command": { "type": "string", "minLength": 1 },
-              "args": { "type": "array", "items": { "type": "string" } },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
               "env": {
                 "type": "object",
-                "propertyNames": { "$ref": "#/$defs/env" },
-                "additionalProperties": { "$ref": "#/$defs/env" }
+                "propertyNames": {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/env"
+                    },
+                    {
+                      "not": {
+                        "enum": [
+                          "PATH",
+                          "HOME",
+                          "LD_PRELOAD",
+                          "LD_LIBRARY_PATH",
+                          "NODE_OPTIONS",
+                          "PYTHONPATH"
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/env"
+                }
+              },
+              "agents": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/kebab"
+                }
+              },
+              "scenarios": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/kebab"
+                }
+              },
+              "tools": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "timeouts": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "handshake": {
+                    "$ref": "#/$defs/duration"
+                  },
+                  "call": {
+                    "$ref": "#/$defs/duration"
+                  }
+                }
               }
             }
           },
           {
             "type": "object",
             "additionalProperties": false,
-            "required": ["description", "url"],
+            "required": [
+              "description",
+              "agents",
+              "url"
+            ],
             "properties": {
-              "description": { "type": "string", "minLength": 1 },
-              "url": { "type": "string", "pattern": "^https://" },
-              "bearer_token_env": { "$ref": "#/$defs/env" }
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "pattern": "^(https://|http://(127\\.0\\.0\\.1|localhost)[:/])"
+              },
+              "bearer_token_env": {
+                "$ref": "#/$defs/env"
+              },
+              "agents": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/kebab"
+                }
+              },
+              "scenarios": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/kebab"
+                }
+              },
+              "tools": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "timeouts": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "handshake": {
+                    "$ref": "#/$defs/duration"
+                  },
+                  "call": {
+                    "$ref": "#/$defs/duration"
+                  }
+                }
+              },
+              "transport": {
+                "enum": [
+                  "streamable-http",
+                  "sse"
+                ]
+              }
             }
           }
         ]
@@ -43,6 +178,17 @@
     }
   },
   "$defs": {
-    "env": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" }
+    "env": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "kebab": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*(s|m|h)$"
+    }
   }
 }
