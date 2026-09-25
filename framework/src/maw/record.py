@@ -294,7 +294,7 @@ def report_html(run) -> str:
                 f"<pre>{e(_cut(er['message']))}</pre>"]
     out += ["<h2>Varování</h2>", "<ul>" + "".join(f"<li>{e(w)}</li>" for w in run.warnings) + "</ul>"
             if run.warnings else "<p>žádná</p>"]
-    out += ["<h2>Vstupy</h2>", f"<pre>{e(_dump(run.inputs, 2))}</pre>"]
+    out += ["<h2>Vstupy</h2>", f"<pre>{e(_cut(_dump(run.inputs, 2)))}</pre>"]
     out += ["<h2>Kroky</h2>", "<table><tr><th>#</th><th>Krok</th><th>Typ</th><th>Stav</th><th>Čas</th><th>Cena</th>"
             "<th>Poznámka</th></tr>"]
     for path, s in steps.items():
