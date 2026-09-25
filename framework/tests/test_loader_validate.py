@@ -207,9 +207,32 @@ def test_name_must_match_file(wf):
     assert "se neshoduje se jménem souboru" in errors(wf, "version: 1\nname: jine\ndescription: x\nsteps: [{ id: a, fail: x }]")
 
 
-def test_subfolder_rejected(wf):
-    (wf / "scenarios" / "sub").mkdir()
-    assert "podsložky se nečtou" in errors(wf, HEAD + "steps: [{ id: a, fail: x }]")
+def test_subfolders_ignored(wf):
+    for d in ("scenarios", "agents"):
+        (wf / d / "archiv").mkdir()
+        (wf / d / "archiv" / "rozbity.yaml").write_text("tohle: [není platné")
+    assert errors(wf, HEAD + "steps: [{ id: a, fail: x }]") == ""
+
+
+def test_scenario_in_subfolder_not_runnable(wf):
+    (wf / "scenarios" / "archiv").mkdir()
+    p = wf / "scenarios" / "archiv" / "stary.yaml"
+    p.write_text(HEAD.replace("NAME", "stary") + "steps: [{ id: a, fail: x }]")
+    with pytest.raises(ConfigErrors, match="jen scénář uložený přímo ve složce workflows/scenarios/"):
+        validate(p, check_models=False)
+
+
+def test_missing_file_in_subfolder_hint(wf):
+    (wf / "agents" / "archiv").mkdir()
+    (wf / "agents" / "copywriter.md").rename(wf / "agents" / "archiv" / "copywriter.md")
+    (wf / "scenarios" / "archiv").mkdir()
+    (wf / "scenarios" / "archiv" / "jiny.yaml").write_text("x")
+    got = errors(wf, HEAD + "steps: [{ id: a, ask: { agent: copywriter, prompt: x } },"
+                            " { id: b, call: { scenario: jiny } }]")
+    assert "agent 'copywriter' neexistuje (agents/copywriter.md) " \
+           "(soubor je v podsložce agents/archiv/, podsložky se nečtou)" in got, got
+    assert "scénář 'jiny' neexistuje (scenarios/jiny.yaml) " \
+           "(soubor je v podsložce scenarios/archiv/, podsložky se nečtou)" in got, got
 
 
 def test_config_secret_not_printed(wf):

@@ -181,3 +181,13 @@ rozhoduje koordinátor nebo uživatel.
     jen pro `ask`. Použitá úroveň je v `model_call.structured_output`
     a v poznámce kroku v `summary.md`, `plan.md` ukazuje „kaskáda od
     tool_wrapper".
+37. **Podsložky v `agents/` a `scenarios/` se ignorují** (rozhodli
+    koordinátor a uživatel 2026-09-25, framework 0.2.3). Pravidlo
+    z REVIEW M9 „podsložka je chyba `config`" zastavilo každý běh, jakmile
+    si uživatel odložil staré soubory do `archiv/`. Stejnojmenné soubory
+    v podsložkách nevadí, protože se podsložky nečtou vůbec (agenti,
+    cíle `call`, webhook, `check.py`). Uvolnění je zpětně kompatibilní
+    (DESIGN §5.9). Spustit jde dál jen scénář uložený přímo ve
+    `workflows/scenarios/`. Když agent nebo cíl `call` neexistuje, ale
+    stejnojmenný soubor leží o úroveň níž v podsložce, hláška to dodá:
+    „(soubor je v podsložce agents/archiv/, podsložky se nečtou)".

@@ -98,3 +98,10 @@ každého nálezu je na konci REVIEW.md.
 - [run-record.md](run-record.md): pole `timeout_s` v událostech
   `model_call` a `jev_call` (timeout HTTP volání, ISSUES 34). Starší
   záznamy ho nemají; čtenář ho smí ignorovat.
+
+## version 1 — zpětně kompatibilní uvolnění (framework 0.2.3)
+
+- [agent.md](agent.md), [scenario.md](scenario.md): podsložky ve
+  `workflows/agents/` a `workflows/scenarios/` už nejsou chyba `config`,
+  ale tiše se ignorují (hodí se třeba na archiv). Čtou se dál jen soubory
+  přímo ve složce. Co dřív prošlo, projde dál (ISSUES 37, REVIEW M9).

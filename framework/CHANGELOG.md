@@ -3,6 +3,20 @@
 Semver podle DESIGN §5.9 bod 5: oprava = patch, přidání = minor, nová
 verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
+## 0.2.3 — 2026-09-25 (podsložky se ignorují)
+
+Formát: spec v1, jen zpětně kompatibilní uvolnění (ISSUES 37):
+
+- **Podsložky v `workflows/agents/` a `workflows/scenarios/`** (třeba
+  `archiv/`) už nezastaví validate ani běh chybou `config` — tiše se
+  ignorují. Agenti, cíle `call`, webhook i `maw runs`/`serve` čtou dál
+  jen soubory přímo ve složce.
+- Když agent nebo cíl `call` neexistuje, ale stejnojmenný soubor leží
+  v podsložce, hláška dodá „(soubor je v podsložce agents/archiv/,
+  podsložky se nečtou)".
+- Srozumitelnější hláška, když se spouští scénář mimo
+  `workflows/scenarios/` (třeba z `archiv/`).
+
 ## 0.2.2 — 2026-09-25 (opravy z tutoriálů 6 a 7)
 
 Formát: spec v1, jen zpětně kompatibilní doplňky. Opravy z

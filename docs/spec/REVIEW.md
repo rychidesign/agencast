@@ -517,6 +517,9 @@ Souhrn: **6 BLOKUJÍCÍCH, 23 DŮLEŽITÝCH, 12 DROBNÝCH**.
   složkách).
 - **Návrh:** „Klíč `tools` mimo `mcp` = chyba `config`.“ „Čtou se jen soubory
   přímo ve složce, podsložky jsou chyba `config`.“
+- **Uvolněno 2026-09-25 (framework 0.2.3, ISSUES 37):** podsložky se tiše
+  ignorují, chyba `config` to není. Obavu ze dvou stejnojmenných souborů
+  řeší už to, že se podsložky nečtou.
 
 ### M10. Odchylky od DESIGN, které nejsou v OPEN-QUESTIONS
 - **Kde:** `scenario.md:169-178` vs. `DESIGN.md:102-103`; `scenario.md:631` vs. `DESIGN.md:269-270`.
@@ -594,7 +597,7 @@ odmítnuto).
 | M6 `base_url`, sdílené env | hotovo | pattern; stejná hodnota ve dvou `_env` = `config` |
 | M7 `runs_dir` | hotovo | pole v `config.yaml` (výchozí `./runs`) |
 | M8 čísla | hotovo | `int`, `round` bez `n` celé, `nan`/`inf`, `2.0` jako `integer`, zápis v textu, hloubka nad AST |
-| M9 `tools` mimo `mcp`, podsložky | hotovo | obojí chyba `config` |
+| M9 `tools` mimo `mcp`, podsložky | hotovo | `tools` mimo `mcp` chyba `config`; podsložky od 0.2.3 ignorované (ISSUES 37) |
 | M10 odchylky od DESIGN | hotovo | OPEN-QUESTIONS **13 a 14** (12 je dedupe) |
 | M11 CLAUDE.md, DESIGN | částečně (koordinátor) | věta do `CLAUDE.md` přidána; kopie `docs/DESIGN.md` ve větvi se nesjednocuje — udělá to sloučení s `main` |
 | M12 `<nn>` | hotovo | pořadí v souboru, hloubkově |

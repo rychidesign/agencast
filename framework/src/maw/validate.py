@@ -119,6 +119,12 @@ def load_config(workflows: Path, errs: list) -> dict | None:
 
 # --- agenti a skilly ------------------------------------------------------------
 
+def in_subdir(wf: Path, d: str, fname: str) -> str:
+    """Dovětek k hlášce „neexistuje“: soubor leží o úroveň níž v podsložce, která se nečte."""
+    hit = next(iter(sorted((wf / d).glob(f"*/{fname}"))), None)
+    return f" (soubor je v podsložce {d}/{hit.parent.name}/, podsložky se nečtou)" if hit else ""
+
+
 def load_skill(wf: Path, name: str, errs: list, ref: str):
     where = f"skills/{name}/SKILL.md"
     p = wf / where
@@ -145,7 +151,8 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
     where = f"agents/{name}.md"
     p = wf / where
     if not p.is_file():
-        errs.append(f"{ref + ': ' if ref else ''}agent '{name}' neexistuje ({where})")
+        errs.append(f"{ref + ': ' if ref else ''}agent '{name}' neexistuje ({where})"
+                    + in_subdir(wf, "agents", f"{name}.md"))
         return None
     try:
         fm, body = read_frontmatter(p, where)
@@ -250,13 +257,10 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
     if not path.is_file():
         raise ConfigErrors([f"{scenario_path}: soubor neexistuje"])
     if path.parent.name != "scenarios":
-        raise ConfigErrors([f"{scenario_path}: scénář musí být přímo ve složce workflows/scenarios/ "
-                            "(podsložky se nečtou)"])
+        raise ConfigErrors([f"{scenario_path}: spustit jde jen scénář uložený přímo ve složce "
+                            "workflows/scenarios/ — přesuň ho tam (podsložky, třeba archiv/, se ignorují)"])
     wf = path.parent.parent
     errs = []
-    for d in ("scenarios", "agents"):
-        for sub in sorted(p for p in (wf / d).glob("*") if p.is_dir()):
-            errs.append(f"{d}/{sub.name}/: podsložky se nečtou — soubory patří přímo do workflows/{d}/")
     config = load_config(wf, errs)
     sc = _read_scenario(path, errs)
     if errs or config is None:
@@ -610,7 +614,8 @@ class _Checker:
         """Ověří volaný scénář (rekurzivně); cyklus a hloubka jsou chyba config."""
         path = self.wf / "scenarios" / f"{name}.yaml"
         if not path.is_file():
-            self.err(info.id, "call.scenario", f"scénář '{name}' neexistuje (scenarios/{name}.yaml)")
+            self.err(info.id, "call.scenario", f"scénář '{name}' neexistuje (scenarios/{name}.yaml)"
+                     + in_subdir(self.wf, "scenarios", f"{name}.yaml"))
             return None
         if name in self.stack:
             self.err(info.id, "call.scenario", f"cyklus call: {' → '.join(self.stack + (name,))}")

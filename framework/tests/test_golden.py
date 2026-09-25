@@ -57,6 +57,14 @@ def test_owner_alias_reaches_golden_tests(wf, tmp_path):
     test_workflow_scenario_runs_with_fake(wf, WORKFLOWS / "scenarios" / "tutorial-01-nazvy.yaml")
 
 
+def test_archive_subfolders_ignored(wf):
+    """ISSUES 37: podsložky (archiv/) v agents/ a scenarios/ se ignorují — validate i běh projdou."""
+    for d in ("agents", "scenarios"):
+        shutil.copytree(WORKFLOWS / d, wf / d / "archiv")
+    for path in sorted((WORKFLOWS / "scenarios").glob("*.yaml")):
+        test_workflow_scenario_runs_with_fake(wf, path)
+
+
 @pytest.mark.parametrize("path", sorted((WORKFLOWS / "skills").glob("*/SKILL.md")), ids=lambda p: p.parent.name)
 def test_workflow_skill_valid(path):
     errs = []

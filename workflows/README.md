@@ -17,4 +17,7 @@ Přesné formáty definuje specifikace v `docs/spec/` (v1, schválena
 `*.example.yaml` (skutečné `config.yaml`, `mcp.yaml`, `commands.yaml`
 vytváří jen vlastník).
 
+Podsložky v `agents/` a `scenarios/` (třeba `archiv/`) se ignorují — čtou
+se jen soubory přímo ve složce.
+
 Tajné klíče do těchto souborů nepatří — odkazuje se na proměnné prostředí.

@@ -12,8 +12,8 @@ Ukázka: `workflows/scenarios/ig-post.yaml`. Spuštění přes webhook:
 `true`/`false` (i `True`/`TRUE`), slova `yes`, `no`, `on`, `off` jsou
 obyčejný text, `4:5` je text (ne číslo), datum `2026-09-25` je text.
 Stejný klíč dvakrát v jedné mapě je chyba `config` s číslem řádku.
-Čtou se jen soubory přímo ve `workflows/scenarios/`; podsložka je chyba
-`config`. Ukázky se ověřují stejným načítáním:
+Čtou se jen soubory přímo ve `workflows/scenarios/`; podsložky se
+ignorují (hodí se třeba na archiv). Ukázky se ověřují stejným načítáním:
 [`tools/check.py`](tools/check.py).
 
 Značení: **návrh** = DESIGN.md to neřeší, jde o navržené výchozí chování
@@ -854,8 +854,8 @@ třída `config`:
 - `name` = jméno souboru, `version` je známá,
 - agenti, scénáře (`call`), aliasy modelů, MCP servery a nástroje existují;
   krok nerozšiřuje oprávnění agenta,
-- soubor se čte jako YAML 1.2 core, bez duplicitních klíčů, soubory jen
-  přímo ve složce (bez podsložek),
+- soubor se čte jako YAML 1.2 core, bez duplicitních klíčů; čtou se jen
+  soubory přímo ve složce, podsložky se ignorují (hodí se třeba na archiv),
 - `call` jen na scénář s `callable: true`,
 - oprávnění podle `mcp.yaml`: agent se serverem, u kterého není v
   `agents`; scénář mimo `scenarios` serveru; nástroj mimo `tools` serveru

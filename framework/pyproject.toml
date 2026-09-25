@@ -1,6 +1,6 @@
 [project]
 name = "maw"
-version = "0.2.2"
+version = "0.2.3"
 description = "multiagent-workflows — jádro frameworku (scénáře v YAML, agenti v Markdownu, OpenRouter)"
 requires-python = ">=3.12,<3.13"
 dependencies = [

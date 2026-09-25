@@ -10,7 +10,7 @@ Ukázky: `workflows/agents/copywriter.md`, `photographer.md`, `publisher.md`.
 Frontmatter se čte jako **YAML 1.2 core** (booleany jen `true`/`false`,
 duplicitní klíč = chyba `config` s číslem řádku; viz
 [scenario.md](scenario.md)). Čtou se jen soubory přímo ve
-`workflows/agents/`; podsložka je chyba `config`.
+`workflows/agents/`; podsložky se ignorují (hodí se třeba na archiv).
 
 Značení v textu: **návrh** = DESIGN.md to neřeší, jde o navržené výchozí
 chování ke schválení.
