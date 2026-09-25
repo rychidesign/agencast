@@ -20,6 +20,18 @@ def test_yaml_duplicate_key_has_line():
         load_yaml("a: 1\nb: 2\na: 3", "f.yaml")
 
 
+@pytest.mark.parametrize("text,line,problem", [
+    ("id: a\nwhen: {{ steps.k.x }} < 0.5\n", 2, "expected <block end>, but found '<scalar>'"),
+    ("description: Krok: ověř\nx: 1\n", 1, "mapping values are not allowed here"),
+])
+def test_yaml_syntax_error_czech_hint(text, line, problem):
+    """BUGS.md #4: česká věta s radou a řádkem, hláška parseru jako druhý řádek."""
+    with pytest.raises(LoadError) as e:
+        load_yaml(text, "f.yaml")
+    assert str(e.value) == (f"f.yaml, řádek {line}: YAML nejde přečíst — hodnota s {{, [, ': ' nebo ' #' patří "
+                            f"do uvozovek (scenario.md §5 „Pozor na YAML“)\n  {problem}")
+
+
 def test_yaml_on_as_case_key_is_text(wf):
     """`cases: { yes: …, on: … }` — klíče jsou text (YAML 1.2), ne booleany."""
     p = scenario(wf, """
