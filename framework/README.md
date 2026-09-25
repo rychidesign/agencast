@@ -1,6 +1,6 @@
 # framework — jádro `maw` (multiagent-workflows)
 
-Verze 0.1.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
+Verze 0.2.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
 v `docs/DESIGN.md`. Jméno příkazu `maw` je jen v `pyproject.toml`
 (`[project.scripts]`) — přejmenování = jeden řádek.
 
@@ -11,12 +11,18 @@ uv run --project framework maw validate workflows/scenarios/ig-post.yaml
 uv run --project framework maw run workflows/scenarios/ig-post.yaml -i tema="nová káva" --dry-run
 uv run --project framework maw run workflows/scenarios/ig-post.yaml -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
 uv run --project framework maw run workflows/scenarios/ig-post.yaml -i tema="nová káva"
+uv run --project framework maw run workflows/scenarios/ukazka-task.yaml -i knihy="Čapek: R.U.R. (1920)" --fake framework/tests/golden/ukazka-task.yaml
 uv run --project framework maw runs list
 uv run --project framework maw runs show <run_id>
 ```
 
-- Konfigurace `workflows/config.yaml` (vzor `config.example.yaml`). Klíče
-  jen z prostředí nebo z `.env` v kořeni repozitáře.
+- Konfigurace `workflows/config.yaml` (vzor `config.example.yaml`) a
+  registr MCP serverů `workflows/mcp.yaml` (vzor `mcp.example.yaml`; oba
+  mění jen vlastník). Klíče jen z prostředí nebo z `.env` v kořeni
+  repozitáře.
+- Krok `task` spouští MCP servery z `mcp.yaml` jednou za běh (stdio přes
+  `npx` potřebuje Node; na Modalu balíček předinstalovat). stderr serverů
+  je v záznamu běhu v `mcp/<server>.stderr.log`.
 - `--fake` = falešný poskytovatel bez sítě; volitelný YAML se
   skriptovanými odpověďmi podle kroků (popis v `src/maw/fake.py`).
 - `--callback-url https://…` pošle po běhu výsledek podepsaný HMAC
@@ -35,7 +41,9 @@ cd framework && uv run pytest
 Konformační sada (DESIGN §5.6, §5.9): výrazy (58 případů ze spiku (c)
 upravených podle spec + pravidla spec), loader, validate, engine (třídy
 chyb, retry, kaskáda, parallel, switch, rozpočet, timeout, callback,
-maskování) a zlaté scénáře — každý soubor ve `workflows/` a každá ukázka
+maskování), krok `task` s falešným MCP serverem `tests/fake_mcp_server.py`
+(oprávnění, normalizace schémat, smyčka, skilly, `dedupe_key`, zbylé
+procesy) a zlaté scénáře — každý soubor ve `workflows/` a každá ukázka
 v `docs/spec/`. Nový scénář ve `workflows/scenarios/` se testuje sám;
 skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
 
@@ -50,11 +58,13 @@ skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
 | `providers.py` | OpenRouter chat / Jev / obrázek, třídy chyb, kaskáda |
 | `fake.py` | falešný poskytovatel (`httpx.MockTransport`) |
 | `record.py` | záznam běhu, summary.md, plan.md |
+| `mcp_client.py` | `mcp.yaml`, MCP servery běhu (SDK `mcp` 2.2), normalizace schémat nástrojů |
+| `task.py` | krok `task` (smyčka model ↔ nástroje, `load_skill`), `dedupe_key` |
 | `cli.py` | příkaz `maw` |
 
-Zatím ne (Fáze 3, `validate` je odmítne chybou `config`): `task`
-(MCP, `load_skill`, `dedupe_key`), `call`, webhook server, Modal,
-`report.html`, úložiště R2. Nejasnosti spec: `docs/spec/ISSUES.md`.
+Zatím ne (`validate` je odmítne chybou `config`): `call`, webhook server,
+Modal, `report.html`, úložiště R2; výpis nástrojů MCP serverů v
+`--dry-run`. Nejasnosti spec: `docs/spec/ISSUES.md`.
 
 ## Ostrý běh (Fáze 2, 2026-09-25)
 
@@ -96,3 +106,32 @@ kroku a zkopírovaný do `outputs/<run_id>-<32 hex>/image.png`.
 
 **Útrata Fáze 2 celkem 0,0702 USD** (2× `ig-post` 0,0026 + `live-image`
 0,0676; `GET /models` zdarma).
+
+## Ostrý běh Fáze 3a (2026-09-25): krok `task` se skutečným MCP serverem
+
+`maw run workflows/scenarios/ukazka-task.yaml -i knihy="Karel Čapek:
+R.U.R. (1920); Božena Němcová: Babička (1855); Jaroslav Hašek: Osudy
+dobrého vojáka Švejka (1921)"`, agent `knihovnik` na aliasu `chytry` =
+`anthropic/claude-haiku-4.5` (`native_schema`), MCP server
+`@modelcontextprotocol/server-filesystem@2026.8.31` přes `npx -y`,
+kořen `runs/<běh>/work`. `maw validate` proti `GET /models` prošel.
+
+| Běh | Výsledek | Čas | Tahy | Cena |
+|---|---|---|---|---|
+| `runs/20260925-152451-ukazka-task-9190` | **úspěch**: `katalog.md` se 3 knihami seřazenými podle příjmení (podle skillu), výstup `{soubor, pocet: 3}` | 21,7 s | 4 tahy, 4 nástroje | 0,0104 USD |
+| `runs/20260925-152121-ukazka-task-f370` | `timeout` kroku (3m): 2. tah — HTTP požadavek na OpenRouter 160 s bez odpovědi | 180,0 s | 1 tah, 2 nástroje | 0,0019 USD |
+
+Úspěšný běh: start serveru + handshake 0,77 s; tah 1 `list_allowed_directories`
++ `load_skill katalog` (1,7 s), tah 2 `write_file` (4,0 s), tah 3
+`read_text_file` (1,7 s), tah 4 finální JSON (13,5 s, poskytovatel
+Anthropic; tahy 1–3 Amazon Bedrock). Nástroje 5–7 ms. Po běhu 0 procesů
+serveru, `summary.md` a `events.jsonl` kompletní (`mcp_server`
+started/stopped, 4× `tool_call`, 4× `model_call` s `turn`).
+
+První běh selhal na zaseknutém volání poskytovatele: framework se zachoval
+podle spec (třída `timeout`, server ukončen, záznam úplný), ale zaseknuté
+spojení se pozná až limitem kroku — viz `docs/spec/ISSUES.md` bod 24.
+Tentýž požadavek (`calls/04.request.json`) zopakovaný ručně prošel za
+2,1 s s `response_format` i bez něj (0,0055 USD).
+
+**Útrata Fáze 3a celkem 0,0178 USD** (2 běhy 0,0123 + diagnostika 0,0055).
