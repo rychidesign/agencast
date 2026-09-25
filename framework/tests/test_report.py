@@ -1,13 +1,14 @@
 """report.html (run-record.md): jeden soubor bez externích zdrojů, kroky, prompty
 a odpovědi v <details>, chyba; nikdy base64 ani tajné hodnoty. Ceny v summary.md
-a report.html: celé, řádek Celkem."""
+a report.html: celé, řádek Celkem (čas a cena běhu)."""
 import json
 from pathlib import Path
 
-from conftest import events, run
+from conftest import events, run, scenario
+from test_engine import PARALLEL
 
 from maw.loader import read_yaml
-from maw.record import cz_usd
+from maw.record import cz, cz_usd
 
 GOLDEN = read_yaml(Path(__file__).parent / "golden" / "ig-post.yaml")
 SECRET = "tajna-hodnota-callbacku-789"
@@ -47,7 +48,7 @@ def test_report_long_prompt_is_cut(wf):
     assert long in (r.rec.dir / "steps/01-copy/prompt.md").read_text()  # celý zůstává v záznamu
 
 
-# --- ceny: celé, řádek Celkem (0.2.4) -----------------------------------------------------
+# --- ceny: celé, řádek Celkem (0.2.4, čas 0.2.5) -----------------------------------------------------
 
 def test_cz_usd():
     assert [cz_usd(x) for x in (0, 0.0015, 4.482e-06, 0.0693, 1, 0.1 + 0.2)] == \
@@ -59,6 +60,11 @@ def total(r):
     cb = json.loads((r.rec.dir / "callback.json").read_text())
     assert fin["usage"]["cost_usd"] == cb["cost_usd"]
     return fin["usage"]["cost_usd"]
+
+
+def total_time(r):
+    """Čas v řádku Celkem = duration_s z run_finished (čas celého běhu)."""
+    return f"{cz(events(r, 'run_finished')[0]['duration_s'], 1)} s"
 
 
 def test_call_cost_exact_and_total_row(wf):
@@ -74,9 +80,10 @@ def test_call_cost_exact_and_total_row(wf):
     assert f"· {cz_usd(cost)} USD (z toho obrázky 0,0400 USD)" in md
     assert "| 1 | copy | ask | ✓ |" in md and "| 0,000004482 | chytry" in md
     assert "| 8 | out | output | ✓ | 0,0 s | 0 |  |" in md  # krok bez volání modelu
-    assert f"| | Celkem | | | | {cz_usd(cost)} | z toho obrázky 0,0400 |\n\n## Varování" in md
+    t = total_time(r)
+    assert f"| | Celkem | | | {t} | {cz_usd(cost)} | z toho obrázky 0,0400 |\n\n## Varování" in md
     html = (r.rec.dir / "report.html").read_text()
-    assert f"<td>Celkem</td><td></td><td></td><td></td><td>{cz_usd(cost)}</td><td>z toho obrázky 0,0400</td>" in html
+    assert f"<td>Celkem</td><td></td><td></td><td>{t}</td><td>{cz_usd(cost)}</td><td>z toho obrázky 0,0400</td>" in html
     assert "0,000004482 USD" in html  # hlavička volání v detailu kroku
 
 
@@ -85,5 +92,19 @@ def test_total_row_on_failed_run(wf):
     assert r.status == "failed"
     cost = total(r)
     assert cost == 0.0002
-    assert "| | Celkem | | | | 0,0002 |  |" in (r.rec.dir / "summary.md").read_text()
-    assert "<td>Celkem</td><td></td><td></td><td></td><td>0,0002</td><td></td>" in (r.rec.dir / "report.html").read_text()
+    t = total_time(r)
+    assert f"| | Celkem | | | {t} | 0,0002 |  |" in (r.rec.dir / "summary.md").read_text()
+    assert f"<td>Celkem</td><td></td><td></td><td>{t}</td><td>0,0002</td><td></td>" in (r.rec.dir / "report.html").read_text()
+
+
+def test_total_time_is_run_time_not_sum_with_parallel(wf):
+    """Větve parallel běží současně a vnořené kroky jsou v čase p → Celkem není součet sloupce Čas."""
+    r, _ = run(scenario(wf, PARALLEL), script={"r1": {"sleep": 0.3, "text": "A"}, "s1": {"sleep": 0.3, "text": "B"}})
+    assert r.status == "succeeded", r.error
+    run_s = events(r, "run_finished")[0]["duration_s"]
+    step_sum = sum(e["duration_s"] for e in events(r, "step_finished"))
+    assert step_sum > 2 * run_s  # r1, s1 i p trvají ~0,3 s, běh taky ~0,3 s
+    t = total_time(r)
+    assert t != f"{cz(step_sum, 1)} s"
+    assert f"| | Celkem | | | {t} | 0,0002 |  |" in (r.rec.dir / "summary.md").read_text()
+    assert f"<td>Celkem</td><td></td><td></td><td>{t}</td><td>0,0002</td>" in (r.rec.dir / "report.html").read_text()

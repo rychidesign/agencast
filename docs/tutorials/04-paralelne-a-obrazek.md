@@ -236,7 +236,7 @@ Běh `20260925-151755-tutorial-04-paralelne-8c76` · 25. 9. 2026 15:17:55 UTC ·
 | 4 | popis | ask | ✓ | 1,2 s | 0,0002 | rychly → google/gemini-3.5-flash-lite (tool_wrapper) |
 | 5 | fotka | image | ✓ | 9,2 s | 0,0672 | image.png, 1024×1024 |
 | 6 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0683 | z toho obrázky 0,0672 |
+| | Celkem | | | 10,5 s | 0,0683 | z toho obrázky 0,0672 |
 
 ## Varování
 žádná
@@ -396,7 +396,7 @@ běh 20260925-151846-tutorial-04-paralelne-9332: chyba · 0,0 s · 0,0001 USD
 | 2 | navrh | ask | chyba | 0,0 s | 0 | viz Chyba |
 | 4 | popis | ask | ✓ | 0,0 s | 0,0001 | rychly → google/gemini-3.5-flash-lite (tool_wrapper) |
 | 5 | fotka | image | zrušeno | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0001 |  |
+| | Celkem | | | 0,0 s | 0,0001 |  |
 ```
 
 Chyba v jedné větvi **zruší ostatní** (`zrušeno`) a běh končí. Krok 3
@@ -570,7 +570,7 @@ běh 20260925-151900-tutorial-04-cviceni-77d9: úspěch · 0,0 s · 0,0403 USD
 ```
 | 5 | fotka | image | chyba, pokračuje | 0,0 s | 0,0400 | selhal, použit default |
 | 6 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0403 | z toho obrázky 0,0400 |
+| | Celkem | | | 0,0 s | 0,0403 | z toho obrázky 0,0400 |
 
 ## Varování
 - krok fotka selhal (content: model odmítl: I can't generate this image.) — běh pokračuje s default (on_error: continue)

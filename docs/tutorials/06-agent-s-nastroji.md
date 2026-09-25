@@ -335,7 +335,7 @@ běh 20260925-161501-tutorial-06-archiv-dfec: úspěch · 9,9 s · 0,0135 USD
 ```
 | 1 | zapis | task | ✓ | 9,9 s | 0,0135 | chytry → anthropic/claude-haiku-4.5, tahů 4, nástrojů 7 |
 | 2 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0135 |  |
+| | Celkem | | | 9,9 s | 0,0135 |  |
 …
 ## Výstup
 - zprava: „Dokonalé! Oba soubory odpovídají skillu:
@@ -806,7 +806,7 @@ maw run tutorial-06-cviceni -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne 
 | 1 | zapis | task | ✓ | 0,8 s | 0,0003 | chytry → anthropic/claude-haiku-4.5, tahů 3, nástrojů 4 |
 | 2 | kontrola | task | ✓ | 0,0 s | 0,0002 | chytry → anthropic/claude-haiku-4.5, tahů 2, nástrojů 3 |
 | 3 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0005 |  |
+| | Celkem | | | 0,8 s | 0,0005 |  |
 ```
 
 Kontrola trvala 0,0 s i se serverem: ten běží od prvního kroku

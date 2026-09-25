@@ -219,7 +219,7 @@ def summary_md(p: Project, run) -> str:
         c = cz_usd(r["cost"]) if r.get("duration") is not None else ""
         note = str(r.get("note") or "").replace("|", "\\|").replace("\n", " ")
         lines.append(f"| {r['nn']} | {r['id']} | {r['kind']} | {STATUS_CS[r['status']]} | {t} | {c} | {note} |")
-    lines.append(f"| | Celkem | | | | {cz_usd(run.cost)} | {total_note(run)} |")
+    lines.append(f"| | Celkem | | | {cz(run.duration, 1)} s | {cz_usd(run.cost)} | {total_note(run)} |")
     lines += ["", "## Varování"] + ([f"- {w}" for w in run.warnings] or ["žádná"])
     lines += ["", "## Výstup"]
     if ok and run.outputs is not None:
@@ -230,8 +230,9 @@ def summary_md(p: Project, run) -> str:
 
 
 def total_note(run) -> str:
-    """Poznámka řádku Celkem. Cena Celkem = cena běhu (run_finished); vnořené kroky jsou už
-    v ceně nadřazeného parallel/switch/call, proto se sloupec nesčítá."""
+    """Poznámka řádku Celkem. Čas a cena Celkem = čas a cena celého běhu (duration_s a cost_usd
+    z run_finished), ne součet sloupců: kroky v parallel běží současně a vnořené kroky jsou už
+    v čase i ceně nadřazeného parallel/switch/call."""
     return f"z toho obrázky {cz_usd(run.image_cost)}" if run.image_cost else ""
 
 
@@ -346,7 +347,7 @@ def report_html(run) -> str:
                    f"<td class=\"{cls}\">{e(STATUS_CS.get(s['status'], s['status']))}</td>"
                    f"<td>{'' if s['duration'] is None else cz(s['duration'], 1) + ' s'}</td>"
                    f"<td>{'' if s['cost'] is None else cz_usd(s['cost'])}</td><td>{e(note)}</td></tr>")
-    out.append(f"<tr><td></td><td>Celkem</td><td></td><td></td><td></td><td>{cz_usd(run.cost)}</td>"
+    out.append(f"<tr><td></td><td>Celkem</td><td></td><td></td><td>{cz(run.duration, 1)} s</td><td>{cz_usd(run.cost)}</td>"
                f"<td>{e(total_note(run))}</td></tr></table>")
     out.append("<h2>Výstup</h2>")
     if ok and run.outputs is not None:

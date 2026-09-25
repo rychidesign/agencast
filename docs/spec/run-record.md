@@ -301,7 +301,7 @@ Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,0
 | 6 | stop_obrazek | fail | přeskočeno | | | when: … → false |
 | 7 | foto | image | ✓ | 10,6 s | 0,0672 | image.png, 1408×768 |
 | 8 | out | output | ✓ | 0,0 s | 0 | |
-| | Celkem | | | | 0,06934 | z toho obrázky 0,0672 |
+| | Celkem | | | 17,5 s | 0,06934 | z toho obrázky 0,0672 |
 
 ## Varování
 žádná
@@ -312,12 +312,13 @@ Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,0
 - image: https://files.example.com/20260925-140311-ig-post-a1b2-3f9c1e7a0b5d4c2e8a6f1d9b7c3e5a0f/image.png
 ```
 
-Poslední řádek tabulky **Celkem** má cenu běhu (`cost_usd`
-v `run_finished` a `callback.json`) a u běhu s obrázky poznámku „z toho
-obrázky …"; čas je prázdný (kroky v `parallel` se překrývají, čas běhu je
-v hlavičce). Cena `parallel`, `switch` a `call` už obsahuje ceny kroků
+Poslední řádek tabulky **Celkem** má čas a cenu běhu (`duration_s` a
+`cost_usd` v `run_finished`, stejná čísla jako v hlavičce a
+`callback.json`) a u běhu s obrázky poznámku „z toho obrázky …". Čas
+Celkem je čas celého běhu, ne součet kroků: kroky v `parallel` běží
+současně a čas i cena `parallel`, `switch` a `call` už obsahují kroky
 uvnitř, proto Celkem není prostý součet sloupce. Řádek Celkem má i
-neúspěšný běh (dosavadní cena). Od frameworku 0.2.4.
+neúspěšný běh (dosavadní čas a cena). Od frameworku 0.2.4, čas od 0.2.5.
 
 Při chybě je nadpis `— chyba`, hned pod ním blok **Chyba** s třídou,
 krokem a přesnou hláškou, a v tabulce kroků je vidět, kde běh skončil.

@@ -202,3 +202,7 @@ rozhoduje koordinátor nebo uživatel.
     **Celkem** = cena běhu (stejné číslo jako `cost_usd` v `run_finished`
     a callbacku), u obrázků s poznámkou „z toho obrázky …"; čas prázdný.
     Formát JSON se nemění, jen přesnost → zpětně kompatibilní.
+    Doplněno ve frameworku 0.2.5 na přání uživatele: sloupec Čas v řádku
+    Celkem = čas celého běhu (`duration_s` z `run_finished`, stejné číslo
+    jako v hlavičce), ne součet sloupce — větve `parallel` běží současně
+    a vnořené kroky jsou už v čase nadřazeného kroku.

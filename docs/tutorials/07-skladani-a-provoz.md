@@ -219,7 +219,7 @@ běh 20260925-161539-tutorial-07-skladani-ffe2: úspěch · 0,0 s · 0,0003 USD
 | 2 | slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
 | 3 | ton | call | ✓ | 0,0 s | 0,0001 | scénář kontrola-tonu (3 kroky) |
 | 4 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0003 |  |
+| | Celkem | | | 0,0 s | 0,0003 |  |
 …
 ## Výstup
 - nazev: „Ovena"
@@ -644,7 +644,7 @@ v ceně (`cost_usd` 0.0004 vs. **0.0**) a v `summary.md` druhého běhu:
 ```
 | 1 | zapis | task | přeskočeno |  |  | dedupe_key 'archiv-2026-09-25': krok už proběhl v běhu 20260925-161842-tutorial-07-archiv-5637 |
 | 2 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0 |  |
+| | Celkem | | | 0,0 s | 0 |  |
 ```
 
 Druhý běh nemá složku `work/` ani `mcp/` — server se vůbec nespustil.
@@ -930,7 +930,7 @@ maw run tutorial-07-cviceni -i nazev=Ovena --fake framework/tests/golden/tutoria
 | 2 | hravy_slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
 | 3 | vazny_slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
 | 4 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0002 |  |
+| | Celkem | | | 0,0 s | 0,0002 |  |
 …
 ## Výstup
 - hravy: „Ovena. Lžička, co se směje."

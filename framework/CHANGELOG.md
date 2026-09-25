@@ -3,6 +3,15 @@
 Semver podle DESIGN §5.9 bod 5: oprava = patch, přidání = minor, nová
 verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
+## 0.2.5 — 2026-09-25 (čas v řádku Celkem)
+
+Formát: spec v1, jen zpřesnění (ISSUES 38):
+
+- **Řádek Celkem** v `summary.md` i `report.html` má ve sloupci Čas čas
+  celého běhu (`duration_s` z `run_finished`, stejné číslo jako
+  v hlavičce), ne součet kroků — větve `parallel` běží současně a vnořené
+  kroky jsou už v čase nadřazeného `parallel`/`switch`/`call`.
+
 ## 0.2.4 — 2026-09-25 (celá cena, řádek Celkem)
 
 Formát: spec v1, jen zpřesnění (ISSUES 38):

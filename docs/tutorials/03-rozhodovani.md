@@ -216,7 +216,7 @@ v `summary.md`:
 | 7 | neznamy_ton | fail | přeskočeno |  |  | switch: podle_tonu = "hravy" |
 | 8 | vysledek | set | ✓ | 0,0 s | 0 |  |
 | 9 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0003 |  |
+| | Celkem | | | 0,0 s | 0,0003 |  |
 
 ## Varování
 žádná
@@ -309,7 +309,7 @@ záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151536-t
 | 7 | neznamy_ton | fail | přeskočeno |  |  | switch: podle_tonu = "hravy" |
 | 8 | vysledek | set | ✓ | 0,0 s | 0 |  |
 | 9 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | | 0,0007 |  |
+| | Celkem | | | 5,9 s | 0,0007 |  |
 …
 ## Výstup
 - nazev: „Ověnka"
@@ -680,7 +680,7 @@ běh 20260925-151553-tutorial-03-cviceni-c3c6: chyba · 0,0 s · 0,0002 USD
 | 2 | kontrola | jev | ✓ | 0,0 s | 0,0001 | zapamatovatelny = 0,95, ton = hravy, originalita = 0,20 |
 | 3 | stop | fail | přeskočeno |  |  | when: steps.kontrola.zapamatovatelny < 0.5 → false |
 | 4 | stop_originalita | fail | chyba | 0,0 s | 0 | viz Chyba |
-| | Celkem | | | | 0,0002 |  |
+| | Celkem | | | 0,0 s | 0,0002 |  |
 ```
 
 Krok musí být **za** `kontrola` (čte její výstup) a **před** `podle_tonu`

@@ -113,3 +113,9 @@ každého nálezu je na konci REVIEW.md.
   míst (dřív 8). Tvar polí se nemění, jen přesnost. `summary.md` a
   `report.html` ukazují celou cenu (`0,000004482` místo `0,0000`) a na
   konci tabulky kroků řádek **Celkem** (ISSUES 38).
+
+## version 1 — zpětně kompatibilní zpřesnění (framework 0.2.5)
+
+- [run-record.md](run-record.md): řádek **Celkem** v `summary.md` a
+  `report.html` má ve sloupci Čas čas celého běhu (`duration_s`
+  z `run_finished`), ne součet kroků (ISSUES 38).
