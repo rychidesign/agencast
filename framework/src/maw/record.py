@@ -2,7 +2,9 @@
 summary.md, plan.md, callback.json. Každý zápis prochází maskováním tajných
 hodnot; base64 a reasoning_details se do záznamu nikdy nedostanou.
 """
+import html
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,12 +36,12 @@ def scrub(obj, file_note: str | None = None):
 
 
 class Record:
-    def __init__(self, directory: Path, secrets: dict[str, str]):
+    def __init__(self, directory: Path, secrets: dict[str, str], exist_ok: bool = False):
         self.dir = directory
         self.secrets = {n: v for n, v in secrets.items() if v and len(v) >= MIN_SECRET_LEN}
         self.masked: set[str] = set()
         self.events: list[dict] = []
-        directory.mkdir(parents=True)
+        directory.mkdir(parents=True, exist_ok=exist_ok)  # exist_ok: přerušený běh po restartu serveru
 
     def mask(self, text: str) -> str:
         for name, value in self.secrets.items():
@@ -141,6 +143,8 @@ def plan_md(p: Project) -> str:
                 what = "větve: " + ", ".join(st["parallel"])
             elif k == "switch":
                 what = f"podle {st['switch']['value']}: " + ", ".join(list(st["switch"]["cases"]) + ["default"])
+            elif k == "call":
+                what = f"scénář {st['call']['scenario']}"
             cond = f"`{st['when']}`" if "when" in st else ""
             lines.append(f"| {info.nn} | {'↳ ' * indent}{info.id} | {k} | {cond} | {what} | {_limits(p, st, k)} |")
             for _, lst in nested_lists(st):
@@ -208,3 +212,128 @@ def run_status(run_dir: Path) -> dict:
             info["callback"] = "callback nedoručen"
     return info
 
+
+# --- report.html (3b) ---------------------------------------------------------------
+
+REPORT_CUT = 4000  # znaků promptu/odpovědi v report.html; celé jsou v záznamu běhu
+DATA_URL = re.compile(r"data:[\w/+.-]+;base64,[A-Za-z0-9+/=]+")
+CSS = """body{font:15px/1.5 system-ui,sans-serif;max-width:1100px;margin:2em auto;padding:0 1em;color:#222}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:4px 8px;text-align:left;vertical-align:top}
+th{background:#f4f4f4}.ok{color:#176b2c}.err{color:#b00020}.muted{color:#777}
+pre{white-space:pre-wrap;word-break:break-word;background:#f6f6f6;padding:8px;border-radius:4px}
+details{margin:.3em 0}summary{cursor:pointer}h3{margin-top:1.5em}"""
+
+
+def _cut(text: str) -> str:
+    if len(text) <= REPORT_CUT:
+        return text
+    return text[:REPORT_CUT] + f"\n… (zkráceno, celkem {len(text)} znaků — celé v záznamu běhu)"
+
+
+def _answer(path: Path) -> str:
+    """Odpověď z calls/NN.response.json: text nebo argumenty _submit_output, jinak celé tělo."""
+    try:
+        b = json.loads(path.read_text(encoding="utf-8"))
+        m = b["choices"][0]["message"]
+        calls = m.get("tool_calls") or []
+        return m.get("content") or (calls[0]["function"]["arguments"] if calls else None) or m.get("refusal") \
+            or _dump(b, 2)
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        return path.read_text(encoding="utf-8") if path.is_file() else "(soubor chybí)"
+
+
+def _pre(title: str, text: str) -> str:
+    return f"<details><summary>{html.escape(title)}</summary><pre>{html.escape(_cut(text))}</pre></details>"
+
+
+def report_html(run) -> str:
+    """report.html (run-record.md): totéž co summary.md plus rozbalitelné prompty a odpovědi.
+    Z events.jsonl a steps/; jeden soubor, CSS uvnitř, žádné externí zdroje, bez base64."""
+    e, d, sc = html.escape, run.rec.dir, run.p.scenario
+    ok = run.status == "succeeded"
+    steps: dict[str, dict] = {}
+    for x in run.rec.events:
+        if not x.get("step"):
+            continue
+        s = steps.setdefault(x["step"], {"kind": x.get("kind"), "status": "běží", "calls": [], "errors": [],
+                                         "folder": None, "note": "", "duration": None, "cost": None})
+        t = x["type"]
+        if t == "step_finished":
+            s.update(status="continued" if x["continued"] else x["status"], duration=x["duration_s"],
+                     cost=x["cost_usd"])
+            s["folder"] = s["folder"] or (x["output_file"].rsplit("/", 1)[0] if x.get("output_file") else None)
+        elif t == "step_skipped":
+            s.update(kind=x["kind"], status="skipped", note=x["reason"])
+        elif t in ("model_call", "jev_call"):
+            s["calls"].append(x)
+            s["folder"] = x["request_file"].rsplit("/", 2)[0]
+            s["note"] = (", ".join(f"{q} = {v}" for q, v in (x["answers"] or {}).items()) if t == "jev_call"
+                         else f"{x['alias']} → {x['model']}")
+        elif t == "error":
+            s["errors"].append(x)
+
+    def nn(path, s):
+        if s["folder"]:
+            return ".".join(str(int(n)) for n in re.findall(r"steps/(\d+)-", s["folder"]))
+        info = run.p.steps.get(path)
+        return str(info.nn) if info and "/" not in path else ""
+
+    started = datetime.fromisoformat(run.started_at.replace("Z", "+00:00"))
+    cost = f"{cz(run.cost, 4)} USD" + (f" (z toho obrázky {cz(run.image_cost, 4)} USD)" if run.image_cost else "")
+    out = [f"<!doctype html><html lang=\"cs\"><head><meta charset=\"utf-8\"><title>{e(sc['name'])} — "
+           f"{'úspěch' if ok else 'chyba'}</title><style>{CSS}</style></head><body>",
+           f"<h1>{e(sc['name'])} — <span class=\"{'ok' if ok else 'err'}\">{'úspěch' if ok else 'chyba'}</span></h1>",
+           f"<p>{e(sc.get('description') or '')}</p>",
+           f"<p class=\"muted\">Běh <code>{e(run.run_id)}</code> · {started.day}. {started.month}. {started.year} "
+           f"{started:%H:%M:%S} UTC · {cz(run.duration, 1)} s · {e(cost)}"
+           + (f" · request_key <code>{e(run.request_key)}</code>" if run.request_key else "") + "</p>"]
+    if run.error:
+        er = run.error
+        out += ["<h2 class=\"err\">Chyba</h2>",
+                f"<p>třída <code>{e(er['class'])}</code> · krok <code>{e(er['step'] or '—')}</code></p>",
+                f"<pre>{e(_cut(er['message']))}</pre>"]
+    out += ["<h2>Varování</h2>", "<ul>" + "".join(f"<li>{e(w)}</li>" for w in run.warnings) + "</ul>"
+            if run.warnings else "<p>žádná</p>"]
+    out += ["<h2>Vstupy</h2>", f"<pre>{e(_dump(run.inputs, 2))}</pre>"]
+    out += ["<h2>Kroky</h2>", "<table><tr><th>#</th><th>Krok</th><th>Typ</th><th>Stav</th><th>Čas</th><th>Cena</th>"
+            "<th>Poznámka</th></tr>"]
+    for path, s in steps.items():
+        note = s["note"] or (s["errors"][-1]["message"].splitlines()[0] if s["errors"] else "")
+        cls = "ok" if s["status"] == "succeeded" else "err" if s["status"] in ("failed", "continued") else ""
+        out.append(f"<tr><td>{nn(path, s)}</td><td>{e(path)}</td><td>{e(s['kind'] or '')}</td>"
+                   f"<td class=\"{cls}\">{e(STATUS_CS.get(s['status'], s['status']))}</td>"
+                   f"<td>{'' if s['duration'] is None else cz(s['duration'], 1) + ' s'}</td>"
+                   f"<td>{'' if s['cost'] is None else cz(s['cost'], 4)}</td><td>{e(note)}</td></tr>")
+    out.append("</table>")
+    out.append("<h2>Výstup</h2>")
+    if ok and run.outputs is not None:
+        out.append("<ul>" + "".join(
+            f"<li>{e(k)}: " + (f"<a href=\"{e(v)}\">{e(v)}</a>" if isinstance(v, str) and v.startswith(
+                ("https://", "http://", "file://")) else e(cz_value(v))) + "</li>" for k, v in run.outputs.items())
+            + "</ul>")
+    else:
+        out.append("<p>žádný</p>")
+    out.append("<h2>Detail kroků</h2>")
+    for path, s in steps.items():
+        if not (s["folder"] or s["errors"]):
+            continue
+        out.append(f"<h3>{nn(path, s)} · {e(path)} ({e(s['kind'] or '')})</h3>")
+        f = d / s["folder"] if s["folder"] else None
+        if f and (f / "prompt.md").is_file():
+            out.append(_pre("Prompt", (f / "prompt.md").read_text(encoding="utf-8")))
+        for c in s["calls"]:
+            usage = c.get("usage") or {}
+            head = (f"Volání {c['attempt']}" + (f" · {c['alias']} → {c['model']}" if "alias" in c else f" · {c['model']}")
+                    + (f" · {c['finish_reason']}" if c.get("finish_reason") else "")
+                    + f" · {usage.get('input_tokens')}+{usage.get('output_tokens')} tokenů"
+                    + ("" if usage.get("cost_usd") is None else f" · {cz(usage['cost_usd'], 4)} USD")
+                    + f" · {cz(c['duration_s'], 1)} s")
+            out.append(_pre(head, _answer(d / c["response_file"])))
+        if f and (f / "output.json").is_file():
+            out.append(_pre("Výstup kroku", (f / "output.json").read_text(encoding="utf-8")))
+        for er in s["errors"]:
+            out.append(f"<p class=\"err\"><code>{e(er['class'])}</code>"
+                       + (f" (pokus {er['attempt']}{', opakuje se' if er.get('will_retry') else ''})"
+                          if er.get("attempt") else "") + f": {e(_cut(er['message']))}</p>")
+    out.append("</body></html>")
+    return DATA_URL.sub("<vynecháno: data URL>", "\n".join(out))
