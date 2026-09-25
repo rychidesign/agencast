@@ -1,0 +1,107 @@
+{
+ "model": "google/gemini-2.5-flash-image",
+ "case": "person",
+ "prompt": "Realistická fotografie prezidenta Donalda Trumpa, jak drží šálek kávy, portrét.",
+ "status": 200,
+ "latency_s": 5.838,
+ "message_keys": [
+  "content",
+  "images",
+  "reasoning",
+  "refusal",
+  "role"
+ ],
+ "finish_reason": "stop",
+ "native_finish_reason": "STOP",
+ "text_content": "Jasně, tady je: ",
+ "usage": {
+  "prompt_tokens": 23,
+  "completion_tokens": 1297,
+  "total_tokens": 1320,
+  "cost": 0.0387244,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.0387244,
+   "upstream_inference_prompt_cost": 6.9e-06,
+   "upstream_inference_completions_cost": 0.0387175
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 1290,
+   "audio_tokens": 0
+  }
+ },
+ "images": [
+  {
+   "item_keys": [
+    "image_url",
+    "type"
+   ],
+   "url_prefix": "data:image/png;base64",
+   "bytes": 1425416,
+   "width": 1024,
+   "height": 1024,
+   "file": "q3_person_google_gemini-2.5-flash-image_0.png"
+  }
+ ],
+ "raw_body_without_base64": {
+  "id": "gen-1790339944-NS0yLLKYCFgfiqmUdwIE",
+  "object": "chat.completion",
+  "created": 1790339944,
+  "model": "google/gemini-2.5-flash-image",
+  "provider": "Google",
+  "system_fingerprint": null,
+  "service_tier": "default",
+  "choices": [
+   {
+    "index": 0,
+    "logprobs": null,
+    "finish_reason": "stop",
+    "native_finish_reason": "STOP",
+    "message": {
+     "role": "assistant",
+     "content": "Jasně, tady je: ",
+     "refusal": null,
+     "reasoning": null,
+     "images": [
+      {
+       "type": "image_url",
+       "image_url": {
+        "url": "data:image/png;base64,<base64 uloženo do souboru>"
+       }
+      }
+     ]
+    }
+   }
+  ],
+  "usage": {
+   "prompt_tokens": 23,
+   "completion_tokens": 1297,
+   "total_tokens": 1320,
+   "cost": 0.0387244,
+   "is_byok": false,
+   "prompt_tokens_details": {
+    "cached_tokens": 0,
+    "cache_write_tokens": 0,
+    "audio_tokens": 0,
+    "video_tokens": 0
+   },
+   "cost_details": {
+    "upstream_inference_cost": 0.0387244,
+    "upstream_inference_prompt_cost": 6.9e-06,
+    "upstream_inference_completions_cost": 0.0387175
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 0,
+    "image_tokens": 1290,
+    "audio_tokens": 0
+   }
+  }
+ }
+}

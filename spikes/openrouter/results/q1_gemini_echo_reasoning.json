@@ -1,0 +1,1914 @@
+[
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "schema",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 1.534,
+  "cost": 0.0004958,
+  "output": {
+   "caption": "Objevte novou chuťovou krizovatku v každém šálku! Do naší nabídky právě dorazila exkluzivní novinka z pražírny Zrno, která probudí vaše smysly. Čekají na vás tóny třešní a jemné čokolády. Zastavte se na ☕ nebo si ji uvařte doma.",
+   "hashtags": [
+    "kava",
+    "prazirnazrno",
+    "dnespiji",
+    "kavomilci",
+    "vyberovakava"
+   ],
+   "image_prompt": "A close-up of a steaming cup of specialty coffee on a rustic wooden table with coffee beans scattered around and soft morning sunlight."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339913-gg3XG035xRqqeIdHgOkp",
+     "object": "chat.completion",
+     "created": 1790339913,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Objevte novou chuťovou krizovatku v každém šálku! Do naší nabídky právě dorazila exkluzivní novinka z pražírny Zrno, která probudí vaše smysly. Čekají na vás tóny třešní a jemné čokolády. Zastavte se na ☕ nebo si ji uvařte doma.\",\n  \"hashtags\": [\n    \"kava\",\n    \"prazirnazrno\",\n    \"dnespiji\",\n    \"kavomilci\",\n    \"vyberovakava\"\n  ],\n  \"image_prompt\": \"A close-up of a steaming cup of specialty coffee on a rustic wooden table with coffee beans scattered around and soft morning sunlight.\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a18vvRFFPi6l74mBx4tlvszLG4uDhqgvX9wHaxmlWV4bKvNtNAF0PMetdDx1/9Cm/7KEfBTqDp4UlqTgolwKxTSrnjrnUuhI6SAZzxF+sDqzgD1Ih3/s",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 136,
+      "completion_tokens": 182,
+      "total_tokens": 318,
+      "cost": 0.0004958,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0004958,
+       "upstream_inference_prompt_cost": 4.08e-05,
+       "upstream_inference_completions_cost": 0.000455
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "schema",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 1.521,
+  "cost": 0.0005083,
+  "output": {
+   "caption": "Voní po čokoládě, chutná jako sladký letní sen a právě přistála na našem e-shopu! Nová jednodruhová káva z pražírny Zrno tě dostane hned od prvního doušku. Přijď ji ochutnat nebo si udělej radost domů. ☕✨",
+   "hashtags": [
+    "kava",
+    "prazirnazrno",
+    "dnespiji",
+    "vyberovakava",
+    "coffee",
+    "coffeetime",
+    "praguecoffee"
+   ],
+   "image_prompt": "A stylish flat lay of a freshly brewed cup of specialty coffee with coffee beans scattered on a rustic wooden table, warm morning sunlight, minimalist aesthetic, professional food photography."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339914-4aqIjLO0eMrk9o5u0Abn",
+     "object": "chat.completion",
+     "created": 1790339914,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Voní po čokoládě, chutná jako sladký letní sen a právě přistála na našem e-shopu! Nová jednodruhová káva z pražírny Zrno tě dostane hned od prvního doušku. Přijď ji ochutnat nebo si udělej radost domů. ☕✨\",\n  \"hashtags\": [\n    \"kava\",\n    \"prazirnazrno\",\n    \"dnespiji\",\n    \"vyberovakava\",\n    \"coffee\",\n    \"coffeetime\",\n    \"praguecoffee\"\n  ],\n  \"image_prompt\": \"A stylish flat lay of a freshly brewed cup of specialty coffee with coffee beans scattered on a rustic wooden table, warm morning sunlight, minimalist aesthetic, professional food photography.\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a1/KADnJts9aiDa7lMh9BFH7fyjtvESbdW3/VpCW6K+cXhzXhXkeGARulXLPnrV4hW1QMyMuXbd9OMuLsAzAfc9l5+AKBz7HKlU98P7Kk9clwbB+35k2",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 136,
+      "completion_tokens": 187,
+      "total_tokens": 323,
+      "cost": 0.0005083,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0005083,
+       "upstream_inference_prompt_cost": 4.08e-05,
+       "upstream_inference_completions_cost": 0.0004675
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "schema",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.25,
+  "cost": 0.0005408,
+  "output": {
+   "caption": "Máme pro vás skvělou zprávu! V prodeji je právě nová výběrová káva z pražírny Zrno, která vás okouzlí svými tóny čokolády a zralého ovoce. Zastavte se na šálek nebo si ulovte svůj balíček domů a zpříjemněte si den tím nejlepším rituálem.",
+   "hashtags": [
+    "kava",
+    "prazirnazrno",
+    "vyberovakava",
+    "dnespiji",
+    "kavoholik",
+    "praha"
+   ],
+   "image_prompt": "A modern, minimalist coffee setup with a bag of freshly roasted coffee beans labeled Zrno, a ceramic cup filled with rich espresso with crema, wooden background, warm soft morning light."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339916-jjJ4EjRF19VSWHgM19n8",
+     "object": "chat.completion",
+     "created": 1790339916,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Máme pro vás skvělou zprávu! V prodeji je právě nová výběrová káva z pražírny Zrno, která vás okouzlí svými tóny čokolády a zralého ovoce. Zastavte se na šálek nebo si ulovte svůj balíček domů a zpříjemněte si den tím nejlepším rituálem.\",\n  \"hashtags\": [\n    \"kava\",\n    \"prazirnazrno\",\n    \"vyberovakava\",\n    \"dnespiji\",\n    \"kavoholik\",\n    \"praha\"\n  ],\n  \"image_prompt\": \"A modern, minimalist coffee setup with a bag of freshly roasted coffee beans labeled Zrno, a ceramic cup filled with rich espresso with crema, wooden background, warm soft morning light.\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a18vhcgAGIh6KMDXL2xw15j70e/nzgctaIbnlVQOrVacmlX02E6C9WkPNNrt4PZY6Cu1rLWwxQfi+5t0vdvw0noDuY/fL1qSMkc95RR2YTwtSGix4AWz",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 136,
+      "completion_tokens": 200,
+      "total_tokens": 336,
+      "cost": 0.0005408,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0005408,
+       "upstream_inference_prompt_cost": 4.08e-05,
+       "upstream_inference_completions_cost": 0.0005
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "schema",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 1.614,
+  "cost": 0.0005058,
+  "output": {
+   "caption": "Voní po čerstvém ovoci a hořké čokoládě! Objevte naši novou jednodruhovou kávu z pražírny Zrno, která vás nakopne do každého nového dne. Stavte se na šálek nebo si ulovte svůj balíček domů.",
+   "hashtags": [
+    "kava",
+    "prazirnazrno",
+    "dnespiji",
+    "kavomilci",
+    "vyberovakava",
+    "prazirna"
+   ],
+   "image_prompt": "A modern, minimalist coffee bag from roastery Zrno placed on a wooden table next to a steaming ceramic cup of filter coffee, with soft morning light and green plants in the background."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339918-NaTC9iIOc2POJlTl3ad7",
+     "object": "chat.completion",
+     "created": 1790339918,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Voní po čerstvém ovoci a hořké čokoládě! Objevte naši novou jednodruhovou kávu z pražírny Zrno, která vás nakopne do každého nového dne. Stavte se na šálek nebo si ulovte svůj balíček domů.\",\n  \"hashtags\": [\n    \"kava\",\n    \"prazirnazrno\",\n    \"dnespiji\",\n    \"kavomilci\",\n    \"vyberovakava\",\n    \"prazirna\"\n  ],\n  \"image_prompt\": \"A modern, minimalist coffee bag from roastery Zrno placed on a wooden table next to a steaming ceramic cup of filter coffee, with soft morning light and green plants in the background.\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a19k0QLWT9AmgqU/gSbLJZdLYE2SsdjZbbqNbhnXorr13nFWYPXl75w7TzynU06J0If2To6myjjmfRSaG6c6XW0zkqYxnQU+MyU8vZY10ahiTv7FFGv2",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 136,
+      "completion_tokens": 186,
+      "total_tokens": 322,
+      "cost": 0.0005058,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0005058,
+       "upstream_inference_prompt_cost": 4.08e-05,
+       "upstream_inference_completions_cost": 0.000465
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "schema",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 1.836,
+  "cost": 0.0005833,
+  "output": {
+   "caption": "Voní po čokoládě a černém rybízu, na patře je neuvěřitelně jemná a probudí vás i v tom nejospalejším ránu. Ochutnejte naši novou jednodruhovou kávu z pražírny Zrno a nastartujte svůj den tím nejlepším možným způsobem! K dostání na e-shopu i v kavárně.",
+   "hashtags": [
+    "kava",
+    "prajirnazrno",
+    "dnespiji",
+    "vyberovakava",
+    "rannienergiev",
+    "kavomilci",
+    "praguerosters"
+   ],
+   "image_prompt": "A close-up shot of a ceramic mug filled with steaming specialty coffee on a rustic wooden table, with fresh coffee beans scattered around, soft morning sunlight coming through the window, cozy and aesthetic atmosphere."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339920-WMBo9fNJhtEzWNlwEeVW",
+     "object": "chat.completion",
+     "created": 1790339920,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Voní po čokoládě a černém rybízu, na patře je neuvěřitelně jemná a probudí vás i v tom nejospalejším ránu. Ochutnejte naši novou jednodruhovou kávu z pražírny Zrno a nastartujte svůj den tím nejlepším možným způsobem! K dostání na e-shopu i v kavárně.\",\n  \"hashtags\": [\n    \"kava\",\n    \"prajirnazrno\",\n    \"dnespiji\",\n    \"vyberovakava\",\n    \"rannienergiev\",\n    \"kavomilci\",\n    \"praguerosters\"\n  ],\n  \"image_prompt\": \"A close-up shot of a ceramic mug filled with steaming specialty coffee on a rustic wooden table, with fresh coffee beans scattered around, soft morning sunlight coming through the window, cozy and aesthetic atmosphere.\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a1/GXrbuqbNw0rXYM787I6yxuePNTYB/vcLiR2ivQpGsIbXufYPTGE0bMyMNIxxKkWvisz6gM8+36AHgHw0svvdlhjz7YPUwnjKroZ+w0TuGUICXU+YU",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 136,
+      "completion_tokens": 217,
+      "total_tokens": 353,
+      "cost": 0.0005833,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0005833,
+       "upstream_inference_prompt_cost": 4.08e-05,
+       "upstream_inference_completions_cost": 0.0005425
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.137,
+  "cost": 0.00042019999999999997,
+  "output": {
+   "caption": "Objev chuť nového zrna, které tě probudí do každého dne. Zastav se u nás na šálek pohody.",
+   "hashtags": [
+    "kava",
+    "zrnoprazyrna",
+    "dnespiji"
+   ],
+   "image_prompt": "A warm, cozy coffee shop setting with a freshly brewed cup of specialty coffee on a rustic wooden table."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339922-NVbP3JbIgVp4JCNTGdWM",
+     "object": "chat.completion",
+     "created": 1790339922,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_4787575",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a18NQUouUYZKhDpyy3UwqNmaINEJLz2bLSCTvMVox/ESmfp2r5RbSxJBuxKoWWEprP8CNkLKSOhYk4Pab8LC5OWQXtvYVyebZhylbewlovtGeR5B9D2O",
+          "format": "google-gemini-v1",
+          "id": "call_4787575",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 188,
+      "completion_tokens": 13,
+      "total_tokens": 201,
+      "cost": 8.89e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 8.89e-05,
+       "upstream_inference_prompt_cost": 5.64e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339923-WUg8k3RdUhTmzKxv1Aun",
+     "object": "chat.completion",
+     "created": 1790339923,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Objev chuť nového zrna, které tě probudí do každého dne. Zastav se u nás na šálek pohody.\",\n  \"hashtags\": [\n    \"kava\",\n    \"zrnoprazyrna\",\n    \"dnespiji\"\n  ],\n  \"image_prompt\": \"A warm, cozy coffee shop setting with a freshly brewed cup of specialty coffee on a rustic wooden table.\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a18DEmMr6HrpOi4drUAddj0CLUmZdd/dmpJrjCRmRKv2s4O0ntOh3kY5Iw/H8S+CkgQQ2VY9hRfr8hArfelAq7tySzaFOu01iFYr+VTj4tV/v8sOkTId",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 246,
+      "completion_tokens": 103,
+      "total_tokens": 349,
+      "cost": 0.0003313,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0003313,
+       "upstream_inference_prompt_cost": 7.38e-05,
+       "upstream_inference_completions_cost": 0.0002575
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L1",
+  "ok": false,
+  "error": "neplatný JSON: '{\\n  \"caption\": \"Objev chuť nové kávy z pražírny Zrno a zpříjemni si dnešní ráno '",
+  "latency_s": 1.994,
+  "cost": 8.89e-05,
+  "output": null,
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339924-KdLfVJMzOGPgts0SrF1F",
+     "object": "chat.completion",
+     "created": 1790339924,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_1814646",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a182cldp6Nzl94z+RPudT0wL2j6MxYZf+2FZbNOYeeP0FICgA8VKbbTPuZolMpmT7WZjs8b+iFQwJ+XCwt2dDxIl4NQODg3Z0rpLx1Dtu8oSH+Qu/TCt",
+          "format": "google-gemini-v1",
+          "id": "call_1814646",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 188,
+      "completion_tokens": 13,
+      "total_tokens": 201,
+      "cost": 8.89e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 8.89e-05,
+       "upstream_inference_prompt_cost": 5.64e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339925-mzAvopf90rpL8Jlx2vgV",
+     "object": "chat.completion",
+     "created": 1790339925,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "error",
+       "native_finish_reason": null,
+       "error": {
+        "code": 429,
+        "message": "google/gemini-3.5-flash-lite is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations",
+        "metadata": {
+         "error_type": "rate_limit_exceeded"
+        }
+       },
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Objev chuť nové kávy z pražírny Zrno a zpříjemni si dnešní ráno šálkem plným skvělých t",
+        "refusal": null,
+        "reasoning": null
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cost": 0,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0,
+       "upstream_inference_prompt_cost": 0,
+       "upstream_inference_completions_cost": 0
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.147,
+  "cost": 0.0003827,
+  "output": {
+   "caption": "Objev chuť nového zrna, které tě ranně nakopne. ☕",
+   "hashtags": [
+    "#kava",
+    "#prazirna",
+    "#zrno"
+   ],
+   "image_prompt": "A modern coffee bag from roastery Zrno on a wooden table with a cup of fresh espresso."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339926-FLA0Nw9JbABZeAand2Ti",
+     "object": "chat.completion",
+     "created": 1790339926,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_4787699",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a1/2r+anZnbUOOGfpYVLbNZZokwJd1R797is0dAhFLIKEIPYD3aK5hh07COVI7CfW7GaVUMdwv+RN11fyZ/dWmUi+6VEhS55B9q0Tgn14rMzWmrBer48",
+          "format": "google-gemini-v1",
+          "id": "call_4787699",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 188,
+      "completion_tokens": 13,
+      "total_tokens": 201,
+      "cost": 8.89e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 8.89e-05,
+       "upstream_inference_prompt_cost": 5.64e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339927-Mbw7ps49jJYM4Ql33MZu",
+     "object": "chat.completion",
+     "created": 1790339927,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Objev chuť nového zrna, které tě ranně nakopne. ☕\",\n  \"hashtags\": [\n    \"#kava\",\n    \"#prazirna\",\n    \"#zrno\"\n  ],\n  \"image_prompt\": \"A modern coffee bag from roastery Zrno on a wooden table with a cup of fresh espresso.\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a1/9PtV8y5p4NUsdGUBkmBObVcGUNDJLhfQr1EofNaRvWFlgy2zSmd/QHvhnZV3I9GoUbFToAXiA/mTAaR7p9dYQClHY8zTJ+a1ffsB1uqwUS8ORdzwA",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 246,
+      "completion_tokens": 88,
+      "total_tokens": 334,
+      "cost": 0.0002938,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0002938,
+       "upstream_inference_prompt_cost": 7.38e-05,
+       "upstream_inference_completions_cost": 0.00022
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.207,
+  "cost": 0.0004477,
+  "output": {
+   "caption": "Objev chuť nové kávy z pražírny Zrno a zpříjemni si dnešní ráno šálkem plným skvělých tónů. ☕",
+   "hashtags": [
+    "kava",
+    "prazirnazrno",
+    "dnespiju"
+   ],
+   "image_prompt": "A cup of artisan coffee on a wooden table with coffee beans scattered around, warm morning light, minimalist aesthetic"
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339928-nfaQJD8KU8280RKpmD8H",
+     "object": "chat.completion",
+     "created": 1790339928,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_659553",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a1/+kgr8XzwLOTAtvP3y9GFPHXNJezE3MxsGmxF+ef3y47heVPm2+ED3WfJWXlXxhI9T7BYGGqmcJ/EmZLMSyjaJxlO554Rj7BUqi5UQp8535ZRab5Tg",
+          "format": "google-gemini-v1",
+          "id": "call_659553",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 188,
+      "completion_tokens": 13,
+      "total_tokens": 201,
+      "cost": 8.89e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 8.89e-05,
+       "upstream_inference_prompt_cost": 5.64e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339929-oh0pauiaTetQLF53BZj4",
+     "object": "chat.completion",
+     "created": 1790339929,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Objev chuť nové kávy z pražírny Zrno a zpříjemni si dnešní ráno šálkem plným skvělých tónů. ☕\",\n  \"hashtags\": [\n    \"kava\",\n    \"prazirnazrno\",\n    \"dnespiju\"\n  ],\n  \"image_prompt\": \"A cup of artisan coffee on a wooden table with coffee beans scattered around, warm morning light, minimalist aesthetic\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a1/5lDnFUeRPkbkDY32kWLGX0g6/I/efIo6/mRJ+fzT6dfZtSzrOL53ItXq/jRiA6/w2aTy9/uDi9eQ4q0cPwotfAqBPuf5fKQKJIVIJNP2Z07Aof4Jf",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 246,
+      "completion_tokens": 114,
+      "total_tokens": 360,
+      "cost": 0.0003588,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0003588,
+       "upstream_inference_prompt_cost": 7.38e-05,
+       "upstream_inference_completions_cost": 0.000285
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L1",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.08,
+  "cost": 0.0004527,
+  "output": {
+   "caption": "Objev chuť nové kávy z pražírny Zrno a zpříjemni si dnešní ráno šálkem plným skvělých tónů. ☕",
+   "hashtags": [
+    "kava",
+    "prazirnazrno",
+    "dnespiju"
+   ],
+   "image_prompt": "A freshly brewed cup of specialty coffee on a wooden table with coffee beans scattered around, warm morning light, minimalist aesthetic."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339930-pm2yS43CrAkbjvmHRgIv",
+     "object": "chat.completion",
+     "created": 1790339930,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_1415885",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a19AVwO32vCUAwsKSmTywAAFNmIgKqCV4dqVrJz0f95OaOkPC68mzyeUPwTiXJowKMMpyT0tgL+9z0aignNobyPZC2eo9fRbkgZ52ptQAeWXhNfiNbgj",
+          "format": "google-gemini-v1",
+          "id": "call_1415885",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 188,
+      "completion_tokens": 13,
+      "total_tokens": 201,
+      "cost": 8.89e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 8.89e-05,
+       "upstream_inference_prompt_cost": 5.64e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339931-WoC6ckQo0Y89HqYS6Gwk",
+     "object": "chat.completion",
+     "created": 1790339931,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "stop",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": "{\n  \"caption\": \"Objev chuť nové kávy z pražírny Zrno a zpříjemni si dnešní ráno šálkem plným skvělých tónů. ☕\",\n  \"hashtags\": [\n    \"kava\",\n    \"prazirnazrno\",\n    \"dnespiju\"\n  ],\n  \"image_prompt\": \"A freshly brewed cup of specialty coffee on a wooden table with coffee beans scattered around, warm morning light, minimalist aesthetic.\"\n}",
+        "refusal": null,
+        "reasoning": null,
+        "reasoning_details": [
+         {
+          "type": "reasoning.text",
+          "signature": "AY89a19d1HGj8tnDVjcSFPSQuRKI5wtNk3GQmHeetl2cSdS1h4AAIb/Vc5cHSyn3WWA8TJLpE52HFPFbbB6hYrK99QhA1T3PfQHMrhd6LpL1871n6mPkZ/Ep",
+          "format": "google-gemini-v1",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 246,
+      "completion_tokens": 116,
+      "total_tokens": 362,
+      "cost": 0.0003638,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0003638,
+       "upstream_inference_prompt_cost": 7.38e-05,
+       "upstream_inference_completions_cost": 0.00029
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L2",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.235,
+  "cost": 0.0004994,
+  "output": {
+   "caption": "Zkoušíš už naši novou kávu z pražírny Zrno? Tahle várka voní po čokoládě a zralém ovoci, takže tvoje ráno bude o poznání radostnější ☕",
+   "hashtags": [
+    "prazirnazrno",
+    "vyberovakava",
+    "dneskavuju"
+   ],
+   "image_prompt": "Snímek šálku výběrové kávy na dřevěném stole s pytlíkem kávy Zrno v pozadí, teplé ranní světlo, útulná atmosféra."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339932-8qSkWiJUnTlwtVCnVVI6",
+     "object": "chat.completion",
+     "created": 1790339932,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_4854385",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a1/MZZ0W8esHrrRDk4v6cKg6AF5uqLa65i/JdnrsWb29KN5FIKKmJeARQzrZQKUKcvcjPuAjblxnlBxT+HhUPJdy1pFc96bTBDrumP0k8c2grfM5DkYP",
+          "format": "google-gemini-v1",
+          "id": "call_4854385",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 145,
+      "completion_tokens": 13,
+      "total_tokens": 158,
+      "cost": 7.6e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 7.6e-05,
+       "upstream_inference_prompt_cost": 4.35e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339933-f46PgJmMNVk94SQX93wD",
+     "object": "chat.completion",
+     "created": 1790339933,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_2919697",
+          "function": {
+           "name": "submit_post",
+           "arguments": "{\"caption\":\"Zkoušíš už naši novou kávu z pražírny Zrno? Tahle várka voní po čokoládě a zralém ovoci, takže tvoje ráno bude o poznání radostnější ☕\",\"hashtags\":[\"prazirnazrno\",\"vyberovakava\",\"dneskavuju\"],\"image_prompt\":\"Snímek šálku výběrové kávy na dřevěném stole s pytlíkem kávy Zrno v pozadí, teplé ranní světlo, útulná atmosféra.\"}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a1/scDYyUYbw52K9b8/j2+5Nqj7/2Xs1+8utdYnELcPUlP4oUIH+g7rQHOuAE7dTMoeCtiQgF7OKLISQSvovJWDfRiUtmzfe5XPufhDV1C2oE0dAPYZX",
+          "format": "google-gemini-v1",
+          "id": "call_2919697",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 203,
+      "completion_tokens": 145,
+      "total_tokens": 348,
+      "cost": 0.0004234,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0004234,
+       "upstream_inference_prompt_cost": 6.09e-05,
+       "upstream_inference_completions_cost": 0.0003625
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L2",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.439,
+  "cost": 0.0003569,
+  "output": {
+   "image_prompt": "Sáček čerstvě pražené kávy na dřevěném stole s šálkem espressa",
+   "hashtags": [
+    "kava",
+    "zrnoprazyrna",
+    "dnespiji"
+   ],
+   "caption": "Nová káva z pražírny Zrno je tu a stojí za ochutnání ☕"
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339934-pbY3byaVlbi0Bq8j2b2V",
+     "object": "chat.completion",
+     "created": 1790339934,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_3722008",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a1/poeN97kaNl4Cfqkqh0pF6ZD0ctBGhdnlhJHSPxLcfqoMJBjWxTtIYDmAweEa3sEtsvRim5wDER6s65sr0s7xQ8qEgWIIm1ySG8K8QLYQP0ayTDSin",
+          "format": "google-gemini-v1",
+          "id": "call_3722008",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 145,
+      "completion_tokens": 13,
+      "total_tokens": 158,
+      "cost": 7.6e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 7.6e-05,
+       "upstream_inference_prompt_cost": 4.35e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339935-8GzwZooJuW12RhpOiVKA",
+     "object": "chat.completion",
+     "created": 1790339935,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_2583321",
+          "function": {
+           "name": "submit_post",
+           "arguments": "{\"image_prompt\":\"Sáček čerstvě pražené kávy na dřevěném stole s šálkem espressa\",\"hashtags\":[\"kava\",\"zrnoprazyrna\",\"dnespiji\"],\"caption\":\"Nová káva z pražírny Zrno je tu a stojí za ochutnání ☕\"}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a1+PYTpfakcA3GdR00uDvh1J6kIYtH4k7vazBU9blk1LNAJHnqyZa5tPxv2xlMqXunS466GLPL0X3nqSqxmrWxuToodpw4QHjJ4bdnWdWjQ5Sgzo8+5b",
+          "format": "google-gemini-v1",
+          "id": "call_2583321",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 203,
+      "completion_tokens": 88,
+      "total_tokens": 291,
+      "cost": 0.0002809,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0002809,
+       "upstream_inference_prompt_cost": 6.09e-05,
+       "upstream_inference_completions_cost": 0.00022
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L2",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.177,
+  "cost": 0.0004694,
+  "output": {
+   "caption": "Už jste ochutnali naši novou kávu z pražírny Zrno? Čeká vás lahodný šálek plný skvělé chuti, která vás probudí do každého dne. ☕",
+   "hashtags": [
+    "kava",
+    "prazyrnazrno",
+    "dnespiju"
+   ],
+   "image_prompt": "Detailní záběr na šálek čerstvě uvařené kávy s jemnou cremo, v pozadí rozostřená zrna kávy."
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339937-zDAEHFPU3Jys7WTrDTMq",
+     "object": "chat.completion",
+     "created": 1790339937,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_1468927",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a1+pjDvXCYk6tpLafggHcZDC265elcABdbTgf0g11+lMfipRpFXec1Kyx3mJclf3mqI8/gf5BQtecFE34NVmJzI/AoMvK5bWjNiPKiY3pQMuct/RG1m8",
+          "format": "google-gemini-v1",
+          "id": "call_1468927",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 145,
+      "completion_tokens": 13,
+      "total_tokens": 158,
+      "cost": 7.6e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 7.6e-05,
+       "upstream_inference_prompt_cost": 4.35e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339938-eUDfdh2RnIPLewGsHplW",
+     "object": "chat.completion",
+     "created": 1790339938,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_1272607",
+          "function": {
+           "name": "submit_post",
+           "arguments": "{\"caption\":\"Už jste ochutnali naši novou kávu z pražírny Zrno? Čeká vás lahodný šálek plný skvělé chuti, která vás probudí do každého dne. ☕\",\"hashtags\":[\"kava\",\"prazyrnazrno\",\"dnespiju\"],\"image_prompt\":\"Detailní záběr na šálek čerstvě uvařené kávy s jemnou cremo, v pozadí rozostřená zrna kávy.\"}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a1+sxUGhoknp0x2PHj4Kk/vZLw8Ma0sLvwXWUR/DkgQ5zNEyaoya68mQa+GPtf0oq3v81W2T+jbkS7SuNbH2fGwGgbvCmFFj6e5oc/o3h16+RRWWmWXA",
+          "format": "google-gemini-v1",
+          "id": "call_1272607",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 203,
+      "completion_tokens": 133,
+      "total_tokens": 336,
+      "cost": 0.0003934,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0003934,
+       "upstream_inference_prompt_cost": 6.09e-05,
+       "upstream_inference_completions_cost": 0.0003325
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L2",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.187,
+  "cost": 0.0004719,
+  "output": {
+   "caption": "Nová káva z pražírny Zrno je tu a stojí za ochutnání. Přijď si pro svůj šálek plný skvělé chuti. ☕",
+   "image_prompt": "Šálek čerstvě uvařené výběrové kávy na dřevěném stole s pytlíkem kávy pražírny Zrno v pozadí, útulná atmosféra, denní světlo.",
+   "hashtags": [
+    "prazirnazrno",
+    "kava",
+    "dneskavuju"
+   ]
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339939-oThwXHB7cDwx9VkTHy4U",
+     "object": "chat.completion",
+     "created": 1790339939,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_73533",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a19ndJOv8cYwUfAq+wOGrEVeA7gvhdIe+W50ur1U6v9vhszvgfIjWcSMKfvDjdU/DBft3YX+NLxEY3cFalQPSkqiyrx2IBC+15uSEnvkLmAQxBPsYyZc",
+          "format": "google-gemini-v1",
+          "id": "call_73533",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 145,
+      "completion_tokens": 13,
+      "total_tokens": 158,
+      "cost": 7.6e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 7.6e-05,
+       "upstream_inference_prompt_cost": 4.35e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339940-AanYW4ODZYW5QUp3GNl9",
+     "object": "chat.completion",
+     "created": 1790339940,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_353876",
+          "function": {
+           "name": "submit_post",
+           "arguments": "{\"caption\":\"Nová káva z pražírny Zrno je tu a stojí za ochutnání. Přijď si pro svůj šálek plný skvělé chuti. ☕\",\"image_prompt\":\"Šálek čerstvě uvařené výběrové kávy na dřevěném stole s pytlíkem kávy pražírny Zrno v pozadí, útulná atmosféra, denní světlo.\",\"hashtags\":[\"prazirnazrno\",\"kava\",\"dneskavuju\"]}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a19XEZ9xctyjLvEiMEA1njwzTRNz0cq5L+DnsKxs1YiQEg0kHuMxYUM3TkPl/EbskdRue5Vz2421xQBt5wlk8g/ZAH5y3Tqf217qsRS3/qttoS5xiGVi",
+          "format": "google-gemini-v1",
+          "id": "call_353876",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 203,
+      "completion_tokens": 134,
+      "total_tokens": 337,
+      "cost": 0.0003959,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0003959,
+       "upstream_inference_prompt_cost": 6.09e-05,
+       "upstream_inference_completions_cost": 0.000335
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ },
+ {
+  "model": "google/gemini-3.5-flash-lite",
+  "case": "tool",
+  "level": "L2",
+  "ok": true,
+  "error": null,
+  "latency_s": 2.184,
+  "cost": 0.0004469,
+  "output": {
+   "hashtags": [
+    "kava",
+    "zrnokava",
+    "prazirna"
+   ],
+   "image_prompt": "Šálek čerstvě uvařené kávy z pražírny Zrno na dřevěném stole s jemným ranním světlem.",
+   "caption": "Ranní probuzení s novou kávou z pražírny Zrno stojí za to. Přijď ochutnat nové tóny chutí, které tě nakopnou do nového dne.☕"
+  },
+  "raw": [
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339941-ytgkDTMur3rle8P7b48j",
+     "object": "chat.completion",
+     "created": 1790339941,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_3003211",
+          "function": {
+           "name": "get_brand_guidelines",
+           "arguments": "{}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a19C9MWNiKpt0dThSf+5TrZwCuakMVMx4acs3Du9jP6ohnBoGG9tKn0tQmfB/S94GiBF//oUy5YxwZmTG8ffusHghahF8R8gh3LAnLSCBcCrjPUsO2ap",
+          "format": "google-gemini-v1",
+          "id": "call_3003211",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 145,
+      "completion_tokens": 13,
+      "total_tokens": 158,
+      "cost": 7.6e-05,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 7.6e-05,
+       "upstream_inference_prompt_cost": 4.35e-05,
+       "upstream_inference_completions_cost": 3.25e-05
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   },
+   {
+    "status": 200,
+    "body": {
+     "id": "gen-1790339942-AS2gQt4EDqoYJJb7I1e9",
+     "object": "chat.completion",
+     "created": 1790339942,
+     "model": "google/gemini-3.5-flash-lite",
+     "provider": "Google",
+     "system_fingerprint": null,
+     "service_tier": "default",
+     "choices": [
+      {
+       "index": 0,
+       "logprobs": null,
+       "finish_reason": "tool_calls",
+       "native_finish_reason": "STOP",
+       "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": null,
+        "tool_calls": [
+         {
+          "type": "function",
+          "index": 0,
+          "id": "call_2345389",
+          "function": {
+           "name": "submit_post",
+           "arguments": "{\"hashtags\":[\"kava\",\"zrnokava\",\"prazirna\"],\"image_prompt\":\"Šálek čerstvě uvařené kávy z pražírny Zrno na dřevěném stole s jemným ranním světlem.\",\"caption\":\"Ranní probuzení s novou kávou z pražírny Zrno stojí za to. Přijď ochutnat nové tóny chutí, které tě nakopnou do nového dne.☕\"}"
+          }
+         }
+        ],
+        "reasoning_details": [
+         {
+          "type": "reasoning.encrypted",
+          "data": "AY89a19Q3W7OVkVJfJuQ0fEL+KkMTHUHMGvbJ05W5g9VjePhBnI9khs3qZrhNsZUW3Gm2CgY8YM5EbpSw10djVX/AUHSkthK4CLc1++IuACbIeVy8jcWJR+B",
+          "format": "google-gemini-v1",
+          "id": "call_2345389",
+          "index": 0
+         }
+        ]
+       }
+      }
+     ],
+     "usage": {
+      "prompt_tokens": 203,
+      "completion_tokens": 124,
+      "total_tokens": 327,
+      "cost": 0.0003709,
+      "is_byok": false,
+      "prompt_tokens_details": {
+       "cached_tokens": 0,
+       "cache_write_tokens": 0,
+       "audio_tokens": 0,
+       "video_tokens": 0
+      },
+      "cost_details": {
+       "upstream_inference_cost": 0.0003709,
+       "upstream_inference_prompt_cost": 6.09e-05,
+       "upstream_inference_completions_cost": 0.00031
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0,
+       "image_tokens": 0,
+       "audio_tokens": 0
+      }
+     }
+    }
+   }
+  ]
+ }
+]
