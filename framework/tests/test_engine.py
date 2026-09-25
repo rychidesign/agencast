@@ -455,7 +455,8 @@ def test_callback_signed(wf, monkeypatch):
     assert req.headers["x-signature"] == "sha256=" + hmac.new(b"podpis-123456", req.content, hashlib.sha256).hexdigest()
     body = json.loads(req.content)
     assert body == json.loads((r.rec.dir / "callback.json").read_text())
-    assert body["request_key"] == "k-1" and body["outputs"] == {"text": "ok"} and body["report_url"] is None
+    assert body["request_key"] == "k-1" and body["outputs"] == {"text": "ok"}
+    assert body["report_url"].startswith("file://") and body["report_url"].endswith("/report.html")
     sent = events(r, "callback_sent")[0]
     assert sent["url"] == "https://n8n.example.com/w/1" and sent["http_status"] == 200
 

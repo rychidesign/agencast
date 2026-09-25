@@ -14,8 +14,7 @@ from .providers import DEFAULT_BASE_URL, list_models, shape_type
 NOOUT = "bez výstupu"  # typ kroku parallel/switch/fail/output
 DEFAULT_TIMEOUT = {"ask": "2m", "task": "15m", "jev": "30s", "image": "3m"}  # scenario.md §3 (návrh)
 # Místa pro další fáze: typ kroku zatím odmítne validate, běh se vůbec nespustí.
-NOT_YET = {"task": "krok task (agent s nástroji, MCP, skilly přes load_skill) framework zatím neumí — Fáze 3",
-           "call": "krok call (vnořený scénář) framework zatím neumí — Fáze 3"}
+NOT_YET = {"task": "krok task (agent s nástroji, MCP, skilly přes load_skill) framework zatím neumí — Fáze 3"}
 # Kde smí být šablona {{ }} (scenario.md §5); "*" = libovolný klíč/index.
 TEMPLATE_FIELDS = [("ask", "prompt"), ("task", "prompt"), ("image", "prompt"), ("jev", "state"),
                    ("jev", "questions", "*", "instructions"), ("jev", "questions", "*", "criteria", "*"),
@@ -45,10 +44,16 @@ class StepInfo:
     cond: frozenset  # co způsobí, že krok nemusí proběhnout
     anc: frozenset   # podmínky předků (odkaz uvnitř stejné větve je v pořádku)
     out: object = None
+    dir: str = ""    # 3b: u kroku volaného scénáře složka kroku call ("steps/03-navrh/"), id je pak cesta "navrh/copy"
+
+    @property
+    def key(self) -> str:
+        """Id v souboru scénáře — pod ním je výstup ve výrazech (`steps.<key>`)."""
+        return self.id.rsplit("/", 1)[-1]
 
     @property
     def folder(self) -> str:
-        return f"steps/{self.nn:02d}-{self.id}"
+        return f"{self.dir}steps/{self.nn:02d}-{self.key}"
 
 
 @dataclass
@@ -61,6 +66,7 @@ class Project:
     agents: dict[str, Agent]
     steps: dict[str, StepInfo]
     order: list[StepInfo] = field(default_factory=list)
+    callees: dict[str, "Project"] = field(default_factory=dict)  # 3b: scénáře volané krokem call, podle jména
 
     @property
     def base(self) -> Path:
@@ -226,15 +232,7 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
         for sub in sorted(p for p in (wf / d).glob("*") if p.is_dir()):
             errs.append(f"{d}/{sub.name}/: podsložky se nečtou — soubory patří přímo do workflows/{d}/")
     config = load_config(wf, errs)
-    try:
-        sc = read_yaml(path, where)
-    except LoadError as e:
-        raise ConfigErrors(errs + [str(e)]) from None
-    if v := version_error(sc, where):
-        raise ConfigErrors(errs + [v])
-    errs += scenario_schema_errors(sc, where)
-    if sc.get("name") != path.stem:
-        errs.append(f"{where}: name '{sc.get('name')}' se neshoduje se jménem souboru")
+    sc = _read_scenario(path, errs)
     if errs or config is None:
         raise ConfigErrors(errs)
     chk = _Checker(sc, config, wf, where)
@@ -248,7 +246,25 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
         errs += check_models_list(config, chk.model_needs, models)
     if errs:
         raise ConfigErrors(errs)
-    return Project(path, wf, sc, config, chk.agents, chk.steps, chk.order)
+    return chk.project(path)
+
+
+def _read_scenario(path: Path, errs: list) -> dict | None:
+    """Soubor scénáře: YAML, verze, JSON Schema, jméno = soubor. Chyby do `errs`."""
+    where = path.name
+    try:
+        sc = read_yaml(path, where)
+    except LoadError as e:
+        errs.append(str(e))
+        return None
+    if v := version_error(sc, where):
+        errs.append(v)
+        return None
+    n = len(errs)
+    errs += scenario_schema_errors(sc, where)
+    if sc.get("name") != path.stem:
+        errs.append(f"{where}: name '{sc.get('name')}' se neshoduje se jménem souboru")
+    return sc if len(errs) == n else None
 
 
 def check_models_list(config: dict, needs: dict, models: list) -> list[str]:
@@ -291,14 +307,19 @@ def _template_field(p) -> bool:
 
 
 class _Checker:
-    def __init__(self, sc: dict, config: dict, wf: Path, where: str):
+    def __init__(self, sc: dict, config: dict, wf: Path, where: str, stack: tuple = (), model_needs=None):
         self.sc, self.config, self.wf, self.where = sc, config, wf, where
+        self.stack = stack + (sc["name"],)  # 3b: řetěz call od nejvyššího scénáře (cykly, hloubka)
         self.errs: list[str] = []
         self.steps: dict[str, StepInfo] = {}
         self.order: list[StepInfo] = []
         self.agents: dict[str, Agent | None] = {}
-        self.model_needs: dict[str, set] = {}
+        self.callees: dict[str, Project] = {}
+        self.model_needs: dict[str, set] = {} if model_needs is None else model_needs
         self.inputs_type = {k: INPUT_TYPES[v["type"]] for k, v in (sc.get("inputs") or {}).items()}
+
+    def project(self, path: Path) -> Project:
+        return Project(path, self.wf, self.sc, self.config, self.agents, self.steps, self.order, self.callees)
 
     def err(self, step, fld, msg):
         prefix = f'{self.where}: krok "{step}"' if step else self.where
@@ -322,7 +343,7 @@ class _Checker:
                              "(instructions, criteria), fail, hodnotách output, call.inputs a dedupe_key")
         self.walk(self.sc["steps"], {}, top=True)
         outs = self.sc.get("outputs") or {}
-        if self.config["storage"]["type"] == "r2" and any(o["type"] == "file" for o in outs.values()):
+        if len(self.stack) == 1 and self.config["storage"]["type"] == "r2" and any(o["type"] == "file" for o in outs.values()):
             self.err(None, None, "výstup typu file potřebuje úložiště, ale storage.type: r2 framework zatím neumí "
                                  "(Fáze 3) — nastav v config.yaml storage.type: local")
         last = self.sc["steps"][-1]
@@ -416,6 +437,8 @@ class _Checker:
                 out = self.jev(info, res)
             elif k == "image":
                 out = self.image(info, res)
+            elif k == "call":
+                out = self.call(info, res)
             elif k == "set":
                 out = {n: self.expr_type(info, f"set.{n}", v, res) if isinstance(v, str) else kind(v)
                        for n, v in st["set"].items()}
@@ -482,6 +505,55 @@ class _Checker:
             self.need(im["model"], "image")
         self.template(info, "image.prompt", im["prompt"], res)
         return {"file": "file"}
+
+    def call(self, info, res):
+        """Krok call (scenario.md call, §5.3): volaný scénář, jeho inputs a outputs."""
+        c = info.data["call"]
+        given = c.get("inputs") or {}
+        types = {k: self.template(info, f"call.inputs.{k}", v, res) if isinstance(v, str) else kind(v)
+                 for k, v in given.items()}
+        callee = self.callee(c["scenario"], info)
+        if callee is None:
+            return None
+        specs, name = callee.scenario.get("inputs") or {}, c["scenario"]
+        if extra := [k for k in given if k not in specs]:
+            self.err(info.id, "call.inputs", f"scénář '{name}' nemá vstupy: {', '.join(extra)} "
+                                             f"(má: {', '.join(specs) or 'žádné'})")
+        if missing := [k for k, sp in specs.items() if sp.get("required") and k not in given]:
+            self.err(info.id, "call.inputs", f"chybí povinné vstupy scénáře '{name}': {', '.join(missing)}")
+        for k, t in types.items():
+            if k in specs and tkind(t) and tkind(t) != INPUT_TYPES[specs[k]["type"]]:
+                self.err(info.id, f"call.inputs.{k}", f"vstup má typ {specs[k]['type']}, hodnota je {tkind(t)}")
+        return {k: INPUT_TYPES[o["type"]] for k, o in (callee.scenario.get("outputs") or {}).items()}
+
+    def callee(self, name: str, info) -> Project | None:
+        """Ověří volaný scénář (rekurzivně); cyklus a hloubka jsou chyba config."""
+        path = self.wf / "scenarios" / f"{name}.yaml"
+        if not path.is_file():
+            self.err(info.id, "call.scenario", f"scénář '{name}' neexistuje (scenarios/{name}.yaml)")
+            return None
+        if name in self.stack:
+            self.err(info.id, "call.scenario", f"cyklus call: {' → '.join(self.stack + (name,))}")
+            return None
+        depth, limit = len(self.stack), self.config["limits"]["max_call_depth"]
+        if depth > limit:
+            self.err(info.id, "call.scenario", f"hloubka call {depth} je nad limits.max_call_depth ({limit}): "
+                                               f"{' → '.join(self.stack + (name,))}")
+            return None
+        errs = []
+        sc = _read_scenario(path, errs)
+        self.errs += errs
+        if sc is None:
+            return None
+        if sc.get("callable") is not True:
+            self.err(info.id, "call.scenario", f"scénář '{name}' nemá callable: true — volat ho nejde "
+                                               "(chrání schvalování v n8n, §5.2)")
+            return None
+        chk = _Checker(sc, self.config, self.wf, path.name, self.stack, self.model_needs)
+        chk.run()
+        self.errs += chk.errs
+        self.callees[name] = chk.project(path)
+        return self.callees[name]
 
     def switch_cases(self, info):
         sw = info.data["switch"]

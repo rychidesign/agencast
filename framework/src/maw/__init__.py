@@ -4,7 +4,7 @@ Vrstvy: loader (čtení souborů), validate (statické kontroly), expressions
 (výrazy a šablony), engine (běh scénáře), providers (OpenRouter + falešný),
 record (záznam běhu), cli.
 """
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Verze formátů, které framework umí číst (DESIGN §5.9 bod 6).
 FORMAT_VERSIONS = (1,)
