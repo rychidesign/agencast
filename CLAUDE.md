@@ -8,6 +8,9 @@ i komentáře piš česky; názvy v kódu anglicky.
 (§5). Co je tam rozhodnuto, neotvírej znovu bez souhlasu uživatele. Co je
 označeno OTEVŘENO, rozhodují spiky, ne názor.
 
+Po schválení je závazná i `docs/spec/` (formáty v1). Rozpor spec × DESIGN
+hlas koordinátorovi.
+
 ## Rozdělení repozitáře
 - `framework/` — jádro. Sem patří kód frameworku, jeho testy a
   konformační scénáře.
