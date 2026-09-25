@@ -476,7 +476,7 @@ Souhrn: **6 BLOKUJÍCÍCH, 23 DŮLEŽITÝCH, 12 DROBNÝCH**.
 - **Co:** Místní HTTP server (sidecar v kontejneru, `http://127.0.0.1`,
   jak ho používal spike (d)) nejde zapsat. SSE, které §5.8 jmenuje, nemá pole.
 - **Návrh:** `url` pattern `^(https://|http://(127\.0\.0\.1|localhost)[:/])`.
-  Přidat `transport: streamable-http|sse` (výchozí `streamable-http`), nebo
+  Přidat `transport`: `streamable-http` nebo `sse` (výchozí `streamable-http`), nebo
   do `config.md` výslovně napsat „SSE ve v1 není“.
 
 ### M6. `config.yaml`: `base_url` na libovolný host a jedna proměnná pro víc účelů
@@ -590,7 +590,7 @@ odmítnuto).
 | M2 `popis_fotky` | hotovo | ukázka, spec, agent photographer |
 | M3 `max_turns` | hotovo | povinné jen s `mcp`; `task` bez něj = `config`; z ukázek odstraněno |
 | M4 `outputs: {}` | hotovo | `minProperties: 1` |
-| M5 HTTP/SSE | hotovo | `url` i `http://127.0.0.1`/`localhost`; `transport: streamable-http|sse` |
+| M5 HTTP/SSE | hotovo | `url` i `http://127.0.0.1`/`localhost`; `transport`: `streamable-http` nebo `sse` |
 | M6 `base_url`, sdílené env | hotovo | pattern; stejná hodnota ve dvou `_env` = `config` |
 | M7 `runs_dir` | hotovo | pole v `config.yaml` (výchozí `./runs`) |
 | M8 čísla | hotovo | `int`, `round` bez `n` celé, `nan`/`inf`, `2.0` jako `integer`, zápis v textu, hloubka nad AST |
