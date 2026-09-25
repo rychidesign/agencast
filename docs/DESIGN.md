@@ -1,9 +1,9 @@
 # multiagent-workflows — návrh
 
-**Stav:** návrh v0.1, 2026-09-25. Zachycuje rozhodnutí z návrhové diskuse
-mezi rychidesign a koordinátorem (FirstBuddy). Otevřené body jsou označené
-**OTEVŘENO**. Dokument je závazný pro workery: co je zde rozhodnuto, se
-neotvírá znovu bez souhlasu uživatele.
+**Stav:** návrh v0.2, 2026-09-25 (v0.1 + výsledky spiků + rozhodnutí D3,
+D4, D1c). Zachycuje rozhodnutí z návrhové diskuse mezi rychidesign a
+koordinátorem (FirstBuddy). Dokument je závazný pro workery: co je zde
+rozhodnuto, se neotvírá znovu bez souhlasu uživatele.
 
 ---
 
@@ -62,10 +62,16 @@ formát** (jiná pole, jiné nástroje). Konvertor případně později.
 agenta (žádná smyčka nástrojů). `task` = autonomní smyčka model ↔ nástroje
 s limity tahů a peněz. Ve scénáři je hned vidět, kde se co děje.
 
-**D1c Výrazy.** `{{ steps.copy.caption }}` slouží **jen na vkládání hodnot**
-(prompty, parametry). Pro `when`, `switch` a `set` se převezme malý hotový
-výrazový jazyk (kandidáti: CEL, expr, JSONata) — **OTEVŘENO**, rozhodne se
-spolu s D4. Pevná pravidla viz §5.4.
+**D1c Výrazy — rozhodnuto 2026-09-25.** `{{ steps.copy.caption }}` slouží
+**jen na vkládání hodnot** (prompty, parametry). Pro `when`, `switch` a
+`set` se používají **bezpečně vyhodnocované výrazy v pythonovském stylu**,
+např. `steps.kontrola.on_brand < 0.7 and inputs.jazyk == "cs"`:
+tečkový přístup k `inputs`, `steps`, `item`; porovnání, `and`/`or`/`not`,
+aritmetika, indexování, malá sada povolených funkcí (`len`, `min`, `max`,
+`round`, `str`, `int`, `float`, `join`). Žádný přístup k systému, žádné
+volání metod, žádný import. Konkrétní knihovnu (nebo vlastní evaluátor nad
+`ast`) vybere Fáze 2 podle kritérií: nulový přístup k systému, typové
+chyby s čitelnou hláškou, deterministické chování. Pevná pravidla viz §5.4.
 
 **D1d Typy kroků.**
 
@@ -116,29 +122,65 @@ n8n), `embed`/`search`.
   → přísné JSON Schema formátů, `validate` před během, výslovná oprávnění,
   tajné klíče nikdy v souborech workflow.
 
-### D3 — Engine — **OTEVŘENO**
+### D3 — Engine — rozhodnuto 2026-09-25 (po spicích)
 
-Rozhodne spike, ne debata. Z D2 plyne směr: **vlastní orchestrace** (pořadí,
-paralelismus, podmínky, záznam běhu — je malá) + **hotová knihovna pro
-agentní runtime** (smyčka model ↔ nástroje, MCP klient, strukturovaný
-výstup — je těžká). Kandidáti na runtime: Vercel AI SDK (TS), PydanticAI
-(Py); větší frameworky (Mastra, LangGraph, Google ADK, CrewAI, MS Agent
-Framework) jen pokud spike ukáže, že jejich model běhu nekoliduje s D1/D2.
-Kritérium navíc: stabilita a velikost toho, na co se napojujeme (semver,
-1.0+, pravidla zastarávání).
+**Vlastní malý framework.** Orchestraci (pořadí kroků, `parallel`,
+`switch`, `call`, záznam běhu) i tenký runtime agenta (smyčka model ↔
+nástroje, kaskáda strukturovaného výstupu, MCP klient) píšeme sami nad
+**protokoly a malými stabilními knihovnami**. Žádný agentní framework
+(Mastra, LangGraph, Google ADK, CrewAI, MS Agent Framework) a žádný fork
+batonu/zenflow.
 
-### D4 — Jazyk — **OTEVŘENO**
+Důvody: (1) spiky ukázaly, že OpenRouter i Modal zvládne holý HTTP/SDK a
+že těžká místa — kontrola `finish_reason`, kaskáda výstupu podle modelu,
+vracení `reasoning_details`, normalizace `usage` — velké frameworky za nás
+neřeší; (2) jejich hlavní přínosy (pauza na člověka, trvalý stav grafu)
+nepotřebujeme, protože schvalování dělá n8n a frontu Modal (D2);
+(3) R7 — závislost jen na věcech, které se mění pomalu.
 
-TypeScript na Bunu, nebo Python. Rozhoduje se s D3. Modal je nativně
-Pythonový, ale kroky jsou API volání, takže framework na Modalu poběží v
-kontejneru bez ohledu na jazyk.
+Cena: údržba je naše → konformační testy (§5.6) jsou povinnost, ne
+přání. Odhad jádra v1: 3–5 tisíc řádků, píší a udržují workeři.
+
+### D4 — Jazyk — rozhodnuto 2026-09-25: Python 3.12 + uv
+
+Důvody: Modal je nativně Pythonový — webhook, fronta, Volume a secrets ze
+spiku (b) se stanou přímo součástí frameworku (v TypeScriptu by byly dva
+jazyky na údržbu); spiky i `jev-labs` jsou v Pythonu; výhoda AI SDK v TS
+je malá, když kaskádu a kontroly píšeme vlastní.
+
+Výchozí sada knihoven (změna jen s důvodem v changelogu): `httpx` (HTTP),
+`mcp` (oficiální MCP SDK), `pydantic` (validace formátů, JSON Schema),
+`pyyaml`, `modal` (jen v nasazení), CLI přes `typer` nebo `argparse`,
+evaluátor výrazů dle D1c. Distribuce `uv run`/`uvx` na serveru i v Modal
+image; závislosti zamčené v `uv.lock`.
 
 ### D5 — Hosting
 
-Vlastní server (CLI + webhook) a Modal (`max_containers=1`, fronta přes
-`.spawn()`; název parametru ověří spike). Jeden společný Dockerfile pro
-obě prostředí, aby se nerozjely nainstalované nástroje. Úložiště výstupů:
-lokálně složka, v cloudu Cloudflare R2. Trigger, cron a schvalování: n8n.
+Vlastní server (CLI + webhook) a Modal. Trigger, cron a schvalování: n8n.
+Ověřeno spikem (b), Modal SDK 1.5.5:
+
+- **Fronta:** `@app.function(max_containers=1)` + `.spawn()` z endpointu
+  = běhy striktně jeden za druhým (3 běhy bez překryvu), webhook odpovídá
+  < 1 s. Pozici ve frontě Modal spolehlivě nedává
+  (`get_current_stats().backlog` je opožděný) — drží ji framework nebo n8n.
+- **Endpoint:** `@modal.fastapi_endpoint(method="POST")`; HTTP požadavek
+  má limit 150 s, proto submit jen spawne a vrátí `run_id`. Timeout funkce
+  1 s – 24 h (`timeout=`), čekání ve frontě se nepočítá. Hlavičky číst
+  přes `Header()`. Endpointy jsou veřejné → vlastní token v hlavičce ze
+  `modal.Secret`.
+- **Callback** z funkce na HTTPS endpoint funguje bez omezení.
+- **MCP servery:** stdio `npx` server v kontejneru funguje; balíčky
+  **předinstalovat do image** (cold handshake 0,7 s vs. 3,8 s přes
+  `npx -y`). Cold start kontejneru 4–7 s, studený web endpoint +4–5 s.
+- **Soubory:** `modal.Volume` (`commit()` po zápisu, `reload()` před
+  čtením); čtení lokálně přes `modal volume get` i veřejný GET přes
+  endpoint. URL je ale Modal-specifická → pro Instagram a trvalé odkazy
+  zůstává Cloudflare R2 (S3 token + r2.dev/custom doména, `boto3`).
+- **Secrets:** `modal.Secret.from_name` (rotace bez redeploye).
+- **Nasazení:** `modal deploy` nad běžící aplikací nemusí vyměnit warm
+  kontejnery → nasazovat jako `app stop` + `deploy`, nebo ověřit verzi.
+- Jeden společný Dockerfile pro server i Modal (`Image.from_dockerfile`,
+  nezkoušeno), aby se nerozjely nainstalované nástroje.
 
 ---
 
@@ -179,6 +221,11 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
 6. `repeat` a `task` mají limit iterací/tahů **povinný**.
 7. Pojistka mimo framework: časový limit v n8n („když do X minut nepřijde
    callback → upozorni") a limit útraty přímo na klíči OpenRouter.
+8. **HTTP 200 není úspěch.** Krok s modelem je úspěšný až po kontrole
+   `finish_reason`, parsování a validace schématu. Spike (a): Gemini
+   vrátilo 200 s `finish_reason: "error"`, `completion_tokens: 0` a
+   useknutým JSON. Odmítnutí obsahu se může projevit také jako 200 bez
+   obsahu (`refusal`, `finish_reason` ≠ `stop`).
 
 ### 5.2 Bezpečnost
 - Tajné klíče existují jen v `config.yaml` / `mcp.yaml` (odkazem na
@@ -222,6 +269,17 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
   OpenRouterem není záruka kvality.
 - Strukturovaný výstup: kaskáda nativní JSON schema → nástroj jako obal →
   prompt + validace + opakování. Použitá úroveň se zapíše do záznamu.
+  Spike (a): Claude Haiku 4.5 a Kimi K3 nativně 10/10; Gemini 3.5
+  Flash-Lite samotné schéma 5/5, **schéma + nástroj 4/5 nativně, 5/5 přes
+  nástroj-obal**. Konformační scénář proto testuje **kombinaci** schéma +
+  nástroj, ne každé zvlášť.
+- U reasoning modelů (Gemini, Kimi) se `reasoning_details` z odpovědi
+  posílají v dalším tahu beze změny zpět (doporučení OpenRouteru).
+- `usage` má u chat completions (`prompt_tokens`/`completion_tokens`) a
+  u Jev (`input_tokens`/`output_tokens`) jiný tvar; `cost` v USD je u obou.
+  Framework `usage` normalizuje na jednu podobu v záznamu běhu.
+- Model id se ověřuje proti `GET /api/v1/models` (např.
+  `anthropic/claude-haiku-4.5`, ne `-4-5`). Jev v tom seznamu **není**.
 
 ### 5.6 Verzování a testy — specifikace je produkt
 - `version: 1` ve scénářích i agentech od prvního dne; changelog formátů.
@@ -236,6 +294,22 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
   z `config.yaml`; callback nese URL. Instagram Graph API vyžaduje
   veřejnou URL a Business/Creator účet napojený na Facebook stránku
   (mimo framework).
+- Spike (a), `google/gemini-3.1-flash-image` přes chat completions
+  s `modalities: ["image","text"]`: obrázek je v
+  `choices[0].message.images[].image_url.url` jako **data URL base64**
+  (~1,5 MB PNG), nikdy URL. Do `events.jsonl` ani do výstupů kroku se
+  base64 **nevkládá**, jen cesta k souboru.
+- Cena **0,04–0,07 USD a 6–11 s na obrázek** — o dva řády víc než textový
+  krok (0,0005–0,01 USD). Obrázkové kroky se počítají do rozpočtu a
+  časového limitu běhu zvlášť. Výchozí rozměr 1408×768; poměr stran pro
+  IG (1:1, 4:5) přes `image_config` — **neověřeno**.
+- **Provider odmítnutí obsahu nedělá:** podobizna skutečného veřejného
+  činitele se vygenerovala na obou modelech (HTTP 200). Politiku obsahu
+  (osoby, cizí značky) musí vynutit framework sám — typicky `jev`
+  kontrola promptu před `image` krokem (levné, 0,3 s).
+- Model bez obrazového výstupu s `modalities: ["image"]` → HTTP 404
+  `No endpoints found that support the requested output modalities`
+  (třída `config`, zachytí `validate` proti `/models`).
 
 ---
 
@@ -286,12 +360,20 @@ kroku, důvodem přeskočení, cenou a časem, `summary.md` a HTML.
 ## 7. Známá rizika (ze zpětného pohledu 2026-09-25)
 
 1. Rozsah v1 — hlídat, nepřidávat kroky bez scénáře, který je potřebuje.
-2. `task` je nejtěžší část; heterogenita modelů za OpenRouterem.
-3. Neověřené předpoklady: Jev přes OpenRouter je beta; MCP servery
-   (stdio, `npx`) na Modalu; přístup k záznamům běhu na Modalu.
+2. `task` je nejtěžší část; heterogenita modelů za OpenRouterem —
+   **potvrzeno** spikem (a) (Gemini: nástroj + schéma 4/5, 200 s chybou).
+3. ~~Neověřené předpoklady~~ → ověřeno spiky 2026-09-25: Jev přes
+   OpenRouter funguje (slovo „beta" v dokumentaci není, 6/6 OK); MCP
+   servery na Modalu fungují; záznam běhu na Modalu je dostupný přes
+   Volume i endpoint.
 4. Výrazový jazyk zatím nerozhodnutý (D1c).
 5. Pozorovatelnost na Modalu (proto HTML záznam běhu v úložišti).
 6. Údržba: bez konformačních testů se regrese vkradou do měsíce.
+7. **Nové:** třída chyby `content` (odmítnutí obsahu) se nepodařilo
+   naměřit — provider nic neodmítl. Tvar odmítnutí neznáme.
+8. **Nové:** `.env` s CRLF konci řádků rozbíjí tokeny (Modal: „Invalid
+   metadata value"); načítání `.env` musí CRLF tolerovat.
+9. **Nové:** R2 zatím bez klíčů — veřejná URL pro Instagram neověřena.
 
 ---
 
@@ -317,7 +399,27 @@ URL, `max_containers=1` (ověřit název parametru), fronta; (3) Volume pro
 záznam běhu a nahrání jednoho souboru do R2 s veřejnou URL. Potřebuje
 token Modalu a přístup k R2.
 
-Výsledky spiků rozhodnou D3, D4 a D1c.
+### Výsledky (2026-09-25, oba spiky hotové)
+
+| Spike | Verdikt | Report |
+|---|---|---|
+| (a) OpenRouter — schéma + nástroj | funguje s výhradou (Gemini potřebuje nástroj-obal) | `spikes/openrouter/REPORT.md` |
+| (a) OpenRouter — Jev | funguje (5/5, 0,30 s, ~0,00003 USD) | tamtéž |
+| (a) OpenRouter — obrázek | funguje s výhradou (0,067 USD, odmítnutí nevyvoláno) | tamtéž |
+| (b) Modal — MCP v kontejneru | funguje (předinstalovat balíčky) | `spikes/modal/REPORT.md` |
+| (b) Modal — webhook + fronta | funguje (výhrada: redeploy = stop + deploy) | tamtéž |
+| (b) Modal — Volume + veřejná URL | funguje; R2 neimplementováno (chybí klíče) | tamtéž |
+| (b) Modal — Secrets | funguje | tamtéž |
+
+Útrata: (a) 0,30 USD, (b) řádově centy. Fakta z obou spiků jsou
+zapracována v §5.1 (bod 8), §5.5, §5.7, D5 a §7.
+
+**Fakta relevantní pro D3/D4** (bez volby): všechna tři API OpenRouteru
+i Modal šly ovládat holým HTTP/SDK bez agentního frameworku; těžká místa
+jsou kaskáda strukturovaného výstupu, kontrola `finish_reason`, vracení
+`reasoning_details`, normalizace `usage` a MCP handshake — přesně
+runtime agenta, ne orchestrace. Rozhodnutí D3, D4 a D1c: **přijato
+uživatelem 2026-09-25**, viz §3.
 
 ---
 
@@ -347,3 +449,10 @@ Průzkum GitHubu 2026-09-25 (4× Haiku, 5× Sonnet xhigh, ověřeno přes
   422, 429, 529; limity 1 200 req/min. Prahy pro automatizaci nebyly
   stanoveny — ve scénářích je proto prah vždy výslovný (`< 0.7`), ne
   implicitní.
+- **Jev přes OpenRouter** (spike (a)): `POST /api/v1/systemone`, tělo
+  `{model: "jev-1.13", state, questions}`; odpověď `model` je datovaná
+  verze (`typesafe/jev-1.13-20260917`, `jev-latest` → totéž; logovat),
+  `answers.<id>` = `{type, choice|score|noul, probabilities?, confidence?,
+  legend?}`, `usage: {input_tokens, output_tokens, cost}`. Chybný požadavek
+  → HTTP 400, `error.message` je řetězec s JSON polem od validátoru, tělo
+  obsahuje `user_id`. Neexistující model → 400.
