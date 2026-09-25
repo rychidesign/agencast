@@ -1,10 +1,13 @@
 # multiagent-workflows — návrh
 
-**Stav:** v0.3, 2026-09-25 — spec v1 (`docs/spec/`) schválena uživatelem
-včetně otázek 1–14 ve výchozí volbě; přidán R8 (kompatibilita, §5.9)
-a fakta ze spiků (a)–(d). Zachycuje rozhodnutí z návrhové diskuse mezi
-rychidesign a koordinátorem (FirstBuddy). Dokument je závazný pro
-workery: co je zde rozhodnuto, se neotvírá znovu bez souhlasu uživatele.
+**Stav:** v0.4, 2026-09-25 — **v1 implementována**: `maw` 0.2.2 v `framework/`
+(všech 10 typů kroků, MCP a skilly, `call`, webhook `maw serve`, `report.html`;
+379 hermetických testů, zlaté scénáře pro každý soubor ve `workflows/`),
+tutoriály 1–7 v `docs/tutorials/`. Spec v1 (`docs/spec/`) schválena uživatelem
+včetně otázek 1–14; výklady při implementaci v `docs/spec/ISSUES.md` (36 bodů).
+Nehotovo: D5 nasazení na Modal + úložiště R2 (Fáze 3c, čeká na klíče R2).
+Dokument je závazný pro workery: co je zde rozhodnuto, se neotvírá znovu bez
+souhlasu uživatele.
 
 ---
 
