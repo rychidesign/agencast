@@ -74,7 +74,7 @@ def cmd_run(a) -> int:
     ok = run.status == "succeeded"
     print(f"běh {run.run_id}: {'úspěch' if ok else 'chyba'} · {cz(run.duration, 1)} s · {cz(run.cost, 4)} USD")
     if run.error:
-        print(f"{run.error['class']} v kroku {run.error['step']}: {run.error['message']}", file=sys.stderr)
+        print(run.rec.mask(f"{run.error['class']} v kroku {run.error['step']}: {run.error['message']}"), file=sys.stderr)
     if run.callback_failed:
         print("callback nedoručen", file=sys.stderr)
     print(f"záznam: {run.rec.dir / 'summary.md'}")

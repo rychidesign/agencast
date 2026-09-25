@@ -238,8 +238,6 @@ class Run:
             d = dict(info.data["default"])
             if info.kind == "jev":
                 d.setdefault("details", {q: {} for q in info.data["jev"]["questions"]})
-            if info.kind == "image" and isinstance(d.get("file"), str):
-                d["file"] = FileRef(d["file"])
             self.values["steps"][info.id] = d
             self.defaulted.add(info.id)
 
