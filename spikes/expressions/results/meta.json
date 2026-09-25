@@ -1,0 +1,93 @@
+{
+  "simpleeval": {
+    "version": "1.0.8",
+    "released": "2026-09-12",
+    "wheel_kb": 18,
+    "requires_dist": [],
+    "requires_python": ">=3.9",
+    "repo": "danthedeckie/simpleeval",
+    "stars": 613,
+    "license": "NOASSERTION",
+    "pushed_at": "2026-09-15",
+    "open_issues": 19,
+    "archived": false
+  },
+  "asteval": {
+    "version": "1.0.10",
+    "released": "2026-08-21",
+    "wheel_kb": 23,
+    "requires_dist": [],
+    "requires_python": ">=3.10",
+    "repo": "lmfit/asteval",
+    "stars": 221,
+    "license": "MIT",
+    "pushed_at": "2026-09-06",
+    "open_issues": 0,
+    "archived": false
+  },
+  "cel-python": {
+    "version": "0.5.0",
+    "released": "2026-01-31",
+    "wheel_kb": 83,
+    "requires_dist": [
+      "google-re2>=1.1.20240702",
+      "google-re2>=1.1.20250722; python_version == \"3.13\"",
+      "jmespath>=1.0.1",
+      "lark>=1.2.2",
+      "pendulum>=3.1.0",
+      "pyyaml>=6.0.2",
+      "tomli>=1.1.0; python_version < \"3.11\""
+    ],
+    "requires_python": ">=3.10",
+    "repo": "cloud-custodian/cel-python",
+    "stars": 174,
+    "license": "Apache-2.0",
+    "pushed_at": "2026-09-01",
+    "open_issues": 18,
+    "archived": false
+  },
+  "common-expression-language": {
+    "version": "0.10.0",
+    "released": "2026-09-15",
+    "wheel_kb": 1229,
+    "requires_dist": [
+      "typer>=0.12.0",
+      "rich>=13.0.0",
+      "prompt-toolkit>=3.0.0",
+      "pygments>=2.0.0"
+    ],
+    "requires_python": ">=3.11",
+    "repo": "hardbyte/python-common-expression-language",
+    "stars": 43,
+    "license": "Apache-2.0",
+    "pushed_at": "2026-09-15",
+    "open_issues": 8,
+    "archived": false
+  },
+  "RestrictedPython": {
+    "version": "8.5",
+    "released": "2026-08-19",
+    "wheel_kb": 30,
+    "requires_dist": [],
+    "requires_python": "<3.16,>=3.10",
+    "repo": "zopefoundation/RestrictedPython",
+    "stars": 743,
+    "license": "NOASSERTION",
+    "pushed_at": "2026-09-15",
+    "open_issues": 16,
+    "archived": false
+  },
+  "evalidate": {
+    "version": "2.1.4",
+    "released": "2026-03-02",
+    "wheel_kb": 13,
+    "requires_dist": [],
+    "requires_python": ">=3.8",
+    "repo": "yaroslaff/evalidate",
+    "stars": 42,
+    "license": "MIT",
+    "pushed_at": "2026-03-02",
+    "open_issues": 0,
+    "archived": false
+  }
+}

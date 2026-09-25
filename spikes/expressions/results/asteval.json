@@ -1,0 +1,558 @@
+[
+ {
+  "cand": "asteval",
+  "id": "V01",
+  "expr": "steps.kontrola.on_brand < 0.7 and inputs.jazyk == \"cs\"",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.117,
+  "us_median": 36.8,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V02",
+  "expr": "not (steps.kontrola.on_brand >= 0.7)",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.158,
+  "us_median": 52.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V03",
+  "expr": "steps.kontrola.on_brand < 0.7 or inputs.limit > 10",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.121,
+  "us_median": 34.7,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V04",
+  "expr": "inputs.limit * 2 + 1",
+  "result": 7,
+  "result_type": "int",
+  "ms": 0.133,
+  "us_median": 22.5,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V05",
+  "expr": "item.cena / 4",
+  "result": 147.5,
+  "result_type": "float",
+  "ms": 0.08,
+  "us_median": 19.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V06",
+  "expr": "item.cena // 100 % 3",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.088,
+  "us_median": 36.6,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V07",
+  "expr": "steps.copy.hashtags[0]",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.copy.hashtags[0]\nAttributeError: 'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.115,
+  "grade": "error"
+ },
+ {
+  "cand": "asteval",
+  "id": "V08",
+  "expr": "steps.copy.hashtags[-1]",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.copy.hashtags[-1]\nAttributeError: 'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.123,
+  "grade": "error"
+ },
+ {
+  "cand": "asteval",
+  "id": "V09",
+  "expr": "steps[\"kontrola\"][\"on_brand\"]",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.111,
+  "us_median": 36.1,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V10",
+  "expr": "len(steps.copy.hashtags)",
+  "error_type": "builtins.AttributeError",
+  "error": "len(steps.copy.hashtags)\n    ^^^^\nAttributeError: 'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.181,
+  "grade": "error"
+ },
+ {
+  "cand": "asteval",
+  "id": "V11",
+  "expr": "min(steps.kontrola.skore)",
+  "result": 0.4,
+  "result_type": "float",
+  "ms": 0.089,
+  "us_median": 22.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V12",
+  "expr": "max(1, inputs.limit)",
+  "result": 3,
+  "result_type": "int",
+  "ms": 0.086,
+  "us_median": 21.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V13",
+  "expr": "round(steps.kontrola.on_brand * 100)",
+  "result": 40,
+  "result_type": "int",
+  "ms": 0.098,
+  "us_median": 26.2,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V14",
+  "expr": "str(item.cena) + \" Kč\"",
+  "result": "590 Kč",
+  "result_type": "str",
+  "ms": 0.157,
+  "us_median": 23.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V15",
+  "expr": "int(\"42\") + float(\"0.5\")",
+  "result": 42.5,
+  "result_type": "float",
+  "ms": 0.099,
+  "us_median": 25.0,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V16",
+  "expr": "join(steps.copy.hashtags, \" \")",
+  "error_type": "builtins.AttributeError",
+  "error": "join(steps.copy.hashtags, \" \")\n     ^^^^\nAttributeError: 'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.134,
+  "grade": "error"
+ },
+ {
+  "cand": "asteval",
+  "id": "V17",
+  "expr": "steps.copy.caption == \"Léto je tady\"",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.copy.caption == \"Léto je tady\"\nAttributeError: 'builtin_function_or_method' object has no attribute 'caption'",
+  "ms": 0.117,
+  "grade": "error"
+ },
+ {
+  "cand": "asteval",
+  "id": "V18",
+  "expr": "inputs.poznamka == None",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.078,
+  "us_median": 18.3,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V19",
+  "expr": "inputs.poznamka is None",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.087,
+  "us_median": 18.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V20",
+  "expr": "\"#thtd\" in steps.copy.hashtags",
+  "error_type": "builtins.AttributeError",
+  "error": "\"#thtd\" in steps.copy.hashtags\n           ^^^^\nAttributeError: 'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.123,
+  "grade": "error"
+ },
+ {
+  "cand": "asteval",
+  "id": "V21",
+  "expr": "inputs.jazyk in [\"cs\", \"sk\"]",
+  "result": true,
+  "result_type": "bool",
+  "ms": 0.138,
+  "us_median": 47.9,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V22",
+  "expr": "steps.copy.caption != \"\" and len(steps.copy.caption) <= 280",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.copy.caption != \"\" and len(steps.copy.caption) <= 280\nAttributeError: 'builtin_function_or_method' object has no attribute 'caption'",
+  "ms": 0.148,
+  "grade": "error"
+ },
+ {
+  "cand": "asteval",
+  "id": "V23",
+  "expr": "-item.cena + 600",
+  "result": 10,
+  "result_type": "int",
+  "ms": 0.091,
+  "us_median": 19.5,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "V24",
+  "expr": "round(2.5)",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.075,
+  "us_median": 15.4,
+  "deterministic": true,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E01",
+  "expr": "steps.neexistuje.x",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.neexistuje.x\nAttributeError: neexistuje",
+  "ms": 0.188,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E02",
+  "expr": "steps.kontrola.chybi > 1",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.kontrola.chybi > 1\nAttributeError: chybi",
+  "ms": 0.116,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E03",
+  "expr": "steps.copy.hashtags[10]",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.copy.hashtags[10]\nAttributeError: 'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.118,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E04",
+  "expr": "steps.kontrola.on_brand < \"0.7\"",
+  "error_type": "builtins.TypeError",
+  "error": "steps.kontrola.on_brand < \"0.7\"\nTypeError: '<' not supported between instances of 'float' and 'str'",
+  "ms": 0.129,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E05",
+  "expr": "inputs.limit == \"3\"",
+  "result": false,
+  "result_type": "bool",
+  "ms": 0.078,
+  "grade": "silent"
+ },
+ {
+  "cand": "asteval",
+  "id": "E06",
+  "expr": "True + 1",
+  "result": 2,
+  "result_type": "int",
+  "ms": 0.062,
+  "grade": "silent"
+ },
+ {
+  "cand": "asteval",
+  "id": "E07",
+  "expr": "item.cena / 0",
+  "error_type": "builtins.ZeroDivisionError",
+  "error": "item.cena / 0\nZeroDivisionError: division by zero",
+  "ms": 0.114,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E08",
+  "expr": "steps.kontrola.on_brand <",
+  "error_type": "builtins.SyntaxError",
+  "error": "steps.kontrola.on_brand <\nSyntaxError: invalid syntax (<unknown>, line 1)",
+  "ms": 0.067,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E09",
+  "expr": "inputs.jazyk = \"cs\"",
+  "result": null,
+  "result_type": "NoneType",
+  "ms": 0.067,
+  "grade": "silent"
+ },
+ {
+  "cand": "asteval",
+  "id": "E10",
+  "expr": "int(\"abc\")",
+  "error_type": "builtins.ValueError",
+  "error": "int(\"abc\")\nValueError: Error running function 'int' with args '['abc']' and kwargs {}: invalid literal for int() with base 10: 'abc'",
+  "ms": 0.115,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E11",
+  "expr": "len(item.cena)",
+  "error_type": "builtins.TypeError",
+  "error": "len(item.cena)\nTypeError: Error running function 'len' with args '[590]' and kwargs {}: object of type 'int' has no len()",
+  "ms": 0.198,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E12",
+  "expr": "neznama_promenna",
+  "error_type": "builtins.NameError",
+  "error": "neznama_promenna\nNameError: name 'neznama_promenna' is not defined",
+  "ms": 0.092,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E13",
+  "expr": "inputs.poznamka + 1",
+  "error_type": "builtins.TypeError",
+  "error": "inputs.poznamka + 1\nTypeError: unsupported operand type(s) for +: 'NoneType' and 'int'",
+  "ms": 0.119,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "E14",
+  "expr": "steps.copy.hashtags and inputs.jazyk == \"cs\"",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.copy.hashtags and inputs.jazyk == \"cs\"\nAttributeError: 'builtin_function_or_method' object has no attribute 'hashtags'",
+  "ms": 0.157,
+  "grade": "ok-vague"
+ },
+ {
+  "cand": "asteval",
+  "id": "H01",
+  "expr": "__import__('os').getcwd()",
+  "error_type": "builtins.NameError",
+  "error": "__import__('os').getcwd()\nNameError: name '__import__' is not defined",
+  "ms": 0.185,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H02",
+  "expr": "().__class__.__bases__[0].__subclasses__()",
+  "error_type": "builtins.AttributeError",
+  "error": "().__class__.__bases__[0].__subclasses__()\nAttributeError: no safe attribute '__class__' for ()",
+  "ms": 0.13,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H03",
+  "expr": "open('/etc/passwd').read()",
+  "result": "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nbin:x:2:2:bin:/bin:/usr/sbin/nologin\nsys:x:3:3:sys:/dev:/usr/sbin/nologin\nsync:x:4:65534:sync:/bin:/bin/sync\ngames:x:5:6",
+  "result_type": "str",
+  "ms": 0.139,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "asteval",
+  "id": "H04",
+  "expr": "getattr(inputs, 'jazyk')",
+  "error_type": "builtins.NameError",
+  "error": "getattr(inputs, 'jazyk')\nNameError: name 'getattr' is not defined",
+  "ms": 0.114,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H05",
+  "expr": "(lambda: 1)()",
+  "error_type": "builtins.NotImplementedError",
+  "error": "(lambda: 1)()\n ^^^^\nNotImplementedError: Lambda not supported",
+  "ms": 0.11,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H06",
+  "expr": "[x for x in steps.copy.hashtags]",
+  "error_type": "builtins.NotImplementedError",
+  "error": "[x for x in steps.copy.hashtags]\nNotImplementedError: ListComp not supported",
+  "ms": 0.116,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H07",
+  "expr": "item.__class__.__init__.__globals__",
+  "error_type": "builtins.AttributeError",
+  "error": "item.__class__.__init__.__globals__\nAttributeError: no safe attribute '__class__' for {'nazev': 'tričko', 'cena': 590, 'tagy': ['a', 'b']}",
+  "ms": 0.118,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H08",
+  "expr": "\"{0.__class__}\".format(1)",
+  "error_type": "builtins.AttributeError",
+  "error": "\"{0.__class__}\".format(1)\nAttributeError: no safe attribute 'format' for '{0.__class__}'",
+  "ms": 0.168,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H09",
+  "expr": "steps.copy.caption.upper()",
+  "error_type": "builtins.AttributeError",
+  "error": "steps.copy.caption.upper()\nAttributeError: 'builtin_function_or_method' object has no attribute 'caption'",
+  "ms": 0.11,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H10",
+  "expr": "inputs.keys()",
+  "result": "dict_keys(['jazyk', 'tema', 'limit', 'poznamka'])",
+  "result_type": "dict_keys",
+  "ms": 0.078,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "asteval",
+  "id": "H11",
+  "expr": "inputs.__class__",
+  "error_type": "builtins.AttributeError",
+  "error": "inputs.__class__\nAttributeError: no safe attribute '__class__' for {'jazyk': 'cs', 'tema': 'léto', 'limit': 3, 'poznamka': None}",
+  "ms": 0.102,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H12",
+  "expr": "type(inputs)",
+  "result": "AttrDict",
+  "result_type": "str",
+  "ms": 0.07,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "asteval",
+  "id": "H13",
+  "expr": "print(\"x\")",
+  "result": null,
+  "result_type": "NoneType",
+  "ms": 0.067,
+  "grade": "FAIL"
+ },
+ {
+  "cand": "asteval",
+  "id": "H14",
+  "expr": "(x := 1)",
+  "error_type": "builtins.NotImplementedError",
+  "error": "(x := 1)\nNotImplementedError: 'namedexpr'",
+  "ms": 0.095,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H15",
+  "expr": "rand()",
+  "error_type": "builtins.NameError",
+  "error": "rand()\nNameError: name 'rand' is not defined",
+  "ms": 0.101,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H16",
+  "expr": "\"a\" * 10**9",
+  "error_type": "builtins.RuntimeError",
+  "error": "\"a\" * 10**9\nRuntimeError: String length exceeded, max string length is 262144",
+  "ms": 0.118,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H17",
+  "expr": "10**10**10",
+  "error_type": "builtins.RuntimeError",
+  "error": "10**10**10\nRuntimeError: Invalid exponent, max exponent is 10000",
+  "ms": 0.128,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H18",
+  "expr": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+… (100001 znaků)",
+  "error_type": "builtins.RuntimeError",
+  "error": "length of text exceeds 50000 characters\nRuntimeError: ",
+  "ms": 0.035,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H19",
+  "expr": "------------------------------------------------------------… (100001 znaků)",
+  "error_type": "builtins.RuntimeError",
+  "error": "length of text exceeds 50000 characters\nRuntimeError: ",
+  "ms": 0.055,
+  "grade": "ok"
+ },
+ {
+  "cand": "asteval",
+  "id": "H20",
+  "expr": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((… (2001 znaků)",
+  "error_type": "builtins.SyntaxError",
+  "error": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((",
+  "ms": 0.243,
+  "grade": "ok"
+ }
+]
