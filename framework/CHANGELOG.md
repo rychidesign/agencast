@@ -3,6 +3,34 @@
 Semver podle DESIGN §5.9 bod 5: oprava = patch, přidání = minor, nová
 verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
+## 0.2.2 — 2026-09-25 (opravy z tutoriálů 6 a 7)
+
+Formát: spec v1, jen zpětně kompatibilní doplňky. Opravy z
+`docs/tutorials/BUGS.md` (sekce maw 0.2.1):
+
+- **Dedupe a `--fake` (BUGS 8, vysoká):** falešný běh zapisuje dedupe do
+  `<runs>/_dedupe-fake/` (stejná struktura), ostrý do `<runs>/_dedupe/`;
+  nikdy se nečtou křížem. Dřív ostrý běh po zkoušce s `--fake` krok
+  přeskočil a vrátil vymyšlený výstup. `run_started` má nové pole
+  `fake` (run-record.md), `summary.md` a `report.html` falešný běh
+  označí. Záznamy v `_dedupe/` z falešných běhů 0.2.1 zůstávají — smaž
+  je ručně (tutoriál 7, krok 8).
+- **`task` se `schema` vždy od `tool_wrapper` (BUGS 7, ISSUES 36):**
+  strukturovaný výstup se v kroku `task` vynucuje nástrojem
+  `_submit_output` bez ohledu na `models.<alias>.structured_output`;
+  `response_format` se v tazích neposílá (Haiku s ním končilo smyčku
+  bez volání nástrojů). Kaskáda dál na `prompt`. Nastavení aliasu platí
+  jen pro `ask`. Úroveň je v `model_call.structured_output`, v poznámce
+  kroku a v `plan.md` („kaskáda od tool_wrapper"). Falešný poskytovatel
+  na úrovni `tool_wrapper` respektuje `text` ze skriptu (model nezavolal
+  `_submit_output`).
+- Agent s `mcp` bez `tools`: hláška jmenuje servery, ukáže tvar
+  `tools: { server: [nástroj, …] }` a radí `maw run … --dry-run` (BUGS 9).
+- `POST /runs`: 422 vrací chyby těla (neznámé pole, …) spolu s chybami
+  scénáře a vstupů, ne až na druhý pokus (BUGS 9).
+- Tutoriály: díl 5 `report_url` (od 0.2.0 adresa `report.html`, ne
+  `null`), díl 6 poznámka k `schema` u `task`, díl 7 `_dedupe-fake/`.
+
 ## 0.2.1 — 2026-09-25 (opravy z tutoriálů)
 
 Formát: spec v1 beze změny. Opravy chyb z `docs/tutorials/BUGS.md`:
