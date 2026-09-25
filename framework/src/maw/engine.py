@@ -29,7 +29,7 @@ from .loader import nested_lists
 from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
-from .record import Record, cz, now_iso, plan_md, report_html, scrub, summary_md
+from .record import Record, count, cz, now_iso, plan_md, report_html, scrub, summary_md
 from .task import dedupe_skip, run_task  # 3a
 from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
 
@@ -564,7 +564,7 @@ class Run:
             self.cost += sub.cost
             self.image_cost += sub.image_cost
             self.image_duration += sub.image_duration
-            self.rows[info.id]["note"] = f"scénář {c['scenario']} (kroků: {len(sub.rows)})"
+            self.rows[info.id]["note"] = f"scénář {c['scenario']} ({count(len(sub.rows), 'krok', 'kroky', 'kroků')})"
         return sub.outputs or {}
 
     def publish_report(self):

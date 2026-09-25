@@ -17,7 +17,7 @@ from . import ConfigErrors, __version__
 from .loader import LoadError, load_dotenv, read_frontmatter, read_yaml, version_error
 from .engine import dry_run, run_scenario
 from .fake import Fake
-from .record import cz, run_status
+from .record import count, cz, run_status
 from .validate import load_config, resolve_inputs, validate
 
 
@@ -75,7 +75,7 @@ def cmd_validate(a) -> int:
         p, _ = _project(_scenario_path(a), offline=a.offline)
     except ConfigErrors as e:
         return _fail_config(e.errors)
-    print(f"v pořádku: {p.scenario['name']} (kroků: {len(p.order)}"
+    print(f"v pořádku: {p.scenario['name']} ({count(len(p.order), 'krok', 'kroky', 'kroků')}"
           f"{', bez kontroly modelů' if a.offline else ''})")
     return 0
 
@@ -164,7 +164,7 @@ def cmd_serve(a) -> int:
         return _fail_config([f"server nejde spustit na {a.host}:{a.port}: {e.strerror}"])
     hook.start()
     print(f"maw serve: http://{a.host}:{srv.server_address[1]} — POST /runs, GET /runs/<run_id> · "
-          f"ve frontě {hook.q.qsize()} · záznamy {hook.runs}" + (" · falešný poskytovatel" if hook.fake else ""),
+          f"ve frontě {count(hook.q.qsize(), 'běh', 'běhy', 'běhů')} · záznamy {hook.runs}" + (" · falešný poskytovatel" if hook.fake else ""),
           flush=True)
     try:
         srv.serve_forever()
