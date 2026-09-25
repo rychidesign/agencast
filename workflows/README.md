@@ -12,7 +12,9 @@ mcp.yaml       registr MCP serverů + odkazy na tajné klíče           ← jen
 commands.yaml  povolené příkazy pro krok `run`                       ← jen vlastník
 ```
 
-Přesné formáty definuje specifikace v `docs/` (vznikne po spicích). Do té
-doby jsou zde jen tyto složky; ukázkový scénář je v `docs/DESIGN.md` §6.
+Přesné formáty definuje specifikace v `docs/spec/` (v1, návrh ke
+schválení). Referenční ukázky: `agents/*.md`, `scenarios/ig-post.yaml`,
+`*.example.yaml` (skutečné `config.yaml`, `mcp.yaml`, `commands.yaml`
+vytváří jen vlastník).
 
 Tajné klíče do těchto souborů nepatří — odkazuje se na proměnné prostředí.
