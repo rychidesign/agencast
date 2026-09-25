@@ -214,6 +214,9 @@ jako `state`; OPEN-QUESTIONS 12):
   - `started` bez `succeeded` → krok se **nespustí**, chyba `config`:
     „krok mohl proběhnout jen částečně, ověř ručně a smaž
     `<runs>/_dedupe/<…>.json`". Nic se tiše neopakuje.
+- Falešný běh (`--fake`) používá stejnou strukturu v `<runs>/_dedupe-fake/`;
+  ostrý a falešný běh si záznamy nikdy nečtou navzájem — vymyšlený výstup
+  nesmí přeskočit ostrý vedlejší účinek (od frameworku 0.2.2).
 
 ---
 

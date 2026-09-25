@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import FAKE_MCP, events, run, scenario
+from conftest import FAKE_MCP, events, model_ids, run, scenario
 
 from maw import ConfigErrors
 from maw.mcp_client import api_name, arg_errors, provider_schema
@@ -321,7 +321,7 @@ def test_dedupe_two_runs(wf):
     script = {"t": [calls(("fs__write_file", {"path": "a.txt", "content": "x"})), {"text": "zveřejněno"}]}
     r1, _ = run(path, {"id": "42"}, script)
     assert r1.status == "succeeded", r1.error
-    files = list((wf.parent / "runs" / "_dedupe").glob("*.json"))
+    files = list((wf.parent / "runs" / "_dedupe-fake").glob("*.json"))
     assert len(files) == 1
     assert json.loads(files[0].read_text()) == {"state": "succeeded", "run_id": r1.run_id,
                                                 "output": {"text": "zveřejněno"}}
@@ -339,7 +339,7 @@ def test_dedupe_started_without_succeeded_is_config(wf):
     path = task_sc(wf, step='dedupe_key: "jednou"')
     r1, _ = run(path, script={"t": [calls(("fs__write_file", {"path": "a.txt", "content": "x"})), {"status": 400}]})
     assert r1.error["class"] == "config"
-    f = next((wf.parent / "runs" / "_dedupe").glob("*.json"))
+    f = next((wf.parent / "runs" / "_dedupe-fake").glob("*.json"))
     assert json.loads(f.read_text())["state"] == "started"
     r2, fake2 = run(path, script={"t": [{"text": "ok"}]})
     assert r2.error["class"] == "config" and "ověř ručně a smaž" in r2.error["message"] and str(f) in r2.error["message"]
@@ -350,11 +350,39 @@ def test_dedupe_started_without_succeeded_is_config(wf):
     assert r3.status == "succeeded", r3.error
 
 
+def test_dedupe_fake_and_live_do_not_share_state(wf, monkeypatch):
+    """BUGS 8: výstup falešného běhu nesmí přeskočit ostrý krok (a naopak) — oddělené _dedupe*/."""
+    from maw import engine
+    from maw.engine import run_scenario
+    from maw.fake import Fake
+    from maw.providers import Client
+    setup(wf)
+    path = task_sc(wf, step='dedupe_key: "jednou"')
+
+    def live(text):  # ostrý běh (bez fake), síť nahrazená falešným transportem
+        fake = Fake({"t": [{"text": text}]}, model_ids(wf))
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+        monkeypatch.setattr(engine, "Client", lambda url, key, _t: Client(url, key, fake.transport()))
+        return run_scenario(validate(path, transport=fake.transport()), {})
+
+    r1, _ = run(path, script={"t": [{"text": "falešný"}]})
+    assert r1.fake and events(r1, "run_started")[0]["fake"] is True
+    assert "**Falešný běh**" in (r1.rec.dir / "summary.md").read_text()
+    r2 = live("ostrý")
+    assert r2.status == "succeeded" and r2.values["steps"]["t"] == {"text": "ostrý"}, r2.error
+    assert events(r2, "step_skipped") == [] and events(r2, "run_started")[0]["fake"] is False
+    assert "Falešný běh" not in (r2.rec.dir / "summary.md").read_text()
+    r3, _ = run(path, script={"t": [{"text": "falešný 2"}]})                       # fake nečte ostrý _dedupe
+    assert r3.values["steps"]["t"] == {"text": "falešný"}                          # přeskočen vlastním záznamem, ne ostrým
+    runs = wf.parent / "runs"
+    assert len(list((runs / "_dedupe").glob("*.json"))) == len(list((runs / "_dedupe-fake").glob("*.json"))) == 1
+
+
 def test_dedupe_without_tool_call_writes_only_succeeded(wf):
     setup(wf)
     r, _ = run(task_sc(wf, step='dedupe_key: "k"'), script={"t": [{"text": "bez nástrojů"}]})
     assert r.status == "succeeded"
-    f = next((wf.parent / "runs" / "_dedupe").glob("*.json"))
+    f = next((wf.parent / "runs" / "_dedupe-fake").glob("*.json"))
     assert json.loads(f.read_text())["state"] == "succeeded"
 
 

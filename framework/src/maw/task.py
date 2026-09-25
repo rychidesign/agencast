@@ -43,10 +43,11 @@ def skill_tool(agent) -> dict:
 # --- dedupe_key -----------------------------------------------------------------------
 
 def dedupe_file(run, info: StepInfo):
-    """`<runs>/_dedupe/<sha256(scénář/krok/klíč)>.json` — klíč vázaný na scénář a krok."""
+    """`<runs>/_dedupe/<sha256(scénář/krok/klíč)>.json` — klíč vázaný na scénář a krok; falešný běh
+    (`--fake`) má vlastní `_dedupe-fake/`, aby jeho vymyšlený výstup nepřeskočil ostrý krok (BUGS 8)."""
     key = run.text(info.data["dedupe_key"], "dedupe_key")
     h = hashlib.sha256(f"{run.p.scenario['name']}/{info.key}/{key}".encode()).hexdigest()  # key = id v souboru
-    return run.p.runs_dir / "_dedupe" / f"{h}.json", key
+    return run.p.runs_dir / ("_dedupe-fake" if run.fake else "_dedupe") / f"{h}.json", key
 
 
 def dedupe_skip(run, info: StepInfo) -> bool:

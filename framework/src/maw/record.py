@@ -190,6 +190,8 @@ def summary_md(p: Project, run) -> str:
     if run.image_cost:
         head += f" (z toho obrázky {cz(run.image_cost, 4)} USD)"
     lines = [f"# {sc['name']} — {'úspěch' if ok else 'chyba'}", "", sc["description"], head, ""]
+    if run.fake:
+        lines += ["**Falešný běh** (`--fake`) — odpovědi modelů jsou vymyšlené, dedupe v `_dedupe-fake/`.", ""]
     if run.callback_failed:
         lines += ["**Callback nedoručen** — viz události callback_sent v events.jsonl.", ""]
     if not ok and run.error:
@@ -308,7 +310,8 @@ def report_html(run) -> str:
            f"<p>{e(sc.get('description') or '')}</p>",
            f"<p class=\"muted\">Běh <code>{e(run.run_id)}</code> · {started.day}. {started.month}. {started.year} "
            f"{started:%H:%M:%S} UTC · {cz(run.duration, 1)} s · {e(cost)}"
-           + (f" · request_key <code>{e(run.request_key)}</code>" if run.request_key else "") + "</p>"]
+           + (f" · request_key <code>{e(run.request_key)}</code>" if run.request_key else "")
+           + (" · <strong>falešný běh</strong> (<code>--fake</code>)" if run.fake else "") + "</p>"]
     if run.error:
         er = run.error
         out += ["<h2 class=\"err\">Chyba</h2>",

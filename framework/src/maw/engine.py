@@ -111,8 +111,9 @@ def preflight(p: Project, *, fake: bool, callback_url: str | None) -> str | None
 
 class Run:
     def __init__(self, p: Project, inputs: dict, record: Record, client: Client, run_id: str, *,
-                 callback_url=None, request_key=None, callback_transport=None):
+                 callback_url=None, request_key=None, callback_transport=None, fake=False):
         self.p, self.inputs, self.rec, self.client, self.run_id = p, inputs, record, client, run_id
+        self.fake = fake  # falešný poskytovatel (--fake): vlastní dedupe, příznak v záznamu
         self.callback_url, self.request_key, self.callback_transport = callback_url, request_key, callback_transport
         self.storage_prefix = f"{run_id}-{secrets.token_hex(16)}"
         self.values = {"inputs": inputs, "steps": {}}
@@ -141,7 +142,7 @@ class Run:
                        limits={"run_budget_usd": lim["run_budget_usd"],
                                "run_image_budget_usd": lim.get("run_image_budget_usd"),
                                "run_timeout": lim["run_timeout"]},
-                       framework_version=__version__, storage_prefix=self.storage_prefix)
+                       framework_version=__version__, storage_prefix=self.storage_prefix, fake=self.fake)
         root = Ctx([self.run_budget], [(loop.time() + seconds(lim["run_timeout"]),
                                          f"běhu (run_timeout {lim['run_timeout']})", None)])
         try:
@@ -658,6 +659,6 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
         rec.write("inputs.json", inputs)
     client = Client(p.config["openrouter"]["base_url"], key, fake.transport() if fake else None)
     run = Run(p, inputs, rec, client, run_id, callback_url=callback_url, request_key=request_key,
-              callback_transport=callback_transport)
+              callback_transport=callback_transport, fake=fake is not None)
     asyncio.run(run.execute(error))
     return run
