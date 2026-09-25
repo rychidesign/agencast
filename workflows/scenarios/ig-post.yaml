@@ -19,6 +19,7 @@ outputs:
     type: file
     description: Fotka k příspěvku — v callbacku jako URL
 
+# Čísla kroků v komentářích sedí s tabulkou v summary.md záznamu běhu.
 steps:
   # 1. Copywriter napíše text, hashtagy a nápad na fotku.
   - id: copy
@@ -31,6 +32,7 @@ steps:
         image_idea: string
 
   # 2. Jev zkontroluje, že text sedí na tón značky.
+  #    noul = míra „ano" od 0 do 1; 0.5 = Jev si není jistý.
   - id: kontrola
     jev:
       state: "{{ steps.copy.caption }}"
@@ -46,7 +48,7 @@ steps:
     when: steps.kontrola.on_brand < 0.7
     fail: "Text neodpovídá značce (on_brand = {{ steps.kontrola.on_brand }})"
 
-  # 4. Fotograf z nápadu udělá přesný prompt pro generátor.
+  # 4. Fotograf z nápadu udělá přesný popis fotky pro generátor.
   - id: foto_prompt
     ask:
       agent: photographer
@@ -54,32 +56,34 @@ steps:
         Text příspěvku: {{ steps.copy.caption }}
         Nápad na fotku: {{ steps.copy.image_idea }}
       schema:
-        prompt: string
+        popis_fotky: string
 
-  # 5. Poskytovatel sám nic neodmítne, proto prompt kontrolujeme my.
+  # 5. Poskytovatel sám nic neodmítne, proto popis fotky kontrolujeme my.
   - id: kontrola_obrazku
     jev:
-      state: "{{ steps.foto_prompt.prompt }}"
+      state: "{{ steps.foto_prompt.popis_fotky }}"
       questions:
         skutecna_osoba:
           type: noul
-          instructions: Popisuje prompt konkrétní skutečnou nebo známou osobu?
+          instructions: Popisuje text konkrétní skutečnou nebo známou osobu?
         cizi_znacka:
           type: noul
-          instructions: Zmiňuje prompt logo nebo značku jiné firmy než THTD?
+          instructions: Zmiňuje text logo nebo značku jiné firmy než THTD?
 
+  # 6. Když popis porušuje pravidla, běh skončí.
+  #    Přísnější práh než u tónu: raději zastavit.
   - id: stop_obrazek
     when: steps.kontrola_obrazku.skutecna_osoba > 0.5 or steps.kontrola_obrazku.cizi_znacka > 0.5
-    fail: "Prompt obrázku porušuje pravidla obsahu: {{ steps.foto_prompt.prompt }}"
+    fail: "Popis fotky porušuje pravidla obsahu: {{ steps.foto_prompt.popis_fotky }}"
 
-  # 6. Vygeneruje se fotka ve formátu pro Instagram.
+  # 7. Vygeneruje se fotka ve formátu pro Instagram.
   - id: foto
     image:
       model: gemini-image
-      prompt: "{{ steps.foto_prompt.prompt }}"
+      prompt: "{{ steps.foto_prompt.popis_fotky }}"
       aspect_ratio: "4:5"
 
-  # 7. Výsledek pro n8n: text, hashtagy a URL fotky ke schválení.
+  # 8. Výsledek pro n8n: text, hashtagy a URL fotky ke schválení.
   - id: out
     output:
       caption: "{{ steps.copy.caption }}"

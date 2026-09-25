@@ -7,6 +7,11 @@ Agent je jeden soubor `workflows/agents/<name>.md`: nahoře konfigurace
 Strojová podoba: [`schema/agent.schema.json`](schema/agent.schema.json).
 Ukázky: `workflows/agents/copywriter.md`, `photographer.md`, `publisher.md`.
 
+Frontmatter se čte jako **YAML 1.2 core** (booleany jen `true`/`false`,
+duplicitní klíč = chyba `config` s číslem řádku; viz
+[scenario.md](scenario.md)). Čtou se jen soubory přímo ve
+`workflows/agents/`; podsložka je chyba `config`.
+
 Značení v textu: **návrh** = DESIGN.md to neřeší, jde o navržené výchozí
 chování ke schválení.
 
@@ -38,16 +43,20 @@ Jsi správce Instagramu značky THTD. Dostaneš hotový text a URL obrázku…
 | `name` | ano | Jméno, kterým agenta volá scénář. Musí se shodovat s názvem souboru bez `.md`. Malá písmena, číslice, pomlčka. | Chyba `config`. Nesoulad se jménem souboru také. | `name: copywriter` |
 | `description` | ano | Jedna věta pro člověka: k čemu agent je. Do promptu se **neposílá**. | Chyba `config`. | `description: Copywriter pro IG značky THTD` |
 | `model` | ano | **Alias** modelu z `config.yaml` (§5.5), nikdy konkrétní id modelu. | Chyba `config`. Neznámý alias také. | `model: chytry` |
-| `skills` | ne | Seznam skillů ze `workflows/skills/<name>/SKILL.md`. Jejich text se přidá do system promptu (viz níže). | Žádné skilly. | `skills: [ig-pravidla]` |
-| `mcp` | ne | Seznam MCP serverů z `mcp.yaml`, ke kterým se agent smí připojit. Používá je jen krok `task`. | Agent nemá žádné nástroje. | `mcp: [instagram]` |
-| `tools` | ne | Zúžení nástrojů: pro server z `mcp` seznam nástrojů, které agent smí volat. Server, který v `tools` není, dává **všechny** své nástroje (`validate --dry-run` je vypíše, aby to bylo vidět). | Všechny nástroje serverů z `mcp`. | `tools: { instagram: [publish_media] }` |
+| `skills` | ne | Seznam skillů ze `workflows/skills/<name>/SKILL.md` ([skill.md](skill.md)). Jak se dostanou k modelu, viz níže. | Žádné skilly. | `skills: [ig-pravidla]` |
+| `mcp` | ne | Seznam MCP serverů z `mcp.yaml`, ke kterým se agent smí připojit. Používá je jen krok `task`. Server musí mít tohoto agenta ve svém `agents` v `mcp.yaml` (určuje vlastník). | Agent nemá žádné nástroje. | `mcp: [instagram]` |
+| `tools` | u každého serveru z `mcp` | **Výslovný seznam** nástrojů, které agent smí volat, pro **každý** server z `mcp` (DESIGN §5.8: allowlist podle jména — nový nástroj, který server přidá, agent neuvidí). Klíče `tools` = přesně servery z `mcp`. Nástroj musí být i v `tools` serveru v `mcp.yaml`, pokud ho vlastník omezil. | Server z `mcp` bez záznamu v `tools` je chyba `config`; `validate --dry-run` vypíše, co server nabízí. Klíč `tools` pro server mimo `mcp` je také chyba. | `tools: { instagram: [publish_media] }` |
 | `limits` | ano | Horní hranice pro jedno použití agenta v kroku. Krok je smí jen snížit. | Chyba `config`. | viz níže |
-| `limits.max_turns` | ano | Kolik volání modelu smí proběhnout v jednom kroku `task` (§5.1 bod 6). U `ask` se nepoužije — `ask` je vždy jedno volání (plus opakování při chybě). | Chyba `config`. | `max_turns: 6` |
+| `limits.max_turns` | když má agent `mcp` | Kolik tahů smí proběhnout v jednom kroku `task` (§5.1 bod 6). Tah = odpověď modelu, kterou smyčka zpracovala; opakování po chybě se nepočítá. U `ask` nemá význam — `ask` je vždy jedno volání. | Agent s `mcp` bez `max_turns` = chyba `config`. Agent bez `mcp` použitý v `task` bez `max_turns` = chyba `config`. | `max_turns: 6` |
 | `limits.budget_usd` | ano | Kolik USD smí stát jeden krok s tímto agentem (všechna volání včetně opakování). | Chyba `config`. | `budget_usd: 0.20` |
 | `limits.timeout` | ne | Nejdelší doba jednoho kroku s tímto agentem. Formát `<číslo>s`, `m` nebo `h`. | Výchozí podle typu kroku (`ask` 2m, `task` 15m) — **návrh**. | `timeout: 5m` |
 
 Jiná pole frontmatter nepovoluje — překlep (`modle:`) je chyba `config`,
 ne tiše ignorované pole.
+
+Seznam scénářů, které smí agenta použít, v agentovi **není**: agenty píší
+i ostatní, proto tato omezení drží vlastník v `mcp.yaml` (`agents`,
+`scenarios`, `tools` u serveru — [config.md](config.md), DESIGN §5.2).
 
 ## Tělo = instrukce
 
@@ -55,41 +64,59 @@ Všechno pod druhým `---` je instrukce agenta v Markdownu. Musí být
 neprázdné. `{{ }}` se v těle **nevyhodnocují** — agent je stálý popis role;
 hodnoty z konkrétního běhu mu předává krok přes `prompt`.
 
-### Jak vznikne system prompt (**návrh**)
+### Jak vznikne system prompt
 
-Framework skládá system prompt vždy stejně a nic dalšího do něj nepřidává:
+Framework skládá system prompt vždy stejně a nic dalšího do něj nepřidává.
+
+**U `task`** (DESIGN §5.8):
 
 1. tělo agenta,
-2. pro každý skill v pořadí ze `skills`: řádek `## Skill: <name>` a text
-   `SKILL.md` bez jeho frontmatteru.
+2. oddíl `## Skilly` s řádkem `- <name>: <description>` pro každý skill.
+
+Model dostane nástroj `load_skill(name)`, kde `name` je výčet (`enum`)
+skillů agenta. Nástroj vrátí tělo `SKILL.md`. Neznámé jméno vrátí chybu se
+seznamem dostupných skillů. Volání `load_skill` se počítá jako tah a
+v záznamu je `tool_call` se `server: "_skills"`. `load_skill` se nikdy
+neposílá na MCP server.
+
+**U `ask`** (jedno volání, bez nástrojů — D1b): `load_skill` použít nejde,
+proto se skilly vkládají **celé**:
+
+1. tělo agenta,
+2. pro každý skill v pořadí ze `skills`: řádek `## Skill: <name>` a tělo
+   `SKILL.md` bez frontmatteru.
+
+(Alternativa „skilly u `ask` zakázat" je OPEN-QUESTIONS 11.)
 
 Zpráva uživatele (`user`) je `prompt` z kroku. Přesně to, co model dostal,
 je v záznamu běhu v `steps/<nn>-<id>/prompt.md` (viz
 [run-record.md](run-record.md)).
 
-Když krok žádá JSON (`schema`) a model nezvládne nativní schéma ani
-nástroj-obal, framework v poslední úrovni kaskády (§5.5) připojí na konec
-system promptu popis požadovaného JSON. I to je vidět v `prompt.md`.
-
-Skilly se ve v1 vkládají celé (ne „na vyžádání"). Když budou dlouhé, přidá
-se načítání na vyžádání jako změna frameworku, formát agenta se nemění.
+Když krok žádá JSON (`schema`) a kaskáda (§5.5) je na úrovni `prompt`,
+framework připojí na konec system promptu popis požadovaného JSON. I to je
+vidět v `prompt.md`. Výstup kroku vynucuje `schema`, ne skill.
 
 ## `ask` vs. `task` — co se s agentem stane
 
 | | `ask` | `task` |
 |---|---|---|
-| Volání modelu | jedno (plus opakování při chybě `transient`/`schema`) | smyčka model ↔ nástroje, nejvýš `max_turns` volání |
-| System prompt | tělo + skilly | tělo + skilly |
-| MCP servery a nástroje | **nepoužijí se** (nepřipojují se) | připojí se servery z `mcp`, model vidí jen povolené nástroje |
+| Volání modelu | jedno (plus opakování při chybě `transient`/`schema`) | smyčka model ↔ nástroje, nejvýš `max_turns` tahů |
+| System prompt | tělo + celé skilly | tělo + seznam skillů |
+| Nástroje | **žádné** (MCP se nepřipojuje) | povolené nástroje MCP, `load_skill` (má-li skilly), `_submit_output` (kaskáda) |
 | Limity | `budget_usd`, `timeout` | `max_turns`, `budget_usd`, `timeout` |
-| Konec | odpověď modelu | model odpoví bez volání nástroje |
+| Konec | odpověď modelu | model odpoví bez volání nástroje, nebo zavolá `_submit_output` |
 
-## Agent = maximum oprávnění, krok jen zužuje (§5.2)
+## Oprávnění: vlastník → agent → krok (§5.2, §5.8)
 
-Agent říká, co je **nejvýš** dovoleno. Krok `task` může:
+Tři vrstvy, každá smí jen zúžit tu předchozí:
 
-- vybrat podmnožinu `mcp` a `tools`,
-- snížit `max_turns`, `budget_usd`, `timeout`.
+1. **Vlastník** v `mcp.yaml` určuje u serveru, kteří agenti ho smí použít
+   (`agents`), které scénáře smí spustit agenta s tímto serverem
+   (`scenarios`) a horní seznam nástrojů (`tools`).
+2. **Agent** říká, co je pro něj **nejvýš** dovoleno (`mcp`, `tools`,
+   `limits`).
+3. **Krok `task`** může vybrat podmnožinu `mcp` a `tools` a snížit
+   `max_turns`, `budget_usd`, `timeout`.
 
 Krok nikdy nemůže přidat server, nástroj ani zvýšit limit. Pokus o to je
 chyba `config` při `validate`, např.:
@@ -100,11 +127,19 @@ agent "publisher" ho nepovoluje (tools.instagram)
 ```
 
 Výsledný limit kroku je vždy nejmenší z: limit agenta, limit kroku, zbytek
-rozpočtu a času celého běhu (`config.yaml` → `limits`).
+rozpočtu a času celého běhu (`config.yaml` → `limits`). Do `tools` pro
+model jdou jen povolené nástroje (DESIGN §5.8).
 
-Když model v `task` zavolá nástroj, který povolený není, framework ho
-nespustí, vrátí modelu chybu „nástroj není povolen" a zapíše to do záznamu
-(`tool_call` s `allowed: false`). Běh tím neselže.
+Za běhu:
+
+- Když model zavolá nástroj, který povolený není, framework ho nespustí,
+  vrátí modelu chybu „nástroj není povolen" a zapíše to do záznamu
+  (`tool_call` s `allowed: false`). Běh tím neselže.
+- **Argumenty od modelu se před voláním validují** proti schématu nástroje,
+  které poslal server (původnímu, ne zjednodušenému pro poskytovatele —
+  Gemini části schématu tiše ignoruje, DESIGN §5.8). Když nesedí, nástroj
+  se nespustí a model dostane chybu validace jako výsledek nástroje (tah se
+  počítá; v záznamu `invalid_args: true`).
 
 ## Co v agentovi nesmí být
 
