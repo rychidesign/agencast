@@ -175,7 +175,7 @@ maw validate workflows/scenarios/tutorial-01-nazvy.yaml
 ```
 
 ```
-v pořádku: tutorial-01-nazvy (2 kroků)
+v pořádku: tutorial-01-nazvy (2 kroky)
 ```
 
 `validate` ověří scénář, agenta, `config.yaml` a navíc se zeptá
@@ -514,7 +514,7 @@ maw run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská zmrzl
 ```
 
 ```
-v pořádku: tutorial-01-cviceni (2 kroků)
+v pořádku: tutorial-01-cviceni (2 kroky)
 běh 20260925-151019-tutorial-01-cviceni-6b59: úspěch · 0,0 s · 0,0001 USD
 záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151019-tutorial-01-cviceni-6b59/summary.md
 ```

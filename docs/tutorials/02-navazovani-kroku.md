@@ -168,7 +168,7 @@ maw run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="vegansk�
 ```
 
 ```
-v pořádku: tutorial-02-nazev-a-slogan (4 kroků)
+v pořádku: tutorial-02-nazev-a-slogan (4 kroky)
 běh 20260925-151207-tutorial-02-nazev-a-slogan-6952: úspěch · 0,0 s · 0,0002 USD
 záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151207-tutorial-02-nazev-a-slogan-6952/summary.md
 ```
@@ -409,13 +409,9 @@ config: tutorial-02-nazev-a-slogan.yaml: krok "out", output.vsechny_nazvy: 'step
 
 ```
 config: tutorial-02-nazev-a-slogan.yaml: krok "souhrn", set.pocet: šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, jev.questions (instructions, criteria), fail, hodnotách output, call.inputs a dedupe_key
-config: tutorial-02-nazev-a-slogan.yaml: krok "souhrn", set.pocet: konstrukce 'Set' není ve výrazech povolená
   {{ steps.navrh.nazvy }}
   ^
 ```
-
-Tady je důležitá první hláška; druhá je vnitřní detail (hlášeno
-v [BUGS.md](BUGS.md)).
 
 ### Chyba, kterou `validate` poznat nemůže
 
@@ -534,7 +530,7 @@ maw run workflows/scenarios/tutorial-02-cviceni.yaml -i produkt="veganská zmrzl
 ```
 
 ```
-v pořádku: tutorial-02-cviceni (4 kroků)
+v pořádku: tutorial-02-cviceni (4 kroky)
 běh 20260925-151257-tutorial-02-cviceni-1680: úspěch · 0,0 s · 0,0002 USD
 ```
 
