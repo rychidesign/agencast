@@ -1,0 +1,8 @@
+# Skriptované odpovědi pro tutorial-02-cviceni (řešení cvičení z dílu 2).
+# Krok se schema dostává odpověď jako json: {pole: hodnota}.
+navrh:
+  - json:
+      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+slogan:
+  - json:
+      slogan: "Zmrzlina, která roste na poli"

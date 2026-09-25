@@ -1,0 +1,11 @@
+# Skriptované odpovědi pro tutorial-04-paralelne.
+# Krok image nepotřebuje nic: falešný poskytovatel vyrobí šedé PNG v poměru aspect_ratio.
+navrh:
+  - json:
+      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+slogan:
+  - json:
+      slogan: "Zmrzlina, která roste na poli"
+popis:
+  - json:
+      popis: "A pint of oat milk ice cream on a clean white background, soft light, front view, no text."

@@ -1,0 +1,13 @@
+# Skriptované odpovědi pro tutorial-03-cviceni (řešení cvičení z dílu 3).
+# Jev dostává answers: {otázka: hodnota}; u choice je hodnota klíč z criteria.
+navrh:
+  - json:
+      nazev: "Ovesňák"
+kontrola:
+  - answers:
+      zapamatovatelny: 0.835
+      ton: hravy
+      originalita: 1.4
+slogan_hravy:
+  - json:
+      slogan: "Ovesňák — zmrzlina, co roste na poli"

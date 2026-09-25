@@ -85,3 +85,15 @@ rozhoduje koordinátor nebo uživatel.
     doručení callbacku proto v reportu není (je v `summary.md`
     a `events.jsonl`).
 
+21. **Prodleva `retry` u chyby `schema`** (scenario.md §3 `retry`: „při
+    chybě `transient` nebo `schema` … Prodleva 2 s, 4 s, 8 s…"): framework
+    čeká jen po `transient`; po `schema` zkouší hned další úroveň kaskády
+    (běh `tutorial-02-nazev-a-slogan` s fixturou `text:` místo `json:`
+    trval 0,003 s). Čekání u `schema` nic nepřináší, ale spec ho čte jinak.
+    (Zjištěno při psaní tutoriálů.)
+22. **URL callbacku v záznamu bez portu** (run-record.md „Z URL callbacku
+    se loguje jen `schéma://host/cesta`"): `--callback-url
+    https://127.0.0.1:8443/webhook-waiting/4711` je v `callback_sent` jako
+    `https://127.0.0.1/webhook-waiting/4711`. Doslova podle spec, ale při
+    ladění n8n na nestandardním portu port chybí. (Zjištěno při psaní
+    tutoriálů.)
