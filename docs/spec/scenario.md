@@ -5,7 +5,16 @@ dolů: nahoře co dostane (`inputs`) a co vrátí (`outputs`), pod tím kroky
 v pořadí, v jakém proběhnou.
 
 Strojová podoba: [`schema/scenario.schema.json`](schema/scenario.schema.json).
-Ukázka: `workflows/scenarios/ig-post.yaml`.
+Ukázka: `workflows/scenarios/ig-post.yaml`. Spuštění přes webhook:
+[webhook.md](webhook.md).
+
+**Jak se soubor čte (B6):** jako **YAML 1.2 core** — booleany jsou jen
+`true`/`false` (i `True`/`TRUE`), slova `yes`, `no`, `on`, `off` jsou
+obyčejný text, `4:5` je text (ne číslo), datum `2026-09-25` je text.
+Stejný klíč dvakrát v jedné mapě je chyba `config` s číslem řádku.
+Čtou se jen soubory přímo ve `workflows/scenarios/`; podsložka je chyba
+`config`. Ukázky se ověřují stejným načítáním:
+[`tools/check.py`](tools/check.py).
 
 Značení: **návrh** = DESIGN.md to neřeší, jde o navržené výchozí chování
 ke schválení. Čísla § odkazují na `docs/DESIGN.md`.
@@ -56,7 +65,8 @@ steps:
 | `name` | ano | Jméno scénáře; shoduje se s názvem souboru bez `.yaml`. Tímto jménem se scénář spouští i volá (`call`). Malá písmena, číslice, pomlčka. | Chyba `config`. | `name: ig-post` |
 | `description` | ano | Jedna věta pro člověka: co scénář dělá. Objeví se v `summary.md`. | Chyba `config`. | `description: Návrh IG příspěvku ke schválení` |
 | `inputs` | ne | Co scénář dostane zvenku (webhook, CLI, `call`). Viz níže. | Scénář nemá vstupy. | viz níže |
-| `outputs` | ne | Co scénář vrací — smlouva pro callback i pro `call` (§5.3). Hodnoty dodá krok `output`. | Scénář nic nevrací (callback nese jen stav). | viz níže |
+| `outputs` | ne | Co scénář vrací — smlouva pro callback i pro `call` (§5.3). Hodnoty dodá krok `output`. Když je uvedené, má aspoň jednu položku. | Scénář nic nevrací (callback nese jen stav). | viz níže |
+| `callable` | ne | `true` = scénář smí volat jiný scénář krokem `call`. Spustit přes webhook/CLI jde každý scénář. Chrání schvalování: část 1 nesmí zavolat část 2 (publikaci) a obejít n8n (DESIGN §5.2). | `false` — `call` na tento scénář je chyba `config`. | `callable: true` |
 | `steps` | ano | Seznam kroků. Alespoň jeden. | Chyba `config`. | viz [§4](#4-typy-kroků) |
 
 Jiná pole na nejvyšší úrovni nejsou povolená — překlep je chyba, ne tiše
@@ -79,15 +89,16 @@ inputs:
 
 | Pole vstupu | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
-| `type` | ano | Typ hodnoty: `string`, `number`, `integer`, `boolean`, `list`, `object`. Hodnota zvenku se proti němu kontroluje před startem běhu. | Chyba `config`. | `type: string` |
+| `type` | ano | Typ hodnoty: `string`, `number`, `integer`, `boolean`, `list`, `object`, a `file` (jen když scénář volá jiný scénář přes `call` — z webhooku a CLI je vstup `file` chyba `config`). Hodnota zvenku se proti němu kontroluje před startem běhu. | Chyba `config`. | `type: string` |
 | `required` | viz text | `true` = vstup musí přijít zvenku. | — | `required: true` |
 | `default` | viz text | Hodnota, když vstup nepřijde. Musí odpovídat `type`. | — | `default: cs` |
 | `description` | ne | Vysvětlení pro člověka. | Nic. | `description: O čem psát` |
 
 Pravidlo: každý vstup má **buď** `required: true`, **nebo** `default` —
 nikdy obojí a nikdy nic z toho. Díky tomu není hodnota vstupu nikdy
-„neznámá". Chybějící povinný vstup při spuštění → běh vůbec nezačne, chyba
-`config` se vrátí hned (webhook i CLI).
+„neznámá". Chybějící nebo špatný vstup při spuštění → běh vůbec nezačne:
+webhook odpoví hned HTTP 422 bez `run_id` a bez callbacku
+([webhook.md](webhook.md)), CLI skončí chybou `config`.
 
 ### `outputs`
 
@@ -105,7 +116,8 @@ outputs:
 
 Hodnota typu `file` se na konci běhu nahraje do úložiště z `config.yaml`
 a callback místo ní nese URL (§5.7). Když scénář běží přes `call`, soubor
-se nenahrává — předá se volajícímu scénáři jako `file`.
+se nenahrává — předá se volajícímu scénáři jako `file`. Pravidla pro
+`file` viz [Typ `file`](#typ-file).
 
 ---
 
@@ -119,7 +131,10 @@ se nenahrává — předá se volajícímu scénáři jako `file`.
   - doběhne krok `output` → stav `succeeded`,
   - doběhne krok `fail` nebo krok selže → stav `failed`,
   - dojdou kroky a scénář nemá `outputs` → stav `succeeded`.
-- Callback se posílá **vždy** (D2), viz [run-record.md](run-record.md).
+- Callback se posílá **vždy**, jakmile běh dostal `run_id` (D2), viz
+  [run-record.md](run-record.md#callback).
+- Kroky, na které běh po selhání nedošel, se nezapisují; `summary.md`
+  uvádí „běh skončil v kroku X".
 
 Výstup kroku je dostupný jako `steps.<id>.<pole>`. Co které typy kroků
 vracejí:
@@ -151,19 +166,19 @@ klíčem typu kroku (`ask:`, `jev:`, …) a případně společnými vlastnostmi
   default: { file: null }
   image:                   # typ kroku a jeho pole
     model: gemini-image
-    prompt: "{{ steps.copy.image_prompt }}"
+    prompt: "{{ steps.foto_prompt.popis_fotky }}"
 ```
 
 | Vlastnost | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
 | `id` | ano | Jméno kroku; pod ním je výstup (`steps.<id>`) i složka v záznamu běhu. Malá písmena, číslice, `_`, začíná písmenem; unikátní v celém souboru (i uvnitř větví). Nesmí být klíčové slovo Pythonu (`and`, `or`, `not`, `in`, `is`, `if`, …), jinak by nešel použít ve výrazu. | Chyba `config`. | `id: copy` |
-| `when` | ne | Podmínka ([výraz](#výrazy)). `false` → krok se přeskočí a v záznamu je důvod `when: <výraz> → false`. Výsledek musí být `true`/`false`, ne text ani číslo. | Krok běží vždy. | `when: inputs.jazyk == "cs"` |
-| `timeout` | ne | Nejdelší doba kroku, formát `<číslo>s`, `m`, `h`. Překročení → chyba třídy `timeout`. | Výchozí: `ask` 2m, `task` 15m, `jev` 30s, `image` 3m (**návrh**); u agenta nejvýš jeho `limits.timeout`. Vždy platí i limit celého běhu. | `timeout: 90s` |
-| `budget_usd` | ne | Kolik USD smí krok stát (všechna volání včetně opakování). Kontroluje se po každém volání; další volání se už nespustí. Překročení → chyba třídy `budget`. | U `ask`/`task` rozpočet agenta; jinak jen rozpočet běhu. | `budget_usd: 0.10` |
-| `retry` | ne | Kolikrát se **jedno volání API** zopakuje při chybě `transient` nebo `schema` (§5.1). U `task` platí pro každé volání ve smyčce zvlášť. Prodleva 2 s, 4 s, 8 s…, nebo podle hlavičky `Retry-After`. | `2` (**návrh**). | `retry: 0` |
+| `when` | ne | Podmínka ([výraz](#výrazy)). `false` → krok se přeskočí a v záznamu je důvod `when: <výraz> → false`. Výsledek musí být `true`/`false`, ne text ani číslo. Chyba ve `when` je chybou kroku — `on_error` kroku ji pokrývá. | Krok běží vždy. | `when: inputs.jazyk == "cs"` |
+| `timeout` | ne | Nejdelší doba kroku, formát `<číslo>s`, `m`, `h`. Překročení → chyba třídy `timeout`. U `parallel` a `call` = doba od startu do konce posledního kroku uvnitř. | Výchozí: `ask` 2m, `task` 15m, `jev` 30s, `image` 3m (**návrh**); u agenta nejvýš jeho `limits.timeout`. Vždy platí i limit celého běhu. | `timeout: 90s` |
+| `budget_usd` | ne | Kolik USD smí krok stát (všechna volání včetně opakování). U `parallel` a `call` = součet všech kroků uvnitř. Pravidla kontroly viz [Rozpočet](#rozpočet). Překročení → chyba třídy `budget`. | U `ask`/`task` rozpočet agenta; jinak jen rozpočet běhu. | `budget_usd: 0.10` |
+| `retry` | ne | Kolikrát se **jedno volání API** zopakuje při chybě `transient` nebo `schema` (§5.1). U `task` platí pro každý tah zvlášť; opakování se nepočítá do `max_turns`, jen do `budget_usd`. Prodleva 2 s, 4 s, 8 s…, nebo podle hlavičky `Retry-After`. | `2` (**návrh**). | `retry: 0` |
 | `on_error` | ne | `fail` = chyba kroku ukončí běh. `continue` = běh pokračuje, krok má výstup `default` a v souhrnu běhu je **varování** (§5.1 bod 4). | `fail`. | `on_error: continue` |
-| `default` | viz text | Výstup kroku pro případ, že krok neproběhne (přeskočen přes `when`, neprošla větev `switch`, selhal s `on_error: continue`). Tvar musí odpovídat výstupu kroku. | Pokud se na výstup kroku, který nemusí proběhnout, odkazuje jiný krok, je to chyba `validate` (§5.4). | `default: { on_brand: 0 }` |
-| `dedupe_key` | ne | Jen u `task` (krok s vedlejším účinkem, např. publikace). Šablona dávající text. Když už dřív **úspěšně** doběhl krok se stejným klíčem, krok se znovu neprovede, použije se uložený výstup a v záznamu je důvod `dedupe`. (§5.2) | Krok proběhne pokaždé. | `dedupe_key: "ig-{{ inputs.post_id }}"` |
+| `default` | viz text | Výstup kroku pro případ, že krok neproběhne (přeskočen přes `when`, neprošla větev `switch`, selhal s `on_error: continue`). Musí obsahovat **všechna** pole výstupu kroku (u `jev` všechny otázky; `details` se doplní jako `{}` samo); chybějící pole je chyba `validate`. | Pokud se na výstup kroku, který nemusí proběhnout, odkazuje jiný krok, je to chyba `validate` (§5.4). | `default: { on_brand: 0 }` |
+| `dedupe_key` | ne | Jen u `task` (krok s vedlejším účinkem, např. publikace). Šablona dávající text. Zajistí, že vedlejší účinek proběhne nejvýš jednou, i když n8n běh zopakuje — viz [dedupe](#dedupe_key--jednou-a-dost). (§5.2) | Krok proběhne pokaždé. | `dedupe_key: "ig-{{ inputs.post_id }}"` |
 | `schema` | ne | Jen u `ask` a `task`; píše se **uvnitř** bloku kroku. Viz [`ask`](#ask). | Výstup je text. | |
 
 Kde která vlastnost dává smysl (jinde je chyba `config`):
@@ -177,9 +192,28 @@ Kde která vlastnost dává smysl (jinde je chyba `config`):
 | `switch`, `fail` | ano | — | — | — | — | — |
 | `output` | — | — | — | — | — | — |
 
-Úložiště pro `dedupe_key` (**návrh**): soubor `dedupe.jsonl` vedle složek
-běhů (`<runs>/dedupe.jsonl`), záznam = klíč, `run_id`, výstup kroku. Na
-Modalu na stejném Volume.
+Proč jen tyto kombinace (a ne „libovolný krok" z D1d), viz
+OPEN-QUESTIONS 13.
+
+### `dedupe_key` — jednou a dost
+
+Dedupe je jediná výjimka z pravidla „běhy si nesdílí soubory" (D2, stejně
+jako `state`; OPEN-QUESTIONS 12):
+
+- Každý klíč je **samostatný soubor**
+  `<runs>/_dedupe/<sha256(scénář + "/" + id kroku + "/" + klíč)>.json`,
+  vytvořený atomicky („vytvoř, jen když neexistuje"). Nikdy jeden sdílený
+  log. Klíč je tak vázaný na scénář a krok — stejný text v jiném scénáři
+  se nesplete.
+- Obsah: `{"state": "started" | "succeeded", "run_id": "…", "output": {…}}`.
+- `started` vznikne **před prvním voláním nástroje** kroku; `succeeded`
+  (s výstupem) po úspěšném konci kroku.
+- Při dalším běhu:
+  - `succeeded` → krok se neprovede, výstup se vezme ze souboru, v záznamu
+    `step_skipped` s důvodem `dedupe`;
+  - `started` bez `succeeded` → krok se **nespustí**, chyba `config`:
+    „krok mohl proběhnout jen částečně, ověř ručně a smaž
+    `<runs>/_dedupe/<…>.json`". Nic se tiše neopakuje.
 
 ---
 
@@ -197,12 +231,12 @@ Jedno volání modelu přes agenta, bez nástrojů (D1b).
     schema:
       caption: string
       hashtags: [string]
-      image_prompt: string
+      image_idea: string
 ```
 
 | Pole | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
-| `agent` | ano | Jméno agenta z `workflows/agents/`. Agent dává model, instrukce a skilly. | Chyba `config`. | `agent: copywriter` |
+| `agent` | ano | Jméno agenta z `workflows/agents/`. Agent dává model, instrukce a skilly (u `ask` vložené celé, viz [agent.md](agent.md#jak-vznikne-system-prompt)). | Chyba `config`. | `agent: copywriter` |
 | `prompt` | ano | Zpráva pro model ([šablona](#šablony-)). | Chyba `config`. | `prompt: "Téma: {{ inputs.tema }}"` |
 | `schema` | ne | Tvar JSON, který model musí vrátit. Framework ho vynutí kaskádou (nativní schéma → nástroj-obal → prompt + kontrola, §5.5); nevalidní odpověď je chyba `schema` a opakuje se s chybou jako zpětnou vazbou. | Výstup je `steps.<id>.text`. | viz níže |
 
@@ -215,11 +249,27 @@ Zápis `schema` (zkrácený, **návrh**; framework z něj udělá JSON Schema se
 | `[string]` | seznam hodnot typu `string` (funguje s každým typem) |
 | vnořená mapa `{ a: string, b: number }` | objekt s těmito poli |
 
-Všechna pole jsou povinná, jiná pole nejsou povolená. Popis toho, co má
-v poli být, patří do `prompt` nebo instrukcí agenta.
+**Kořen `schema` je vždy mapa** (výstup se čte jako `steps.<id>.<pole>` a
+poskytovatelé chtějí jako kořen objekt). Všechna pole jsou povinná, jiná
+pole nejsou povolená. Popis toho, co má v poli být, patří do `prompt` nebo
+instrukcí agenta.
+
+#### Kaskáda strukturovaného výstupu (§5.5)
+
+- Úroveň začíná na `models.<alias>.structured_output` z `config.yaml`:
+  `native_schema` (nativní JSON schema) | `tool_wrapper` (nástroj jako
+  obal) | `prompt` (popis v promptu + kontrola). Výchozí `native_schema`;
+  hodnotu nastavuje vlastník podle konformačního scénáře aliasu.
+- Po chybě `schema` jde další pokus o **úroveň níž**. Pokus se počítá do
+  `retry`. Použitá úroveň je v záznamu (`model_call.structured_output`).
+- Na úrovni `tool_wrapper` je správná odpověď volání nástroje
+  `_submit_output` s argumenty podle `schema` (`finish_reason:
+  tool_calls`). U `task` toto volání smyčku ukončí. `_submit_output` se
+  nikdy neposílá na MCP server a nepodléhá allowlistu nástrojů.
 
 Kdy je `ask` úspěšný (§5.1 bod 8 — **HTTP 200 nestačí**): odpověď má
-`finish_reason: stop`, neprázdný obsah, a pokud je `schema`, obsah jde
+`finish_reason: stop` (na úrovni `tool_wrapper` `tool_calls` s voláním
+`_submit_output`), neprázdný obsah, a pokud je `schema`, obsah jde
 naparsovat a odpovídá schématu. Co se stane jinak, viz [§6](#6-chyby).
 
 ### `task`
@@ -245,15 +295,32 @@ Autonomní agent: smyčka model ↔ nástroje (MCP) s limity (D1b).
 |---|---|---|---|---|
 | `agent` | ano | Agent; jeho `mcp`, `tools` a `limits` jsou **maximum** (§5.2). | Chyba `config`. | `agent: publisher` |
 | `prompt` | ano | Zadání úkolu ([šablona](#šablony-)). | Chyba `config`. | |
-| `max_turns` | ne | Nejvýš tolik volání modelu. Smí být jen menší nebo rovno `limits.max_turns` agenta. | Platí `limits.max_turns` agenta — limit tahů tedy existuje vždy (§5.1 bod 6). | `max_turns: 4` |
+| `max_turns` | ne | Nejvýš tolik **tahů** (odpovědí modelu, které smyčka zpracovala; opakování po `transient`/`schema` se nepočítá). Smí být jen menší nebo rovno `limits.max_turns` agenta. | Platí `limits.max_turns` agenta. Agent bez `limits.max_turns` v `task` je chyba `config` — limit tahů tedy existuje vždy (§5.1 bod 6). | `max_turns: 4` |
 | `mcp` | ne | Podmnožina `mcp` agenta. | Všechny servery agenta. | `mcp: [instagram]` |
 | `tools` | ne | Zúžení nástrojů na serveru (podmnožina toho, co povoluje agent). | Nástroje podle agenta. | `tools: { instagram: [publish_media] }` |
 | `schema` | ne | Tvar finální odpovědi, stejně jako u `ask`. | `steps.<id>.text`. | |
 
 Smyčka končí, když model odpoví bez volání nástroje (`finish_reason:
-stop`). Dosažení `max_turns` bez finální odpovědi → chyba třídy `budget`.
-Chyba nástroje (MCP vrátí chybu) krok neukončí: vrátí se modelu jako
-výsledek nástroje a zapíše se do záznamu.
+stop`), nebo zavolá `_submit_output` (kaskáda, viz [`ask`](#ask)).
+Dosažení `max_turns` bez finální odpovědi → chyba třídy `budget`.
+Model vidí jen povolené nástroje (agent ∩ krok ∩ `mcp.yaml`) a nástroj
+`load_skill`, pokud má agent skilly ([agent.md](agent.md)).
+
+MCP servery a chyby nástrojů (DESIGN §5.8):
+
+- Stdio servery startují **jednou za běh**, při prvním `task`, který je
+  potřebuje, a sdílí je i větve `parallel`. Na konci běhu se ukončí.
+- Nástroj vrátí `isError` → výsledek jde modelu, krok pokračuje.
+- Argumenty od modelu nesedí na schéma nástroje → nástroj se nespustí,
+  model dostane chybu validace jako výsledek (tah se počítá).
+- Timeout volání nástroje (`mcp.yaml` → `timeouts.call`) → krok selže,
+  třída `timeout` (nástroj mohl proběhnout — proto `dedupe_key`).
+- Selhání spuštění nebo handshaku serveru → `transient` (síť, 5xx),
+  jinak `config` (proces neběží, 401, neznámý příkaz).
+- Obrázek ve výsledku nástroje se uloží jako soubor
+  (`steps/<nn>-<id>/tool-<NN>-<k>.png`) a modelu jde v user zprávě hned za
+  tool zprávou; v tool zprávě je jen text „obrázek v další zprávě:
+  tool-<NN>-<k>.png" (Gemini obrázek v tool zprávě odmítne).
 
 ### `jev`
 
@@ -305,7 +372,7 @@ Vygeneruje obrázek přes OpenRouter a uloží ho do složky běhu (§5.7).
 - id: foto
   image:
     model: gemini-image
-    prompt: "{{ steps.copy.image_prompt }}"
+    prompt: "{{ steps.foto_prompt.popis_fotky }}"
     aspect_ratio: "4:5"
 ```
 
@@ -313,10 +380,15 @@ Vygeneruje obrázek přes OpenRouter a uloží ho do složky běhu (§5.7).
 |---|---|---|---|---|
 | `model` | ano | Alias obrazového modelu z `config.yaml`. | Chyba `config`. Alias modelu bez obrazového výstupu zachytí `validate` (§5.7). | `model: gemini-image` |
 | `prompt` | ano | Popis obrázku ([šablona](#šablony-)). | Chyba `config`. | |
-| `aspect_ratio` | ne | Poměr stran jako text `"šířka:výška"` (pro IG `"1:1"` nebo `"4:5"`; vždy v uvozovkách, jinak YAML může `4:5` číst jinak). | Výchozí modelu (u `gemini-3.1-flash-image` 1408×768). | `aspect_ratio: "4:5"` |
+| `aspect_ratio` | ne | Poměr stran jako text `"šířka:výška"` (pro IG `"1:1"` nebo `"4:5"`). Po uložení framework porovná poměr stran z hlavičky souboru; odchylka > 2 % = chyba `config` („model nepodporuje aspect_ratio"), nic se tiše neořízne. | Výchozí modelu (u `gemini-3.1-flash-image` 1408×768). | `aspect_ratio: "4:5"` |
 
 Výstup `steps.<id>.file` — soubor `steps/<nn>-<id>/image.png` ve složce
 běhu. V záznamu nikdy není base64, jen cesta (§5.7).
+
+Když odpověď neobsahuje obrázek: je-li `refusal` neprázdné nebo
+`finish_reason: content_filter` → třída `content`. Jinak `transient`
+(opakuje se) a po vyčerpání `retry` třída `content` se zprávou „model
+nevrátil obrázek".
 
 Pozor: poskytovatel **neodmítá** ani podobizny skutečných osob (spike (a)).
 Politiku obsahu vynucuje scénář — typicky krok `jev` nad promptem před
@@ -359,7 +431,11 @@ Pojmenované větve, které běží souběžně uvnitř jednoho běhu (D1d).
   větvi. Odkaz do jiné větve je chyba `validate` (nevíme, co doběhne dřív).
 - Krok za `parallel` začne, až doběhnou všechny větve.
 - Když krok ve větvi selže (bez `on_error: continue`), ostatní větve se
-  zruší a běh skončí `failed` (**návrh**).
+  zruší a běh skončí `failed` (**návrh**). Rozběhnutý krok, který se tím
+  zruší, dostane `step_finished` se `status: cancelled` a cenou dosavadních
+  volání; nerozběhnutý dostane `step_skipped` s důvodem `cancelled`.
+- Když je `parallel` přeskočen (`when`), dostane každý krok uvnitř
+  `step_skipped` se stejným důvodem.
 - Uvnitř větve nesmí být `output`.
 
 ### `switch`
@@ -384,16 +460,16 @@ Větvení podle hodnoty. `default` je **povinný** (D1d).
 
 | Pole | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
-| `value` | ano | [Výraz](#výrazy), jehož výsledek musí být `string`. | Chyba `config`. | `value: steps.kontrola.druh` |
+| `value` | ano | [Výraz](#výrazy), jehož výsledek musí být `string`. `null` nebo jiný typ = chyba `expression` (ne větev `default`); když je typ známý předem, chyba `validate`. | Chyba `config`. | `value: steps.kontrola.druh` |
 | `cases` | ano | Mapa `hodnota: [kroky]`. Proběhnou kroky u hodnoty, která se přesně rovná `value`. Alespoň jedna. | Chyba `config`. | |
 | `default` | ano | Kroky, když žádná hodnota nesedí. Vědomé „nic nedělej" je `default: []`. | Chyba `config`. | `default: []` |
 
-- Pole se jmenuje `value`, ne `on` — YAML čte slovo `on` jako `true`.
-  Ze stejného důvodu piš hodnoty jako `yes`, `no`, `true`, `1` v `cases`
-  v uvozovkách.
+- Klíče `cases` jsou vždy text (YAML 1.2: `yes`, `on` i `1` jsou text).
+  Když `value` je odpověď `choice` z `jev`, `validate` ověří, že klíče
+  `cases` jsou mezi klíči `criteria`.
 - Pro číselné prahy (`< 0.7`) použij `when`, ne `switch`.
-- Kroky ve větvi, která neproběhla, se zapíšou jako přeskočené s důvodem
-  `switch: podle_druhu = "akce"`. Kdo čte jejich výstup za `switch`,
+- Kroky ve větvi, která neproběhla (i v celém přeskočeném `switch`), se
+  zapíšou každý jako přeskočené s důvodem `switch: podle_druhu = "akce"`. Kdo čte jejich výstup za `switch`,
   potřebuje u nich `default` (§5.4).
 - Uvnitř větve nesmí být `output`.
 
@@ -404,21 +480,25 @@ Spustí jiný scénář **uvnitř stejného běhu** (§5.3).
 ```yaml
 - id: navrh
   call:
-    scenario: ig-post
+    scenario: ig-text        # ig-text.yaml má callable: true
     inputs:
       tema: "{{ inputs.tema }}"
 ```
 
 | Pole | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
-| `scenario` | ano | Jméno scénáře z `workflows/scenarios/`. | Chyba `config`. | `scenario: ig-post` |
+| `scenario` | ano | Jméno scénáře z `workflows/scenarios/`, který má v hlavičce `callable: true`. Jinak chyba `config`. | Chyba `config`. | `scenario: ig-text` |
 | `inputs` | ne | Hodnoty vstupů volaného scénáře ([šablony](#šablony-)). | Volaný scénář dostane jen své `default`. | `tema: "{{ inputs.tema }}"` |
 
 Smlouva (§5.3):
 
 - Výstup kroku jsou `outputs` volaného scénáře: `steps.navrh.caption`.
-- `validate` staticky kontroluje, že volání dává všechny `required` vstupy,
-  žádné navíc a se správnými typy, a že se čtou jen deklarované `outputs`.
+- `validate` staticky kontroluje, že volaný scénář má `callable: true`,
+  že volání dává všechny `required` vstupy, žádné navíc a se správnými
+  typy, a že se čtou jen deklarované `outputs`. Typ vstupu, který nejde
+  ověřit předem, se kontroluje při `call`; nesoulad = `expression`.
+- Vstup typu `file` jde předat jen přes `call` (obrázek z jednoho scénáře
+  do druhého).
 - **Stejný běh:** stejný rozpočet a časový limit, záznam volaného scénáře
   je podsložka `steps/<nn>-<id>/` (viz [run-record.md](run-record.md)).
   Fronta o `call` neví.
@@ -479,7 +559,10 @@ Co běh vrací. Poslední krok scénáře.
 
 - Klíče = přesně ty z `outputs` v hlavičce, typy musí sedět. Chybějící
   nebo přebývající klíč je chyba `validate`.
-- Hodnoty jsou [šablony](#šablony-) nebo pevné hodnoty.
+- Hodnoty jsou [šablony](#šablony-) nebo pevné hodnoty; pro výstup typu
+  `file` jen šablona, která vede na `file` (viz [Typ `file`](#typ-file)).
+- Selhání nahrání souboru do úložiště = `transient` s opakováním, pak běh
+  `failed`, třída `transient`, krok `output`.
 - `output` smí být jen jednou a jen jako **poslední krok** hlavního
   seznamu `steps` (ne ve větvích, bez `when`). Scénář s `outputs` ho mít
   musí; scénář bez `outputs` ho mít nesmí. Různé výsledky podle větví se
@@ -494,10 +577,10 @@ Ve scénáři jsou dva různé zápisy (D1c). Jednoduché pravidlo:
 | Kde | Zápis | Příklad |
 |---|---|---|
 | `when`, `switch.value`, hodnoty v `set` | **výraz** — bez závorek | `steps.kontrola.on_brand < 0.7` |
-| všude jinde, kde je hodnota (prompt, state, zpráva `fail`, `output`, vstupy `call`, `dedupe_key`) | **šablona** — `{{ }}` jen vkládá hodnotu | `"Téma: {{ inputs.tema }}"` |
+| **jen** v: `ask.prompt`, `task.prompt`, `image.prompt`, `jev.state`, `jev.questions.*.instructions`, `jev.questions.*.criteria` (hodnoty), `fail`, hodnotách `output`, `call.inputs`, `dedupe_key` | **šablona** — `{{ }}` jen vkládá hodnotu | `"Téma: {{ inputs.tema }}"` |
 
-Jména, `id`, typy kroků, aliasy modelů a agenti jsou vždy pevný text —
-šablona v nich je chyba `validate`.
+`{{` kdekoli jinde (jména, `id`, typy kroků, aliasy, agenti,
+`aspect_ratio`, `max_turns`, klíče `cases`, …) je chyba `validate`.
 
 ### Co je vidět (jména)
 
@@ -585,16 +668,28 @@ comprehension (`[x for x in …]`), atributy a dunder (`__class__`),
   `int(x)`, `str(x)`.
 - **Porovnání napříč typy je chyba** (`==` i `<`):
   `steps.kontrola.on_brand < "0.7"`, `inputs.limit == "3"`. Jediná
-  výjimka: `x == null` a `x != null` jsou dovolené u každého typu.
+  výjimka: `x == null` a `x != null` jsou dovolené u každého typu. Když
+  typy nejsou známé předem, pozná se chyba až za běhu (OPEN-QUESTIONS 14).
 - **`and`, `or`, `not` berou jen `true`/`false`.** Žádná pythonová
   „pravdivost" textu, čísla nebo seznamu: `steps.copy.hashtags and …` je
   chyba s radou napsat porovnání, např. `len(steps.copy.hashtags) > 0`.
   (Rozhodnutí koordinátora, OPEN-QUESTIONS 8.)
 - **`boolean` není číslo:** `true + 1` je chyba.
-- **Text + číslo je chyba:** `"on_brand = " + 0.9` → napiš
-  `"on_brand = " + str(0.9)`.
+- **Operátory a typy:** `-`, `*`, `/`, `%` jen číslo s číslem (`"a" * 3`
+  je chyba). `+` jen číslo + číslo, text + text, seznam + seznam.
+  **Text + číslo je chyba:** `"on_brand = " + 0.9` → napiš
+  `"on_brand = " + str(0.9)`. Výsledný text nebo seznam delší než
+  100 000 znaků/prvků = chyba `expression`.
 - **`/` dává vždy desetinné číslo:** `7 / 2` = `3.5`, `4 / 2` = `2.0`.
   `%` je zbytek po dělení. Dělení nulou je chyba.
+- **`x in y`:** `y` je seznam (prvky musí mít typ `x`, jinak chyba — `3 in
+  ["3"]` je chyba, ne `false`), text (`x` je text, hledá se podřetězec)
+  nebo objekt (`x` je text, hledá se klíč).
+- **Čísla:** celé číslo i číslo s nulovou desetinnou částí (`2.0`) se
+  přijme tam, kde se čeká `integer`. `nan` a nekonečno nejsou dovolené —
+  výsledek, který by jím byl, je chyba `expression`. Číslo v textu (šablona,
+  `str`) má nejkratší zápis, který se přečte zpět stejně:
+  `0.1 + 0.2` → `0.30000000000000004`, `4 / 2` → `2.0`.
 - `when` a `switch.value` musí dát `boolean`, resp. `string`.
 
 #### Funkce
@@ -603,9 +698,10 @@ comprehension (`[x for x in …]`), atributy a dunder (`__class__`),
 |---|---|---|
 | `len(x)` | délka | `string`, `list`, `object` → `number` |
 | `min(a, b, …)`, `max(a, b, …)` | nejmenší / největší | čísla (nebo jeden seznam čísel) → `number` |
-| `round(x)`, `round(x, n)` | zaokrouhlí na `n` desetinných míst (výchozí 0) | `number` → `number` |
+| `round(x)`, `round(x, n)` | zaokrouhlí na `n` desetinných míst; `round(x)` bez `n` dává celé číslo (`round(2.5)` = `3`, ne `3.0`) | `number` → `number` |
 | `str(x)` | převod na text | cokoliv → `string` |
-| `int(x)`, `float(x)` | převod na celé / desetinné číslo | `number` nebo `string` s číslem → `number` |
+| `int(x)` | z čísla uřízne desetinnou část (`int(2.7)` = `2`); z textu přijme jen celé číslo (`int("3")` = `3`, `int("2.7")` je chyba) | `number`, `string` → `number` |
+| `float(x)` | převod na desetinné číslo (`float("0.7")`) | `number`, `string` → `number` |
 | `join(seznam, oddělovač)` | spojí seznam textů | `list` textů, `string` → `string` |
 
 - **`round` zaokrouhluje půlku směrem od nuly:** `round(2.5)` = `3`,
@@ -619,16 +715,17 @@ comprehension (`[x for x in …]`), atributy a dunder (`__class__`),
 
 #### Limity
 
-Výraz má nejvýš **2000 znaků** a hloubku vnoření (závorky, operátory)
-nejvýš **100**. Kontroluje se **před** čtením výrazu, takže ani
-obrovský výraz nemůže shodit framework.
+Výraz má nejvýš **2000 znaků** — kontroluje se **před** čtením výrazu,
+takže ani obrovský výraz nemůže shodit framework. Hloubka vnoření
+(závorky, operátory) je nejvýš **100** — kontroluje se po přečtení, před
+vyhodnocením. Výsledný text nebo seznam má nejvýš 100 000 znaků/prvků.
 
 #### Kdy se chyba výrazu pozná
 
 | Kdy | Co | Třída | Následek |
 |---|---|---|---|
 | `validate` (staticky, před během) | syntaxe; zakázaná konstrukce; neznámá funkce nebo jméno (`True`, `open`); překročený limit; odkaz na neexistující krok, na krok níž nebo v jiné větvi `parallel`; odkaz na krok, který nemusí proběhnout, bez `default`; neznámé pole kroku, jehož výstup je známý (`schema`, `jev`, `set`, `outputs` při `call`); porovnání nebo operace napříč typy, když jsou typy známé předem; `null` v šabloně, když je to vidět předem | `config` | běh se vůbec nespustí |
-| za běhu | chybějící klíč (např. v `details` od Jev), špatný typ hodnoty, index mimo seznam, dělení nulou, převod `int("abc")`, `null` v šabloně | `expression` | krok selže, **neopakuje se**; běh končí `failed` (jako `fail` kroku), pokud krok nemá `on_error: continue` |
+| za běhu | chybějící klíč (např. v `details` od Jev), špatný typ hodnoty, index mimo seznam, dělení nulou, převod `int("abc")`, `nan`/nekonečno, příliš dlouhý výsledek, `null` v šabloně, `switch.value` není text | `expression` | krok selže, **neopakuje se**; běh končí `failed` (jako `fail` kroku), pokud krok nemá `on_error: continue` |
 
 #### Chybové hlášky
 
@@ -659,6 +756,16 @@ Výraz, který začíná uvozovkou, `[` nebo `{`, nebo obsahuje `: ` či ` #`,
 obal celý do jednoduchých uvozovek: `when: '"x" == inputs.jazyk'`,
 `when: '["cs", "sk"] == inputs.jazyky'`.
 
+### Typ `file`
+
+- Hodnota `file` vzniká **jen** z kroku `image` (a z obrázku, který vrátí
+  nástroj v `task`). Z textu ji vytvořit nejde: text v místě, kde se čeká
+  `file` (`image: "/home/x/.env"`), je chyba `validate`.
+- Cesta je vždy uvnitř složky běhu; framework to před nahráním ověří
+  (skutečná cesta po rozbalení odkazů). Jinak chyba `config`.
+- `file: null` z výslovného `default` jde do callbacku jako `null` (nic se
+  nenahraje).
+
 ### Přeskočené kroky a `default` (§5.4)
 
 Krok „nemusí proběhnout", když má `when`, je ve větvi `switch` nebo má
@@ -678,12 +785,12 @@ nese třídu chyby, `id` kroku a zprávu (§5.1). Nic neselže potichu.
 
 | Třída | Kdy | Co framework udělá |
 |---|---|---|
-| `transient` | HTTP 408, 429, 5xx, výpadek sítě; HTTP 200 s `finish_reason: error`; HTTP 200 bez obsahu a bez odmítnutí | zopakuje volání (`retry`) s prodlevou, pak chyba |
+| `transient` | HTTP 408, 429, 5xx, výpadek sítě; HTTP 200 s `finish_reason: error`; HTTP 200 bez obsahu a bez odmítnutí; chybějící `usage.cost`; selhání handshaku MCP kvůli síti/5xx; selhání nahrání souboru; `validate` bez sítě a bez cache `/models` | zopakuje volání (`retry`) s prodlevou, pak chyba |
 | `schema` | odpověď nejde naparsovat nebo nesedí na `schema` | zopakuje volání (`retry`), model dostane chybu jako zpětnou vazbu |
-| `content` | model nebo filtr odmítl obsah: HTTP 403 (`content_policy_violation`, `refusal`), HTTP 200 s `finish_reason: content_filter` nebo vyplněným `refusal`, `image` bez obrázku | neopakuje, chyba |
-| `budget` | překročen `budget_usd` kroku, agenta nebo běhu; `max_turns` bez odpovědi; HTTP 402 (došel kredit / limit klíče) | ukončí, neopakuje |
-| `timeout` | překročen `timeout` kroku nebo běhu | ukončí, neopakuje |
-| `config` | chyba ve scénáři, agentovi nebo konfiguraci — hlavně z `validate` před během (včetně statické kontroly výrazů a šablon, viz [§5](#kdy-se-chyba-výrazu-pozná)); za běhu HTTP 400/401/403 (mimo obsah)/404, `finish_reason: length` (useknuto limitem `max_tokens`; opakování nepomůže — zvyš `max_tokens` aliasu v `config.yaml`) | ukončí, neopakuje |
+| `content` | model nebo filtr odmítl obsah: HTTP 403 (`content_policy_violation`, `refusal`), HTTP 200 s `finish_reason: content_filter` nebo vyplněným `refusal`; `image` bez obrázku po vyčerpání `retry` (viz [`image`](#image)) | neopakuje, chyba |
+| `budget` | rozpočet kroku, agenta nebo běhu vyčerpán ([Rozpočet](#rozpočet)); `max_turns` bez odpovědi; HTTP 402 (došel kredit / limit klíče); cena zůstala neznámá i po `retry` („cena neznámá") | ukončí, neopakuje |
+| `timeout` | překročen `timeout` kroku nebo běhu; timeout volání nástroje MCP | ukončí, neopakuje |
+| `config` | chyba ve scénáři, agentovi nebo konfiguraci — hlavně z `validate` před během (včetně statické kontroly výrazů a šablon, viz [§5](#kdy-se-chyba-výrazu-pozná)); za běhu HTTP 400/401/403 (mimo obsah)/404, selhání spuštění MCP serveru (proces neběží, 401), `dedupe` ve stavu `started`, poměr stran obrázku nesedí na `aspect_ratio`, `finish_reason: length` (useknuto limitem `max_tokens`; opakování nepomůže — zvyš `max_tokens` aliasu v `config.yaml`) | ukončí, neopakuje |
 | `expression` | výraz nebo šablona selhaly **za běhu**: chybějící klíč, špatný typ hodnoty, index mimo seznam, dělení nulou, `null` v šabloně (viz [§5](#kdy-se-chyba-výrazu-pozná)) | chová se jako `fail` kroku: neopakuje, ukončí (pokud krok nemá `on_error: continue`) |
 | `fail` | krok `fail` (**návrh**) | ukončí |
 | `internal` | chyba frameworku samotného (**návrh**) — vždy s celou hláškou v záznamu | ukončí |
@@ -699,14 +806,31 @@ Tvar odmítnutí obrázku zatím nikdo nenaměřil (DESIGN §7 bod 7).
 Krok s modelem (`ask`, `task`, `jev`, `image`) je úspěšný teprve, když:
 
 1. HTTP status je 200 **a** tělo nemá `error`,
-2. `finish_reason` je `stop` (u `task` průběžně i `tool_calls`),
+2. `finish_reason` je `stop` (u `task` průběžně i `tool_calls`; na úrovni
+   kaskády `tool_wrapper` `tool_calls` s `_submit_output`),
 3. je tam obsah: text, JSON podle `schema`, odpovědi Jev na všechny
-   otázky, u `image` aspoň jeden obrázek,
-4. cena (`usage.cost`) je známá — když chybí, zapíše se varování
-   (rozpočet pak nejde hlídat přesně).
+   otázky, u `image` aspoň jeden obrázek.
+
+Navíc musí být známá cena (`usage.cost`), jinak nejde hlídat rozpočet —
+viz [Rozpočet](#rozpočet).
 
 Příklad ze spiku (a): Gemini vrátilo HTTP 200 s `finish_reason: "error"`,
 `completion_tokens: 0` a useknutým JSON → třída `transient`, opakování.
+
+### Rozpočet
+
+- **Před každým voláním:** když útrata kroku, agenta nebo běhu už dosáhla
+  rozpočtu, volání se nespustí → chyba `budget`.
+- Volání, které rozpočet **překročí**, se dokončí a jeho výsledek platí;
+  zapíše se varování „rozpočet překročen o X USD".
+- Ve `parallel` platí totéž pro každou větev: překročení je nejvýš o jedno
+  volání na větev.
+- Chybějící `usage.cost` = opakovat jako `transient`; po vyčerpání
+  `retry` třída `budget` se zprávou „cena neznámá". Nic se nedopočítává
+  odhadem.
+- Obrázky hlídá navíc `limits.run_image_budget_usd`; jejich čas se ve
+  záznamu uvádí zvlášť (`run_finished.image_duration_s`), samostatný
+  časový limit pro obrázky ve v1 není.
 
 ### `on_error: continue`
 
@@ -727,6 +851,12 @@ třída `config`:
 - `name` = jméno souboru, `version` je známá,
 - agenti, scénáře (`call`), aliasy modelů, MCP servery a nástroje existují;
   krok nerozšiřuje oprávnění agenta,
+- soubor se čte jako YAML 1.2 core, bez duplicitních klíčů, soubory jen
+  přímo ve složce (bez podsložek),
+- `call` jen na scénář s `callable: true`,
+- oprávnění podle `mcp.yaml`: agent se serverem, u kterého není v
+  `agents`; scénář mimo `scenarios` serveru; nástroj mimo `tools` serveru
+  → chyba (viz [config.md](config.md#mcpyaml--registr-mcp-serverů)),
 - `id` unikátní; výrazy a šablony podle tabulky „Kdy se chyba výrazu
   pozná" v [§5](#kdy-se-chyba-výrazu-pozná) (syntaxe, zakázané
   konstrukce, funkce, limity, odkazy jen na kroky výš a ne do jiné větve
@@ -735,8 +865,15 @@ třída `config`:
 - `output` je poslední a sedí na `outputs`; `call` sedí na `inputs` a
   `outputs` volaného scénáře; žádné cykly, hloubka v limitu,
 - žádný nedosažitelný krok za nepodmíněným `fail`,
-- aliasy modelů existují v `GET /api/v1/models` a obrazové aliasy umí
-  výstup obrázku (§5.5, §5.7).
+- `models.<alias>.id` existuje v `GET /api/v1/models` (výsledek se
+  cachuje na 24 h v `<runs>/_models.json`; bez sítě a bez cache →
+  `transient`; s `base_url` falešného poskytovatele se ptá jeho `/models`),
+- obrazové aliasy umí výstup obrázku; alias agenta použitého v `task`
+  má v `supported_parameters` `tools`; alias kroku se `schema` má
+  `structured_outputs` nebo `tools` (§5.5, §5.7),
+- dva povolené nástroje se po normalizaci jména (`server__tool`, jen
+  `[a-zA-Z0-9_-]`, max 64 znaků, DESIGN §5.8) nesmí jmenovat stejně.
 
 `--dry-run` navíc vypíše plán: pořadí kroků, výsledné nástroje každého
-`task` a limity.
+`task`, nástroje, které každý MCP server nabízí (aby šel napsat seznam
+`tools`), a limity.
