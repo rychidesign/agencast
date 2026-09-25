@@ -455,15 +455,17 @@ frameworku tě nemusí zajímat.
 
 ## Co přijde dál
 
-Tyhle díly používají jen to, co `maw` 0.1.0 umí. Dál:
+Díly 1–5 vznikly s `maw` 0.1.0; díly 6 a 7 potřebují `maw` 0.2.1:
 
-- **Díl 6 — Agent s nástroji:** krok `task` (smyčka model ↔ nástroje MCP
-  s limitem tahů), `mcp.yaml`, skilly přes `load_skill`, `dedupe_key`
-  pro kroky, které smí proběhnout jen jednou (publikace).
-- **Díl 7 — Scénáře v provozu:** `call` (scénář volá scénář), webhook
-  server pro n8n, běh na Modal.com, úložiště R2 s veřejnými URL.
+- **[Díl 6 — Agent s nástroji](06-agent-s-nastroji.md):** krok `task`
+  (smyčka model ↔ nástroje MCP s limitem tahů), `mcp.yaml` z pohledu
+  vlastníka, skilly přes `load_skill`, záznam volání nástrojů.
+- **[Díl 7 — Skládání a provoz](07-skladani-a-provoz.md):** `call`
+  (scénář volá scénář), `maw serve` pro n8n (token, `request_key`,
+  podepsaný callback), `report.html` a `dedupe_key` pro kroky, které smí
+  proběhnout jen jednou.
 
-`validate` je zatím odmítne chybou `config` — přijdou s Fází 3 frameworku.
+Přehled všech dílů: [README.md](README.md).
 
 ---
 

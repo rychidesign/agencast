@@ -1,0 +1,36 @@
+version: 1
+name: tutorial-07-slogan
+description: Napíše slogan k hotovému názvu produktu (tutoriál, díl 7 — stavebnice pro call)
+callable: true
+
+inputs:
+  nazev:
+    type: string
+    required: true
+    description: Název produktu
+  ton:
+    type: string
+    default: hravy
+    description: Tón sloganu (hravy, vazny…)
+
+outputs:
+  slogan:
+    type: string
+    description: Jeden slogan
+
+steps:
+  # 1. Sloganista z dílu 2 dostane název a tón od volajícího scénáře.
+  - id: napis
+    ask:
+      agent: tutorial-sloganista
+      prompt: |
+        Název produktu: {{ inputs.nazev }}
+        Tón: {{ inputs.ton }}
+        Napiš k němu jeden slogan.
+      schema:
+        slogan: string
+
+  # 2. Výstup = smlouva s volajícím: čte steps.<id krok call>.slogan.
+  - id: out
+    output:
+      slogan: "{{ steps.napis.slogan }}"

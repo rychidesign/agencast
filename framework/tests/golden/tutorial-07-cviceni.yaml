@@ -1,0 +1,6 @@
+# Skriptované odpovědi pro tutorial-07-cviceni (řešení cvičení z dílu 7).
+# Cesta = <id kroku call>/<id kroku ve volaném scénáři>; větev parallel v cestě není.
+hravy_slogan/napis:
+  - json: { slogan: "Ovena. Lžička, co se směje." }
+vazny_slogan/napis:
+  - json: { slogan: "Ovena. Rostlinná jemnost v každé lžičce." }
