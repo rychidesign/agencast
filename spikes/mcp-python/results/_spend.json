@@ -1,0 +1,10 @@
+{
+ "q2a:anthropic/claude-haiku-4.5": 0.043821000000000006,
+ "q2a:google/gemini-3.5-flash-lite": 0.0043442,
+ "q2b:anthropic/claude-haiku-4.5": 0.038390999999999995,
+ "q2b:google/gemini-3.5-flash-lite": 0.006595500000000001,
+ "q3:anthropic/claude-haiku-4.5": 0.031596,
+ "q3:google/gemini-3.5-flash-lite": 0.0042279,
+ "q4:anthropic/claude-haiku-4.5": 0.005647000000000001,
+ "q4:google/gemini-3.5-flash-lite": 0.0011814999999999998
+}
