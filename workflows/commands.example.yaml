@@ -1,0 +1,15 @@
+# Ukázka commands.yaml — příkazy pro budoucí krok `run` (ve v1 se
+# neimplementuje, tady je jen struktura). Mění jen vlastník.
+# Specifikace: docs/spec/config.md
+version: 1
+
+commands:
+  zmensi-obrazek:
+    description: Zmenší obrázek na šířku pro Instagram
+    program: /usr/bin/convert          # absolutní cesta, nikdy přes shell
+    args: ["{{ params.vstup }}", "-resize", "{{ params.sirka }}x", "{{ params.vystup }}"]
+    params:
+      vstup:  { type: file }
+      sirka:  { type: integer, min: 320, max: 1440 }
+      vystup: { type: string, pattern: "^[a-z0-9_-]+\\.jpg$" }
+    timeout: 60s

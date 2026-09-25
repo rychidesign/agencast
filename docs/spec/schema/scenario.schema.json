@@ -1,0 +1,832 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multiagent-workflows.local/spec/v1/scenario.schema.json",
+  "title": "Scénář, formát v1",
+  "description": "Viz docs/spec/scenario.md. Schéma kontroluje tvar souboru; odkazy, typy ve výrazech, pořadí kroků a smlouvu call kontroluje validate (scenario.md §7).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "name",
+    "description",
+    "steps"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "$ref": "#/$defs/kebab"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "callable": {
+      "type": "boolean"
+    },
+    "inputs": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/input"
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "list",
+              "object",
+              "file"
+            ]
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "minProperties": 1
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    }
+  },
+  "$defs": {
+    "kebab": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "not": {
+        "enum": [
+          "and",
+          "as",
+          "assert",
+          "async",
+          "await",
+          "break",
+          "class",
+          "continue",
+          "def",
+          "del",
+          "elif",
+          "else",
+          "except",
+          "finally",
+          "for",
+          "from",
+          "global",
+          "if",
+          "import",
+          "in",
+          "is",
+          "lambda",
+          "nonlocal",
+          "not",
+          "or",
+          "pass",
+          "raise",
+          "return",
+          "try",
+          "while",
+          "with",
+          "yield",
+          "true",
+          "false",
+          "null"
+        ]
+      }
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*(s|m|h)$"
+    },
+    "expression": {
+      "type": "string",
+      "minLength": 1
+    },
+    "template": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "list",
+            "object",
+            "file"
+          ]
+        },
+        "required": {
+          "const": true
+        },
+        "default": true,
+        "description": {
+          "type": "string"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "required"
+          ]
+        },
+        {
+          "required": [
+            "default"
+          ]
+        }
+      ]
+    },
+    "shape": {
+      "description": "Zkrácený zápis schema: typ, [typ] nebo vnořená mapa.",
+      "oneOf": [
+        {
+          "enum": [
+            "string",
+            "number",
+            "integer",
+            "boolean"
+          ]
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/shape"
+          }
+        },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/shape"
+          }
+        }
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/branch_step"
+      }
+    },
+    "step": {
+      "type": "object",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ask_step"
+        },
+        {
+          "$ref": "#/$defs/task_step"
+        },
+        {
+          "$ref": "#/$defs/jev_step"
+        },
+        {
+          "$ref": "#/$defs/image_step"
+        },
+        {
+          "$ref": "#/$defs/parallel_step"
+        },
+        {
+          "$ref": "#/$defs/switch_step"
+        },
+        {
+          "$ref": "#/$defs/call_step"
+        },
+        {
+          "$ref": "#/$defs/set_step"
+        },
+        {
+          "$ref": "#/$defs/fail_step"
+        },
+        {
+          "$ref": "#/$defs/output_step"
+        }
+      ]
+    },
+    "branch_step": {
+      "description": "Krok uvnitř větve parallel/switch — cokoliv kromě output.",
+      "type": "object",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ask_step"
+        },
+        {
+          "$ref": "#/$defs/task_step"
+        },
+        {
+          "$ref": "#/$defs/jev_step"
+        },
+        {
+          "$ref": "#/$defs/image_step"
+        },
+        {
+          "$ref": "#/$defs/parallel_step"
+        },
+        {
+          "$ref": "#/$defs/switch_step"
+        },
+        {
+          "$ref": "#/$defs/call_step"
+        },
+        {
+          "$ref": "#/$defs/set_step"
+        },
+        {
+          "$ref": "#/$defs/fail_step"
+        }
+      ]
+    },
+    "id": {
+      "$ref": "#/$defs/name"
+    },
+    "when": {
+      "$ref": "#/$defs/expression"
+    },
+    "timeout": {
+      "$ref": "#/$defs/duration"
+    },
+    "budget_usd": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "retry": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "on_error": {
+      "enum": [
+        "fail",
+        "continue"
+      ]
+    },
+    "default": {
+      "type": "object"
+    },
+    "ask_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ask"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "timeout": {
+          "$ref": "#/$defs/timeout"
+        },
+        "budget_usd": {
+          "$ref": "#/$defs/budget_usd"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "on_error": {
+          "$ref": "#/$defs/on_error"
+        },
+        "default": {
+          "$ref": "#/$defs/default"
+        },
+        "ask": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agent",
+            "prompt"
+          ],
+          "properties": {
+            "agent": {
+              "$ref": "#/$defs/kebab"
+            },
+            "prompt": {
+              "$ref": "#/$defs/template"
+            },
+            "schema": {
+              "$ref": "#/$defs/schema_root"
+            }
+          }
+        }
+      }
+    },
+    "task_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "task"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "timeout": {
+          "$ref": "#/$defs/timeout"
+        },
+        "budget_usd": {
+          "$ref": "#/$defs/budget_usd"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "on_error": {
+          "$ref": "#/$defs/on_error"
+        },
+        "default": {
+          "$ref": "#/$defs/default"
+        },
+        "dedupe_key": {
+          "$ref": "#/$defs/template"
+        },
+        "task": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agent",
+            "prompt"
+          ],
+          "properties": {
+            "agent": {
+              "$ref": "#/$defs/kebab"
+            },
+            "prompt": {
+              "$ref": "#/$defs/template"
+            },
+            "max_turns": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "mcp": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/kebab"
+              },
+              "uniqueItems": true
+            },
+            "tools": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/kebab"
+              },
+              "additionalProperties": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "schema": {
+              "$ref": "#/$defs/schema_root"
+            }
+          }
+        }
+      }
+    },
+    "jev_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "jev"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "timeout": {
+          "$ref": "#/$defs/timeout"
+        },
+        "budget_usd": {
+          "$ref": "#/$defs/budget_usd"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "on_error": {
+          "$ref": "#/$defs/on_error"
+        },
+        "default": {
+          "$ref": "#/$defs/default"
+        },
+        "jev": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "questions"
+          ],
+          "properties": {
+            "state": {
+              "$ref": "#/$defs/template"
+            },
+            "questions": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/name"
+                  },
+                  {
+                    "not": {
+                      "const": "details"
+                    }
+                  }
+                ]
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/jev_question"
+              }
+            }
+          }
+        }
+      }
+    },
+    "jev_question": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "instructions"
+          ],
+          "properties": {
+            "type": {
+              "const": "noul"
+            },
+            "instructions": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "instructions",
+            "criteria"
+          ],
+          "properties": {
+            "type": {
+              "const": "choice"
+            },
+            "instructions": {
+              "type": "string",
+              "minLength": 1
+            },
+            "criteria": {
+              "type": "object",
+              "minProperties": 2,
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "instructions",
+            "criteria"
+          ],
+          "properties": {
+            "type": {
+              "const": "score"
+            },
+            "instructions": {
+              "type": "string",
+              "minLength": 1
+            },
+            "criteria": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "image_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "image"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "timeout": {
+          "$ref": "#/$defs/timeout"
+        },
+        "budget_usd": {
+          "$ref": "#/$defs/budget_usd"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "on_error": {
+          "$ref": "#/$defs/on_error"
+        },
+        "default": {
+          "$ref": "#/$defs/default"
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "prompt"
+          ],
+          "properties": {
+            "model": {
+              "$ref": "#/$defs/kebab"
+            },
+            "prompt": {
+              "$ref": "#/$defs/template"
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*:[1-9][0-9]*$"
+            }
+          }
+        }
+      }
+    },
+    "parallel_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "parallel"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "timeout": {
+          "$ref": "#/$defs/timeout"
+        },
+        "budget_usd": {
+          "$ref": "#/$defs/budget_usd"
+        },
+        "parallel": {
+          "type": "object",
+          "minProperties": 2,
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/steps"
+          }
+        }
+      }
+    },
+    "switch_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "switch"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "switch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "value",
+            "cases",
+            "default"
+          ],
+          "properties": {
+            "value": {
+              "$ref": "#/$defs/expression"
+            },
+            "cases": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "$ref": "#/$defs/steps"
+              },
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "default": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/branch_step"
+              }
+            }
+          }
+        }
+      }
+    },
+    "call_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "call"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "timeout": {
+          "$ref": "#/$defs/timeout"
+        },
+        "budget_usd": {
+          "$ref": "#/$defs/budget_usd"
+        },
+        "on_error": {
+          "$ref": "#/$defs/on_error"
+        },
+        "default": {
+          "$ref": "#/$defs/default"
+        },
+        "call": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scenario"
+          ],
+          "properties": {
+            "scenario": {
+              "$ref": "#/$defs/kebab"
+            },
+            "inputs": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/name"
+              }
+            }
+          }
+        }
+      }
+    },
+    "set_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "set"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "default": {
+          "$ref": "#/$defs/default"
+        },
+        "set": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "fail_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "fail"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "fail": {
+          "$ref": "#/$defs/template"
+        }
+      }
+    },
+    "output_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "output"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "output": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          }
+        }
+      }
+    },
+    "schema_root": {
+      "description": "Kořen schema ask/task je vždy mapa.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/shape"
+      }
+    }
+  }
+}

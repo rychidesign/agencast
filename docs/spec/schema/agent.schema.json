@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multiagent-workflows.local/spec/v1/agent.schema.json",
+  "title": "Agent — YAML frontmatter, formát v1",
+  "description": "Viz docs/spec/agent.md. Tělo souboru (instrukce) se validuje zvlášť: musí být neprázdné. Že klíče tools = mcp a oprávnění z mcp.yaml kontroluje validate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "name",
+    "description",
+    "model",
+    "limits"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "$ref": "#/$defs/kebab"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "$ref": "#/$defs/kebab",
+      "description": "Alias z config.yaml"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/kebab"
+      },
+      "uniqueItems": true
+    },
+    "mcp": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/kebab"
+      },
+      "uniqueItems": true
+    },
+    "tools": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/kebab"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "budget_usd"
+      ],
+      "properties": {
+        "max_turns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "budget_usd": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "timeout": {
+          "$ref": "#/$defs/duration"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "kebab": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*(s|m|h)$"
+    }
+  },
+  "dependentRequired": {
+    "mcp": [
+      "tools"
+    ]
+  },
+  "if": {
+    "required": [
+      "mcp"
+    ]
+  },
+  "then": {
+    "properties": {
+      "limits": {
+        "required": [
+          "max_turns"
+        ]
+      }
+    }
+  }
+}

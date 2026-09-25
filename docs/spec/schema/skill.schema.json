@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multiagent-workflows.local/spec/v1/skill.schema.json",
+  "title": "Skill — YAML frontmatter SKILL.md, formát v1",
+  "description": "Viz docs/spec/skill.md. name = jméno složky (kontroluje validate); tělo musí být neprázdné.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "description"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

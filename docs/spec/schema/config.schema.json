@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://multiagent-workflows.local/spec/v1/config.schema.json",
+  "title": "config.yaml, formát v1",
+  "description": "Viz docs/spec/config.md. Pole *_env obsahují jméno proměnné prostředí, nikdy hodnotu.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "openrouter",
+    "models",
+    "storage",
+    "limits",
+    "webhook",
+    "callback"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "openrouter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_key_env"
+      ],
+      "properties": {
+        "api_key_env": {
+          "$ref": "#/$defs/env"
+        },
+        "base_url": {
+          "type": "string",
+          "pattern": "^(https://openrouter\\.ai/|http://(127\\.0\\.0\\.1|localhost)[:/])"
+        },
+        "jev_model": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/kebab"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "structured_output": {
+            "enum": [
+              "native_schema",
+              "tool_wrapper",
+              "prompt"
+            ]
+          }
+        }
+      }
+    },
+    "runs_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "local",
+            "r2"
+          ]
+        },
+        "local": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "public_base_url": {
+              "type": "string",
+              "pattern": "^https?://"
+            }
+          }
+        },
+        "r2": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bucket",
+            "account_id_env",
+            "access_key_id_env",
+            "secret_access_key_env",
+            "public_base_url"
+          ],
+          "properties": {
+            "bucket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "account_id_env": {
+              "$ref": "#/$defs/env"
+            },
+            "access_key_id_env": {
+              "$ref": "#/$defs/env"
+            },
+            "secret_access_key_env": {
+              "$ref": "#/$defs/env"
+            },
+            "public_base_url": {
+              "type": "string",
+              "pattern": "^https://"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "local"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "local"
+            ],
+            "not": {
+              "required": [
+                "r2"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "r2"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "r2"
+            ],
+            "not": {
+              "required": [
+                "local"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_budget_usd",
+        "run_timeout"
+      ],
+      "properties": {
+        "run_budget_usd": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "run_image_budget_usd": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "run_timeout": {
+          "$ref": "#/$defs/duration"
+        },
+        "max_call_depth": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "webhook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token_env"
+      ],
+      "properties": {
+        "token_env": {
+          "$ref": "#/$defs/env"
+        }
+      }
+    },
+    "callback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "secret_env"
+      ],
+      "properties": {
+        "secret_env": {
+          "$ref": "#/$defs/env"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "env": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "description": "Jméno proměnné prostředí"
+    },
+    "kebab": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*(s|m|h)$"
+    }
+  }
+}
