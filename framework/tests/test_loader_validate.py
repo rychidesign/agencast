@@ -75,6 +75,15 @@ def test_unknown_agent_version_rejected(wf):
         validate(p, check_models=False)
 
 
+def test_agent_model_id_instead_of_alias(wf):
+    """BUGS.md #3: konkrétní id modelu v agentovi → hláška o aliasu, ne regex ze schématu."""
+    f = wf / "agents" / "copywriter.md"
+    f.write_text(f.read_text().replace("model: chytry", "model: anthropic/claude-haiku-4.5"))
+    got = errors(wf, HEAD + "steps: [{ id: a, ask: { agent: copywriter, prompt: x } }]")
+    assert got.startswith("agents/copywriter.md: model 'anthropic/claude-haiku-4.5' není alias v config.yaml "
+                          "(aliasy: chytry, ") and "\n" not in got, got
+
+
 # --- validate ---------------------------------------------------------------------------
 
 def errors(wf, text, **kw):

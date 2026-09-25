@@ -155,8 +155,9 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
     if v := version_error(fm, where):
         errs.append(v)
         return None
-    if e := schema_errors("agent", fm, where):
-        errs.extend(e)
+    alias = f"{where}: model '{fm.get('model')}' není alias v config.yaml (aliasy: {', '.join(config['models'])})"
+    if e := schema_errors("agent", fm, where):  # id modelu místo aliasu: hláška o aliasu, ne regex ze schématu
+        errs.extend(alias if x.startswith(f"{where}: model: ") else x for x in e)
         return None
     n = len(errs)
     if fm["name"] != name:
@@ -164,7 +165,7 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
     if not body.strip():
         errs.append(f"{where}: tělo (instrukce agenta) je prázdné")
     if fm["model"] not in config["models"]:
-        errs.append(f"{where}: model '{fm['model']}' není alias v config.yaml (aliasy: {', '.join(config['models'])})")
+        errs.append(alias)
     if set(fm.get("tools", {})) != set(fm.get("mcp", [])):
         errs.append(f"{where}: klíče tools musí být přesně servery z mcp")
     servers = load_mcp(wf, errs) if mcp is None else mcp
