@@ -15,6 +15,7 @@ from conftest import CONFIG, REPO, WORKFLOWS, run
 from maw.expressions import parse, parse_path, template_parts
 from maw.loader import (load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors, schema_errors,
                         version_error)
+from maw.mcp_client import load_mcp
 from maw.validate import load_agent, load_config, load_skill
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -61,6 +62,9 @@ def test_workflow_configs_valid(tmp_path, name):
 def test_workflow_mcp_and_commands_examples():
     mcp = read_yaml(WORKFLOWS / "mcp.example.yaml")
     assert version_error(mcp, "mcp") is None and schema_errors("mcp", mcp, "mcp") == []
+    if (WORKFLOWS / "mcp.yaml").is_file():  # soubor vlastníka
+        errs = []
+        assert load_mcp(WORKFLOWS, errs) and not errs, errs
     # commands.yaml zatím bez JSON Schema (krok run není ve v1) — jen YAML 1.2 a verze
     assert version_error(read_yaml(WORKFLOWS / "commands.example.yaml"), "commands") is None
 
