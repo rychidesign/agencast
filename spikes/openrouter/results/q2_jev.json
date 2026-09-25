@@ -1,0 +1,250 @@
+{
+ "ok_requests": [
+  {
+   "status": 200,
+   "latency_s": 0.319,
+   "body": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "delivery",
+      "probabilities": {
+       "sales": 0,
+       "billing": 0,
+       "delivery": 1,
+       "technical": 0,
+       "other": 0
+      },
+      "confidence": 1
+     },
+     "dissatisfaction": {
+      "type": "score",
+      "score": 1.07,
+      "legend": {
+       "0": "Klidný, neutrální nebo spokojený tón.",
+       "1": "Zřetelná nespokojenost, ale zdvořilý tón.",
+       "2": "Silný hněv, urážky nebo velmi ostrá stížnost."
+      },
+      "probabilities": {
+       "0": 0,
+       "1": 0.93,
+       "2": 0.07
+      },
+      "confidence": 0.9
+     },
+     "deadline": {
+      "type": "noul",
+      "noul": 0.97
+     }
+    },
+    "usage": {
+     "input_tokens": 674,
+     "output_tokens": 86,
+     "cost": 2.8308e-05
+    },
+    "id": "gen-dec-1790339857-SkQbmqIPZP1rhbj0dCfW",
+    "provider": "TypeSafe"
+   }
+  },
+  {
+   "status": 200,
+   "latency_s": 0.283,
+   "body": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "delivery",
+      "probabilities": {
+       "sales": 0,
+       "technical": 0,
+       "billing": 0,
+       "other": 0,
+       "delivery": 1
+      },
+      "confidence": 1
+     },
+     "dissatisfaction": {
+      "type": "score",
+      "score": 1.07,
+      "legend": {
+       "0": "Klidný, neutrální nebo spokojený tón.",
+       "1": "Zřetelná nespokojenost, ale zdvořilý tón.",
+       "2": "Silný hněv, urážky nebo velmi ostrá stížnost."
+      },
+      "probabilities": {
+       "0": 0,
+       "1": 0.93,
+       "2": 0.07
+      },
+      "confidence": 0.9
+     },
+     "deadline": {
+      "type": "noul",
+      "noul": 0.98
+     }
+    },
+    "usage": {
+     "input_tokens": 674,
+     "output_tokens": 86,
+     "cost": 2.8308e-05
+    },
+    "id": "gen-dec-1790339857-8gOjbrzVoAvb04LUPu2Y",
+    "provider": "TypeSafe"
+   }
+  },
+  {
+   "status": 200,
+   "latency_s": 0.288,
+   "body": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "delivery",
+      "probabilities": {
+       "billing": 0,
+       "technical": 0,
+       "delivery": 1,
+       "other": 0,
+       "sales": 0
+      },
+      "confidence": 1
+     },
+     "dissatisfaction": {
+      "type": "score",
+      "score": 1.05,
+      "legend": {
+       "0": "Klidný, neutrální nebo spokojený tón.",
+       "1": "Zřetelná nespokojenost, ale zdvořilý tón.",
+       "2": "Silný hněv, urážky nebo velmi ostrá stížnost."
+      },
+      "probabilities": {
+       "0": 0,
+       "1": 0.95,
+       "2": 0.05
+      },
+      "confidence": 0.92
+     },
+     "deadline": {
+      "type": "noul",
+      "noul": 0.97
+     }
+    },
+    "usage": {
+     "input_tokens": 674,
+     "output_tokens": 86,
+     "cost": 2.8308e-05
+    },
+    "id": "gen-dec-1790339857-mwgAqvOzrStPPqjB4evI",
+    "provider": "TypeSafe"
+   }
+  },
+  {
+   "status": 200,
+   "latency_s": 0.304,
+   "body": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "delivery",
+      "probabilities": {
+       "technical": 0,
+       "billing": 0,
+       "sales": 0,
+       "other": 0,
+       "delivery": 1
+      },
+      "confidence": 1
+     },
+     "dissatisfaction": {
+      "type": "score",
+      "score": 1.06,
+      "legend": {
+       "0": "Klidný, neutrální nebo spokojený tón.",
+       "1": "Zřetelná nespokojenost, ale zdvořilý tón.",
+       "2": "Silný hněv, urážky nebo velmi ostrá stížnost."
+      },
+      "probabilities": {
+       "0": 0,
+       "1": 0.94,
+       "2": 0.06
+      },
+      "confidence": 0.9
+     },
+     "deadline": {
+      "type": "noul",
+      "noul": 0.98
+     }
+    },
+    "usage": {
+     "input_tokens": 674,
+     "output_tokens": 86,
+     "cost": 2.8308e-05
+    },
+    "id": "gen-dec-1790339858-WaL2uP3hFZ54ZvIhggPa",
+    "provider": "TypeSafe"
+   }
+  },
+  {
+   "status": 200,
+   "latency_s": 0.392,
+   "body": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+     "department": {
+      "type": "choice",
+      "choice": "delivery",
+      "probabilities": {
+       "sales": 0,
+       "other": 0,
+       "technical": 0,
+       "delivery": 1,
+       "billing": 0
+      },
+      "confidence": 1
+     },
+     "dissatisfaction": {
+      "type": "score",
+      "score": 1.05,
+      "legend": {
+       "0": "Klidný, neutrální nebo spokojený tón.",
+       "1": "Zřetelná nespokojenost, ale zdvořilý tón.",
+       "2": "Silný hněv, urážky nebo velmi ostrá stížnost."
+      },
+      "probabilities": {
+       "0": 0,
+       "1": 0.95,
+       "2": 0.05
+      },
+      "confidence": 0.93
+     },
+     "deadline": {
+      "type": "noul",
+      "noul": 0.98
+     }
+    },
+    "usage": {
+     "input_tokens": 674,
+     "output_tokens": 86,
+     "cost": 2.8308e-05
+    },
+    "id": "gen-dec-1790339858-eIfQc24LAv7hXFuoEjGu",
+    "provider": "TypeSafe"
+   }
+  }
+ ],
+ "error_request_missing_questions": {
+  "status": 400,
+  "latency_s": 0.037,
+  "body": {
+   "error": {
+    "message": "[\n  {\n    \"expected\": \"record\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"questions\"\n    ],\n    \"message\": \"Invalid input: expected record, received undefined\"\n  }\n]",
+    "code": 400
+   },
+   "user_id": "<redacted>"
+  }
+ }
+}

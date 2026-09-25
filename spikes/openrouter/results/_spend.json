@@ -1,0 +1,7 @@
+{
+ "q1-anthropic/claude-haiku-4.5": 0.025241999999999997,
+ "q1-moonshotai/kimi-k3": 0.08867279999999998,
+ "q1-google/gemini-3.5-flash-lite": 0.014950799999999993,
+ "q2-jev": 0.000153678,
+ "q3-image": 0.17315439999999999
+}

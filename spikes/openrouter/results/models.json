@@ -1,0 +1,1595 @@
+[
+ {
+  "id": "z-ai/glm-5.3-prime",
+  "name": "Z.ai: GLM 5.3 Prime",
+  "pricing": {
+   "prompt": "0.0000028",
+   "completion": "0.0000088",
+   "input_cache_read": "0.00000056"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logprobs",
+   "max_tokens",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5.3-flashx",
+  "name": "Z.ai: GLM 5.3 FlashX",
+  "pricing": {
+   "prompt": "0.00000037",
+   "completion": "0.00000125",
+   "input_cache_read": "0.00000009"
+  },
+  "architecture": {
+   "modality": "text+image+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5.3-flash",
+  "name": "Z.ai: GLM 5.3 Flash",
+  "pricing": {
+   "prompt": "0.000000045",
+   "completion": "0.00000014",
+   "input_cache_read": "0.00000001"
+  },
+  "architecture": {
+   "modality": "text+image+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "parallel_tool_calls",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5.3-flash:batch",
+  "name": "Z.ai: GLM 5.3 Flash (batch)",
+  "pricing": {
+   "prompt": "0.00000006",
+   "completion": "0.0000002",
+   "input_cache_read": "0.000000012"
+  },
+  "architecture": {
+   "modality": "text+image+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "max_tokens",
+   "min_p",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5.3",
+  "name": "Z.ai: GLM 5.3",
+  "pricing": {
+   "prompt": "0.0000014",
+   "completion": "0.0000044",
+   "input_cache_read": "0.00000026"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "parallel_tool_calls",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5.3:batch",
+  "name": "Z.ai: GLM 5.3 (batch)",
+  "pricing": {
+   "prompt": "0.00000045",
+   "completion": "0.000002",
+   "input_cache_read": "0.0000001"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "max_tokens",
+   "min_p",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.5-flash-lite",
+  "name": "Google: Gemini 3.5 Flash Lite",
+  "pricing": {
+   "prompt": "0.0000003",
+   "completion": "0.0000025",
+   "image": "0.0000003",
+   "audio": "0.0000003",
+   "input_audio_cache": "0.00000003",
+   "web_search": "0.014",
+   "internal_reasoning": "0.0000025",
+   "input_cache_read": "0.00000003",
+   "input_cache_write": "0.0000000833333333333333"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "file",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.5-flash-lite:batch",
+  "name": "Google: Gemini 3.5 Flash Lite (batch)",
+  "pricing": {
+   "prompt": "0.00000015",
+   "completion": "0.00000125",
+   "image": "0.00000015",
+   "audio": "0.00000015",
+   "input_audio_cache": "0.000000015",
+   "web_search": "0.014",
+   "internal_reasoning": "0.00000125",
+   "input_cache_read": "0.000000015"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "file",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "tool_choice",
+   "tools"
+  ]
+ },
+ {
+  "id": "moonshotai/kimi-k3",
+  "name": "MoonshotAI: Kimi K3",
+  "pricing": {
+   "prompt": "0.000003",
+   "completion": "0.000015",
+   "input_cache_read": "0.0000003"
+  },
+  "architecture": {
+   "modality": "text+image+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "moonshotai/kimi-k3:batch",
+  "name": "MoonshotAI: Kimi K3 (batch)",
+  "pricing": {
+   "prompt": "0.00000228",
+   "completion": "0.0000114",
+   "input_cache_read": "0.000000228"
+  },
+  "architecture": {
+   "modality": "text+image+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "max_tokens",
+   "min_p",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-flash-lite-image",
+  "name": "Google: Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)",
+  "pricing": {
+   "prompt": "0.00000025",
+   "completion": "0.0000015",
+   "image_output": "0.00003",
+   "web_search": "0.014"
+  },
+  "architecture": {
+   "modality": "text+image->text+image",
+   "input_modalities": [
+    "image",
+    "text"
+   ],
+   "output_modalities": [
+    "image",
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "temperature",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-flash-image",
+  "name": "Google: Nano Banana 2 (Gemini 3.1 Flash Image)",
+  "pricing": {
+   "prompt": "0.0000005",
+   "completion": "0.000003",
+   "image_output": "0.00006",
+   "web_search": "0.014"
+  },
+  "architecture": {
+   "modality": "text+image->text+image",
+   "input_modalities": [
+    "image",
+    "text"
+   ],
+   "output_modalities": [
+    "image",
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "structured_outputs",
+   "temperature",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5.2",
+  "name": "Z.ai: GLM 5.2",
+  "pricing": {
+   "prompt": "0.0000006496",
+   "completion": "0.0000020416",
+   "input_cache_read": "0.00000012064"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "parallel_tool_calls",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5.2:free",
+  "name": "Z.ai: GLM 5.2 (free)",
+  "pricing": {
+   "prompt": "0",
+   "completion": "0"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "max_tokens",
+   "min_p",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "seed",
+   "stop",
+   "temperature",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "moonshotai/kimi-k2.7-code",
+  "name": "MoonshotAI: Kimi K2.7 Code",
+  "pricing": {
+   "prompt": "0.0000006562",
+   "completion": "0.0000033",
+   "input_cache_read": "0.00000018"
+  },
+  "architecture": {
+   "modality": "text+image->text",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "parallel_tool_calls",
+   "presence_penalty",
+   "reasoning",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.5-flash",
+  "name": "Google: Gemini 3.5 Flash",
+  "pricing": {
+   "prompt": "0.0000015",
+   "completion": "0.000009",
+   "image": "0.0000015",
+   "audio": "0.000003",
+   "input_audio_cache": "0.0000003",
+   "web_search": "0.014",
+   "internal_reasoning": "0.000009",
+   "input_cache_read": "0.00000015",
+   "input_cache_write": "0.0000000833333333333333"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "file",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.5-flash:batch",
+  "name": "Google: Gemini 3.5 Flash (batch)",
+  "pricing": {
+   "prompt": "0.00000075",
+   "completion": "0.0000045",
+   "image": "0.00000075",
+   "audio": "0.0000015",
+   "input_audio_cache": "0.00000015",
+   "web_search": "0.014",
+   "internal_reasoning": "0.0000045",
+   "input_cache_read": "0.000000075"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "file",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-flash-lite",
+  "name": "Google: Gemini 3.1 Flash Lite",
+  "pricing": {
+   "prompt": "0.00000025",
+   "completion": "0.0000015",
+   "image": "0.00000025",
+   "audio": "0.0000005",
+   "input_audio_cache": "0.00000005",
+   "web_search": "0.014",
+   "internal_reasoning": "0.0000015",
+   "input_cache_read": "0.000000025",
+   "input_cache_write": "0.0000000833333333333333"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "file",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-flash-lite:batch",
+  "name": "Google: Gemini 3.1 Flash Lite (batch)",
+  "pricing": {
+   "prompt": "0.000000125",
+   "completion": "0.00000075",
+   "image": "0.000000125",
+   "audio": "0.00000025",
+   "input_audio_cache": "0.000000025",
+   "web_search": "0.014",
+   "internal_reasoning": "0.00000075",
+   "input_cache_read": "0.0000000125"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "file",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "~moonshotai/kimi-latest",
+  "name": "MoonshotAI: Kimi Latest",
+  "pricing": {
+   "prompt": "0.0000008845",
+   "completion": "0.0000105346",
+   "input_cache_read": "0.00000033"
+  },
+  "architecture": {
+   "modality": "text+image+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Router",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "presence_penalty",
+   "reasoning",
+   "reasoning_effort",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "moonshotai/kimi-k2.6",
+  "name": "MoonshotAI: Kimi K2.6",
+  "pricing": {
+   "prompt": "0.00000095",
+   "completion": "0.000004",
+   "input_cache_read": "0.00000016"
+  },
+  "architecture": {
+   "modality": "text+image->text",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "parallel_tool_calls",
+   "presence_penalty",
+   "reasoning",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5.1",
+  "name": "Z.ai: GLM 5.1",
+  "pricing": {
+   "prompt": "0.0000009646",
+   "completion": "0.0000030316",
+   "input_cache_read": "0.00000017914"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "presence_penalty",
+   "reasoning",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5v-turbo",
+  "name": "Z.ai: GLM 5V Turbo",
+  "pricing": {
+   "prompt": "0.0000012",
+   "completion": "0.000004",
+   "input_cache_read": "0.00000024"
+  },
+  "architecture": {
+   "modality": "text+image+video->text",
+   "input_modalities": [
+    "image",
+    "text",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "response_format",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5-turbo",
+  "name": "Z.ai: GLM 5 Turbo",
+  "pricing": {
+   "prompt": "0.0000012",
+   "completion": "0.000004",
+   "input_cache_read": "0.00000024"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "response_format",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-flash-lite-preview",
+  "name": "Google: Gemini 3.1 Flash Lite Preview",
+  "pricing": {
+   "prompt": "0.00000025",
+   "completion": "0.0000015",
+   "image": "0.00000025",
+   "audio": "0.0000005",
+   "input_audio_cache": "0.00000005",
+   "web_search": "0.014",
+   "internal_reasoning": "0.0000015",
+   "input_cache_read": "0.000000025",
+   "input_cache_write": "0.0000000833333333333333"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "file",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-flash-image-preview",
+  "name": "Google: Nano Banana 2 (Gemini 3.1 Flash Image Preview)",
+  "pricing": {
+   "prompt": "0.0000005",
+   "completion": "0.000003",
+   "image_output": "0.00006",
+   "web_search": "0.014"
+  },
+  "architecture": {
+   "modality": "text+image->text+image",
+   "input_modalities": [
+    "image",
+    "text"
+   ],
+   "output_modalities": [
+    "image",
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "structured_outputs",
+   "temperature",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-pro-preview-customtools",
+  "name": "Google: Gemini 3.1 Pro Preview Custom Tools",
+  "pricing": {
+   "prompt": "0.000002",
+   "completion": "0.000012",
+   "image": "0.000002",
+   "audio": "0.000002",
+   "input_audio_cache": "0.0000002",
+   "web_search": "0.014",
+   "internal_reasoning": "0.000012",
+   "input_cache_read": "0.0000002",
+   "input_cache_write": "0.000000375",
+   "overrides": [
+    {
+     "min_prompt_tokens": 200000,
+     "prompt": "0.000004",
+     "completion": "0.000018",
+     "audio": "0.000004",
+     "input_audio_cache": "0.0000004",
+     "input_cache_read": "0.0000004"
+    }
+   ]
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "audio",
+    "image",
+    "video",
+    "file"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-pro-preview",
+  "name": "Google: Gemini 3.1 Pro Preview",
+  "pricing": {
+   "prompt": "0.000002",
+   "completion": "0.000012",
+   "image": "0.000002",
+   "audio": "0.000002",
+   "input_audio_cache": "0.0000002",
+   "web_search": "0.014",
+   "internal_reasoning": "0.000012",
+   "input_cache_read": "0.0000002",
+   "input_cache_write": "0.000000375",
+   "overrides": [
+    {
+     "min_prompt_tokens": 200000,
+     "prompt": "0.000004",
+     "completion": "0.000018",
+     "audio": "0.000004",
+     "input_audio_cache": "0.0000004",
+     "input_cache_read": "0.0000004"
+    }
+   ]
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "audio",
+    "file",
+    "image",
+    "text",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-3.1-pro-preview:batch",
+  "name": "Google: Gemini 3.1 Pro Preview (batch)",
+  "pricing": {
+   "prompt": "0.000001",
+   "completion": "0.000006",
+   "image": "0.000001",
+   "audio": "0.000001",
+   "web_search": "0.014",
+   "internal_reasoning": "0.000006",
+   "overrides": [
+    {
+     "min_prompt_tokens": 200000,
+     "prompt": "0.000002",
+     "completion": "0.000009",
+     "audio": "0.000002"
+    }
+   ]
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "audio",
+    "file",
+    "image",
+    "text",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "reasoning_effort",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "z-ai/glm-5",
+  "name": "Z.ai: GLM 5",
+  "pricing": {
+   "prompt": "0.0000006",
+   "completion": "0.00000192",
+   "input_cache_read": "0.00000012"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logprobs",
+   "max_tokens",
+   "presence_penalty",
+   "reasoning",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "moonshotai/kimi-k2.5",
+  "name": "MoonshotAI: Kimi K2.5",
+  "pricing": {
+   "prompt": "0.00000045",
+   "completion": "0.00000225",
+   "input_cache_read": "0.00000007"
+  },
+  "architecture": {
+   "modality": "text+image->text",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logit_bias",
+   "logprobs",
+   "max_tokens",
+   "min_p",
+   "presence_penalty",
+   "reasoning",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "moonshotai/kimi-k2-thinking",
+  "name": "MoonshotAI: Kimi K2 Thinking",
+  "pricing": {
+   "prompt": "0.0000006",
+   "completion": "0.0000025",
+   "input_cache_read": "0.00000015"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "include_reasoning",
+   "logprobs",
+   "max_tokens",
+   "presence_penalty",
+   "reasoning",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_logprobs",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-2.5-flash-image",
+  "name": "Google: Nano Banana (Gemini 2.5 Flash Image)",
+  "pricing": {
+   "prompt": "0.0000003",
+   "completion": "0.0000025",
+   "image": "0.0000003",
+   "image_output": "0.00003",
+   "audio": "0.000001",
+   "input_audio_cache": "0.0000001",
+   "web_search": "0.014",
+   "internal_reasoning": "0.0000025",
+   "input_cache_read": "0.00000003",
+   "input_cache_write": "0.0000000833333333333333"
+  },
+  "architecture": {
+   "modality": "text+image->text+image",
+   "input_modalities": [
+    "image",
+    "text"
+   ],
+   "output_modalities": [
+    "image",
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "max_tokens",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "top_p"
+  ]
+ },
+ {
+  "id": "moonshotai/kimi-k2-0905",
+  "name": "MoonshotAI: Kimi K2 0905",
+  "pricing": {
+   "prompt": "0.0000006",
+   "completion": "0.0000025"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "max_tokens",
+   "presence_penalty",
+   "repetition_penalty",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-2.5-flash-lite",
+  "name": "Google: Gemini 2.5 Flash Lite",
+  "pricing": {
+   "prompt": "0.0000001",
+   "completion": "0.0000004",
+   "image": "0.0000001",
+   "audio": "0.0000003",
+   "input_audio_cache": "0.00000003",
+   "web_search": "0.014",
+   "internal_reasoning": "0.0000004",
+   "input_cache_read": "0.00000001",
+   "input_cache_write": "0.0000000833333333333333"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "file",
+    "audio",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-2.5-flash-lite:batch",
+  "name": "Google: Gemini 2.5 Flash Lite (batch)",
+  "pricing": {
+   "prompt": "0.00000005",
+   "completion": "0.0000002",
+   "image": "0.00000005",
+   "audio": "0.00000015",
+   "input_audio_cache": "0.00000003",
+   "web_search": "0.014",
+   "internal_reasoning": "0.0000002",
+   "input_cache_read": "0.00000001"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "text",
+    "image",
+    "file",
+    "audio",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "moonshotai/kimi-k2",
+  "name": "MoonshotAI: Kimi K2 0711",
+  "pricing": {
+   "prompt": "0.00000057",
+   "completion": "0.0000023"
+  },
+  "architecture": {
+   "modality": "text->text",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Other",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "frequency_penalty",
+   "max_tokens",
+   "presence_penalty",
+   "repetition_penalty",
+   "seed",
+   "stop",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_k",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-2.5-flash",
+  "name": "Google: Gemini 2.5 Flash",
+  "pricing": {
+   "prompt": "0.0000003",
+   "completion": "0.0000025",
+   "image": "0.0000003",
+   "audio": "0.000001",
+   "input_audio_cache": "0.0000001",
+   "web_search": "0.014",
+   "internal_reasoning": "0.0000025",
+   "input_cache_read": "0.00000003",
+   "input_cache_write": "0.0000000833333333333333"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "file",
+    "image",
+    "text",
+    "audio",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ },
+ {
+  "id": "google/gemini-2.5-flash:batch",
+  "name": "Google: Gemini 2.5 Flash (batch)",
+  "pricing": {
+   "prompt": "0.00000015",
+   "completion": "0.00000125",
+   "image": "0.00000015",
+   "audio": "0.0000005",
+   "input_audio_cache": "0.0000001",
+   "web_search": "0.014",
+   "internal_reasoning": "0.00000125",
+   "input_cache_read": "0.00000003"
+  },
+  "architecture": {
+   "modality": "text+image+file+audio+video->text",
+   "input_modalities": [
+    "file",
+    "image",
+    "text",
+    "audio",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "tokenizer": "Gemini",
+   "instruct_type": null
+  },
+  "supported_parameters": [
+   "include_reasoning",
+   "max_tokens",
+   "reasoning",
+   "response_format",
+   "seed",
+   "stop",
+   "structured_outputs",
+   "temperature",
+   "tool_choice",
+   "tools",
+   "top_p"
+  ]
+ }
+]
