@@ -43,10 +43,11 @@ def skill_tool(agent) -> dict:
 # --- dedupe_key -----------------------------------------------------------------------
 
 def dedupe_file(run, info: StepInfo):
-    """`<runs>/_dedupe/<sha256(scénář/krok/klíč)>.json` — klíč vázaný na scénář a krok."""
+    """`<runs>/_dedupe/<sha256(scénář/krok/klíč)>.json` — klíč vázaný na scénář a krok; falešný běh
+    (`--fake`) má vlastní `_dedupe-fake/`, aby jeho vymyšlený výstup nepřeskočil ostrý krok (BUGS 8)."""
     key = run.text(info.data["dedupe_key"], "dedupe_key")
     h = hashlib.sha256(f"{run.p.scenario['name']}/{info.key}/{key}".encode()).hexdigest()  # key = id v souboru
-    return run.p.runs_dir / "_dedupe" / f"{h}.json", key
+    return run.p.runs_dir / ("_dedupe-fake" if run.fake else "_dedupe") / f"{h}.json", key
 
 
 def dedupe_skip(run, info: StepInfo) -> bool:
@@ -144,8 +145,9 @@ class _Loop:
         prompt = run.text(self.t["prompt"], "task.prompt")
         max_turns = self.t.get("max_turns", self.agent.data["limits"]["max_turns"])
         messages = [{"role": "user", "content": prompt}]
-        st = {"level": self.m.get("structured_output", "native_schema") if self.schema else None,
-              "feedback": [], "prev": None, "turn": 0}
+        # vždy od tool_wrapper, bez ohledu na alias: nativní schéma v každém tahu svádí model (Haiku)
+        # odpovědět JSONem bez volání nástrojů (BUGS 7, ISSUES 36); alias platí jen pro ask
+        st = {"level": "tool_wrapper" if self.schema else None, "feedback": [], "prev": None, "turn": 0}
         run.rec.write(f"{info.folder}/prompt.md", "# System prompt\n\n" + system + "\n\n# Zpráva\n\n" + prompt)
 
         def build(attempt, last):

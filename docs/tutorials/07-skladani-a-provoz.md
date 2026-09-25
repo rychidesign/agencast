@@ -646,10 +646,12 @@ v ceně (`cost_usd` 0.0004 vs. **0.0**) a v `summary.md` druhého běhu:
 ```
 
 Druhý běh nemá složku `work/` ani `mcp/` — server se vůbec nespustil.
-Výstup kroku se vzal ze souboru v `runs/_dedupe/`:
+Výstup kroku se vzal ze souboru v `runs/_dedupe-fake/` (běhy s `--fake`
+mají od `maw` 0.2.2 vlastní složku, ostré běhy `runs/_dedupe/` — viz
+[níž](#pozor---fake-má-vlastní-runs_dedupe-fake)):
 
 ```bash
-cat runs/_dedupe/*.json
+cat runs/_dedupe-fake/*.json
 ```
 
 ```
@@ -685,7 +687,7 @@ maw run tutorial-07-archiv -i den=2026-09-26 -i text="Rozepsáno." --fake /tmp/p
 budget v kroku zapis: max_turns 5 vyčerpán bez finální odpovědi (model dál volá nástroje)
 běh 20260925-161858-tutorial-07-archiv-63f7: chyba · 0,8 s · 0,0005 USD
 …
-config v kroku zapis: krok mohl proběhnout jen částečně (dedupe_key 'archiv-2026-09-26', běh 20260925-161858-tutorial-07-archiv-63f7), ověř ručně a smaž …/runs/_dedupe/bb7e315cde46b31154a770c34ace3ddf790d1dca42166e01502c7b2592e8d3a5.json
+config v kroku zapis: krok mohl proběhnout jen částečně (dedupe_key 'archiv-2026-09-26', běh 20260925-161858-tutorial-07-archiv-63f7), ověř ručně a smaž …/runs/_dedupe-fake/bb7e315cde46b31154a770c34ace3ddf790d1dca42166e01502c7b2592e8d3a5.json
 běh 20260925-161859-tutorial-07-archiv-8627: chyba · 0,0 s · 0,0000 USD
 ```
 
@@ -694,34 +696,21 @@ publikovat (tady stihl zapsat soubor) — a hádat nebude. Podívej se do
 záznamu prvního běhu (`tool_call`, `work/`), a až víš, že je to
 v pořádku, soubor smaž. Nic se tiše neopakuje.
 
-### Pozor: `--fake` a `dedupe_key` sdílí `runs/_dedupe/`
+### Pozor: `--fake` má vlastní `runs/_dedupe-fake/`
 
-Po zkouškách v tomhle kroku pusť ostrý běh na den, který jsi zkoušel
-s `--fake`:
+Falešné běhy zapisují dedupe do `runs/_dedupe-fake/`, ostré do
+`runs/_dedupe/`, a nikdy si je nečtou navzájem. Zkouška s `--fake` tak
+ostrý vedlejší účinek nepřeskočí: ostrý běh na den, který jsi zkoušel
+s `--fake`, krok `zapis` opravdu provede. Falešný běh poznáš v
+`summary.md` podle řádku pod hlavičkou:
 
-```bash
-maw run tutorial-07-archiv -i den=2026-09-25 -i text="Ostrý zápis."
+```
+**Falešný běh** (`--fake`) — odpovědi modelů jsou vymyšlené, dedupe v `_dedupe-fake/`.
 ```
 
-```
-běh 20260925-161909-tutorial-07-archiv-1c51: úspěch · 0,0 s · 0,0000 USD
-…
-- zprava: „Zapsáno: 2026-09-25.md a obsah.md. Zápis má 2 věty."
-```
-
-Nic se nezapsalo — ostrý běh vzal **falešný** výstup ze zkoušky
-(`step_skipped` s důvodem `dedupe`, 0 volání modelu). V `maw` 0.2.1
-falešné běhy zapisují do stejného `_dedupe/` jako ostré (BUGS.md, sekce
-maw 0.2.1). Dokud to není opravené: u kroků s `dedupe_key` zkoušej
-s `--fake` jen na hodnotách, které naostro nepoužiješ, a po zkouškách
-smaž, co jsi vyrobil:
-
-```bash
-grep -l tutorial-07-archiv runs/_dedupe/*.json   # soubory, které vyrobily běhy tohoto scénáře
-```
-
-(Smaž jen soubory, u kterých víš, že patří zkouškám — ostatní chrání
-opravdové vedlejší účinky.)
+a v `events.jsonl` podle `"fake": true` v `run_started`. (V `maw` 0.2.1
+sdílely oba režimy `runs/_dedupe/` a ostrý běh po zkoušce vrátil
+vymyšlený výstup — BUGS.md, bod 8.)
 
 ---
 

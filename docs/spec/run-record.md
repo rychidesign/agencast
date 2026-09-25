@@ -122,6 +122,7 @@ Když poskytovatel cenu nevrátí, je `cost_usd: null` a vznikne varování
 | `limits` | `run_budget_usd`, `run_image_budget_usd`, `run_timeout` |
 | `framework_version` | verze frameworku |
 | `storage_prefix` | `<run_id>-<32 hex>` — prefix souborů v úložišti |
+| `fake` | `true` = falešný poskytovatel (`--fake`), odpovědi modelů jsou vymyšlené (od frameworku 0.2.2) |
 
 **`step_started`** — krok začal.
 
@@ -305,6 +306,8 @@ Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,0
 
 Při chybě je nadpis `— chyba`, hned pod ním blok **Chyba** s třídou,
 krokem a přesnou hláškou, a v tabulce kroků je vidět, kde běh skončil.
+Falešný běh (`--fake`) má pod hlavičkou řádek **Falešný běh** (od
+frameworku 0.2.2).
 
 `report.html` má stejný obsah plus rozbalitelné prompty a odpovědi
 (bez base64). Podobu HTML určí Fáze 2.

@@ -6,7 +6,8 @@ import subprocess
 import sys
 
 import pytest
-from conftest import FAKE_MCP, events, run, scenario
+import yaml
+from conftest import FAKE_MCP, events, model_ids, run, scenario
 
 from maw import ConfigErrors
 from maw.mcp_client import api_name, arg_errors, provider_schema
@@ -94,7 +95,8 @@ def test_agent_without_tools_list_and_without_max_turns(wf):
     assert "max_turns" in errors(task_sc(wf))
     (wf / "agents" / "tester.md").write_text((wf / "agents" / "tester.md").read_text()
                                              .replace("tools: { fs: " + ALL + " }\n", ""))
-    assert "tools" in errors(task_sc(wf))  # server v agentovi bez seznamu tools = config
+    got = errors(task_sc(wf))  # server v agentovi bez seznamu tools = config; hláška jmenuje server (BUGS 9)
+    assert "tools: { fs: [nástroj, …] }" in got and "--dry-run" in got, got
 
 
 def test_owner_decides_which_agents(wf):
@@ -214,18 +216,22 @@ def test_max_turns_is_budget_and_retry_not_counted(wf):
     assert len(events(r, "tool_call")) == 1                                        # poslední tah nástroje nespustí
 
 
-def test_schema_native_and_cascade_to_tool_wrapper(wf):
+def test_schema_always_tool_wrapper_and_cascade_to_prompt(wf):
+    """BUGS 7 / ISSUES 36: task se schema začíná na tool_wrapper i u aliasu native_schema (chytry)."""
     setup(wf)
+    assert "structured_output" not in yaml.safe_load((wf / "config.yaml").read_text())["models"]["chytry"]
     r, fake = run(task_sc(wf, ", schema: { pocet: integer }"),
                   script={"t": [calls(("fs__read_text_file", {"path": "x"})), {"text": "nejde o JSON"}, {}]})
     assert r.status == "succeeded", r.error
     mc = events(r, "model_call")
-    assert [(e["turn"], e["structured_output"]) for e in mc] == [(1, "native_schema"), (2, "native_schema"),
-                                                                  (2, "tool_wrapper")]
-    last = fake.calls[-1][2]
-    assert "_submit_output" in [t["function"]["name"] for t in last["tools"]] and "tool_choice" not in last
+    assert [(e["turn"], e["structured_output"]) for e in mc] == [(1, "tool_wrapper"), (2, "tool_wrapper"),
+                                                                  (2, "prompt")]
+    first = fake.calls[0][2]
+    assert "response_format" not in first and "tool_choice" not in first
+    assert "_submit_output" in [t["function"]["name"] for t in first["tools"]]
     assert r.values["steps"]["t"] == {"pocet": 1}
     assert all(e["tool"] != "_submit_output" for e in events(r, "tool_call"))  # nikdy do dispatch
+    assert "(prompt)" in r.rows["t"]["note"]
 
 
 def test_tool_timeout_is_timeout_class(wf):
@@ -321,7 +327,7 @@ def test_dedupe_two_runs(wf):
     script = {"t": [calls(("fs__write_file", {"path": "a.txt", "content": "x"})), {"text": "zveřejněno"}]}
     r1, _ = run(path, {"id": "42"}, script)
     assert r1.status == "succeeded", r1.error
-    files = list((wf.parent / "runs" / "_dedupe").glob("*.json"))
+    files = list((wf.parent / "runs" / "_dedupe-fake").glob("*.json"))
     assert len(files) == 1
     assert json.loads(files[0].read_text()) == {"state": "succeeded", "run_id": r1.run_id,
                                                 "output": {"text": "zveřejněno"}}
@@ -339,7 +345,7 @@ def test_dedupe_started_without_succeeded_is_config(wf):
     path = task_sc(wf, step='dedupe_key: "jednou"')
     r1, _ = run(path, script={"t": [calls(("fs__write_file", {"path": "a.txt", "content": "x"})), {"status": 400}]})
     assert r1.error["class"] == "config"
-    f = next((wf.parent / "runs" / "_dedupe").glob("*.json"))
+    f = next((wf.parent / "runs" / "_dedupe-fake").glob("*.json"))
     assert json.loads(f.read_text())["state"] == "started"
     r2, fake2 = run(path, script={"t": [{"text": "ok"}]})
     assert r2.error["class"] == "config" and "ověř ručně a smaž" in r2.error["message"] and str(f) in r2.error["message"]
@@ -350,11 +356,39 @@ def test_dedupe_started_without_succeeded_is_config(wf):
     assert r3.status == "succeeded", r3.error
 
 
+def test_dedupe_fake_and_live_do_not_share_state(wf, monkeypatch):
+    """BUGS 8: výstup falešného běhu nesmí přeskočit ostrý krok (a naopak) — oddělené _dedupe*/."""
+    from maw import engine
+    from maw.engine import run_scenario
+    from maw.fake import Fake
+    from maw.providers import Client
+    setup(wf)
+    path = task_sc(wf, step='dedupe_key: "jednou"')
+
+    def live(text):  # ostrý běh (bez fake), síť nahrazená falešným transportem
+        fake = Fake({"t": [{"text": text}]}, model_ids(wf))
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+        monkeypatch.setattr(engine, "Client", lambda url, key, _t: Client(url, key, fake.transport()))
+        return run_scenario(validate(path, transport=fake.transport()), {})
+
+    r1, _ = run(path, script={"t": [{"text": "falešný"}]})
+    assert r1.fake and events(r1, "run_started")[0]["fake"] is True
+    assert "**Falešný běh**" in (r1.rec.dir / "summary.md").read_text()
+    r2 = live("ostrý")
+    assert r2.status == "succeeded" and r2.values["steps"]["t"] == {"text": "ostrý"}, r2.error
+    assert events(r2, "step_skipped") == [] and events(r2, "run_started")[0]["fake"] is False
+    assert "Falešný běh" not in (r2.rec.dir / "summary.md").read_text()
+    r3, _ = run(path, script={"t": [{"text": "falešný 2"}]})                       # fake nečte ostrý _dedupe
+    assert r3.values["steps"]["t"] == {"text": "falešný"}                          # přeskočen vlastním záznamem, ne ostrým
+    runs = wf.parent / "runs"
+    assert len(list((runs / "_dedupe").glob("*.json"))) == len(list((runs / "_dedupe-fake").glob("*.json"))) == 1
+
+
 def test_dedupe_without_tool_call_writes_only_succeeded(wf):
     setup(wf)
     r, _ = run(task_sc(wf, step='dedupe_key: "k"'), script={"t": [{"text": "bez nástrojů"}]})
     assert r.status == "succeeded"
-    f = next((wf.parent / "runs" / "_dedupe").glob("*.json"))
+    f = next((wf.parent / "runs" / "_dedupe-fake").glob("*.json"))
     assert json.loads(f.read_text())["state"] == "succeeded"
 
 

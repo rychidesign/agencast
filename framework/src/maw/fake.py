@@ -10,7 +10,7 @@ v poměru `aspect_ratio`). Tvary odpovědi ve skriptu:
 
     json: {...}            strukturovaný výstup (u tool_wrapper jako volání _submit_output)
     tool_calls: [{name, arguments}]  volání nástrojů (tah kroku task)
-    text: "..."            textová odpověď
+    text: "..."            textová odpověď (u tool_wrapper = model nezavolal _submit_output)
     answers: {q: hodnota}  odpovědi Jev (chybějící otázky se doplní výchozí)
     image: {width, height} obrázek PNG daných rozměrů
     status: 429            chybový HTTP status (volitelně error: "zpráva")
@@ -154,7 +154,7 @@ class Fake:
         schema = None
         if "response_format" in body:
             schema = body["response_format"]["json_schema"]["schema"]
-        elif SUBMIT_TOOL in tools:
+        elif SUBMIT_TOOL in tools and "text" not in spec:  # text = model nezavolal _submit_output
             args = spec.get("json", dummy(tools[SUBMIT_TOOL]["parameters"]))
             msg["tool_calls"] = [{"id": "call_fake", "type": "function",
                                   "function": {"name": SUBMIT_TOOL, "arguments": json.dumps(args, ensure_ascii=False)}}]

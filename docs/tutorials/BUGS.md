@@ -138,7 +138,12 @@ Zjištěno 2026-09-25 při psaní dílů 6 a 7 proti `maw` 0.2.1 (větev
 `tutorials-6-7`). `framework/src` beze změny; číslování navazuje.
 `maw` = `uv run --project framework maw`, příkazy z kořene repozitáře.
 
+Všechny tři body jsou opraveny v maw 0.2.2 (větev `fix-0.2.2`, viz
+`framework/CHANGELOG.md`); u každé položky je commit s opravou a testem.
+
 ## 7. `task` se `schema` a `native_schema`: Haiku ukončí smyčku bez nástrojů (střední)
+
+**Opraveno v 0.2.2 (commit 26e0d29).** Rozhodnutí koordinátora: v `task` se strukturovaný výstup vždy vynucuje `_submit_output` (úroveň `tool_wrapper`), `response_format` se neposílá; alias `structured_output` platí jen pro `ask`; výklad ISSUES 36. Test `test_schema_always_tool_wrapper_and_cascade_to_prompt`. Ostře neověřeno (žádné ostré běhy) — opírá se o kontrolní běh s `tool_wrapper` v tabulce níže.
 
 Se `schema` u kroku `task` a aliasem na úrovni `native_schema` (`chytry`
 = `anthropic/claude-haiku-4.5`) posílá framework `response_format`
@@ -187,6 +192,8 @@ kombinaci neřeší.
 
 ## 8. `--fake` zapisuje do stejného `runs/_dedupe/` jako ostré běhy (vysoká)
 
+**Opraveno v 0.2.2 (commit cf5c31d).** Falešný běh má vlastní `<runs>/_dedupe-fake/`, režimy se nečtou křížem; `run_started.fake`, řádek „Falešný běh" v `summary.md` a `report.html`. Test `test_dedupe_fake_and_live_do_not_share_state` (falešný → ostrý → falešný nad stejným `runs/`). Staré falešné záznamy v `_dedupe/` z 0.2.1 oprava nesmaže.
+
 Falešný běh kroku s `dedupe_key` vytvoří `_dedupe/<sha>.json` se
 `state: succeeded` a **falešným** výstupem. Následující ostrý běh se
 stejným klíčem krok přeskočí a vrátí falešný výstup jako skutečný —
@@ -215,6 +222,8 @@ ignoruje). Spec (scenario.md §3 dedupe) falešný běh nezmiňuje.
 Tutoriál na to upozorňuje (díl 7, krok 8).
 
 ## 9. Drobnosti (kosmetické)
+
+**Opraveno v 0.2.2 (commit 0459c67).** Testy `test_agent_without_tools_list_and_without_max_turns` a `test_422_all_errors_at_once`.
 
 - `validate` u agenta s `mcp` bez `tools` hlásí jen
   `config: agents/tutorial-archivar.md: s polem 'mcp' je povinné i 'tools'`.

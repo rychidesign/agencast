@@ -141,6 +141,14 @@ def test_422_without_run_id(wf, server, body, msg):
     assert no_runs(wf) and rcv.got == []
 
 
+def test_422_all_errors_at_once(wf, server):
+    """BUGS 9: neznámé pole i špatný vstup v jedné odpovědi."""
+    _, _, client = server()
+    r = client.post("/runs", json={**req(Receiver()), "priorita": 1, "inputs": {"text": 1}})
+    assert r.status_code == 422 and r.json()["details"][0].startswith("neznámé pole 'priorita'")
+    assert any("vstup 'text' má být string" in d for d in r.json()["details"]), r.json()
+
+
 def test_422_not_json(wf, server):
     _, _, client = server()
     assert client.post("/runs", content=b"{nic").json()["error"] == "tělo není platný JSON"

@@ -167,3 +167,17 @@ rozhoduje koordinátor nebo uživatel.
     náhodná část, nebo nové id, když složka/záznam fronty už existuje.
     Neopraveno (mimo zadání 0.2.1). (Zjištěno při hledání nestabilních
     testů.)
+36. **`task` se `schema` začíná kaskádu vždy na `tool_wrapper`** (výklad,
+    rozhodl koordinátor 2026-09-25, framework 0.2.2). Spec (scenario.md,
+    kaskáda) říká „úroveň začíná na `models.<alias>.structured_output`",
+    ale kombinaci se smyčkou nástrojů neřeší. Nativní JSON schema
+    (`response_format`) poslané v každém tahu spolu s `tools` svádí
+    některé modely odpovědět rovnou JSONem bez volání nástrojů — Haiku 4.5
+    ve 3 ze 3 ostrých běhů (BUGS 7): smyčka skončila „úspěchem"
+    s vymyšleným výstupem a vedlejší účinek se nestal. Proto v `task`
+    framework `response_format` neposílá; strukturovaný výstup vynutí
+    nástrojem `_submit_output` (bod 29), textová odpověď = chyba `schema`
+    → kaskáda na `prompt`. `models.<alias>.structured_output` platí dál
+    jen pro `ask`. Použitá úroveň je v `model_call.structured_output`
+    a v poznámce kroku v `summary.md`, `plan.md` ukazuje „kaskáda od
+    tool_wrapper".
