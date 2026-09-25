@@ -95,7 +95,8 @@ def test_agent_without_tools_list_and_without_max_turns(wf):
     assert "max_turns" in errors(task_sc(wf))
     (wf / "agents" / "tester.md").write_text((wf / "agents" / "tester.md").read_text()
                                              .replace("tools: { fs: " + ALL + " }\n", ""))
-    assert "tools" in errors(task_sc(wf))  # server v agentovi bez seznamu tools = config
+    got = errors(task_sc(wf))  # server v agentovi bez seznamu tools = config; hláška jmenuje server (BUGS 9)
+    assert "tools: { fs: [nástroj, …] }" in got and "--dry-run" in got, got
 
 
 def test_owner_decides_which_agents(wf):

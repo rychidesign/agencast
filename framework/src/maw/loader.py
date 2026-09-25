@@ -180,6 +180,10 @@ def describe_error(e) -> str:
         case "not":
             return f"'{inst}' je vyhrazené slovo" if isinstance(inst, str) else "nepovolená hodnota"
         case "dependentRequired":
+            if "mcp" in inst and "tools" not in inst and isinstance(inst["mcp"], list):  # BUGS 9
+                return ("s polem 'mcp' je povinné i 'tools' — výslovný seznam nástrojů pro každý server: tools: { "
+                        + ", ".join(f"{s}: [nástroj, …]" for s in inst["mcp"])
+                        + " }; co servery nabízejí, vypíše plan.md z maw run <scénář> --dry-run")
             return "s polem " + " / ".join(f"'{k}' je povinné i {', '.join(map(repr, r))}"
                                           for k, r in val.items() if k in inst)
         case "oneOf":

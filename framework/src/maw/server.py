@@ -99,15 +99,15 @@ class Webhook:
         with self.lock:
             if isinstance(key, str) and key and (kf := self.key_file(key)).is_file():
                 return 200, {"run_id": json.loads(kf.read_text(encoding="utf-8"))["run_id"], "queue_position": None}
-            if errs:
-                return 422, {"error": "neplatný požadavek", "details": errs}
             path = self.wf / "scenarios" / f"{name}.yaml"
-            if not path.is_file():
+            known = not any(e.startswith("scenario:") for e in errs) and path.is_file()
+            if errs:  # BUGS 9: i chyby scénáře a vstupů, ať n8n opraví všechno v jednom kole
+                more = self.check(path, inputs) if known and isinstance(inputs, dict) else []
+                return 422, {"error": "neplatný požadavek", "details": errs + more}
+            if not known:
                 return 422, {"error": f"neznámý scénář '{name}'", "details": []}
-            try:
-                resolve_inputs(validate(path, transport=self.transport()).scenario, inputs)
-            except ConfigErrors as e:
-                return 422, {"error": f"scénář '{name}' nebo jeho vstupy neprošly kontrolou", "details": e.errors}
+            if errs := self.check(path, inputs):
+                return 422, {"error": f"scénář '{name}' nebo jeho vstupy neprošly kontrolou", "details": errs}
             run_id = new_run_id(name)
             entry = {"run_id": run_id, "scenario": name, "inputs": inputs, "callback_url": url, "request_key": key,
                      "queued_ns": time.time_ns()}
@@ -119,6 +119,13 @@ class Webhook:
             position = len(self.entries())  # čekající + běžící, včetně tohoto
             self.q.put(entry)
         return 202, {"run_id": run_id, "queue_position": position}
+
+    def check(self, path: Path, inputs: dict) -> list[str]:
+        try:
+            resolve_inputs(validate(path, transport=self.transport()).scenario, inputs)
+        except ConfigErrors as e:
+            return e.errors
+        return []
 
     # --- GET /runs/<run_id> ---------------------------------------------------------------
     def status(self, auth: str | None, run_id: str) -> tuple[int, dict]:
