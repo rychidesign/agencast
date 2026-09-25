@@ -144,6 +144,13 @@ def test_validate_errors(wf, body, msg):
     assert (msg or "duplicitní klíč") in got, got
 
 
+def test_template_in_expression_one_error(wf):
+    """BUGS.md #2: `{{ }}` ve výrazu (set, when) = jedna hláška se stříškou, nic o AST uzlu Set."""
+    got = errors(wf, HEAD + "steps: [{ id: a, when: '{{ inputs.y }}', set: { x: '{{ inputs.y }}' } }]")
+    assert got.count("šablona {{ }} tu není povolená") == 2 and "Set" not in got, got
+    assert "\n  {{ inputs.y }}\n  ^" in got
+
+
 def test_switch_cases_must_be_jev_criteria(wf):
     got = errors(wf, HEAD + """
 steps:

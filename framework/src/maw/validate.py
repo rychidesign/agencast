@@ -371,9 +371,11 @@ class _Checker:
             skip = {p for p, _ in nested_lists(info.data)}
             for p, s in _strings(info.data, skip=skip):
                 if "{{" in s and not _template_field(p):
+                    line = s.replace("\n", " ")
                     self.err(info.id, ".".join(map(str, p)).replace(".#klíč", " (klíč)"),
-                             "šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, jev.questions "
-                             "(instructions, criteria), fail, hodnotách output, call.inputs a dedupe_key")
+                             str(ExprError("šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, "
+                                           "jev.questions (instructions, criteria), fail, hodnotách output, "
+                                           "call.inputs a dedupe_key", line.index("{{"), line)))
         self.walk(self.sc["steps"], {}, top=True)
         outs = self.sc.get("outputs") or {}
         if len(self.stack) == 1 and self.config["storage"]["type"] == "r2" and any(o["type"] == "file" for o in outs.values()):
@@ -430,6 +432,8 @@ class _Checker:
         return resolve
 
     def expr_type(self, info, fld, expr, res, want=None):
+        if "{{" in expr:
+            return None  # už nahlášeno v run(): šablona ve výrazu není povolená
         try:
             t = infer(expr, self.inputs_type, res)
         except ExprError as e:
