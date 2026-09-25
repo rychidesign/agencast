@@ -1,0 +1,35 @@
+version: 1
+name: tutorial-07-archiv
+description: Zapíše poznámku dne do archivu nejvýš jednou, i když přijde požadavek znovu (tutoriál, díl 7)
+
+inputs:
+  den:
+    type: string
+    required: true
+    description: Datum zápisu, např. 2026-09-25
+  text:
+    type: string
+    required: true
+    description: Poznámka volným textem
+
+outputs:
+  zprava:
+    type: string
+    description: Co archivář zapsal (při opakování odpověď z prvního běhu)
+
+steps:
+  # 1. Krok s vedlejším účinkem (zápis). dedupe_key: pro stejný den proběhne
+  #    nejvýš jednou — další běh vezme výstup ze <runs>/_dedupe/ a krok přeskočí.
+  - id: zapis
+    dedupe_key: "archiv-{{ inputs.den }}"
+    task:
+      agent: tutorial-archivar
+      prompt: |
+        Den: {{ inputs.den }}
+        Poznámka: {{ inputs.text }}
+        Zapiš poznámku do archivu a zkontroluj ji.
+      max_turns: 5
+
+  - id: out
+    output:
+      zprava: "{{ steps.zapis.text }}"

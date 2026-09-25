@@ -11,7 +11,7 @@ servers:
     description: Čtení a zápis v pracovní složce aktuálního běhu
     command: npx
     args: ["-y", "@modelcontextprotocol/server-filesystem@2026.8.31", "{run_dir}/work"]
-    agents: [knihovnik]
+    agents: [knihovnik, tutorial-archivar]
     tools: [list_allowed_directories, list_directory, read_text_file, write_file]
 
   # Z mcp.example.yaml, aby prošel schválený agent publisher. Adresa je
