@@ -28,7 +28,7 @@ from .expressions import ExprError, FileRef, evaluate, kind, path_step, render, 
 from .loader import nested_lists
 from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
-                        parse_chat, parse_image, parse_jev, prompt_level_suffix)
+                        http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
 from .record import Record, cz, now_iso, plan_md, report_html, scrub, summary_md
 from .task import dedupe_skip, run_task  # 3a
 from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
@@ -332,7 +332,7 @@ class Run:
             resp = self.rec.write(f"{info.folder}/calls/{n:02d}.response.json", scrub(rbody, note))
             cost = meta["usage"]["cost_usd"]
             over = self.add_cost(info, ctx, scopes, cost, image)
-            if cost is None:
+            if cost is None and http_error(status, rbody, headers) is None:  # chybová odpověď nic nestojí
                 self.warnings.append(f"krok {sid}: poskytovatel nevrátil cenu (usage.cost) — rozpočet nejde hlídat přesně")
             self.rec.event(event_type, step=sid, attempt=attempt, **fields, **meta,
                            **({"budget_exceeded_usd": over} if over else {}),

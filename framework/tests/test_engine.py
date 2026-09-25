@@ -161,6 +161,17 @@ def test_missing_cost_retried_then_budget(wf):
     assert any("nevrátil cenu" in w for w in r.warnings)
 
 
+@pytest.mark.parametrize("script,status", [
+    ({"navrh": [{"status": 429, "error": "Rate limit exceeded"}, {"json": {"nazvy": ["Ovesňák", "Mrazík Oves"]}}]},
+     "succeeded"),
+    ({"navrh": [{"status": 400, "error": "Invalid request"}]}, "failed"),
+])
+def test_http_error_without_usage_no_cost_warning(wf, script, status):
+    """BUGS.md #1: chybová odpověď (429, 400) nemá usage a nic nestojí — varování o ceně nepatří."""
+    r, _ = run(wf / "scenarios" / "tutorial-04-paralelne.yaml", {"produkt": "zmrzlina"}, script)
+    assert r.status == status and r.warnings == []
+
+
 def test_schema_cascade_goes_level_down_with_feedback(wf):
     script = {"napis": [{"text": "tohle není JSON"}, {"json": {"text": 5}}, {"json": {"text": "ok"}}]}
     r, fake = run(ask_scenario(wf, schema=True), script=script)
