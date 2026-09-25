@@ -13,7 +13,7 @@ commands.yaml  povolené příkazy pro krok `run`                       ← jen 
 ```
 
 Přesné formáty definuje specifikace v `docs/spec/` (v1, schválena
-2026-09-25; změny jen podle pravidel kompatibility v `docs/DESIGN.md` §5.9). Referenční ukázky: `agents/*.md`, `scenarios/ig-post.yaml`,
+2026-09-25; změny jen podle pravidel kompatibility v `docs/DESIGN.md` §5.9). Referenční ukázky: `agents/*.md`, `scenarios/ig-post.yaml`, `scenarios/ukazka-call.yaml` (volá `kontrola-tonu.yaml` krokem `call`),
 `*.example.yaml` (skutečné `config.yaml`, `mcp.yaml`, `commands.yaml`
 vytváří jen vlastník).
 

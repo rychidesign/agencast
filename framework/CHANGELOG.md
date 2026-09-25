@@ -3,6 +3,45 @@
 Semver podle DESIGN §5.9 bod 5: oprava = patch, přidání = minor, nová
 verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
+## 0.2.0 — 2026-09-25 (Fáze 3)
+
+Formát: spec v1 beze změny.
+
+### 3b — call, webhook server, report.html, CLI
+
+- Krok `call` (scenario.md call, DESIGN §5.3): vnořený scénář ve stejném
+  běhu — stejný `events.jsonl`, rozpočet i časový limit, kroky mají cestu
+  `navrh/copy`, záznam ve `steps/<nn>-<id>/steps/…` (+ `inputs.json`
+  volání). `validate`: `callable: true`, vstupy (povinné, žádné navíc,
+  typy; `file` jen ze souboru), čtou se jen deklarované `outputs`, cykly
+  a `limits.max_call_depth`; chyby volaného scénáře s jeho jménem souboru.
+  Za běhu: typ vstupu, který nešel ověřit předem → `expression`; chyba
+  uvnitř = chyba kroku `call` (`step` je cesta); `on_error: continue`
+  kroku `call` ji pokryje, včetně jeho vlastního `budget_usd`/`timeout`.
+  Soubory z volaného scénáře se nenahrávají.
+- Webhook server `maw serve --host --port [--fake]` (webhook.md):
+  `POST /runs` (Bearer token, 401/422 synchronně bez `run_id`, 202,
+  200 pro opakovaný `request_key`), `GET /runs/<run_id>`, fronta jeden
+  běh po druhém, trvalá fronta a `request_key` v `<runs>/_queue/`,
+  callback vždy od přidělení `run_id` (i když `validate` selže až po
+  vyzvednutí z fronty → `config`; přerušený běh po restartu → `internal`).
+  Stdlib `http.server.ThreadingHTTPServer` — žádná nová závislost.
+- `report.html` u každého běhu: jeden soubor bez externích zdrojů,
+  hlavička, chyba, varování, vstupy, tabulka kroků (i vnořených), prompty
+  a odpovědi v `<details>` (zkrácené na 4000 znaků), výstupy; maskování
+  tajných hodnot, bez base64. Nahraje se do úložiště, `report_url`
+  v callbacku (dřív `null`, ISSUES 5).
+- CLI: scénář jménem nebo cestou; kořen projektu podle `workflows/` od
+  cwd nahoru nebo `--project` (u všech příkazů; nahrazuje `runs
+  --workflows`); `runs list` ukazuje i požadavky ve frontě; `maw migrate
+  <soubor>` (kostra: v1 → „nic k převodu", neznámá verze → `config`).
+  Vlastní hlášky česky; hlášky samotného `argparse` (usage, chybějící
+  argument) zůstávají anglicky.
+- `callback_url` smí být i `http://127.0.0.1` (testy, lokální přijímač) —
+  ISSUES 14.
+- Testy: +44 (call, webhook s lokálním přijímačem callbacku, report, CLI);
+  zlaté scénáře `kontrola-tonu` (`callable: true`) a `ukazka-call`.
+
 ## 0.1.0 — 2026-09-25 (Fáze 2: jádro)
 
 Formát: spec v1 (`version: 1` scénáře, agenta, configu).

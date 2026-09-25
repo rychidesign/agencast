@@ -180,8 +180,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/runs":
             return self.reply(404, {"error": "neznámá adresa — běh se spouští přes POST /runs"})
-        n = int(self.headers.get("Content-Length") or 0)
-        if n > MAX_BODY:
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 <= n <= MAX_BODY:
             return self.reply(422, {"error": f"tělo má {n} B, nejvýš {MAX_BODY} B", "details": []})
         self.safe(self.server.hook.accept, self.headers.get("Authorization"), self.rfile.read(n))
 

@@ -27,7 +27,7 @@ rozhoduje koordinátor nebo uživatel.
    completions" padlo ve Fázi 2 podle zadání.
 5. **`report_url`**: `report.html` Fáze 2 negeneruje, `report_url` je
    `null` bez varování. Spec počítá s `null` + varováním jen při selhání
-   nahrání.
+   nahrání. *(Vyřešeno ve 3b: report se generuje a nahrává.)*
 6. **`callback.json` bez `--callback-url`**: zapisuje se vždy (tělo, které
    by odešlo), ač spec říká „přesně to, co odešlo v callbacku".
 7. **`details` v `default` kroku `jev`**: spec „`details` se doplní jako
@@ -49,3 +49,39 @@ rozhoduje koordinátor nebo uživatel.
     `status: failed` (ne `step_skipped`).
 12. **Timeout kroku s agentem**: `timeout` kroku, jinak `limits.timeout`
     agenta, jinak výchozí podle typu, vždy nejvýš `limits.timeout` agenta.
+
+## Fáze 3b (call, webhook, report.html)
+
+13. **Složka kroku `call`**: zadání 3b zmiňuje `steps/<nn>-<id>/call/`,
+    spec (run-record.md) `steps/03-navrh/steps/01-copy/`. Framework drží
+    spec; navíc zapisuje `steps/<nn>-<id>/inputs.json` (vstupy volání)
+    a `output.json` (výstup = `outputs` volaného scénáře). `summary.md`
+    má v tabulce jen kroky volajícího scénáře (u `call` poznámka se
+    jménem scénáře), vnořené kroky jsou v `events.jsonl` a `report.html`.
+14. **`callback_url` na `http://127.0.0.1`**: spec chce „jen `https://`".
+    Framework povolí i `http://127.0.0.1:<port>/…` (testy, lokální
+    přijímač podle zadání 3b) — ve webhooku i v `maw run --callback-url`.
+    `localhost` ani jiné `http://` ne.
+15. **`queue_position`**: počet požadavků ve frontě včetně právě
+    běžícího a tohoto (1 = začne hned). Spec jen „pozice ve frontě".
+16. **`GET /runs/<run_id>`** ve spec není (zadání 3b ano): chce stejný
+    token; vrací `{status: queued, queue_position}`, `{status: running}`,
+    nebo tělo `callback.json` + `callback_failed`; neznámý běh 404.
+17. **Tělo webhooku**: neznámé pole je 422 (jako „překlep je chyba"
+    u formátů). Opakovaný `request_key` vrátí 200 s původním `run_id`
+    i tehdy, když se zbytek těla liší (kontroluje se hned po tokenu).
+18. **Běh, který nezačne** (validate selže po vyzvednutí z fronty, nebo
+    běh přerušil restart serveru): složka má `run_started` se
+    `scenario_version: null` a bez kroků, `error` a `run_finished`
+    s třídou `config` / `internal`, `report.html` a callback. Přerušený
+    běh se neopakuje (mohl mít vedlejší účinky) a callback nese
+    `internal`, i když běh mohl doběhnout, jen callback neodešel.
+19. **`on_error: continue` u `call`** pokryje i chybu kroku uvnitř
+    volaného scénáře (`error.step` zůstává cesta `navrh/copy`) a
+    vyčerpání vlastního `budget_usd`/`timeout` kroku `call`; rozpočet
+    a čas běhu ne (scenario.md §6).
+20. **`report.html` vzniká před `run_finished`**, aby varování
+    o nepovedeném nahrání bylo v `run_finished` i v callbacku; stav
+    doručení callbacku proto v reportu není (je v `summary.md`
+    a `events.jsonl`).
+

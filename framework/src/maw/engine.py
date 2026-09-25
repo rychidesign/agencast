@@ -132,6 +132,8 @@ class Run:
                                          f"běhu (run_timeout {lim['run_timeout']})", None)])
         try:
             if error:  # 3b
+                self.rec.event("error", **{"class": error.cls}, message=error.message, attempt=None,
+                               will_retry=False, http_status=None)
                 raise error
             await self.run_list(sc["steps"], root)
             self.status = "succeeded"
@@ -550,11 +552,12 @@ class Run:
 
     def publish_report(self):
         """report.html do složky běhu a do úložiště; URL jde do callbacku (run-record.md)."""
-        rel = self.rec.write("report.html", report_html(self))
-        try:
+        try:  # chyba reportu nesmí zastavit callback
+            rel = self.rec.write("report.html", report_html(self))
             self.report_url = self.upload("report", FileRef(rel))
-        except MawError as e:
-            self.warnings.append(f"report.html se nepodařilo nahrát ({e.cls}: {e.message}) — report_url je null")
+        except Exception as e:
+            why = f"{e.cls}: {e.message}" if isinstance(e, MawError) else f"{type(e).__name__}: {e}"
+            self.warnings.append(f"report.html se nepodařilo vytvořit nebo nahrát ({why}) — report_url je null")
 
     # --- callback --------------------------------------------------------------------
     async def send_callback(self, data: bytes) -> bool:
