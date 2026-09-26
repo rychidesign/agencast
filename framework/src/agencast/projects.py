@@ -18,8 +18,8 @@ import yaml
 from . import ConfigErrors
 from .expressions import ExprError, parse, template_parts
 from .loader import LoadError, nested_lists, read_frontmatter, read_yaml, step_kind
-from .mcp_client import load_mcp
-from .validate import _strings, load_agent, load_config, load_skill, validate
+from .mcp_client import load_mcp, secret_names
+from .validate import _strings, env_fields, load_agent, load_config, load_skill, validate
 
 NAME = re.compile(r"[a-z][a-z0-9-]*")  # jako name agenta a scénáře ve schématech
 
@@ -310,6 +310,29 @@ def _steps(steps, flat: list[dict[str, Any]], at: tuple[Any, ...] = ("steps",)) 
     return out
 
 
+# Začátek hlášky validate/loaderu: `<soubor>[, řádek N][: krok "id"][, pole|: pole]: …` (_Checker.err,
+# schema_errors, load_yaml). Scénář se hlásí jménem souboru (ig-post.yaml), ostatní cestou ve workflows/.
+ERROR_HEAD = re.compile(r"(?P<file>agents/[^/:,\s]+\.md|skills/[^/:,\s]+/SKILL\.md|(?:scenarios/)?[^/:,\s]+\.yaml)"
+                        r"(?:, řádek (?P<line>\d+))?(?:: krok [\"'](?P<step>[^\"']+)[\"'])?"
+                        r"(?:(?:, |: )(?P<field>[\w.\[\]-]+(?: \(klíč\))?)(?=: ))?: ")
+
+
+def error_fields(message: str, root: Path) -> dict[str, Any]:
+    """Hláška jako objekt pro GUI (api.md): `{message, file?, step?, field?, line?}`; `message` beze změny.
+    ponytail: pole se čtou ze začátku hlášky — hláška jiného tvaru má jen `message`."""
+    out: dict[str, Any] = {"message": message}
+    m = ERROR_HEAD.match(message.removeprefix(f"{root / 'workflows'}/"))
+    if not m:
+        return out
+    f = m["file"]
+    # ponytail: scénář pojmenovaný config nebo mcp se tu splete s config.yaml/mcp.yaml
+    out["file"] = f if "/" in f or f in ("config.yaml", "mcp.yaml") else f"scenarios/{f}"
+    out |= {k: m[k] for k in ("step", "field") if m[k]}
+    if m["line"]:
+        out["line"] = int(m["line"])
+    return out
+
+
 def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """(popis scénáře se stromem kroků a chybami validate, všechny kroky)."""
     info: dict[str, Any] = {"name": path.stem, "etag": _etag(path), "description": None, "inputs": {}, "outputs": {}, "callable": False}
@@ -373,6 +396,8 @@ def describe_project(root: Path) -> dict[str, Any]:
         skills.append({"name": path.parent.name, "etag": _etag(path), "description": s[1] if s else None, "errors": s_errs})
     servers = [{"name": n, "type": "stdio" if "command" in s else "http", "agents": s["agents"],
                 "tools": s.get("tools"), "scenarios": s.get("scenarios")} for n, s in mcp.items()]
-    return {"root": str(root), "models": {a: m["id"] for a, m in cfg["models"].items()}, "limits": cfg["limits"],
+    # proměnné z config.yaml (*_env) a mcp.yaml (env, bearer_token_env): jen jestli je nastavená, nikdy hodnota
+    env = {n: bool(os.environ.get(n)) for n in sorted({n for _, n in env_fields(cfg)} | set(secret_names(mcp)))}
+    return {"root": str(root), "models": {a: m["id"] for a, m in cfg["models"].items()}, "limits": cfg["limits"], "env": env,
             "scenarios": scenarios, "agents": agents, "skills": skills, "mcp_servers": servers,
             "links": {k: sorted(map(list, v)) for k, v in links.items()}, "errors": errs}

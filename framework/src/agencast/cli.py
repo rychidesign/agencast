@@ -3,7 +3,7 @@
     agencast validate <scénář> [--offline]
     agencast run <scénář> -i klíč=hodnota [--dry-run] [--fake [SKRIPT]] [--callback-url URL]
     agencast runs list | show <run_id>
-    agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]]   (mimo projekt: režim registru)
+    agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]] [--cors ORIGIN]   (mimo projekt: režim registru)
     agencast migrate <soubor>
     agencast new project <cesta> [--name N] | agent <jméno> | scenario <jméno>
     agencast projects list | add <cesta> [--name N] | rm <jméno>
@@ -159,7 +159,7 @@ def cmd_serve(a) -> int:
             wf, cfg = _config(a)
             hook = Webhook(wf, fake=_fake(a.fake, cfg["models"]) if a.fake is not None else None, workers=a.workers)
             projects = Projects(hook)
-        srv = Server(hook, a.host, a.port, projects)
+        srv = Server(hook, a.host, a.port, projects, cors=a.cors)
         if not hook:
             projects.start()
     except (ConfigErrors, LoadError) as e:
@@ -265,6 +265,7 @@ def main(argv=None) -> int:
     s.add_argument("--workers", type=int, default=1, metavar="N",
                    help="kolik běhů najednou (výchozí 1 = jeden po druhém; víc = pořadí dokončení není zaručené)")
     s.add_argument("--fake", nargs="?", const="", metavar="SKRIPT", help="falešný poskytovatel bez sítě")
+    s.add_argument("--cors", metavar="ORIGIN", help="CORS pro vývoj GUI, např. http://localhost:5173 (vite dev)")
     m = sub.add_parser("migrate", parents=[common], help="převede soubor na aktuální verzi formátu")
     m.add_argument("file", help="scénář, config nebo agent (.md)")
     n = sub.add_parser("new", help="nový projekt, agent nebo scénář ze šablony (nic nepřepisuje)")

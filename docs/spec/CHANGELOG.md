@@ -171,3 +171,24 @@ každého nálezu je na konci REVIEW.md.
   (ISSUES 43).
 - Zápis zachovává komentáře, pořadí klíčů, prázdné řádky a uvozovky;
   soubory zůstávají ve formátu v1, JSON Schema se nemění.
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.6.0)
+
+- [api.md](api.md) „Doplňky pro GUI“ (ISSUES 44): `POST
+  /projects/<p>/validate` (validace bez zápisu), `env` v `GET
+  /projects/<p>` (jen příznak nastavené proměnné, nikdy hodnota), v
+  seznamu a detailu běhu `scenario`, `started_at`, `finished_at`,
+  `current_step`, `steps_total`; `POST /projects/<p>/runs` s volitelnou
+  `callback_url` a `dry_run`; `serve` podává GUI (`GET /`, `/assets/…`
+  bez tokenu) a má `--cors <origin>`.
+- **Změna tvaru API (0.5.0 → 0.6.0):** položky polí `errors` jsou objekty
+  `{message, file?, step?, field?, line?}` místo textů; `message` =
+  dřívější text. Týká se `GET /projects/<p>` (projekt, scénáře, agenti,
+  skilly), `GET …/scenarios/<s>`, `GET …/files/<cesta>` a odpovědí 200/422
+  editačních operací. Jediný klient těch polí je GUI; `details`, CLI
+  a Python API zůstávají texty.
+- [run-record.md](run-record.md): `run_started` má nová pole `steps_total`
+  a `callback_url` (bez query, `null` = bez callbacku). Starší záznamy je
+  nemají; čtenář bere chybějící pole jako `null`.
+- [webhook.md](webhook.md) jen odkaz; smlouva `POST /runs` se nemění.
+  Formáty `agent`, `scenario`, `config`, `mcp` ani JSON Schema se nemění.

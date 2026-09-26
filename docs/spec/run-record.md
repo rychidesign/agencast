@@ -142,6 +142,8 @@ Když poskytovatel cenu nevrátí, je `cost_usd: null` a vznikne varování
 | `framework_version` | verze frameworku |
 | `storage_prefix` | `<run_id>-<32 hex>` — prefix souborů v úložišti |
 | `fake` | `true` = falešný poskytovatel (`--fake`), odpovědi modelů jsou vymyšlené (od frameworku 0.2.2) |
+| `steps_total` | počet kroků scénáře včetně vnořených ve větvích `parallel`/`switch`, bez kroků volaných scénářů; `null` u běhu, který nezačal (od frameworku 0.6.0) |
+| `callback_url` | kam odejde callback, bez query (jako `callback_sent.url`); `null` = běh bez callbacku (CLI, GUI bez `callback_url`) (od frameworku 0.6.0) |
 
 **`run_waiting`** — běh čekal na volný slot `max_parallel_runs` (od
 frameworku 0.3.1). Jen když se čekalo; je hned za `run_started`, i když

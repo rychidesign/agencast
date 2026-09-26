@@ -8,7 +8,7 @@ from typing import Any
 
 from . import ConfigErrors, projects as _projects
 from .edit import (Conflict, NotFound, add_step, delete_agent, delete_scenario, delete_skill, delete_step, move_step,
-                   read_file, set_agent, set_config, set_header, set_skill, update_step, write_file)
+                   read_file, set_agent, set_config, set_header, set_skill, update_step, validate_text, write_file)
 from .engine import RUN_ID, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import load_dotenv
@@ -22,7 +22,7 @@ __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "ne
            # editační operace pro GUI (edit.py, api.md „Editace“): soubor je pravda, otisk, validace před zápisem
            "Conflict", "NotFound", "set_header", "add_step", "update_step", "move_step", "delete_step",
            "delete_scenario", "set_agent", "delete_agent", "set_skill", "delete_skill", "set_config", "read_file",
-           "write_file"]
+           "write_file", "validate_text"]
 
 
 def find_root(project_root=None) -> Path:
