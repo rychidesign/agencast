@@ -73,20 +73,20 @@ Scénáře · Agenti · Config · Skilly · Běhy
 ```
 ← thtd / Scénáře    ig-post ✎  Návrh IG příspěvku ke schválení ✎     [Form | <> YAML]     Neuloženo · 1 chyba   [Uložit]
 
-      ( ≡  HLAVIČKA                                                            )      ┌ KROK 2                              🗑   ✕ ┐
-      (    1 vstup: tema · 3 výstupy: caption, hashtags, image                 )      │ jev ▾                                       │
-                                     ↓                                                │                                             │
-      ( 1  ASK · copy                                                          )      │ Id            [kontrola                ]    │
-      (    copywriter: „Napiš IG příspěvek na téma: {{ inputs.tema }}“         )      │ Když          [                        ]    │
-                                     ↓                                                │               výraz; prázdné = vždy         │
-    ╭─( 2  JEV · kontrola                                                      )─╮ (🗑)│ State         [{{ steps.copy.caption }} ]   │
-    ╰─(    „Odpovídá text tónu značky THTD…?“ · noul                           )─╯    │ Otázky                   [+ Přidat otázku]  │
-                                     ↓                                                │   on_brand   noul ▾   Odpovídá text tónu…   │
-      ( 3  FAIL · stop                                     když on_brand < 0.7 )      │ ─────────────────────────────────────────── │
-      (    „Text neodpovídá značce (on_brand = …)“                             )      │ Spolehlivost                    výchozí  ›  │
-                                     ↓                                                │ ─────────────────────────────────────────── │
-      ( 4  ASK · foto_prompt                                                   )      │ Odkazy              čte copy · čtou 2   ›   │
-      (    photographer: „Navrhni fotku k textu…“                              )      └─────────────────────────────────────────────┘
+      ( ≡  HLAVIČKA                                                            )
+      (    1 vstup: tema · 3 výstupy: caption, hashtags, image                 )
+                                     ↓
+      ( 1  ASK · copy                                                          )
+      (    copywriter: „Napiš IG příspěvek na téma: {{ inputs.tema }}“         )
+                                     ↓
+    ╭─( 2  JEV · kontrola                                                      )─╮   (🗑)
+    ╰─(    „Odpovídá text tónu značky THTD…?“ · noul                           )─╯
+                                     ↓
+      ( 3  FAIL · stop                                     když on_brand < 0.7 )
+      (    „Text neodpovídá značce (on_brand = …)“                             )
+                                     ↓
+      ( 4  ASK · foto_prompt                                                   )
+      (    photographer: „Navrhni fotku k textu…“                              )
         ✗ agent „fotograf“ neexistuje
                                      ↓  …
       ( 7  IMAGE · foto                                                        )
@@ -96,7 +96,7 @@ Scénáře · Agenti · Config · Skilly · Běhy
       (    caption, hashtags, image                                            )
                                     (+)
 ```
-Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod ním hodnota tučně na jeden řádek s výpustkou. Vpravo v pilulce jen `když …` (šedě, mono), v prohlížeči běhu čas + cena. Hlavičková karta má místo čísla ikonu v zaobleném čtverci jako trigger v Buzz. Hodnota podle typu:
+Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod ním hodnota tučně na jeden řádek s výpustkou. Vpravo v pilulce jen `když …` (šedě, mono), v prohlížeči běhu čas + cena. Hlavičková karta má místo čísla ikonu v zaobleném čtverci jako trigger v Buzz. Nový krok dostane id `<typ>_<n>` jako Buzz `step_2`; jeho pilulka má jen eyebrow `ASK · ask_2` a druhý řádek šedý zástupný text „doplň v panelu“, dokud nemá hodnotu. Hodnota podle typu:
 
 | Typ | Hodnota |
 |---|---|
@@ -114,7 +114,29 @@ Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod 
 
 **Koš vně pilulky:** červený kulatý 28 px vpravo vně, zobrazí se při hoveru a při `focus-within`. Klávesnice: Tab z fokusované karty přejde na koš (je další zastávkou v pořadí, při fokusu se ukáže), nebo klávesa Delete na kartě; `aria-label="Smazat krok kontrola"`. Na dotykovém vstupu (`pointer: coarse`) je koš viditelný trvale ztlumeně. Ochrana mazání z §4.3 platí beze změny. Hlavičková karta koš nemá.
 
-**Panel:** plovoucí zaoblený obdélník s okrajem od hran; eyebrow „KROK n“, pod ním typ jako select, koš a ×; pole ze schématu daného typu; sbalené řádky „Spolehlivost … výchozí ›“ a „Odkazy … ›“ ve stylu „Run controls … Default ›“ z Buzz. Vlastnosti „Spolehlivost“ (timeout, budget_usd, retry, on_error, default) jen u typů, kde dávají smysl (tabulka §3 spec). „Odkazy“ = čipy z `refs` (čte z / výstup čtou), klik skočí na kartu. Chyba validace je přímo pod kartou a u pole v panelu.
+**Panel** (plovoucí zaoblený obdélník vpravo, okraj 16 px od hran):
+
+```
+┌ KROK 2                                    🗑   ✕ ┐
+│ jev ▾                                             │
+│                                                   │
+│ State                                             │
+│ [{{ steps.copy.caption }}                    ]    │
+│ Otázky                          [+ Přidat otázku] │
+│  on_brand   noul ▾   Odpovídá text tónu…      🗑  │
+│ ───────────────────────────────────────────────── │
+│ Podmínka                                 vždy  ›  │
+│ ───────────────────────────────────────────────── │
+│ Spolehlivost                          výchozí  ›  │
+│ ───────────────────────────────────────────────── │
+│ Podrobnosti kroku                    kontrola  ›  │
+└───────────────────────────────────────────────────┘
+```
+- Jako v Buzz: pole typu nahoře, společné věci dole ve třech sbalených řádcích (hodnota vpravo šedě, hairline mezi nimi). Řádek se rozbalí na místě (akordeon, chevron se otočí), aby zůstal kontext panelu.
+- **Podmínka:** sbalený řádek ukazuje `vždy`, nebo zkrácený výraz (`steps.kontrola.on_brand < 0.7`); rozbalený = `ExprInput` + nápověda „Když vyjde nepravda, krok se přeskočí; kdo čte jeho výstup, potřebuje default.“ U `output` řádek není.
+- **Spolehlivost:** timeout, budget_usd, retry, on_error, default; jen pro typy z tabulky §3 spec.
+- **Podrobnosti kroku:** id (přejmenování s kontrolou `refs` a nabídkou přepsat odkazy), „Čte z“ a „Výstup čtou“ jako čipy (klik skočí na kartu), odkaz „Otevřít v YAML“ (skočí na řádek kroku).
+- Chyba validace je přímo pod kartou a u pole v panelu.
 
 ### 2.4 Karty `parallel`, `switch`, `call`
 
@@ -221,9 +243,10 @@ Skilly            │ thtd-hlas                                                 
 | `HeaderCard` | vstupy a výstupy scénáře | jako karta, nesmazatelná, vždy první |
 | `Connector` + `AddButton` | šipka ↓ jako glyph mezi pilulkami (mezera ~40 px), na hover/focus se promění v (+) 28 px; trvalé (+) jen na konci každého seznamu | výchozí, focus, „vložit vyjmutý krok“ |
 | `BranchColumn` / `CaseSection` | větev `parallel` vedle sebe / případ `switch` pod sebou, každý s vlastním seznamem a + | aktivní, v běhu přeskočená (ztlumená s důvodem) |
-| `TypePicker` | popover u +: Model (ask, task, jev, image), Řízení (parallel, switch, call, fail), Data (set); jednořádkový popis každého | `output` se nenabízí, přidá se sám nabídkou na konci, když chybí |
-| `StepPanel` | plovoucí zaoblený panel (16 px, okraj 16 px od hran), eyebrow „KROK n“ + typ jako select, koš a ×; formulář; sbalené řádky „Spolehlivost … výchozí ›“, „Odkazy … ›“ (15 px, hodnota vpravo šedě, hairline oddělovače) | čtení, editace, s chybami; v běhu záložky Prompt/Odpověď/Výstup/Volání/Soubory |
-| `FormYamlToggle` | tmavá segmentová pilulka Form / `<>` YAML jako v Buzz (aktivní segment světlejší), v lepící horní liště editoru (stránka nemá patičku modálu) | YAML s chybou = návrat do Form zakázán s nápovědou (řádek) |
+| `TypePicker` | prostý seznam vpravo od + (bez ikon a nadpisů skupin, dvě hairline), klíčové slovo mono + 2–4 slova popisu šedě; `bg-zinc-800 ring-1 ring-zinc-700 rounded-xl p-1 w-60`, řádek `h-9 px-3 rounded-lg`, zvýrazněný `bg-zinc-700`; `role="listbox"` | `output` se nenabízí; po Vyjmout navíc „Vložit … sem“ |
+| `StepPanel` | plovoucí zaoblený panel (16 px, okraj 16 px od hran), eyebrow „KROK n“ + typ jako select, koš a ×; pole typu nahoře; dole tři sbalené řádky Podmínka / Spolehlivost / Podrobnosti kroku jako akordeon (`h-12 text-[15px]`, hodnota `text-zinc-400`, `divide-y divide-zinc-700`, `aria-expanded`) | čtení, editace, s chybami; v běhu záložky Prompt/Odpověď/Výstup/Volání/Soubory |
+| `FormYamlToggle` | tmavá segmentová pilulka Form / `<>` YAML jako v Buzz, v lepící horní liště editoru: `bg-zinc-800 rounded-full p-0.5`, segment `px-3 h-8 rounded-full text-sm`, aktivní `bg-zinc-700 text-zinc-100`, neaktivní `text-zinc-400` s ikonou `code-xml` 14 px; `role="radiogroup"`; u agentů a skillů druhý segment `<> Markdown` | syntaktická chyba YAML = návrat do Form zakázán s nápovědou (řádek) |
+| `YamlEditor` | blok přes celou šířku a výšku: `bg-zinc-800/60 ring-1 ring-zinc-700 rounded-xl p-4 font-mono text-sm leading-6`, čísla řádků `text-zinc-500`, chybový řádek `border-l-2 border-rose-400 bg-rose-500/5`; pod blokem nápověda se jménem souboru (`text-zinc-400 text-xs mt-2`) a seznam chyb 13 px | bez chyb, se syntaktickou chybou (Form zakázán), s významovými chybami |
 | `Button` | primární = světlá pilulka (`bg-zinc-100 text-zinc-900`), sekundární = tmavá pilulka (`bg-zinc-800 text-zinc-100`), drobná „+ Přidat …“ pilulka vpravo od štítku sekce (jako „+ Add header“) | výchozí, hover, focus, disabled |
 | `StatusBadge` | ikona + text: ✓ úspěch, ✗ chyba, ○ přeskočeno, ● běží (pulz), ◌ ve frontě, ⚠ varování, zrušeno | nikdy jen barva |
 | `CostChip`, `DurationChip` | `0,0015 USD` (čárka, ≥ 4 místa, nula = `0`, `USD` za číslem s pevnou mezerou), `17,5 s` / `1 min 12 s`; mono | u obrázků „z toho obrázky …“ v hlavičce |
@@ -236,11 +259,50 @@ Skilly            │ thtd-hlas                                                 
 
 ## 4. Interakce
 
-1. **Vložení kroku:** klik na + (nebo Enter na fokusovaném +) otevře `TypePicker`; výběr vloží kartu s id `<typ>_<n>` a otevře panel s kurzorem v poli id. `output` jde jen na konec hlavního seznamu; + pod ním není. Ve větvi se `output` nenabízí.
+1. **Vložení kroku:** klik na + (nebo Enter na fokusovaném +) otevře `TypePicker` — prostý seznam vpravo od + jako v Buzz (bez místa se překlopí vlevo), bez ikon a nadpisů skupin, skupiny drží jen dvě hairline; klíčové slovo typu mono (přesně to, co bude v YAML) a 2–4 slova popisu šedě na stejném řádku, aby začátečník rozeznal `jev` od `ask`. Šipky, Enter, Esc, psaní filtruje (`j` skočí na jev). Po „Vyjmout“ je nahoře navíc položka „Vložit ‚kontrola‘ sem“. Výběr vloží kartu s id `<typ>_<n>` a otevře panel. `output` v seznamu není: jde jen na konec hlavního seznamu, přidá se nabídkou na konci, když chybí; + pod ním není. Ve větvi se `output` nenabízí.
+
+```
+   (+)  ┌──────────────────────────────────────┐
+        │ Vložit „kontrola“ sem                │   jen po Vyjmout
+        │ ──────────────────────────────────── │
+        │ ask       jedno volání agenta        │   zvýrazněná
+        │ task      agent s nástroji           │
+        │ jev       levné rozhodnutí Jev       │
+        │ image     vygenerovat obrázek        │
+        │ ──────────────────────────────────── │
+        │ parallel  větve zároveň              │
+        │ switch    jedna z možností           │
+        │ call      spustit jiný scénář        │
+        │ fail      zastavit běh s chybou      │
+        │ ──────────────────────────────────── │
+        │ set       spočítat hodnoty bez LLM   │
+        └──────────────────────────────────────┘
+```
 2. **Přesun:** menu ⋯ na kartě „Posunout nahoru/dolů“ (klávesy Alt+↑/↓) uvnitř seznamu. Mezi seznamy (do větve, ven): „Vyjmout“ (Ctrl+X), poté každé + nabídne „Vložit ‚kontrola‘ sem“. Bez drag & drop. Odkaz na krok níž po přesunu chytí validace u karty.
 3. **Mazání:** ⋯ → Smazat nebo klávesa Delete. Když krok čte jiný krok (`refs`) nebo má vnořené kroky: modál „Krok ‚kontrola‘ čtou stop a out. Smazat i tak?“ / „Smaže i 3 kroky uvnitř“. Jinak hned, s „Vrátit zpět“ v hlavičce (Ctrl+Z, dokud není uloženo).
 4. **Uložení:** výslovně tlačítkem nebo Ctrl+S, žádný autosave (soubor je pravda, rozdělaný stav nesmí na disk). Během editace validace přes server s prodlevou 500 ms, chyby u karet a polí. Uložit posílá celý text s otiskem verze; 422 = soubor se nezapsal, hlavička „Neuloženo · N chyb“, skok na první; varování zastarávání uložit dovolí. Odchod s neuloženými změnami se ptá. Rozpracovaný text drží `localStorage` (klíč soubor + otisk) pro případ obnovení stránky.
-5. **Form / YAML:** jeden zdroj = surový text. Úpravy z formuláře jsou cílené záplaty do textu, aby přežily komentáře a pořadí (ig-post.yaml má číslované komentáře). YAML režim = editor kódu se zvýrazněnými řádky vybraného kroku a chybami v okraji. Zpět do Form jen s parsovatelným YAML.
+5. **Form / YAML:** jeden zdroj = surový text souboru; úpravy z formuláře jsou cílené záplaty do textu, aby přežily komentáře a pořadí (ig-post.yaml má číslované komentáře). YAML režim nahradí sloupec karet i panel jedním blokem přes celou šířku a výšku, jako v Buzz:
+
+```
+← thtd / Scénáře    ig-post ✎  Návrh IG příspěvku ke schválení ✎     [Form | <> YAML]     Neuloženo · 1 chyba   [Uložit]
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│  1  version: 1                                                                             │
+│  2  name: ig-post                                                                          │
+│  …                                                                                         │
+│ 52    - id: foto_prompt                                                                    │
+│ 53      ask:                                                                               │
+│▌54        agent: fotograf                                                                  │
+│ 55        prompt: |                                                                        │
+│  …                                                                                         │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlačítkem Uložit.
+✗ řádek 54 · krok foto_prompt · agent „fotograf“ neexistuje (dostupní: copywriter, photographer, publisher)
+```
+   - Odchylka od Buzz: úzký šedý sloupec s čísly řádků, protože hlášky `validate` i chyby YAML loaderu (duplicitní klíč) odkazují na řádek. Zvýraznění syntaxe jen dvěma odstíny (klíče světle, komentáře ztlumeně), žádné barvy.
+   - Nápověda pod blokem jmenuje soubor (připomínka „soubor je pravda“), ne obecnou větu.
+   - **Chyby:** při psaní (500 ms) `POST validate`; chybný řádek má vlevo svislou rose značku, pod blokem seznam chyb (řádek · krok · hláška), klik skočí na řádek. Syntaktická chyba YAML se ukáže hned s řádkem a blokuje návrat do Form (přepínač ztlumený, tooltip „Oprav YAML: řádek 12“); významové chyby (neznámý agent) návrat neblokují, zobrazí se na kartách. Uložit je zakázané, dokud je jakákoli chyba.
+   - Přepnutí Form → YAML položí kurzor na řádek `- id:` vybraného kroku a na chvíli podbarví jeho řádky; hlavičková karta vede na začátek souboru. YAML → Form: znovu vybere krok, ve kterém stál kurzor.
+   - Totéž pro Config (`config.yaml`; `mcp.yaml` jako druhý blok pod ním), pro agenty a skilly je druhý segment `<> Markdown` a blok ukazuje celý soubor včetně frontmatteru.
 6. **Konflikt souboru:** GUI si drží otisk; kontrola při fokusu okna a každých 5 s. Změna na disku bez lokálních úprav = tiché znovunačtení + krátká hláška „Načteno z disku (14:05)“. S lokálními úpravami sticky pruh: „Soubor se na disku změnil“ [Zobrazit rozdíl] [Načíst z disku a zahodit moje změny] [Ponechat moje]; Uložit pak vyžaduje potvrzení „Přepsat verzi na disku“. Nikdy automatické slučování.
 7. **`call`:** karta ukazuje cílový scénář a počet vstupů; „otevřít“ načte cílový scénář v témže editoru s drobečky `ig-post › navrh › ig-text`, zpět vrací na kartu. Cíl bez `callable: true` = chyba u karty s odkazem na hlavičku cílového scénáře. V běhu se `call` rozbalí přímo v kartě na vnořené karty se stavem.
 8. **Živý běh:** dokud je běh `queued`/`running`, GUI čte `GET /runs/<id>` každé 2 s (po 2 min každých 5 s). Běžící karta pulzuje, uplynulý čas tiká lokálně mezi dotazy, cena v hlavičce roste. „Sledovat běh“ posouvá pohled na aktivní kartu. Po konci pruh „Běh skončil: úspěch/chyba“ a načtení Souhrnu. Seznam běhů se obnovuje každých 5 s, když něco běží. SSE později bez změny obrazovky.
