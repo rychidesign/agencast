@@ -1,5 +1,6 @@
 """Čtecí API `serve` (api.md): režim registru s AGENCAST_TOKEN a jeden projekt; falešný poskytovatel."""
 import threading
+from pathlib import Path
 
 import httpx
 import pytest
@@ -41,7 +42,8 @@ def test_registry_mode_read_api(registry_server):
     assert client.get("/projects").json() == {"projects": [
         {"name": "alfa", "root": str(a), "available": True, "last_run": None},
         {"name": "beta", "root": str(b), "available": True, "last_run": None}],
-        "registry": str(a.parent / "agencast-config" / "projects.yaml")}
+        "registry": str(a.parent / "agencast-config" / "projects.yaml"),
+        "projects_root": str(api.projects_root()), "writable": True}
     p = client.get("/projects/alfa").json()
     assert p["name"] == "alfa" and p["models"]["chytry"] == "anthropic/claude-haiku-4.5" and p["errors"] == []
     (sc,) = p["scenarios"]
@@ -99,8 +101,15 @@ def test_single_project_mode(wf, monkeypatch):
         (p,) = client.get("/projects").json()["projects"]
         assert p == {"name": default_name(wf.parent), "root": str(wf.parent.resolve()), "available": True,
                      "last_run": None}
+        listing = client.get("/projects").json()
+        assert listing["writable"] is False and listing["projects_root"] == str(api.projects_root())
         api.add_project(wf.parent, "muj")
         assert client.get("/projects").json()["projects"][0]["name"] == "muj"
+        for response in (client.post("/projects", json={"root": str(wf.parent)}),
+                         client.post("/projects/new", json={"name": "novy"}),
+                         client.delete("/projects/muj")):
+            assert response.status_code == 405 and "režimu registru" in response.json()["error"]
+        assert (wf.parent / "workflows" / "config.yaml").is_file()
         assert "ig-post" in [s["name"] for s in client.get("/projects/muj").json()["scenarios"]]
         rcv = Receiver()
         body = {"scenario": "kontrola-tonu", "inputs": {"text": "Ahoj"}, "callback_url": rcv.url}
@@ -111,6 +120,59 @@ def test_single_project_mode(wf, monkeypatch):
         assert client.post("/projects/jiny/runs", json=body).status_code == 404
         sw = client.get("/projects/muj/scenarios/ukazka-call").json()["steps"]
         assert [s["call"] for s in sw if s["type"] == "call"] == ["kontrola-tonu"]
+    finally:
+        client.close()
+        srv.shutdown()
+        srv.server_close()
+
+
+def test_registry_project_create_register_remove(tmp_path, registry, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    workspace = tmp_path / "workspace"
+    registry.parent.mkdir(parents=True)
+    registry.write_text("projects_root: ~/workspace\nprojects: []\n")
+    projects = Projects(token=TOKEN, fake=lambda: Fake(None))
+    srv, client = serve(projects=projects)
+    try:
+        info = client.get("/projects").json()
+        assert info["projects"] == [] and info["projects_root"] == str(workspace) and info["writable"] is True
+
+        created = client.post("/projects/new", json={"name": "nova"})
+        assert created.status_code == 201
+        body = created.json()
+        root = workspace / "nova"
+        assert body["name"] == "nova" and body["root"] == str(root)
+        assert {Path(path).relative_to(root).as_posix() for path in body["created"]} == {
+            ".env.example", ".gitignore", "workflows/config.yaml", "workflows/agents/pisatel.md",
+            "workflows/scenarios/ukazka.yaml"}
+        assert [p["name"] for p in client.get("/projects").json()["projects"]] == ["nova"]
+        assert "projects_root:" in registry.read_text()
+        assert client.post("/projects/new", json={"name": "nova"}).status_code == 409
+        exists = client.post("/projects/new", json={"name": "jin", "root": str(root)})
+        assert exists.status_code == 409 and "přidej existující" in exists.json()["error"]
+
+        imported = workspace / "imported"
+        api.new_project(imported, "odlozeny")
+        api.remove_project("odlozeny")
+        registered = client.post("/projects", json={"root": "imported", "name": "import"})
+        assert registered.status_code == 201 and registered.json() == {"name": "import", "root": str(imported)}
+        assert client.post("/projects", json={"root": str(imported)}).status_code == 409
+        assert client.post("/projects", json={"root": "../mimo"}).status_code == 422
+        assert client.post("/projects", json={"root": str(tmp_path / "missing")}).status_code == 422
+        outside = tmp_path / "outside"
+        api.new_project(outside, "outside")
+        api.remove_project("outside")
+        expanded = client.post("/projects", json={"root": "~/outside", "name": "expanded"})
+        assert expanded.status_code == 201 and expanded.json()["root"] == str(outside)
+        (workspace / "escape").symlink_to(tmp_path, target_is_directory=True)
+        assert client.post("/projects", json={"root": "escape"}).status_code == 422
+
+        removed = client.delete("/projects/import")
+        assert removed.status_code == 200 and removed.json()["files_deleted"] is False
+        assert "soubory zůstávají" in removed.json()["message"]
+        assert (imported / "workflows" / "config.yaml").is_file()
+        assert client.get("/projects/import").status_code == 404
+        assert client.delete("/projects/expanded").status_code == 200
     finally:
         client.close()
         srv.shutdown()

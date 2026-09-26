@@ -1,6 +1,6 @@
 # framework — AgenCast, jádro `agencast` (multiagent-workflows)
 
-Verze 0.4.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
+Verze 0.9.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
 v `docs/DESIGN.md`. Balík i příkaz se jmenují `agencast` (do 0.2.5
 `maw`); jméno příkazu je v `pyproject.toml` (`[project.scripts]`).
 
@@ -47,7 +47,9 @@ uv run --project framework agencast projects list | add <cesta> [--name N] | rm 
   `.env.example` a `.gitignore`; `new agent|scenario <jméno>` přidá
   minimální soubor do projektu. Nic nepřepisuje (docs/spec/projects.md).
 - Registr projektů `~/.config/agencast/projects.yaml` (`AGENCAST_CONFIG_DIR`)
-  plní `new project`, `projects add` a úspěšný `validate`/`run`.
+  plní `new project`, `projects add` a úspěšný `validate`/`run`; GUI může
+  zapisovat v režimu registru. `projects_root` určuje výchozí složku pro
+  nové projekty (výchozí `~/workspace`).
 - `migrate`: ve v1 není co převádět; neznámá verze = chyba `config`.
 - Návratový kód: 0 úspěch, 1 běh skončil chybou, 2 chyba `config`
   (validate, vstupy, prostředí).
@@ -67,6 +69,9 @@ GET /runs/<run_id>    stav: queued (+ queue_position) / running / tělo callback
 GET /projects, /projects/<p>[/scenarios/<s>|/runs[/<id>[/files/<cesta>]]|/spend?day=]   čtecí API (docs/spec/api.md)
 POST /projects/<p>/runs   jako POST /runs v projektu <p>; callback_url volitelná, "dry_run": true → jen plán
 POST /projects/<p>/validate   validace bez zápisu ({path, text} nebo prázdné tělo), chyby jako objekty
+POST /projects/new       založí projekt ze šablony a zapíše jej do registru
+POST /projects           zapíše existující projekt s workflows/config.yaml
+DELETE /projects/<p>     odebere projekt jen z registru, soubory zůstanou
 GET /, /assets/…      GUI (framework/src/agencast/ui/, bez tokenu)
 ```
 

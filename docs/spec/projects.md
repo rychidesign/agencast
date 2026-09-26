@@ -9,6 +9,7 @@ disku **neskenuje**; které zná, drží registr. Formáty v1 se tím nemění.
 `AGENCAST_CONFIG_DIR`, hlavně pro testy):
 
 ```yaml
+projects_root: ~/workspace   # výchozí místo pro nové projekty z GUI
 projects:
   - name: thtd              # jméno projektu v registru a v URL /projects/<name>
     root: ~/thtd  # absolutní cesta ke kořeni (složka s workflows/)
@@ -16,6 +17,7 @@ projects:
 
 | Pole | Co dělá |
 |---|---|
+| `projects_root` | Výchozí kořen pro `POST /projects/new`; výchozí `~/workspace`. Cesty se rozbalí a normalizují. |
 | `name` | Unikátní, tvar jako jména scénářů (malá písmena, číslice, pomlčka, začíná písmenem). Výchozí = jméno složky převedené na tento tvar (`Muj Projekt` → `muj-projekt`). |
 | `root` | Absolutní cesta ke kořeni projektu; jeden kořen je v registru nejvýš jednou. |
 
@@ -25,6 +27,16 @@ projects:
   (`agencast projects list`, `GET /projects`).
 - Zápis je atomický (dočasný soubor + přejmenování); `serve` čte
   registr při každém požadavku.
+- GUI může projekt založit přes `POST /projects/new` (viz [api.md](api.md));
+  `root` bez hodnoty míří do `<projects_root>/<name>`. Cesta `~` se rozbalí,
+  relativní cesta se vztahuje k `projects_root` a nesmí obsahovat `..` ani
+  přes symlink utéct mimo tento kořen. Absolutní cesty jsou povolené i mimo
+  domovský adresář serveru; GUI má stejná práva k souborům jako uživatel,
+  pod kterým běží `agencast serve`.
+- Nový projekt nepřepisuje existující `workflows/`; složku s projektem lze
+  místo toho zaregistrovat přes `POST /projects`, pokud obsahuje
+  `workflows/config.yaml`. Odregistrování přes `DELETE /projects/<name>`
+  nemaže žádné soubory.
 
 ### Kdy se registr mění
 
@@ -65,4 +77,4 @@ Projekt se hledá jako u ostatních příkazů (aktuální složka nahoru nebo
 `--project`). Veřejné API: `agencast.api.new_project(root, name=None)`,
 `new_agent(project_root, name)`, `new_scenario(project_root, name)` vrací
 seznam vytvořených cest; `projects()`, `add_project(path, name=None)`,
-`remove_project(name)`.
+`remove_project(name)`, `projects_root()`.

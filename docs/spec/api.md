@@ -1,4 +1,4 @@
-# API `agencast serve` — rodina `/projects/...` (čtení od frameworku 0.4.0, editace od 0.5.0, doplňky pro GUI od 0.6.0, 0.7.0 a 0.8.0)
+# API `agencast serve` — rodina `/projects/...` (čtení od frameworku 0.4.0, editace od 0.5.0, doplňky pro GUI od 0.6.0, 0.7.0, 0.8.0 a 0.9.0)
 
 Pro GUI (DESIGN „Obálky“) a kohokoli, kdo chce číst a upravovat projekty
 a číst běhy přes HTTP. Doplňuje [webhook.md](webhook.md) — `POST /runs`, `GET /runs/<id>`
@@ -35,7 +35,10 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
 
 | Metoda a cesta | Odpověď |
 |---|---|
-| `GET /projects` | `{"projects": [{"name", "root", "available"}]}`; od 0.7.0 `reason` u `available: false`, `last_run` a `registry` ([Doplňky 0.7.0](#doplňky-podle-nálezů-gui-od-070)) |
+| `GET /projects` | `{"projects": [{"name", "root", "available"}]}`; od 0.7.0 `reason` u `available: false`, `last_run` a `registry`; od 0.9.0 `projects_root` a `writable` |
+| `POST /projects/new` | `{name, root?}` — založí projekt a registruje ho; 201 `{name, root, created}` |
+| `POST /projects` | `{root, name?}` — zaregistruje existující projekt s `workflows/config.yaml`; 201 `{name, root}` |
+| `DELETE /projects/<p>` | Odebere projekt z registru; 200 `{name, removed: true, files_deleted: false, message}`; soubory zůstávají |
 | `GET /projects/<p>` | popis projektu (níže) |
 | `GET /projects/<p>/scenarios/<s>` | scénář se stromem kroků (níže) |
 | `GET /projects/<p>/files/<cesta>` | soubor z `workflows/` jako text s otiskem (oddíl [Editace](#editace-od-050)); od 0.8.0 `errors` = chyby `validate` souboru a `?etag_only=1` → jen `{"etag"}` ([Doplňky 0.8.0](#dávka-náhled-a-doplňky-podle-nálezů-gui-část-2-od-080)) |
@@ -55,6 +58,21 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
   od 0.7.0 u `GET` i `errors` jako objekty); u `POST` i chybějící
   proměnná prostředí projektu. `…/runs`, `…/runs/<id>…` a `spend`
   fungují od 0.7.0 i s neplatným `config.yaml` (stačí jim `runs_dir`).
+- Zápis projektu je dostupný jen v režimu registru. V jednoprojektovém
+  režimu vrací `POST /projects/new`, `POST /projects` a
+  `DELETE /projects/<p>` kód **405** s vysvětlením.
+- `POST /projects/new` potřebuje `name` a volitelně `root`; bez `root` se
+  použije `<projects_root>/<name>`. Existující `workflows/` a jméno v
+  registru → **409**; u existující složky odpověď radí přidat ji přes
+  `POST /projects`. `created` je seznam cest vytvořených na disku.
+- `POST /projects` přijímá kořen projektu s `workflows/config.yaml`.
+  `root` se rozbalí a normalizuje: `~` se expanduje, absolutní cesta může
+  mířit kamkoli a relativní cesta se vztahuje k `projects_root`. Jakékoli
+  `..` nebo relativní cesta vedoucí ven přes symlink → **422**. Kolize
+  názvu nebo kořene → **409**.
+- Zápis mimo domovský adresář `serve` je povolený, pokud ho dovolí práva
+  souborového systému. GUI má práva uživatele, pod kterým `agencast serve`
+  běží.
 - `spend` čte jen knihu ostrých běhů (`_ledger/`); falešné běhy
   (`--fake`) mají vlastní `_ledger-fake/` a v `spend` nejsou.
 
@@ -449,9 +467,13 @@ přes `call` do `<run>/scenario/<jméno>.yaml`
 
 ### `GET /projects`
 
-`{"projects": [...], "registry": "/home/…/.config/agencast/projects.yaml"}`
+`{"projects": [...], "registry": "/home/…/.config/agencast/projects.yaml",
+ "projects_root": "/home/…/workspace", "writable": true}`
 — `registry` = cesta k souboru registru (i když neexistuje, i v režimu
-jednoho projektu). Nedostupný projekt má `reason` (`chybí <root>/workflows/config.yaml`).
+jednoho projektu). `projects_root` = nastavená výchozí cesta, jinak
+`~/workspace`. `writable` je `true` jen v režimu registru, když proces může
+registr atomicky zapsat; v jednoprojektovém režimu je `false`. Nedostupný
+projekt má `reason` (`chybí <root>/workflows/config.yaml`).
 
 ## Dávka, náhled a doplňky podle nálezů GUI, část 2 (od 0.8.0)
 

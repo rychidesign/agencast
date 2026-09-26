@@ -265,6 +265,97 @@ class Projects:
             return self.hook.authorized(auth)
         return hmac.compare_digest((auth or "").encode(), f"Bearer {self.token}".encode())
 
+    def _registry_write(self, auth: str | None) -> tuple[int, dict[str, Any]] | None:
+        if not self.authorized(auth):
+            return 401, UNAUTHORIZED
+        if self.hook:
+            return 405, {"error": "zápis projektů je dostupný jen v režimu registru (serve spuštěný mimo projekt)"}
+        return None
+
+    def create_project(self, auth: str | None, raw: bytes) -> tuple[int, dict[str, Any]]:
+        if result := self._registry_write(auth):
+            return result
+        try:
+            body = json.loads(raw)
+        except ValueError:
+            return 422, {"error": "tělo není platný JSON"}
+        if not isinstance(body, dict):
+            return 422, {"error": "tělo musí být JSON objekt"}
+        if unknown := set(body) - {"name", "root"}:
+            return 422, {"error": f"neznámé pole: {', '.join(sorted(unknown))}"}
+        name = body.get("name")
+        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9-]*", name):
+            return 422, {"error": "name: má být malá písmena, číslice a pomlčka, začíná písmenem"}
+        if "root" in body and (not isinstance(body["root"], str) or not body["root"]):
+            return 422, {"error": "root: má být neprázdná cesta"}
+        try:
+            base = api.projects_root()
+            root = api.normalize_project_root(body.get("root", name), base)
+            registered = api.projects()
+        except ConfigErrors as e:
+            return 422, {"error": "registr projektů nelze přečíst", "details": e.errors}
+        if (root / "workflows").exists():
+            return 409, {"error": f"{root}/workflows už existuje — přidej existující projekt přes POST /projects"}
+        if any(p["name"] == name for p in registered):
+            return 409, {"error": f"projekt '{name}' už v registru je"}
+        if any(Path(str(p["root"])).resolve() == root for p in registered):
+            return 409, {"error": f"{root}: už je v registru — přidej existující projekt přes POST /projects"}
+        try:
+            created = api.new_project(root, name)
+        except api.ProjectConflict as e:
+            return 409, {"error": str(e), "hint": "přidej existující projekt přes POST /projects"}
+        except ConfigErrors as e:
+            return 422, {"error": "projekt nelze založit", "details": e.errors}
+        return 201, {"name": name, "root": str(root), "created": [str(p) for p in created]}
+
+    def add_project(self, auth: str | None, raw: bytes) -> tuple[int, dict[str, Any]]:
+        if result := self._registry_write(auth):
+            return result
+        try:
+            body = json.loads(raw)
+        except ValueError:
+            return 422, {"error": "tělo není platný JSON"}
+        if not isinstance(body, dict):
+            return 422, {"error": "tělo musí být JSON objekt"}
+        if unknown := set(body) - {"root", "name"}:
+            return 422, {"error": f"neznámé pole: {', '.join(sorted(unknown))}"}
+        value, name = body.get("root"), body.get("name")
+        if not isinstance(value, str) or not value:
+            return 422, {"error": "root: chybí neprázdná cesta"}
+        if name is not None and (not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9-]*", name)):
+            return 422, {"error": "name: má být malé písmeno následované malými písmeny, číslicemi nebo pomlčkou"}
+        try:
+            root = api.normalize_project_root(value, api.projects_root())
+            registered = api.projects()
+        except ConfigErrors as e:
+            return 422, {"error": "registr nebo cesta projektu nejsou platné", "details": e.errors}
+        if not (root / "workflows" / "config.yaml").is_file():
+            return 422, {"error": f"{root}: chybí workflows/config.yaml"}
+        if any(Path(str(p["root"])).resolve() == root for p in registered):
+            return 409, {"error": f"{root}: už je v registru"}
+        candidate_name = name or default_name(root)
+        if any(p["name"] == candidate_name for p in registered):
+            return 409, {"error": f"projekt '{candidate_name}' už v registru je"}
+        try:
+            saved_name = api.add_project(root / "workflows", name)
+        except api.ProjectConflict as e:
+            return 409, {"error": str(e)}
+        except ConfigErrors as e:
+            return 422, {"error": "projekt nelze zaregistrovat", "details": e.errors}
+        return 201, {"name": saved_name, "root": str(root)}
+
+    def remove_project(self, auth: str | None, name: str) -> tuple[int, dict[str, Any]]:
+        if result := self._registry_write(auth):
+            return result
+        try:
+            if not any(p["name"] == name for p in api.projects()):
+                return 404, {"error": f"projekt '{name}' v registru není"}
+            api.remove_project(name)
+        except ConfigErrors as e:
+            return 404, {"error": str(e)}
+        return 200, {"name": name, "removed": True, "files_deleted": False,
+                     "message": "projekt odebrán z registru; soubory zůstávají"}
+
     def listing(self) -> list[dict[str, str | bool]]:
         if not self.hook:
             return api.projects()
@@ -289,8 +380,16 @@ class Projects:
             return 401, UNAUTHORIZED
         parts = [unquote(x) for x in path.strip("/").split("/")][1:]
         if not parts:  # 0.7.0: last_run u dostupných projektů, cesta k registru
+            try:
+                projects_root = api.projects_root()
+            except ConfigErrors:
+                if not self.hook:
+                    raise
+                projects_root = (Path.home() / "workspace").resolve()
             return 200, {"projects": [x | {"last_run": api.last_run(Path(str(x["root"]))) if x["available"] else None}
-                                      for x in self.listing()], "registry": str(registry_path())}
+                                      for x in self.listing()], "registry": str(registry_path()),
+                    "projects_root": str(projects_root),
+                    "writable": self.hook is None and api.registry_writable()}
         root, err = self.project(parts[0])
         if root is None:
             return 404, err
@@ -438,6 +537,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlsplit(self.path).path
+        if path in ("/projects", "/projects/new"):
+            if (raw := self.body()) is None:
+                return
+            auth = self.headers.get("Authorization")
+            method = self.server.projects.add_project if path == "/projects" else self.server.projects.create_project
+            return self.safe(method, auth, raw)
         m = re.fullmatch(r"/projects/([^/]+)/runs", path)
         if path.startswith("/projects/") and not m:
             return self.do_edit()
@@ -456,6 +561,13 @@ class Handler(BaseHTTPRequestHandler):
         assert hook
         self.safe(hook.accept, auth, raw)
 
+    def do_DELETE(self):
+        path = urlsplit(self.path).path
+        if m := re.fullmatch(r"/projects/([^/]+)", path):
+            return self.safe(self.server.projects.remove_project, self.headers.get("Authorization"),
+                             unquote(m.group(1)))
+        return self.do_edit()
+
     def do_edit(self):
         path = urlsplit(self.path).path
         if not path.startswith("/projects/"):
@@ -463,7 +575,7 @@ class Handler(BaseHTTPRequestHandler):
         if (raw := self.body()) is not None:
             self.safe(self.server.projects.edit, self.command, self.headers.get("Authorization"), path, raw)
 
-    do_PUT = do_PATCH = do_DELETE = do_edit
+    do_PUT = do_PATCH = do_edit
 
     def do_HEAD(self):
         """Jen otisk souboru z workflows/ v hlavičce `ETag` (0.8.0, `HEAD /projects/<p>/files/<cesta>`)."""
