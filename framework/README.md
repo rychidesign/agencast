@@ -14,7 +14,7 @@ uv run --project framework agencast run ig-post -i tema="nová káva"
 uv run --project framework agencast run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake framework/tests/golden/ukazka-task.yaml
 uv run --project framework agencast runs list
 uv run --project framework agencast runs show <run_id>
-uv run --project framework agencast serve --host 127.0.0.1 --port 8080 [--workers 2]
+uv run --project framework agencast serve --host 127.0.0.1 --port 8080 [--workers 2] [--cors http://localhost:5173]
 uv run --project framework agencast migrate workflows/scenarios/ig-post.yaml
 uv run --project framework agencast new project ~/muj-projekt
 uv run --project framework agencast new agent recenzent | new scenario kontrola [--project <cesta>]
@@ -65,8 +65,19 @@ POST /runs            Authorization: Bearer $WEBHOOK_TOKEN
 → 401 / 422 {"error": "…", "details": [...]}   nic nevzniká, callback nepřijde
 GET /runs/<run_id>    stav: queued (+ queue_position) / running / tělo callbacku + callback_failed
 GET /projects, /projects/<p>[/scenarios/<s>|/runs[/<id>[/files/<cesta>]]|/spend?day=]   čtecí API (docs/spec/api.md)
-POST /projects/<p>/runs   totéž co POST /runs v projektu <p>
+POST /projects/<p>/runs   jako POST /runs v projektu <p>; callback_url volitelná, "dry_run": true → jen plán
+POST /projects/<p>/validate   validace bez zápisu ({path, text} nebo prázdné tělo), chyby jako objekty
+GET /, /assets/…      GUI (framework/src/agencast/ui/, bez tokenu)
 ```
+
+- **GUI** (od 0.6.0): `serve` podává sestavené GUI z
+  `framework/src/agencast/ui/` (výstup `npm run build` ve složce `ui/`
+  repozitáře; git ho ignoruje, do wheelu jde přes `artifacts`). `GET /`
+  a `/assets/…` jsou bez tokenu, token chrání jen `/projects…` a `/runs…`;
+  cesta bez přípony vrátí `index.html` (hash routing). Bez sestaveného
+  GUI vrátí `GET /` 404 s návodem. Při vývoji GUI z `vite dev` (jiný
+  origin) pusť `serve --cors http://localhost:5173` — bez přepínače
+  žádné CORS hlavičky.
 
 - V projektu nebo s `--project` jeden projekt (token `webhook.token_env`);
   **mimo projekt režim registru**: všechny projekty z registru, token
@@ -114,7 +125,7 @@ skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
 | `providers.py` | OpenRouter chat / Jev / obrázek, třídy chyb, kaskáda |
 | `fake.py` | falešný poskytovatel (`httpx.MockTransport`) |
 | `record.py` | záznam běhu, summary.md, plan.md, report.html |
-| `server.py` | webhook server, fronta, request_key, čtecí API `/projects/...` |
+| `server.py` | webhook server, fronta, request_key, API `/projects/...` (čtení, editace, validate), GUI a `--cors` |
 | `mcp_client.py` | `mcp.yaml`, MCP servery běhu (SDK `mcp` 2.2), normalizace schémat nástrojů |
 | `task.py` | krok `task` (smyčka model ↔ nástroje, `load_skill`), `dedupe_key` |
 | `projects.py` | registr projektů, šablony pro `agencast new`, popis projektu a scénáře pro GUI |

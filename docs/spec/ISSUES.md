@@ -307,3 +307,24 @@ rozhoduje koordinátor nebo uživatel.
     `mcp.yaml`; `.env` nikdy. `config` přes formulář jen `models`,
     `limits`, `storage`, `webhook`, `callback` a `openrouter.api_key_env`.
     Formáty v1 beze změny.
+44. **Doplňky API pro GUI** (zadání koordinátora 2026-09-26, framework
+    0.6.0; [api.md](api.md) „Doplňky pro GUI“, návrh GUI
+    `docs/ui/navrh-gui.md` §7.2–7.4, §8.4–8.5). Chyby jako objekty
+    `{message, file?, step?, field?, line?}`: pole se čtou ze začátku
+    hlášky (`<soubor>[, řádek N][: krok "id"][, pole]: …`) na jednom místě
+    v HTTP vrstvě (`projects.error_fields`) — hlášky `validate` i loaderu
+    tak zůstávají jediným zdrojem a CLI se nemění; přenášet strukturu
+    z každého místa, kde chyba vzniká (`_Checker.err`, `schema_errors`,
+    `load_yaml`, …), by znamenalo měnit desítky volání. Známý strop: scénář
+    pojmenovaný `config` nebo `mcp` dostane `file: config.yaml`/`mcp.yaml`.
+    `POST …/validate` = stejná kopie `workflows/` jako editační operace
+    (`edit._errors_with`), vrací všechny chyby. `env` = jen `true/false`
+    (neprázdná proměnná v prostředí `serve`), nikdy hodnota. Běhy: zdroj
+    `events.jsonl`, `steps_total` z nového pole `run_started.steps_total`
+    (plán jako soubor by se musel parsovat). Spuštění z GUI: `callback_url`
+    volitelná jen v `POST /projects/<p>/runs`, bez ní
+    `run_started.callback_url: null`; `dry_run` synchronně (200), s
+    `callback_url`/`request_key` 422. GUI se servíruje bez tokenu (statické
+    soubory bez dat; token dál chrání `/projects…` a `/runs…`), CORS jen
+    s `--cors <origin>`. Změna tvaru `errors` je jediná neaditivní změna;
+    GUI je jediný klient.

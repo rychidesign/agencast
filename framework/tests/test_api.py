@@ -136,7 +136,10 @@ def test_edit_api(registry_server):
     assert stale.status_code == 409 and stale.json()["etag"] == tag
     bad = client.patch("/projects/alfa/scenarios/ukazka/steps/1",
                        json={"etag": tag, "fields": {"ask": {"agent": "nikdo"}}})
-    assert bad.status_code == 422 and any("nikdo" in e for e in bad.json()["errors"])
+    assert bad.status_code == 422
+    (e,) = [e for e in bad.json()["errors"] if "nikdo" in e["message"]]  # 0.6.0: chyby jako objekty
+    assert e == {"message": 'ukazka.yaml: krok "zkrat": agent \'nikdo\' neexistuje (agents/nikdo.md)',
+                 "file": "scenarios/ukazka.yaml", "step": "zkrat"}
     r = client.post("/projects/alfa/scenarios/ukazka/steps/1/move", json={"etag": tag, "to": ["steps"]})
     assert r.status_code == 422  # zkrat by odkazoval na krok, který běží až po něm
     r = client.patch("/projects/alfa/scenarios/ukazka/steps/1", json={"etag": tag, "fields": {"timeout": "1m"}})
@@ -165,7 +168,7 @@ def test_edit_api(registry_server):
     pis = client.get("/projects/alfa/files/agents/pisatel.md").json()
     assert pis["frontmatter"]["name"] == "pisatel"
     r = client.request("DELETE", "/projects/alfa/agents/pisatel", json={"etag": pis["etag"]})
-    assert r.status_code == 422 and "ukazka" in r.json()["errors"][0]
+    assert r.status_code == 422 and "ukazka" in r.json()["errors"][0]["message"]
     assert client.post("/projects/alfa/scenarios", json={"name": "druhy"}).status_code == 200
     assert client.post("/projects/alfa/scenarios", json={"name": "druhy"}).status_code == 422  # nepřepisuje
 

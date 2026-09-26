@@ -94,18 +94,34 @@ def _errors(root: Path) -> list[str]:
                                              for e in x["errors"]]))
 
 
-def _check(root: Path, rel: str, text: str | None) -> list[str]:
-    """Chyby projektu po změně; chyba, která v projektu nebyla → ConfigErrors (nic se nezapíše)."""
-    before = _errors(root)
+def _errors_with(root: Path, rel: str, text: str | None) -> list[str]:
+    """Chyby projektu, kdyby soubor `rel` měl text `text` (None = smazaný); na disku se nic nemění."""
     # ponytail: kopie celé workflows/ při každé změně (ms u běžného projektu); velké skilly → kopírovat jen YAML/MD
     with tempfile.TemporaryDirectory() as tmp:
         t = Path(tmp).resolve()
         shutil.copytree(root / "workflows", t / "workflows")
         _write(t / "workflows" / rel, text)
-        after = [e.replace(str(t), str(root)) for e in _errors(t)]
+        return [e.replace(str(t), str(root)) for e in _errors(t)]
+
+
+def _check(root: Path, rel: str, text: str | None) -> list[str]:
+    """Chyby projektu po změně; chyba, která v projektu nebyla → ConfigErrors (nic se nezapíše)."""
+    before = _errors(root)
+    after = _errors_with(root, rel, text)
     if new := [e for e in after if e not in before]:
         raise ConfigErrors(new)
     return after
+
+
+def validate_text(root, rel: str | None = None, text: Any = None) -> list[str]:
+    """Chyby projektu bez zápisu: jak je na disku, nebo s jedním souborem `rel` nahrazeným textem `text`."""
+    root = Path(root).resolve()
+    if rel is None:
+        return _errors(root)
+    _path(root, rel)  # jen povolené soubory ve workflows/, jinak NotFound
+    if not isinstance(text, str):
+        raise ConfigErrors(["text: má být text"])
+    return _errors_with(root, rel, text)
 
 
 def _save(root, rel: str, tag: str | None, change: Callable[[str | None], str | None], *,

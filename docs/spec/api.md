@@ -1,4 +1,4 @@
-# API `agencast serve` — rodina `/projects/...` (čtení od frameworku 0.4.0, editace od 0.5.0)
+# API `agencast serve` — rodina `/projects/...` (čtení od frameworku 0.4.0, editace od 0.5.0, doplňky pro GUI od 0.6.0)
 
 Pro GUI (DESIGN „Obálky“) a kohokoli, kdo chce číst a upravovat projekty
 a číst běhy přes HTTP. Doplňuje [webhook.md](webhook.md) — `POST /runs`, `GET /runs/<id>`
@@ -22,12 +22,16 @@ a callbacky se nemění. Projekty: [projects.md](projects.md).
   (`<runs>/_queue/`) a `--workers N` pracovních vláken; fronty dostupných
   projektů se obnoví při startu, projekt přidaný později při prvním `POST`.
 - Čtení i zápis používají stejný token. Chybějící/nesedící token → 401.
+- Token chrání jen `/projects…` a `/runs…`; GUI (`GET /`, `/assets/…`,
+  oddíl [GUI](#gui-a-cors-od-060)) je bez tokenu.
 
 ## Endpointy
 
 Odpovědi jsou JSON (kromě `runs/<id>/files/`). Chyby `{"error": "…"}`, u 422
 navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
-[Editace](#editace-od-050)).
+[Editace](#editace-od-050)). Pole `errors` obsahuje od 0.6.0 **objekty**
+`{message, file?, step?, field?, line?}` ([Chyby jako objekty](#chyby-jako-objekty-od-060));
+`details` zůstávají texty.
 
 | Metoda a cesta | Odpověď |
 |---|---|
@@ -35,11 +39,12 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
 | `GET /projects/<p>` | popis projektu (níže) |
 | `GET /projects/<p>/scenarios/<s>` | scénář se stromem kroků (níže) |
 | `GET /projects/<p>/files/<cesta>` | soubor z `workflows/` jako text s otiskem (oddíl [Editace](#editace-od-050)) |
-| `GET /projects/<p>/runs` | `{"runs": [...]}` — položky jako `agencast runs list`: čekající `{"run_id", "status": "queued"}`, pak `{"run_id", "status", "cost_usd", "duration_s", "callback"}`, nejnovější první |
+| `GET /projects/<p>/runs` | `{"runs": [...]}` — položky jako `agencast runs list`: čekající `{"run_id", "status": "queued"}`, pak `{"run_id", "status", "cost_usd", "duration_s", "callback", "scenario", "started_at", "finished_at", "current_step", "steps_total"}` (pole od `scenario` dál od 0.6.0, [Běhy pro GUI](#běhy-pro-gui-od-060)), nejnovější první |
 | `GET /projects/<p>/runs/<id>` | stav běhu + kroky + soubory (níže); čekající ve frontě `{"run_id", "status": "queued"}` |
 | `GET /projects/<p>/runs/<id>/files/<cesta>` | obsah souboru ze složky běhu (`summary.md`, `report.html`, `events.jsonl`, `steps/…`), `Content-Type` podle přípony |
 | `GET /projects/<p>/spend?day=RRRR-MM-DD` | denní kniha útraty ostrých běhů: `{"day", "total_usd", "runs": [{"run_id", "cost_usd", "finished_at"}]}`; bez `day` dnešek (UTC); jiný tvar `day` → 422 |
-| `POST /projects/<p>/runs` | totéž co `POST /runs` ([webhook.md](webhook.md)) v projektu `<p>` — stejné tělo, odpovědi 202/200/401/422 i callback |
+| `POST /projects/<p>/runs` | jako `POST /runs` ([webhook.md](webhook.md)) v projektu `<p>` — stejné tělo, odpovědi 202/200/401/422 i callback; od 0.6.0 `callback_url` volitelná a `dry_run` ([Spuštění z GUI](#spuštění-z-gui-od-060)) |
+| `POST /projects/<p>/validate` | validace bez zápisu (od 0.6.0, [níže](#post-projectspvalidate-od-060)) |
 
 - **404** s JSON chybou: neznámý projekt, nedostupný projekt
   (`available: false`), neznámý scénář, běh, soubor nebo adresa. Cesta
@@ -66,6 +71,7 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
                    "tools": ["read_text_file"], "scenarios": null}],
   "links": {"scenario_agent": [["ig-post", "copywriter"]], "scenario_scenario": [["ukazka-call", "kontrola-tonu"]],
             "agent_skill": [["copywriter", "thtd-hlas"]], "agent_server": [["knihovnik", "filesystem"]]},
+  "env": {"CALLBACK_SECRET": true, "OPENROUTER_API_KEY": true, "WEBHOOK_TOKEN": false},
   "errors": []
 }
 ```
@@ -81,6 +87,13 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
   `url`, `env` ani `bearer_token_env`.
 - `links` = seřazené dvojice [odkud, kam]: krok `ask`/`task` → agent,
   krok `call` → scénář, agent → skill, agent → MCP server.
+- `env` (od 0.6.0) = všechny proměnné prostředí, na které projekt
+  odkazuje (pole `*_env` v `config.yaml` — `openrouter.api_key_env`,
+  `webhook.token_env`, `callback.secret_env`, proměnné úložiště — a
+  `env`/`bearer_token_env` serverů v `mcp.yaml`), seřazené podle jména:
+  `true` = v prostředí procesu `serve` je neprázdná (v jednoprojektovém
+  režimu po načtení `.env` projektu, v registru jen prostředí serveru a
+  `.env` v cwd). **Hodnota se nikdy nevrací.**
 
 ### `GET /projects/<p>/scenarios/<s>`
 
@@ -140,9 +153,9 @@ Tělo požadavku je JSON objekt s polem `etag`. Odpovědi:
 
 | Kód | Tělo |
 |---|---|
-| 200 | `{"etag": "<nový otisk>" \| null po smazání, "errors": [chyby, které v projektu zůstávají]}` |
+| 200 | `{"etag": "<nový otisk>" \| null po smazání, "errors": [chyby, které v projektu zůstávají]}` (objekty, [níže](#chyby-jako-objekty-od-060)) |
 | 409 | `{"error", "etag": "<aktuální otisk>" \| null}` — soubor se mezitím změnil; načti ho znovu |
-| 422 | `{"error", "errors": [...]}` — hlášky jako z `agencast validate` (třída `config`), nic se nezapsalo |
+| 422 | `{"error", "errors": [...]}` — hlášky jako z `agencast validate` (třída `config`) jako objekty, nic se nezapsalo |
 | 404 | `{"error"}` — neznámý projekt, soubor, adresa kroku nebo cesta mimo povolené soubory |
 | 401 | chybí/nesedí token (stejný jako pro čtení) |
 
@@ -209,4 +222,105 @@ hodnota nahradí. Text s `{{ }}` se zapíše v dvojitých uvozovkách, víc
 - Veřejné API (`agencast.api`): `set_header`, `add_step`, `update_step`,
   `move_step`, `delete_step`, `delete_scenario`, `set_agent`,
   `delete_agent`, `set_skill`, `delete_skill`, `set_config`, `read_file`,
-  `write_file`; výjimky `Conflict` (`.etag`), `NotFound`, `ConfigErrors`.
+  `write_file`, od 0.6.0 `validate_text`; výjimky `Conflict` (`.etag`),
+  `NotFound`, `ConfigErrors`. Python API vrací chyby jako texty (jako
+  `agencast validate`); objekty z nich dělá až HTTP vrstva.
+
+## Doplňky pro GUI (od 0.6.0)
+
+Podle návrhu GUI (`docs/ui/navrh-gui.md` §7, §8). Aditivní kromě tvaru
+`errors` — jediným klientem těch polí je GUI.
+
+### Chyby jako objekty (od 0.6.0)
+
+Všude, kde API vrací pole `errors` (`GET /projects/<p>` — projekt,
+scénáře, agenti, skilly —, `GET …/scenarios/<s>`, `GET …/files/<cesta>`,
+odpovědi 200 a 422 editačních operací, `POST …/validate`), je položka
+objekt:
+
+```json
+{"message": "ukazka.yaml: krok \"vystup\", output.text: krok 'nic' neexistuje (dostupné: napis)\n  {{ steps.nic.text }}\n           ^",
+ "file": "scenarios/ukazka.yaml", "step": "vystup", "field": "output.text"}
+```
+
+| Pole | Co to je |
+|---|---|
+| `message` | hláška přesně jako z `agencast validate` (CLI ji tiskne beze změny) |
+| `file` | relativní cesta ve `workflows/` (`scenarios/ig-post.yaml`, `agents/copy.md`, `skills/hlas/SKILL.md`, `config.yaml`, `mcp.yaml`) |
+| `step` | id kroku, kterého se chyba týká |
+| `field` | pole (cesta s tečkami, např. `ask.prompt`, `inputs.tema.default`, `openrouter`) |
+| `line` | číslo řádku — jen tam, kde ho hlásí loader (syntaxe YAML, duplicitní klíč) |
+
+Pole kromě `message` chybí, když je hláška neuvádí (např. chyba těla
+požadavku `fields: má být JSON objekt`). Změna tvaru proti 0.4.0/0.5.0
+(dřív texty): `message` = dřívější text. `details` (odmítnutý `POST`,
+chyba `config.yaml` u čtení) zůstávají texty.
+
+### `POST /projects/<p>/validate` (od 0.6.0)
+
+Validace bez zápisu, stejná mechanika jako krok 3 editačních operací
+(kopie `workflows/` + `validate` bez kontroly modelů).
+
+| Tělo | Co ověří |
+|---|---|
+| prázdné nebo `{}` | projekt, jak je na disku |
+| `{"path": "scenarios/ig-post.yaml", "text": "…"}` | projekt s tímto souborem nahrazeným textem `text` (nový soubor jde taky); `path` jen z povolených souborů `files/` |
+
+Odpověď **200** `{"errors": [...]}` = **všechny** chyby projektu (i ty,
+které tam už byly; objekty jako výše). Soubor mimo povolené → 404,
+`text` není text → 422. Otisk se nekontroluje, nic se nezapisuje.
+
+### Běhy pro GUI (od 0.6.0)
+
+`GET /projects/<p>/runs` a `GET /projects/<p>/runs/<id>` mají navíc
+(zdroj `events.jsonl`):
+
+| Pole | Co to je |
+|---|---|
+| `scenario` | jméno scénáře z `run_started` |
+| `started_at`, `finished_at` | `ts` z `run_started` a `run_finished`; `finished_at: null` u běžícího (nebo přerušeného) běhu |
+| `current_step` | u běhu bez `run_finished`: `step` posledního `step_started` bez `step_finished`; jinak `null` |
+| `steps_total` | počet kroků scénáře včetně vnořených ve větvích (bez kroků volaných scénářů) z `run_started.steps_total`; `null` u běhů před 0.6.0 |
+
+`status` zůstává jako v `agencast runs list` (`succeeded`, `failed
+(<třída> v <krok>)`, `běží nebo přerušen`, `dry-run`); dry-run a běhy
+bez `events.jsonl` mají nová pole `null`.
+
+```json
+{"run_id": "20260926-120000-ukazka-ab12", "status": "běží nebo přerušen", "cost_usd": null, "duration_s": null,
+ "callback": "", "scenario": "ukazka", "started_at": "2026-09-26T12:00:00.004Z", "finished_at": null,
+ "current_step": "vystup", "steps_total": 2}
+```
+
+### Spuštění z GUI (od 0.6.0)
+
+`POST /projects/<p>/runs` přijímá navíc proti `POST /runs`:
+
+- `callback_url` je **volitelná** — bez ní se callback neposílá;
+  v záznamu je `run_started.callback_url: null` a žádné `callback_sent`
+  ([run-record.md](run-record.md)). Když je, platí pravidla webhook.md.
+- `"dry_run": true` → běh se nespustí, vznikne jen složka s `plan.md`
+  a `inputs.json` (jako `agencast run --dry-run`); odpověď **200**
+  `{"run_id": "…", "dry_run": true}`. Vstupy a scénář se kontrolují
+  stejně (422). S `callback_url` nebo `request_key` → 422.
+
+Smlouva `POST /runs` ([webhook.md](webhook.md)) se nemění: `callback_url`
+povinná, pole `dry_run` neznámé (422).
+
+### GUI a CORS (od 0.6.0)
+
+- `serve` podává statické soubory ze složky `agencast/ui/` balíku
+  (`framework/src/agencast/ui/`, sestavené GUI z `ui/` přes `npm run
+  build`): `GET /` → `index.html`, `GET /assets/…` soubory. **Bez
+  tokenu.** Cesta bez přípony, která není soubor, vrátí `index.html`
+  (GUI používá hash routing); neznámý soubor s příponou → 404. Cesta
+  mimo složku GUI → 404.
+- Když GUI sestavené není, `GET /` vrátí **404** `{"error"}` s návodem
+  (`ui/` → `npm install` a `npm run build`).
+- `agencast serve --cors <origin>` (vývoj GUI z `vite dev`, např.
+  `http://localhost:5173`): každá odpověď má
+  `Access-Control-Allow-Origin: <origin>` a `OPTIONS` (preflight) vrátí
+  204 s `Access-Control-Allow-Methods` a `Access-Control-Allow-Headers:
+  Authorization, Content-Type`. Bez přepínače žádné CORS hlavičky
+  a `OPTIONS` → 404 (zdroj: MDN, *Cross-Origin Resource Sharing (CORS)*,
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).

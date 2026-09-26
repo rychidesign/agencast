@@ -162,7 +162,9 @@ class Run:
                        limits={"run_budget_usd": lim["run_budget_usd"],
                                "run_image_budget_usd": lim.get("run_image_budget_usd"),
                                "run_timeout": lim["run_timeout"]},
-                       framework_version=__version__, storage_prefix=self.storage_prefix, fake=self.fake)
+                       framework_version=__version__, storage_prefix=self.storage_prefix, fake=self.fake,
+                       steps_total=len(self.p.order) or None,  # 0.6.0: kroky scénáře včetně větví (bez volaných)
+                       callback_url=safe_url(self.callback_url) if self.callback_url else None)
         if self.waited_s is not None:
             self.rec.event("run_waiting", waited_s=self.waited_s, max_parallel_runs=lim["max_parallel_runs"])
         root = Ctx([self.run_budget], [(loop.time() + seconds(lim["run_timeout"]),

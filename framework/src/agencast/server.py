@@ -31,13 +31,16 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import ConfigErrors, AgencastError, api
 from .engine import RUN_ID, RUN_ID_TRIES, new_run_id
-from .projects import default_name
+from .projects import default_name, error_fields
 from .validate import Project, load_config, resolve_inputs
 
 FIELDS = ("scenario", "inputs", "callback_url", "request_key")
 CALLBACK_PREFIXES = ("https://", "http://127.0.0.1:", "http://127.0.0.1/")  # 127.0.0.1 jen pro testy (ISSUES)
 MAX_BODY = 1_000_000
 UNAUTHORIZED = {"error": "chybí nebo nesedí token (hlavička Authorization: Bearer …)"}
+UI = Path(__file__).resolve().parent / "ui"  # sestavené GUI (ui/ → npm run build); v gitu není
+NO_UI = {"error": "GUI není sestavené — ve složce ui/ repozitáře spusť npm install a npm run build "
+                  f"(výstup patří do {UI})"}
 
 
 class Webhook:
@@ -87,8 +90,9 @@ class Webhook:
         return hmac.compare_digest((auth or "").encode(), f"Bearer {self.token}".encode())
 
     # --- POST /runs -----------------------------------------------------------------------
-    def accept(self, auth: str | None, raw: bytes) -> tuple[int, dict]:
-        """(status, tělo): 401/422 bez run_id a bez callbacku, 202 nový běh, 200 opakovaný request_key."""
+    def accept(self, auth: str | None, raw: bytes, gui: bool = False) -> tuple[int, dict]:
+        """(status, tělo): 401/422 bez run_id a bez callbacku, 202 nový běh, 200 opakovaný request_key.
+        `gui` = POST /projects/<p>/runs (api.md): callback_url volitelná, `dry_run: true` → jen plán (200)."""
         if not self.authorized(auth):
             return 401, UNAUTHORIZED
         try:
@@ -97,17 +101,23 @@ class Webhook:
             return 422, {"error": "tělo není platný JSON", "details": []}
         if not isinstance(body, dict):
             return 422, {"error": "tělo musí být JSON objekt", "details": []}
+        fields = FIELDS + ("dry_run",) if gui else FIELDS
         name, inputs, url, key = (body.get(f) for f in FIELDS)
+        dry = body.get("dry_run", False)
         inputs = {} if inputs is None else inputs
-        errs = [f"neznámé pole '{k}' (povolená: {', '.join(FIELDS)})" for k in body if k not in FIELDS]
+        errs = [f"neznámé pole '{k}' (povolená: {', '.join(fields)})" for k in body if k not in fields]
         if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9-]+", name):
             errs.append("scenario: chybí nebo to není jméno scénáře (malá písmena, číslice, pomlčka)")
         if not isinstance(inputs, dict):
             errs.append("inputs: má být objekt")
-        if not isinstance(url, str) or not url.startswith(CALLBACK_PREFIXES):
-            errs.append("callback_url: chybí nebo nezačíná https://")
+        if not (gui and url is None) and (not isinstance(url, str) or not url.startswith(CALLBACK_PREFIXES)):
+            errs.append("callback_url: nezačíná https://" if gui else "callback_url: chybí nebo nezačíná https://")
         if key is not None and not (isinstance(key, str) and key):
             errs.append("request_key: má být neprázdný text")
+        if not isinstance(dry, bool):
+            errs.append("dry_run: má být true/false")
+        elif dry and (url is not None or key is not None):
+            errs.append("dry_run: s callback_url ani request_key nejde — dry-run nic nespouští")
         with self.lock:
             if isinstance(key, str) and key and (kf := self.key_file(key)).is_file():
                 return 200, {"run_id": json.loads(kf.read_text(encoding="utf-8"))["run_id"], "queue_position": None}
@@ -120,21 +130,29 @@ class Webhook:
                 return 422, {"error": f"neznámý scénář '{name}'", "details": []}
             if errs := self.check(path, inputs):
                 return 422, {"error": f"scénář '{name}' nebo jeho vstupy neprošly kontrolou", "details": errs}
-            for _ in range(RUN_ID_TRIES):  # ISSUES 35: kolize run_id nesmí přepsat cizí požadavek
-                run_id = new_run_id(name)
-                if not (self.qdir / f"{run_id}.json").exists() and not (self.runs / run_id).exists():
-                    break
-            else:
-                raise AgencastError("internal", f"{RUN_ID_TRIES}× kolize run_id ve frontě {self.qdir}")
-            entry = {"run_id": run_id, "scenario": name, "inputs": inputs, "callback_url": url, "request_key": key,
-                     "queued_ns": time.time_ns()}
-            if key:
-                self.key_file(key).write_text(json.dumps({"run_id": run_id, "request_key": key}, ensure_ascii=False))
-            tmp = self.qdir / f"{run_id}.tmp"
-            tmp.write_text(json.dumps(entry, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(self.qdir / f"{run_id}.json")  # GET čte frontu bez zámku → nikdy půlka souboru
-            position = len(self.entries())  # čekající + běžící (až `workers` najednou), včetně tohoto
-            self.q.put(entry)
+            if not dry:
+                return self.enqueue(name, inputs, url, key)
+            p = api.load(path, fake=self.fake)
+        # mimo zámek: dry-run spouští MCP servery kvůli seznamu nástrojů (sekundy)
+        return 200, {"run_id": api.dry_run(p, inputs).dir.name, "dry_run": True}
+
+    def enqueue(self, name: str, inputs: dict[str, Any], url: str | None, key: str | None) -> tuple[int, dict[str, Any]]:
+        """Nový běh do fronty; volá se pod `self.lock` (request_key se ověřil ve stejném zámku)."""
+        for _ in range(RUN_ID_TRIES):  # ISSUES 35: kolize run_id nesmí přepsat cizí požadavek
+            run_id = new_run_id(name)
+            if not (self.qdir / f"{run_id}.json").exists() and not (self.runs / run_id).exists():
+                break
+        else:
+            raise AgencastError("internal", f"{RUN_ID_TRIES}× kolize run_id ve frontě {self.qdir}")
+        entry = {"run_id": run_id, "scenario": name, "inputs": inputs, "callback_url": url, "request_key": key,
+                 "queued_ns": time.time_ns()}
+        if key:
+            self.key_file(key).write_text(json.dumps({"run_id": run_id, "request_key": key}, ensure_ascii=False))
+        tmp = self.qdir / f"{run_id}.tmp"
+        tmp.write_text(json.dumps(entry, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(self.qdir / f"{run_id}.json")  # GET čte frontu bez zámku → nikdy půlka souboru
+        position = len(self.entries())  # čekající + běžící (až `workers` najednou), včetně tohoto
+        self.q.put(entry)
         return 202, {"run_id": run_id, "queue_position": position}
 
     def check(self, path: Path, inputs: dict) -> list[str]:
@@ -196,6 +214,19 @@ class Webhook:
         """Projekt pro běh, který nezačne: jméno scénáře a config ze startu serveru."""
         sc = {"version": None, "name": entry["scenario"], "description": "Běh nezačal — viz Chyba.", "steps": []}
         return Project(path, self.wf, sc, self.config, {}, {})
+
+
+def structured(root: Path, errors: list[str]) -> list[dict[str, Any]]:
+    """Hlášky validate jako objekty `{message, file?, step?, field?, line?}` (api.md, od 0.6.0)."""
+    return [error_fields(e, root) for e in errors]
+
+
+def with_structured(root: Path, body: dict[str, Any]) -> dict[str, Any]:
+    """`errors` odpovědi a jejích scénářů, agentů a skillů jako objekty (`structured`)."""
+    for x in [body, *(i for k in ("scenarios", "agents", "skills") for i in body.get(k) or [])]:
+        if isinstance(x.get("errors"), list):
+            x["errors"] = structured(root, x["errors"])
+    return body
 
 
 class Projects:
@@ -265,10 +296,11 @@ class Projects:
         try:
             match parts[1:]:
                 case []:
-                    return 200, {"name": parts[0], **api.describe_project(root)}
+                    return 200, with_structured(root, {"name": parts[0], **api.describe_project(root)})
                 case ["scenarios", s]:
                     body = api.describe_scenario(root, s)
-                    return (200, body) if body else (404, {"error": f"scénář '{s}' v projektu '{parts[0]}' neexistuje"})
+                    return (200, with_structured(root, body)) if body else (
+                        404, {"error": f"scénář '{s}' v projektu '{parts[0]}' neexistuje"})
                 case ["runs"]:
                     return 200, {"runs": api.runs_list(root)}
                 case ["runs", r]:
@@ -278,7 +310,7 @@ class Projects:
                     f = api.run_file(root, r, "/".join(rel))
                     return (200, f) if f else (404, {"error": "soubor ve složce běhu neexistuje"})
                 case ["files", *rel] if rel:
-                    return 200, api.read_file(root, "/".join(rel))
+                    return 200, with_structured(root, api.read_file(root, "/".join(rel)))
                 case ["spend"]:
                     day = parse_qs(query).get("day", [f"{datetime.now(timezone.utc):%Y-%m-%d}"])[0]
                     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
@@ -304,47 +336,54 @@ class Projects:
             return 422, {"error": "tělo není platný JSON", "errors": []}
         if not isinstance(body, dict):
             return 422, {"error": "tělo musí být JSON objekt", "errors": []}
-        tag, g = body.get("etag"), body.get
         try:
-            match method, parts[1:]:
-                case "POST", [("scenarios" | "agents") as kind]:
-                    name = g("name")
-                    if not isinstance(name, str):
-                        return 422, {"error": "name: chybí jméno", "errors": []}
-                    (api.new_scenario if kind == "scenarios" else api.new_agent)(root, name)
-                    rel = f"{kind}/{name}.{'yaml' if kind == 'scenarios' else 'md'}"
-                    return 200, {"name": name, "etag": api.read_file(root, rel)["etag"]}
-                case "PUT", ["scenarios", s]:
-                    return 200, api.set_header(root, s, tag, g("fields"))
-                case "DELETE", ["scenarios", s]:
-                    return 200, api.delete_scenario(root, s, tag)
-                case "POST", ["scenarios", s, "steps"]:
-                    return 200, api.add_step(root, s, tag, g("after", ["steps"]), g("step"))
-                case "POST", ["scenarios", s, "steps", *a, "move"] if a:
-                    return 200, api.move_step(root, s, tag, ["steps", *a], g("to"))
-                case "PATCH", ["scenarios", s, "steps", *a] if a:
-                    return 200, api.update_step(root, s, tag, ["steps", *a], g("fields"))
-                case "DELETE", ["scenarios", s, "steps", *a] if a:
-                    return 200, api.delete_step(root, s, tag, ["steps", *a])
-                case "PUT", ["agents", a]:
-                    return 200, api.set_agent(root, a, tag, g("frontmatter"), g("body"))
-                case "DELETE", ["agents", a]:
-                    return 200, api.delete_agent(root, a, tag)
-                case "PUT", ["skills", n]:
-                    return 200, api.set_skill(root, n, tag, g("text"))
-                case "DELETE", ["skills", n]:
-                    return 200, api.delete_skill(root, n, tag)
-                case "PUT", ["config"]:
-                    return 200, api.set_config(root, tag, g("fields"))
-                case "PUT", ["files", *rel] if rel:
-                    return 200, api.write_file(root, "/".join(rel), tag, g("text"))
+            status, out = self.route(method, parts[1:], root, body) or (
+                404, {"error": f"neznámá adresa {method} {path} (api.md)"})
         except api.Conflict as e:
             return 409, {"error": "soubor se mezitím změnil — načti ho znovu (etag = aktuální otisk)", "etag": e.etag}
         except api.NotFound as e:
             return 404, {"error": str(e)}
         except ConfigErrors as e:
-            return 422, {"error": "změna neprošla kontrolou, nic se nezapsalo", "errors": e.errors}
-        return 404, {"error": f"neznámá adresa {method} {path} (api.md)"}
+            return 422, {"error": "změna neprošla kontrolou, nic se nezapsalo", "errors": structured(root, e.errors)}
+        return status, with_structured(root, out) if status == 200 else out
+
+    def route(self, method: str, parts: list[str], root: Path, body: dict[str, Any]) -> tuple[int, dict[str, Any]] | None:
+        tag, g = body.get("etag"), body.get
+        match method, parts:
+            case "POST", ["validate"]:  # bez zápisu; bez path = projekt, jak je na disku
+                return 200, {"errors": api.validate_text(root, g("path"), g("text"))}
+            case "POST", [("scenarios" | "agents") as kind]:
+                name = g("name")
+                if not isinstance(name, str):
+                    return 422, {"error": "name: chybí jméno", "errors": []}
+                (api.new_scenario if kind == "scenarios" else api.new_agent)(root, name)
+                rel = f"{kind}/{name}.{'yaml' if kind == 'scenarios' else 'md'}"
+                return 200, {"name": name, "etag": api.read_file(root, rel)["etag"]}
+            case "PUT", ["scenarios", s]:
+                return 200, api.set_header(root, s, tag, g("fields"))
+            case "DELETE", ["scenarios", s]:
+                return 200, api.delete_scenario(root, s, tag)
+            case "POST", ["scenarios", s, "steps"]:
+                return 200, api.add_step(root, s, tag, g("after", ["steps"]), g("step"))
+            case "POST", ["scenarios", s, "steps", *a, "move"] if a:
+                return 200, api.move_step(root, s, tag, ["steps", *a], g("to"))
+            case "PATCH", ["scenarios", s, "steps", *a] if a:
+                return 200, api.update_step(root, s, tag, ["steps", *a], g("fields"))
+            case "DELETE", ["scenarios", s, "steps", *a] if a:
+                return 200, api.delete_step(root, s, tag, ["steps", *a])
+            case "PUT", ["agents", a]:
+                return 200, api.set_agent(root, a, tag, g("frontmatter"), g("body"))
+            case "DELETE", ["agents", a]:
+                return 200, api.delete_agent(root, a, tag)
+            case "PUT", ["skills", n]:
+                return 200, api.set_skill(root, n, tag, g("text"))
+            case "DELETE", ["skills", n]:
+                return 200, api.delete_skill(root, n, tag)
+            case "PUT", ["config"]:
+                return 200, api.set_config(root, tag, g("fields"))
+            case "PUT", ["files", *rel] if rel:
+                return 200, api.write_file(root, "/".join(rel), tag, g("text"))
+        return None
 
     def post_run(self, auth: str | None, name: str, raw: bytes) -> tuple[int, dict[str, Any]]:
         if not self.authorized(auth):
@@ -356,7 +395,7 @@ class Projects:
             hook = self.webhook(root)
         except ConfigErrors as e:
             return 422, {"error": f"projekt '{name}' nejde spustit", "details": e.errors}
-        return hook.accept(auth, raw)
+        return hook.accept(auth, raw, gui=True)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -406,11 +445,40 @@ class Handler(BaseHTTPRequestHandler):
         u = urlsplit(self.path)
         if u.path == "/projects" or u.path.startswith("/projects/"):
             return self.safe(self.server.projects.get, self.headers.get("Authorization"), u.path, u.query)
+        if u.path != "/runs" and not u.path.startswith("/runs/"):
+            return self.static(unquote(u.path))
         m = re.fullmatch(r"/runs/([^/?]+)", self.path)
         if not m or not self.server.hook:
             return self.reply(404, {"error": "neznámá adresa — stav běhu je na GET /runs/<run_id> "
                                              "nebo GET /projects/<projekt>/runs/<run_id>"})
         self.safe(self.server.hook.status, self.headers.get("Authorization"), m.group(1))
+
+    def static(self, path: str):
+        """GUI bez tokenu (token chrání jen /projects… a /runs…); cesta bez přípony → index.html (hash routing)."""
+        if not (UI / "index.html").is_file():
+            return self.reply(404, NO_UI)
+        f = (UI / path.lstrip("/")).resolve()
+        if f.is_relative_to(UI) and f.is_file():
+            return self.reply(200, f)
+        if "." in path.rsplit("/", 1)[-1]:
+            return self.reply(404, {"error": f"soubor {path} v GUI není"})
+        self.reply(200, UI / "index.html")
+
+    def do_OPTIONS(self):
+        """CORS preflight — jen s `serve --cors <origin>` (vývoj GUI z vite dev)."""
+        if not self.server.cors:
+            return self.reply(404, {"error": "CORS je vypnuté (agencast serve --cors <origin>)"})
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.end_headers()
+
+    def end_headers(self):
+        if self.server.cors:
+            self.send_header("Access-Control-Allow-Origin", self.server.cors)
+            self.send_header("Vary", "Origin")
+        super().end_headers()
 
     def safe(self, fn, *args):
         try:
@@ -436,8 +504,10 @@ class Handler(BaseHTTPRequestHandler):
 class Server(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, hook: Webhook | None, host: str, port: int, projects: Projects | None = None):
-        """`hook` = jeden projekt (POST /runs, GET /runs/<id>); None = režim registru s `projects`."""
-        self.hook = hook
+    def __init__(self, hook: Webhook | None, host: str, port: int, projects: Projects | None = None,
+                 cors: str | None = None):
+        """`hook` = jeden projekt (POST /runs, GET /runs/<id>); None = režim registru s `projects`.
+        `cors` = origin, kterému prohlížeč smí číst odpovědi (vývoj GUI); None = žádné CORS hlavičky."""
+        self.hook, self.cors = hook, cors
         self.projects = projects or Projects(hook)
         super().__init__((host, port), Handler)

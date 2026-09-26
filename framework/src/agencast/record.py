@@ -240,19 +240,33 @@ def total_note(run) -> str:
 def run_status(run_dir: Path) -> dict:
     """Stav běhu z events.jsonl (pro `agencast runs list`)."""
     info = {"run_id": run_dir.name, "status": "běží nebo přerušen", "cost_usd": None, "duration_s": None,
-            "callback": ""}
+            "callback": "", "scenario": None, "started_at": None, "finished_at": None, "current_step": None,
+            "steps_total": None}
     ev = run_dir / "events.jsonl"
     if not ev.is_file():
         info["status"] = "dry-run" if (run_dir / "plan.md").is_file() else "?"
         return info
+    running: dict[str, None] = {}  # rozběhnuté kroky bez step_finished, v pořadí startu
     for line in ev.read_text(encoding="utf-8").splitlines():
-        e = json.loads(line)
-        if e["type"] == "run_finished":
-            info.update(status=e["status"], cost_usd=e["usage"]["cost_usd"], duration_s=e["duration_s"])
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue  # řádek, který běh právě zapisuje
+        if e["type"] == "run_started":
+            info.update(scenario=e["scenario"], started_at=e["ts"], steps_total=e.get("steps_total"))
+        elif e["type"] == "step_started":
+            running[e["step"]] = None
+        elif e["type"] == "step_finished":
+            running.pop(e["step"], None)
+        elif e["type"] == "run_finished":
+            info.update(status=e["status"], cost_usd=e["usage"]["cost_usd"], duration_s=e["duration_s"],
+                        finished_at=e["ts"])
             if e.get("error"):
                 info["status"] += f" ({e['error']['class']} v {e['error']['step']})"
         elif e["type"] == "callback_failed":
             info["callback"] = "callback nedoručen"
+    if info["finished_at"] is None and running:
+        info["current_step"] = list(running)[-1]
     return info
 
 

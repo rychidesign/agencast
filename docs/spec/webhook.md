@@ -8,8 +8,10 @@ Značení: **návrh** = DESIGN.md to neřeší, navržené výchozí chování.
 
 Čtení projektů a běhů přes HTTP (`GET /projects/...`) a spuštění běhu
 v konkrétním projektu (`POST /projects/<p>/runs`, jinak totéž co
-`POST /runs`) popisuje [api.md](api.md) (od frameworku 0.4.0). Tahle
-smlouva se tím nemění.
+`POST /runs`) popisuje [api.md](api.md) (od frameworku 0.4.0); spuštění
+z GUI bez `callback_url` a s `dry_run` jen tam ([api.md „Spuštění
+z GUI“](api.md#spuštění-z-gui-od-060), od 0.6.0). Tahle smlouva se tím
+nemění.
 
 ## Požadavek
 

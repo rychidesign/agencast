@@ -5,6 +5,35 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.6.0 — 2026-09-26 (doplňky API pro GUI)
+
+Minor: nové endpointy a pole, formáty v1 beze změny (R8), v záznamu běhu
+dvě nová pole. **Jediná změna tvaru:** `errors` v HTTP API jsou objekty
+(GUI je jediný klient). ISSUES 44.
+
+- **Chyby jako objekty** `{message, file?, step?, field?, line?}` ve všech
+  `errors` HTTP API (`GET /projects/<p>`, `…/scenarios/<s>`, `…/files/`,
+  odpovědi editačních operací, `validate`); `message` = dřívější text.
+  CLI a Python API beze změny (`projects.error_fields`).
+- **`POST /projects/<p>/validate`** bez zápisu: prázdné tělo = projekt na
+  disku, `{path, text}` = s jedním souborem nahrazeným (`edit.validate_text`,
+  re-export v `agencast.api`; stejná kopie `workflows/` jako editace).
+- **`env`** v `GET /projects/<p>`: `{JMÉNO: true|false}` pro všechny
+  proměnné z `config.yaml` (`*_env`) a `mcp.yaml` (`env`,
+  `bearer_token_env`); nikdy hodnota.
+- **Běhy pro GUI:** `runs list` / `GET …/runs[/<id>]` mají `scenario`,
+  `started_at`, `finished_at`, `current_step`, `steps_total`;
+  `run_started` nese `steps_total` a `callback_url` (bez query, `null`
+  = bez callbacku). `run_status` snese rozepsaný poslední řádek.
+- **Spuštění z GUI:** v `POST /projects/<p>/runs` je `callback_url`
+  volitelná a `dry_run: true` vrátí hned `{run_id, dry_run: true}` (jen
+  `plan.md` a `inputs.json`). `POST /runs` beze změny.
+- **GUI v `serve`:** statické soubory z `agencast/ui/` (`GET /`,
+  `/assets/…`, bez tokenu, cesta bez přípony → `index.html`; bez
+  sestaveného GUI 404 s návodem). `--cors <origin>` pro `vite dev`.
+  `pyproject.toml`: `[tool.hatch.build.targets.wheel] artifacts` pro
+  `agencast/ui/**` (složka je v `.gitignore`).
+
 ## 0.5.0 — 2026-09-26 (editační operace pro GUI)
 
 Minor: nové operace a endpointy, formáty v1 beze změny (R8). ISSUES 43.

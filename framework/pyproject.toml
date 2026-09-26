@@ -1,6 +1,6 @@
 [project]
 name = "agencast"
-version = "0.5.0"
+version = "0.6.0"
 description = "AgenCast — jádro frameworku multiagent-workflows (scénáře v YAML, agenti v Markdownu, OpenRouter)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -20,6 +20,10 @@ dev = ["pytest>=8"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Sestavené GUI (framework/src/agencast/ui/, výstup npm run build v ui/) do wheelu, i když ho git ignoruje.
+[tool.hatch.build.targets.wheel]
+artifacts = ["/src/agencast/ui/**"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
