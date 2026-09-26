@@ -1,13 +1,15 @@
 // §2.2 Záložka Scénáře: mřížka karet scénářů.
 import { Plus } from "lucide-react";
-import { enc, useApi } from "../api";
+import { useState } from "react";
+import { ApiError, enc, send, useApi, type Saved } from "../api";
+import { Modal, NameDialog } from "../components/form";
 import { LastRun } from "../components/RunBadge";
 import { IconChain } from "../components/TypeIcon";
-import { CliLine, EmptyState, Menu, Skeleton, StatusChip } from "../components/ui";
+import { EmptyState, ErrorList, Menu, Skeleton, StatusChip } from "../components/ui";
 import { formatWhen, runScenario, runStartedAt, utcTitle } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
-import type { Project, RunListItem, Scenario, ScenarioSummary } from "../types";
+import type { ErrorItem, Project, RunListItem, Scenario, ScenarioSummary } from "../types";
 
 /** Příkaz spuštění z CLI; povinné vstupy bez `default` jako `-i jmeno=…`. */
 export function runCommand(root: string, s: ScenarioSummary): string {
@@ -18,26 +20,63 @@ export function runCommand(root: string, s: ScenarioSummary): string {
   return `agencast --project ${root} run ${s.name}${inputs}`;
 }
 
-export function ScenariosTab({ project }: { project: Project }) {
+export function ScenariosTab({ project, onChanged }: { project: Project; onChanged: () => void }) {
   const runs = useApi<{ runs: RunListItem[] }>(`/projects/${enc(project.name)}/runs`);
+  const [creating, setCreating] = useState(false);
+  const [checked, setChecked] = useState<{ name: string; errors: ErrorItem[] | string }>();
   const lastRun = (name: string) => runs.data?.runs.find((r) => r.status !== "queued" && runScenario(r) === name);
+  const base = `/projects/${enc(project.name)}`;
+  /** Validovat (⋯): `POST …/validate` bez těla = projekt jak je na disku, chyby jen tohoto souboru. */
+  const validate = async (name: string) => {
+    setChecked({ name, errors: t("common.loading") });
+    try {
+      const r = await send<{ errors: ErrorItem[] }>("POST", `${base}/validate`, {});
+      setChecked({ name, errors: r.errors.filter((e) => e.file === `scenarios/${name}.yaml`) });
+    } catch (e) {
+      setChecked({ name, errors: (e as ApiError).message });
+    }
+  };
   return (
-    <ul className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4">
-      <li className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-600 p-5 text-zinc-300">
-        <Plus className="size-6" aria-hidden />
-        <p className="text-sm">{t("scenarios.new")}</p>
-        <CliLine cmd={`agencast --project ${project.root} new scenario <jméno>`} className="w-full" />
-      </li>
-      {project.scenarios.map((s) => (
-        <ScenarioCard key={s.name} project={project} scenario={s} lastRun={runs.data ? lastRun(s.name) ?? null : undefined} />
-      ))}
-      {!project.scenarios.length && <li><EmptyState text={t("scenarios.empty")} /></li>}
-    </ul>
+    <>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4">
+        <li>
+          <button type="button" onClick={() => setCreating(true)}
+            className="flex min-h-52 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-600 p-5 text-zinc-300 hover:bg-zinc-800/40 hover:text-zinc-100">
+            <Plus className="size-6" aria-hidden />
+            <span className="text-sm">{t("scenarios.new")}</span>
+          </button>
+        </li>
+        {project.scenarios.map((s) => (
+          <ScenarioCard key={s.name} project={project} scenario={s} lastRun={runs.data ? lastRun(s.name) ?? null : undefined} onValidate={() => void validate(s.name)} />
+        ))}
+        {!project.scenarios.length && <li><EmptyState text={t("scenarios.empty")} /></li>}
+      </ul>
+      {creating && (
+        <NameDialog title={t("scenarios.new")} withDescription taken={project.scenarios.map((s) => s.name)} onCancel={() => setCreating(false)}
+          onSubmit={async (name, description) => {
+            const r = await send<{ etag: string }>("POST", `${base}/scenarios`, { name });
+            // popis do hlavičky hned (šablona má zástupný); když neprojde, scénář už existuje a popis jde změnit v editoru
+            if (description) await send<Saved>("PUT", `${base}/scenarios/${enc(name)}`, { etag: r.etag, fields: { description } }).catch(() => undefined);
+            setCreating(false);
+            onChanged();
+            navigate(href(project.name, "scenare", name, { krok: "_hlavicka" }));
+          }} />
+      )}
+      {checked && (
+        <Modal title={t("scenarios.validated", { name: checked.name })} onCancel={() => setChecked(undefined)} actions={[]} cancelLabel={t("common.close")}>
+          <div aria-live="polite">
+            {typeof checked.errors === "string" ? <p>{checked.errors}</p>
+              : checked.errors.length ? <ErrorList errors={checked.errors} hrefFor={(e) => e.step ? href(project.name, "scenare", checked.name, { krok: e.step }) : undefined} />
+              : <StatusChip status="succeeded">{t("scenarios.valid")}</StatusChip>}
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
 
-function ScenarioCard({ project, scenario: s, lastRun }: {
-  project: Project; scenario: ScenarioSummary; lastRun: RunListItem | null | undefined;
+function ScenarioCard({ project, scenario: s, lastRun, onValidate }: {
+  project: Project; scenario: ScenarioSummary; lastRun: RunListItem | null | undefined; onValidate: () => void;
 }) {
   // ponytail: jeden GET na scénář kvůli řetězci ikon; až API dá typy kroků v přehledu, odpadne (nalezy-api.md).
   const detail = useApi<Scenario>(`/projects/${enc(project.name)}/scenarios/${enc(s.name)}`);
@@ -56,6 +95,7 @@ function ScenarioCard({ project, scenario: s, lastRun }: {
     { label: t("common.open"), onSelect: () => navigate(open) },
     { label: t("scenarios.runsOf"), onSelect: () => navigate(href(project.name, "behy", undefined, { scenar: s.name })) },
     { label: t("scenarios.copyRun"), onSelect: () => navigator.clipboard.writeText(runCommand(project.root, s)) },
+    { label: t("scenarios.validate"), onSelect: onValidate },
   ];
   const when = lastRun ? lastRun.finished_at ?? runStartedAt(lastRun) : null;
   return (
