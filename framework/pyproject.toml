@@ -1,6 +1,6 @@
 [project]
 name = "agencast"
-version = "0.4.0"
+version = "0.5.0"
 description = "AgenCast — jádro frameworku multiagent-workflows (scénáře v YAML, agenti v Markdownu, OpenRouter)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -8,6 +8,7 @@ dependencies = [
     "jsonschema>=4.18",
     "httpx>=0.27",
     "mcp==2.2.*",
+    "ruamel-yaml>=0.19.1",
 ]
 
 [project.scripts]

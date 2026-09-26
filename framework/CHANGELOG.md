@@ -5,6 +5,32 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.5.0 — 2026-09-26 (editační operace pro GUI)
+
+Minor: nové operace a endpointy, formáty v1 beze změny (R8). ISSUES 43.
+
+- **Editační operace v jádru** (`agencast/edit.py`, re-export v
+  `agencast.api`): `set_header`, `add_step`, `update_step`, `move_step`,
+  `delete_step`, `delete_scenario`, `set_agent`, `delete_agent`,
+  `set_skill`, `delete_skill`, `set_config`, `read_file`, `write_file`.
+  Každá ověří otisk (sha256 obsahu → `Conflict`), validuje kopii
+  `workflows/` se změnou (nová chyba → `ConfigErrors`, nic se nezapíše)
+  a zapíše atomicky. Mazání použitého agenta/skillu/volaného scénáře
+  odmítne.
+- **Round-trip YAML** přes `ruamel.yaml` (nová závislost, DESIGN D4):
+  komentáře, pořadí klíčů, prázdné řádky a uvozovky zůstávají, nezměněné
+  řádky doslova. Každý scénář a agent z `workflows/` projde no-op úpravou
+  bajtově beze změny (test).
+- **Adresa kroku** `["steps", 2, "parallel", "a", 0]` v poli `address`
+  odpovědi `GET …/scenarios/<s>`; `etag` u scénářů, agentů a skillů.
+- **HTTP v `serve`** (docs/spec/api.md „Editace“): `PUT/DELETE
+  …/scenarios/<s>`, `POST …/scenarios/<s>/steps`, `PATCH/DELETE
+  …/steps/<adresa>`, `POST …/steps/<adresa>/move`, `PUT/DELETE
+  …/agents/<a>`, `PUT …/config`, `PUT/DELETE …/skills/<n>`, `GET/PUT
+  …/files/<cesta>`, `POST …/scenarios` a `…/agents` (= `new`). 409 při
+  neshodě otisku, 422 s `errors`, 404 mimo povolené soubory; stejný token
+  jako čtení.
+
 ## 0.4.0 — 2026-09-26 (agencast new, registr projektů, čtecí API serve)
 
 Minor: nové příkazy a endpointy, formáty v1 beze změny (R8).

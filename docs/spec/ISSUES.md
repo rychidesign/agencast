@@ -286,3 +286,24 @@ rozhoduje koordinátor nebo uživatel.
     v poli `errors`, rozbitý soubor se zobrazí, co jde. `files/` pouští jen
     soubory uvnitř složky běhu (jinak 404), `spend` jen ostrou knihu.
     Neznámý projekt/scénář/běh → 404 s JSON chybou.
+43. **Editační operace pro GUI** (zadání koordinátora 2026-09-26,
+    framework 0.5.0; [api.md](api.md) „Editace“). GUI mění soubory jen
+    operacemi jádra (`agencast/edit.py`) přes `serve`; soubor zůstává
+    pravdou. Otisk verze = sha256 obsahu (ne mtime — snadno se porovná
+    v testech i v GUI); neshoda → 409, nic se nezapíše. Validace před
+    zápisem = kopie `workflows/` se změnou + `validate(check_models=False)`
+    (nejlevnější správná cesta: validace pracuje nad soubory, ne nad
+    daty v paměti); blokuje jen **nová** chyba — kdyby blokovala každá,
+    dva rozbité soubory, které na sebe odkazují (scénář a jeho `call`),
+    by nešly opravit jeden po druhém. Zápis round-trip přes `ruamel.yaml`
+    (DESIGN D4), nezměněné řádky doslova z originálu (ruamel jinak mění
+    mezery ve flow mapách). Adresa kroku = cesta v dokumentu
+    (`["steps", 2, "parallel", "a", 0]`), stejná v `GET …/scenarios/<s>`
+    (`address`) i v URL operací. Změny polí jsou merge patch (RFC 7396);
+    hodnotu `null` jím zapsat nejde (celý krok přes `POST …/steps` nebo
+    text přes `files/`). Mazání agenta, skillu a scénáře odmítne použitý
+    soubor podle vazeb z 0.4.0 (`links`). Surový text jen pro
+    `agents/*.md`, `scenarios/*.yaml`, `skills/*/SKILL.md`, `config.yaml`,
+    `mcp.yaml`; `.env` nikdy. `config` přes formulář jen `models`,
+    `limits`, `storage`, `webhook`, `callback` a `openrouter.api_key_env`.
+    Formáty v1 beze změny.

@@ -1,7 +1,7 @@
-# Čtecí API `agencast serve` — rodina `/projects/...` (od frameworku 0.4.0)
+# API `agencast serve` — rodina `/projects/...` (čtení od frameworku 0.4.0, editace od 0.5.0)
 
-Pro GUI (DESIGN „Obálky“) a kohokoli, kdo chce číst projekty a běhy přes
-HTTP. Doplňuje [webhook.md](webhook.md) — `POST /runs`, `GET /runs/<id>`
+Pro GUI (DESIGN „Obálky“) a kohokoli, kdo chce číst a upravovat projekty
+a číst běhy přes HTTP. Doplňuje [webhook.md](webhook.md) — `POST /runs`, `GET /runs/<id>`
 a callbacky se nemění. Projekty: [projects.md](projects.md).
 
 ## Režimy serveru
@@ -25,14 +25,16 @@ a callbacky se nemění. Projekty: [projects.md](projects.md).
 
 ## Endpointy
 
-Odpovědi jsou JSON (kromě `files/`). Chyby `{"error": "…"}`, u 422 navíc
-`"details": [...]`.
+Odpovědi jsou JSON (kromě `runs/<id>/files/`). Chyby `{"error": "…"}`, u 422
+navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
+[Editace](#editace-od-050)).
 
 | Metoda a cesta | Odpověď |
 |---|---|
 | `GET /projects` | `{"projects": [{"name", "root", "available"}]}` |
 | `GET /projects/<p>` | popis projektu (níže) |
 | `GET /projects/<p>/scenarios/<s>` | scénář se stromem kroků (níže) |
+| `GET /projects/<p>/files/<cesta>` | soubor z `workflows/` jako text s otiskem (oddíl [Editace](#editace-od-050)) |
 | `GET /projects/<p>/runs` | `{"runs": [...]}` — položky jako `agencast runs list`: čekající `{"run_id", "status": "queued"}`, pak `{"run_id", "status", "cost_usd", "duration_s", "callback"}`, nejnovější první |
 | `GET /projects/<p>/runs/<id>` | stav běhu + kroky + soubory (níže); čekající ve frontě `{"run_id", "status": "queued"}` |
 | `GET /projects/<p>/runs/<id>/files/<cesta>` | obsah souboru ze složky běhu (`summary.md`, `report.html`, `events.jsonl`, `steps/…`), `Content-Type` podle přípony |
@@ -54,12 +56,12 @@ Odpovědi jsou JSON (kromě `files/`). Chyby `{"error": "…"}`, u 422 navíc
   "name": "thtd", "root": "~/thtd",
   "models": {"chytry": "anthropic/claude-haiku-4.5"},
   "limits": {"run_budget_usd": 1.0, "run_timeout": "1h", "max_call_depth": 3},
-  "scenarios": [{"name": "ig-post", "description": "…", "inputs": {…}, "outputs": {…},
+  "scenarios": [{"name": "ig-post", "etag": "9f2c…", "description": "…", "inputs": {…}, "outputs": {…},
                  "callable": false, "steps_count": 8, "errors": []}],
-  "agents": [{"name": "copywriter", "description": "…", "model": "chytry",
+  "agents": [{"name": "copywriter", "etag": "…", "description": "…", "model": "chytry",
               "model_id": "anthropic/claude-haiku-4.5", "skills": ["thtd-hlas"], "mcp": [], "tools": {},
               "errors": []}],
-  "skills": [{"name": "thtd-hlas", "description": "…", "errors": []}],
+  "skills": [{"name": "thtd-hlas", "etag": "…", "description": "…", "errors": []}],
   "mcp_servers": [{"name": "filesystem", "type": "stdio", "agents": ["knihovnik"],
                    "tools": ["read_text_file"], "scenarios": null}],
   "links": {"scenario_agent": [["ig-post", "copywriter"]], "scenario_scenario": [["ukazka-call", "kontrola-tonu"]],
@@ -72,6 +74,8 @@ Odpovědi jsou JSON (kromě `files/`). Chyby `{"error": "…"}`, u 422 navíc
   `errors` = hlášky `validate` daného souboru; rozbitý soubor se přesto
   zobrazí, co z něj jde přečíst. `errors` projektu = chyby `mcp.yaml`.
 - `steps_count` = všechny kroky včetně vnořených ve větvích.
+- `etag` (od 0.5.0) = otisk souboru scénáře, agenta, skillu (`SKILL.md`)
+  pro editační operace.
 - MCP servery bez tajemství: jen jméno, `type` (`stdio`/`http`) a povolení
   z `mcp.yaml` (`agents`, `tools`, `scenarios`) — žádné `command`, `args`,
   `url`, `env` ani `bearer_token_env`.
@@ -80,10 +84,11 @@ Odpovědi jsou JSON (kromě `files/`). Chyby `{"error": "…"}`, u 422 navíc
 
 ### `GET /projects/<p>/scenarios/<s>`
 
-Hlavička jako v `scenarios` výše a `steps` — strom kroků pro karty:
+Hlavička jako v `scenarios` výše (včetně `etag`) a `steps` — strom kroků
+pro karty:
 
 ```json
-{"nn": 3, "id": "stop", "type": "fail", "when": "steps.kontrola.on_brand < 0.7",
+{"nn": 3, "address": ["steps", 2], "id": "stop", "type": "fail", "when": "steps.kontrola.on_brand < 0.7",
  "fields": {"fail": "Text neodpovídá značce (on_brand = {{ steps.kontrola.on_brand }})"},
  "refs": ["steps.kontrola.on_brand"]}
 ```
@@ -91,6 +96,7 @@ Hlavička jako v `scenarios` výše a `steps` — strom kroků pro karty:
 | Pole | Co to je |
 |---|---|
 | `nn` | pořadí v souboru hloubkově — stejné číslo jako složka kroku `steps/<nn>-<id>` v záznamu běhu |
+| `address` | adresa kroku pro editační operace (od 0.5.0, níže) |
 | `id`, `type`, `when` | id, typ kroku (`null`, když soubor typ neurčuje), podmínka (`null` bez `when`) |
 | `fields` | všechna ostatní pole kroku tak, jak jsou v souboru, bez vnořených seznamů kroků (u `switch` jen `value`) |
 | `refs` | odkazy `steps.<id>.<pole>` z výrazů a šablon tohoto kroku (bez vnořených kroků) |
@@ -110,3 +116,97 @@ Pole `agencast runs list` (`run_id`, `status`, `cost_usd`, `duration_s`,
   `failed`, `cancelled`, nebo `skipped` (pak `reason_code`, `reason`).
   `step` je cesta jako v `events.jsonl` (u `call` `navrh/copy`).
 - `files` — relativní cesty všech souborů ve složce běhu (pro `files/`).
+
+## Editace (od 0.5.0)
+
+GUI mění soubory jen přes tyto operace; **soubor je pravda** (DESIGN
+„Obálky“). Každá operace:
+
+1. přečte soubor a porovná **otisk** `etag` z těla požadavku s otiskem
+   souboru — `etag` = sha256 (hex) bajtů souboru, který klient načetl
+   (`GET …/scenarios/<s>`, `GET /projects/<p>`, `GET …/files/<cesta>`);
+   nový soubor má `etag: null`. Nesedí → **409** a nic se nezapíše;
+2. soubor upraví se zachováním komentářů, pořadí klíčů, prázdných řádků
+   a stylu uvozovek (nezměněné řádky zůstanou doslova; přepsaný řádek
+   může dostat jiné mezery, např. `{a: 1}` místo `{ a: 1 }`);
+3. ověří kopii `workflows/` se změnou stejně jako `agencast validate`
+   (bez kontroly modelů proti `GET /models`). Změna nesmí do projektu
+   přidat **novou** chybu — chyby, které v projektu už byly, ji
+   neblokují (dva rozbité soubory jdou opravit jeden po druhém).
+   Nová chyba → **422** a nic se nezapíše;
+4. zapíše atomicky (dočasný soubor + přejmenování).
+
+Tělo požadavku je JSON objekt s polem `etag`. Odpovědi:
+
+| Kód | Tělo |
+|---|---|
+| 200 | `{"etag": "<nový otisk>" \| null po smazání, "errors": [chyby, které v projektu zůstávají]}` |
+| 409 | `{"error", "etag": "<aktuální otisk>" \| null}` — soubor se mezitím změnil; načti ho znovu |
+| 422 | `{"error", "errors": [...]}` — hlášky jako z `agencast validate` (třída `config`), nic se nezapsalo |
+| 404 | `{"error"}` — neznámý projekt, soubor, adresa kroku nebo cesta mimo povolené soubory |
+| 401 | chybí/nesedí token (stejný jako pro čtení) |
+
+### Adresa kroku
+
+Cesta ke kroku v dokumentu scénáře, jako JSON pole. Vrací ji
+`GET …/scenarios/<s>` v poli `address` každého kroku:
+
+| Adresa | Co to je |
+|---|---|
+| `["steps", 2]` | třetí krok hlavního seznamu |
+| `["steps", 2, "parallel", "a", 0]` | první krok větve `a` kroku `parallel` |
+| `["steps", 4, "switch", "cases", "hravy", 1]` | druhý krok případu `hravy` |
+| `["steps", 4, "switch", "default", 0]` | první krok `default` |
+| bez posledního indexu, např. `["steps", 2, "parallel", "a"]` nebo `["steps"]` | seznam kroků (začátek větve) |
+
+Vnořuje se do libovolné hloubky, kterou dovoluje scénář. V URL je adresa
+cesta po `steps/` (každá položka jeden segment, `/` ve jménu případu jako
+`%2F`): `["steps", 2, "parallel", "a", 0]` → `…/steps/2/parallel/a/0`.
+
+### Operace
+
+`<p>` projekt, `<s>` scénář, `<a>` agent, `<n>` skill. Změny polí jsou
+**merge patch** (RFC 7396): mapa se slučuje, `null` klíč smaže, jiná
+hodnota nahradí. Text s `{{ }}` se zapíše v dvojitých uvozovkách, víc
+řádků jako blok `|`; nahrazený text v uvozovkách si styl nechá.
+
+| Metoda a cesta | Tělo (kromě `etag`) | Co udělá |
+|---|---|---|
+| `POST /projects/<p>/scenarios` | `{"name"}` | nový scénář ze šablony (`agencast new scenario`); 200 `{"name", "etag"}`, existující → 422 |
+| `POST /projects/<p>/agents` | `{"name"}` | nový agent ze šablony (`agencast new agent`); 200 `{"name", "etag"}` |
+| `PUT /projects/<p>/scenarios/<s>` | `{"fields": {…}}` | hlavička: jen `description`, `inputs`, `outputs`, `callable` (jiné pole → 422) |
+| `DELETE /projects/<p>/scenarios/<s>` | — | smaže scénář; když ho jiný volá přes `call` → 422 |
+| `POST /projects/<p>/scenarios/<s>/steps` | `{"after": adresa, "step": {…}}` | vloží krok (celý, jako v souboru) za krok `after`; adresa seznamu = na jeho začátek; bez `after` na začátek `steps` |
+| `PATCH /projects/<p>/scenarios/<s>/steps/<adresa>` | `{"fields": {…}}` | pole kroku (i `id`, `when`, větve `parallel` a případy `switch`) |
+| `POST /projects/<p>/scenarios/<s>/steps/<adresa>/move` | `{"to": adresa}` | přesune krok za krok `to`, nebo na začátek seznamu `to`; do vlastní větve → 422 |
+| `DELETE /projects/<p>/scenarios/<s>/steps/<adresa>` | — | smaže krok |
+| `PUT /projects/<p>/agents/<a>` | `{"frontmatter": {…}, "body": "…"}` | frontmatter jako merge patch, tělo celé; chybějící = beze změny; nový agent potřebuje obojí |
+| `DELETE /projects/<p>/agents/<a>` | — | smaže agenta; když ho používá scénář (`ask`/`task`) → 422 |
+| `PUT /projects/<p>/skills/<n>` | `{"text"}` | celý `SKILL.md`; nový skill založí |
+| `DELETE /projects/<p>/skills/<n>` | — | smaže `SKILL.md` (a složku, je-li prázdná); když ho agent používá → 422 |
+| `PUT /projects/<p>/config` | `{"fields": {…}}` | `config.yaml`: jen `models`, `limits`, `storage`, `webhook`, `callback` a `openrouter.api_key_env` |
+| `GET /projects/<p>/files/<cesta>` | — | `{"path", "etag", "text", "errors"}` a rozparsovaný obsah: u `.yaml` `data`, u `.md` `frontmatter` a `body` (GUI neparsuje samo) |
+| `PUT /projects/<p>/files/<cesta>` | `{"text"}` | celý text souboru (záložní textový editor); nový soubor s `etag: null` |
+
+- Po operaci nad kroky `output` zůstává posledním krokem hlavního
+  seznamu — jinak 422 (`config`). Když z větve `parallel` nebo případu
+  `switch` odejde poslední krok, větev/případ zmizí (prázdný seznam
+  schéma nepovoluje).
+- Merge patch neumí zapsat hodnotu `null` (smaže klíč); krok s `null`
+  (např. `default: { file: null }`) jde vložit celý přes `POST …/steps`,
+  nebo upravit jako text přes `files/`.
+- **`files/<cesta>`** (jiná rodina než `…/runs/<id>/files/`) pouští jen
+  `agents/<jméno>.md`, `scenarios/<jméno>.yaml`, `skills/<jméno>/SKILL.md`,
+  `config.yaml` a `mcp.yaml` uvnitř `workflows/` projektu; cokoli jiného
+  (`..`, absolutní cesta, symlink ven, `.env`, `commands.yaml`, podsložky)
+  = 404. **`.env` se nikdy nečte ani nezapisuje.**
+- **Tajemství:** `config.yaml` a `mcp.yaml` obsahují jen jména proměnných
+  (`*_env`, `env`), hodnoty jsou v prostředí/`.env`. Hodnota místo jména
+  (třeba klíč `sk-or-…` v `api_key_env`) neprojde schématem → 422 a
+  hláška hodnotu nevypíše.
+- Operace v jednom procesu `serve` jdou po jedné (zámek). Ruční úprava
+  souboru mimo `serve` se pozná podle otisku při další operaci.
+- Veřejné API (`agencast.api`): `set_header`, `add_step`, `update_step`,
+  `move_step`, `delete_step`, `delete_scenario`, `set_agent`,
+  `delete_agent`, `set_skill`, `delete_skill`, `set_config`, `read_file`,
+  `write_file`; výjimky `Conflict` (`.etag`), `NotFound`, `ConfigErrors`.
