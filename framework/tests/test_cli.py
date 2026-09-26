@@ -1,7 +1,9 @@
 """CLI z libovolné složky: kořen projektu podle workflows/ nahoru nebo --project; migrate."""
 from pathlib import Path
 
+from agencast import api
 from agencast.cli import main
+from agencast.fake import Fake
 from agencast.record import count
 
 GOLDEN = str(Path(__file__).parent / "golden" / "ukazka-call.yaml")
@@ -57,3 +59,15 @@ def test_step_count_czech_plural(wf, capsys):
         ["0 kroků", "1 krok", "2 kroky", "4 kroky", "5 kroků", "9 kroků"]
     assert main(["--project", str(wf.parent), "validate", "tutorial-01-nazvy", "--offline"]) == 0
     assert "v pořádku: tutorial-01-nazvy (2 kroky, bez kontroly modelů)" in capsys.readouterr().out
+
+
+def test_api_for_wrappers(wf):
+    """agencast.api: jméno scénáře + kořen projektu → běh → výpis běhů (obálky nad jádrem)."""
+    fake = Fake(None)  # modely doplní api.load z config.yaml
+    p = api.load("kontrola-tonu", project_root=wf.parent, fake=fake)
+    plan = api.dry_run(p, {"text": "Ahoj"})
+    r = api.run(p, {"text": "Ahoj"}, fake=fake)
+    assert r.status == "succeeded" and fake.models
+    listed = {s["run_id"]: s for s in api.runs_list(wf.parent)}
+    assert listed[r.run_id] == api.run_status(r.rec.dir) and listed[r.run_id]["status"] == "succeeded"
+    assert listed[plan.dir.name]["status"] == "dry-run"

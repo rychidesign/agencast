@@ -5,9 +5,10 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
-## 0.3.0 — 2026-09-26 (AgenCast)
+## 0.3.0 — 2026-09-26 (AgenCast, souběžné běhy, API pro obálky)
 
-Formát: spec v1 beze změny.
+Minor: přejmenování a nové funkce, vše zpětně kompatibilní. Formát: spec
+v1 beze změny (jen doplněné `--workers` ve webhook.md).
 
 - **Přejmenování:** framework se jmenuje AgenCast — balík `agencast`
   (dřív `maw`), příkaz `agencast` (dřív `maw`), výjimka `AgencastError`
@@ -15,6 +16,19 @@ Formát: spec v1 beze změny.
   webhooku, fake skripty) jméno neobsahoval, takže staré záznamy i skripty
   platí beze změny. Alias z tutoriálu:
   `alias agencast="uv run --project framework agencast"`.
+- **`agencast serve --workers N`** (výchozí 1): N pracovních vláken nad
+  jednou frontou; obnova fronty a `request_key` pod zámkem, pořadí
+  dokončení s N > 1 není zaručené (ISSUES 39).
+- **Kolize `run_id`** (ISSUES 35): nový suffix, nejvýš 5×, pak `internal`;
+  webhook při přijetí přeskočí id s existujícím záznamem fronty.
+- **Cache `/models`** se zapisuje atomicky (dočasný soubor + `os.replace`),
+  poškozená cache = cache není.
+- **`DedupeStore`** (`task.py`): `dedupe_key` za rozhraním `get` / `claim` /
+  `finish`, lokálně beze změny souborů `<runs>/_dedupe/` a `_dedupe-fake/`;
+  `Run.dedupe` je místo, kam Modal dosadí vlastní úložiště.
+- **`agencast.api`**: `load`, `run`, `dry_run`, `runs_list`, `run_status`
+  (+ `find_root`) — tenké funkce nad validate, engine a record; `cli.py`
+  i `server.py` volají přes ně (DESIGN „Obálky“).
 
 ## 0.2.5 — 2026-09-25 (čas v řádku Celkem)
 

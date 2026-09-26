@@ -1,8 +1,9 @@
 """Webhook server (webhook.md, D2): `POST /runs` hned odpoví 202 + run_id, výsledek
 přijde později na `callback_url`. `GET /runs/<run_id>` vrací stav.
 
-Stdlib `ThreadingHTTPServer`: požadavky obsluhují vlákna, běhy jedno pracovní
-vlákno → jeden běh po druhém. Fronta a request_key jsou soubory, takže
+Stdlib `ThreadingHTTPServer`: požadavky obsluhují vlákna, běhy `workers`
+pracovních vláken nad jednou frontou (výchozí 1 → jeden běh po druhém; víc →
+pořadí dokončení není zaručené). Fronta a request_key jsou soubory, takže
 přežijí restart serveru:
 
     <runs>/_queue/<run_id>.json        požadavek ve frontě (smaže se po callbacku)
@@ -21,9 +22,9 @@ import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import ConfigErrors, AgencastError
-from .engine import new_run_id, run_scenario
-from .validate import Project, load_config, resolve_inputs, validate
+from . import ConfigErrors, AgencastError, api
+from .engine import RUN_ID_TRIES, new_run_id
+from .validate import Project, load_config, resolve_inputs
 
 FIELDS = ("scenario", "inputs", "callback_url", "request_key")
 CALLBACK_PREFIXES = ("https://", "http://127.0.0.1:", "http://127.0.0.1/")  # 127.0.0.1 jen pro testy (ISSUES)
@@ -34,7 +35,7 @@ RUN_ID = re.compile(r"\d{8}-\d{6}-[a-z0-9-]+-[0-9a-f]{4}")
 class Webhook:
     """Přijetí požadavku, fronta a pracovní vlákno; HTTP je jen tenká vrstva `Handler`."""
 
-    def __init__(self, workflows: Path, *, fake=None, callback_transport=None):
+    def __init__(self, workflows: Path, *, fake=None, callback_transport=None, workers: int = 1):
         errs = []
         self.config = c = load_config(workflows, errs)
         if errs:
@@ -43,18 +44,20 @@ class Webhook:
         if missing := [n for n in need if not os.environ.get(n)]:
             raise ConfigErrors([f"chybí proměnná prostředí {n} (.env nebo prostředí)" for n in missing])
         self.token = os.environ[c["webhook"]["token_env"]]
-        self.wf, self.fake, self.callback_transport = workflows, fake, callback_transport
+        self.wf, self.fake, self.callback_transport, self.workers = workflows, fake, callback_transport, workers
         self.runs = workflows.parent / c["runs_dir"]
         self.qdir = self.runs / "_queue"
         (self.qdir / "keys").mkdir(parents=True, exist_ok=True)
-        # ponytail: jeden zámek na přijetí požadavku i validate v pracovním vlákně (validate trvá ms)
+        # ponytail: jeden zámek na přijetí požadavku i validate v pracovních vláknech (validate trvá ms)
         self.lock = threading.Lock()
         self.q: queue.Queue = queue.Queue()
-        for e in sorted(self.entries(), key=lambda e: e["queued_ns"]):  # obnova fronty po restartu
-            self.q.put(e)
+        with self.lock:
+            for e in sorted(self.entries(), key=lambda e: e["queued_ns"]):  # obnova fronty po restartu
+                self.q.put(e)
 
     def start(self):
-        threading.Thread(target=self.work, name="agencast-worker", daemon=True).start()
+        for i in range(self.workers):
+            threading.Thread(target=self.work, name=f"agencast-worker-{i + 1}", daemon=True).start()
 
     def entries(self) -> list[dict]:
         out = []
@@ -67,9 +70,6 @@ class Webhook:
 
     def key_file(self, key: str) -> Path:
         return self.qdir / "keys" / f"{hashlib.sha256(key.encode()).hexdigest()}.json"
-
-    def transport(self):
-        return self.fake.transport() if self.fake else None
 
     def authorized(self, auth: str | None) -> bool:
         return hmac.compare_digest((auth or "").encode(), f"Bearer {self.token}".encode())
@@ -108,7 +108,12 @@ class Webhook:
                 return 422, {"error": f"neznámý scénář '{name}'", "details": []}
             if errs := self.check(path, inputs):
                 return 422, {"error": f"scénář '{name}' nebo jeho vstupy neprošly kontrolou", "details": errs}
-            run_id = new_run_id(name)
+            for _ in range(RUN_ID_TRIES):  # ISSUES 35: kolize run_id nesmí přepsat cizí požadavek
+                run_id = new_run_id(name)
+                if not (self.qdir / f"{run_id}.json").exists() and not (self.runs / run_id).exists():
+                    break
+            else:
+                raise AgencastError("internal", f"{RUN_ID_TRIES}× kolize run_id ve frontě {self.qdir}")
             entry = {"run_id": run_id, "scenario": name, "inputs": inputs, "callback_url": url, "request_key": key,
                      "queued_ns": time.time_ns()}
             if key:
@@ -116,13 +121,13 @@ class Webhook:
             tmp = self.qdir / f"{run_id}.tmp"
             tmp.write_text(json.dumps(entry, ensure_ascii=False), encoding="utf-8")
             tmp.replace(self.qdir / f"{run_id}.json")  # GET čte frontu bez zámku → nikdy půlka souboru
-            position = len(self.entries())  # čekající + běžící, včetně tohoto
+            position = len(self.entries())  # čekající + běžící (až `workers` najednou), včetně tohoto
             self.q.put(entry)
         return 202, {"run_id": run_id, "queue_position": position}
 
     def check(self, path: Path, inputs: dict) -> list[str]:
         try:
-            resolve_inputs(validate(path, transport=self.transport()).scenario, inputs)
+            resolve_inputs(api.load(path, fake=self.fake).scenario, inputs)
         except ConfigErrors as e:
             return e.errors
         return []
@@ -164,16 +169,16 @@ class Webhook:
                   run_id=entry["run_id"], callback_transport=self.callback_transport)
         if (self.runs / entry["run_id"]).exists():
             # ponytail: přerušený běh se neopakuje (vedlejší účinky), jen se nahlásí; mohl i doběhnout bez callbacku
-            return run_scenario(self.stub(path, entry), entry["inputs"], error=AgencastError(
+            return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
                 "internal", "běh přerušen — server skončil uprostřed běhu; co stihl, je v záznamu (ověř ručně)"), **kw)
         try:
             with self.lock:
-                p = validate(path, transport=self.transport())
+                p = api.load(path, fake=self.fake)
             inputs = resolve_inputs(p.scenario, entry["inputs"])
         except ConfigErrors as e:
-            return run_scenario(self.stub(path, entry), entry["inputs"], error=AgencastError(
+            return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
                 "config", "scénář neprošel kontrolou po vyzvednutí z fronty:\n" + "\n".join(e.errors)), **kw)
-        return run_scenario(p, inputs, **kw)
+        return api.run(p, inputs, **kw)
 
     def stub(self, path: Path, entry: dict) -> Project:
         """Projekt pro běh, který nezačne: jméno scénáře a config ze startu serveru."""

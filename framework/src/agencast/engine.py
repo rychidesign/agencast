@@ -31,7 +31,7 @@ from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
 from .record import SUM_DIGITS, Record, count, cz, cz_usd, now_iso, plan_md, report_html, scrub, summary_md
-from .task import dedupe_skip, run_task  # 3a
+from .task import dedupe_skip, local_dedupe, run_task  # 3a
 from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
 
 RETRY_BASE_S = 2.0           # prodleva 2 s, 4 s, 8 s… (scenario.md §3 retry); testy ji stáhnou na 0
@@ -75,6 +75,19 @@ def new_run_id(name: str) -> str:
     return f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{name}-{secrets.token_hex(2)}"
 
 
+RUN_ID_TRIES = 5
+
+
+def new_record(runs_dir: Path, name: str, secret_vals: dict) -> Record:
+    """Nová složka běhu; kolize run_id (souběžné běhy v téže sekundě, ISSUES 35) → nový suffix."""
+    for _ in range(RUN_ID_TRIES):
+        try:
+            return Record(runs_dir / new_run_id(name), secret_vals)
+        except FileExistsError:
+            pass
+    raise AgencastError("internal", f"{RUN_ID_TRIES}× kolize run_id ve {runs_dir} — složka běhu už existovala")
+
+
 def safe_url(url: str) -> str:
     u = urlsplit(url)
     return f"{u.scheme}://{u.hostname}{u.path}"
@@ -114,6 +127,7 @@ class Run:
                  callback_url=None, request_key=None, callback_transport=None, fake=False):
         self.p, self.inputs, self.rec, self.client, self.run_id = p, inputs, record, client, run_id
         self.fake = fake  # falešný poskytovatel (--fake): vlastní dedupe, příznak v záznamu
+        self.dedupe = local_dedupe(p.runs_dir, fake)  # DedupeStore; Modal dosadí vlastní
         self.callback_url, self.request_key, self.callback_transport = callback_url, request_key, callback_transport
         self.storage_prefix = f"{run_id}-{secrets.token_hex(16)}"
         self.values = {"inputs": inputs, "steps": {}}
@@ -621,7 +635,7 @@ def dry_run(p: Project, inputs: dict) -> Record:
     """Složka jen s plan.md a inputs.json (run-record.md); u task i nástroje, které MCP servery nabízejí."""
     servers = mcp_servers_used(p)
     offers = asyncio.run(mcp_offers(p, servers)) if servers else None
-    rec = Record(p.runs_dir / new_run_id(p.scenario["name"]), secret_values(p))
+    rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
     rec.write("plan.md", plan_md(p, offers))
     rec.write("inputs.json", inputs)
     return rec
@@ -652,8 +666,11 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
     3b (webhook): `run_id` přidělený už při přijetí požadavku; `error` = běh nezačne, jen záznam
     a callback (validate selhal po vyzvednutí z fronty, běh přerušen restartem serveru)."""
     key = preflight(p, fake=fake is not None or error is not None, callback_url=callback_url)
-    run_id = run_id or new_run_id(p.scenario["name"])
-    rec = Record(p.runs_dir / run_id, secret_values(p), exist_ok=error is not None)
+    if run_id:  # webhook: run_id přidělený při přijetí; exist_ok = přerušený běh po restartu serveru
+        rec = Record(p.runs_dir / run_id, secret_values(p), exist_ok=error is not None)
+    else:
+        rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
+        run_id = rec.dir.name
     if error is None:
         rec.write("plan.md", plan_md(p))
         rec.write("inputs.json", inputs)

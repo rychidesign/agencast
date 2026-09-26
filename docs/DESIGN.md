@@ -2,9 +2,9 @@
 
 **Stav:** v0.4, 2026-09-25 — **v1 implementována**: AgenCast (`agencast`, do 0.2.5 `maw`) 0.3.0 v `framework/`
 (všech 10 typů kroků, MCP a skilly, `call`, webhook `agencast serve`, `report.html`;
-379 hermetických testů, zlaté scénáře pro každý soubor ve `workflows/`),
+391 hermetických testů, zlaté scénáře pro každý soubor ve `workflows/`),
 tutoriály 1–7 v `docs/tutorials/`. Spec v1 (`docs/spec/`) schválena uživatelem
-včetně otázek 1–14; výklady při implementaci v `docs/spec/ISSUES.md` (36 bodů).
+včetně otázek 1–14; výklady při implementaci v `docs/spec/ISSUES.md` (39 bodů).
 Nehotovo: D5 nasazení na Modal + úložiště R2 (Fáze 3c, čeká na klíče R2).
 Dokument je závazný pro workery: co je zde rozhodnuto, se neotvírá znovu bez
 souhlasu uživatele.
@@ -123,7 +123,10 @@ n8n), `embed`/`search`.
   (`parallel`) zůstávají. Návrh nesmí paralelním běhům bránit do budoucna:
   běhy si nesdílí soubory (kromě `state`, úložiště výstupů a `_dedupe` —
   klíčů vedlejších účinků, které jsou samostatné atomicky vytvářené
-  soubory, nikdy jeden sdílený log).
+  soubory, nikdy jeden sdílený log). Výchozí zůstává jeden za druhým;
+  `agencast serve --workers N` (od 0.3.0) volitelně pouští N běhů nad
+  jednou frontou — kolize `run_id` řeší nový suffix, cache `/models` se
+  zapisuje atomicky, `_dedupe` je za rozhraním `DedupeStore` (ISSUES 39).
 - **Webhook je asynchronní:** hned vrátí `run_id` a pozici ve frontě,
   výsledek přijde na **callback URL** (n8n). Callback se posílá **vždy**,
   při úspěchu i při chybě.
@@ -199,6 +202,26 @@ Ověřeno spikem (b), Modal SDK 1.5.5:
   kontejnery → nasazovat jako `app stop` + `deploy`, nebo ověřit verzi.
 - Jeden společný Dockerfile pro server i Modal (`Image.from_dockerfile`,
   nezkoušeno), aby se nerozjely nainstalované nástroje.
+
+### Obálky (od 0.3.0)
+
+CLI (`agencast`), webhook (`agencast serve`), později Modal a MCP server
+jsou **tenké obálky nad `agencast.api`** (`load`, `run`, `dry_run`,
+`runs_list`, `run_status`):
+
+- Obálka neobsahuje logiku — jen převádí vstup (argumenty, HTTP, volání
+  nástroje) na volání `api` a výsledek zpět. Cokoli s logikou jde do jádra
+  a má hermetický test.
+- Tajné klíče jen z prostředí (`.env` jen lokálně, na Modalu
+  `modal.Secret`), nikdy v souborech workflow ani v argumentech.
+- Sdílený stav mezi běhy je za rozhraním: `dedupe_key` přes `DedupeStore`
+  (`get`, `claim` — výhradně a atomicky, `finish`) v `agencast/task.py`.
+  Lokální implementace drží soubory `<runs>/_dedupe/<sha256>.json`
+  (`_dedupe-fake/` u `--fake`); **tady Modal později dosadí vlastní
+  úložiště** (`modal.Dict` apod.) přes `Run.dedupe`.
+- MCP nástroje budou „spusť a vrať ID“, „stav“ a „počkej“ — běh trvá
+  minuty a web endpoint Modalu má limit 150 s (D5), takže nástroj nesmí
+  čekat na konec běhu v jednom volání.
 
 ---
 

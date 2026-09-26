@@ -6,8 +6,10 @@ opakování, rozpočet a záznam dělá engine; smyčku `task` dělá `task.py`.
 """
 import base64
 import json
+import os
 import re
 import struct
+import tempfile
 import time
 from pathlib import Path
 
@@ -76,7 +78,10 @@ def list_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
     """`GET /models` s cache 24 h v `<runs>/_models.json` (scenario.md §7)."""
     cache = runs_dir / "_models.json"
     if transport is None and cache.is_file():
-        c = json.loads(cache.read_text())
+        try:
+            c = json.loads(cache.read_text())
+        except ValueError:  # poškozená cache = cache není (přepíše se)
+            c = {}
         if c.get("base_url") == base_url and time.time() - c.get("fetched_at", 0) < MODELS_CACHE_S:
             return c["data"]
     try:
@@ -92,7 +97,11 @@ def list_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
              "supported_parameters": m.get("supported_parameters") or []} for m in data]
     if transport is None:
         runs_dir.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps({"base_url": base_url, "fetched_at": time.time(), "data": data}))
+        # souběžné běhy: dočasný soubor ve stejné složce + os.replace → čtenář nikdy nevidí půlku
+        fd, tmp = tempfile.mkstemp(dir=runs_dir, prefix="_models.", suffix=".tmp")
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps({"base_url": base_url, "fetched_at": time.time(), "data": data}))
+        os.replace(tmp, cache)
     return data
 
 

@@ -14,7 +14,7 @@ uv run --project framework agencast run ig-post -i tema="nová káva"
 uv run --project framework agencast run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake framework/tests/golden/ukazka-task.yaml
 uv run --project framework agencast runs list
 uv run --project framework agencast runs show <run_id>
-uv run --project framework agencast serve --host 127.0.0.1 --port 8080
+uv run --project framework agencast serve --host 127.0.0.1 --port 8080 [--workers 2]
 uv run --project framework agencast migrate workflows/scenarios/ig-post.yaml
 ```
 
@@ -59,7 +59,8 @@ GET /runs/<run_id>    stav: queued (+ queue_position) / running / tělo callback
 
 - Start potřebuje proměnné `webhook.token_env`, `callback.secret_env`
   a (bez `--fake`) klíč OpenRouteru; jinak skončí chybou `config`.
-- Běhy jdou jeden po druhém (jedno pracovní vlákno). Fronta a
+- Běhy jdou jeden po druhém (jedno pracovní vlákno); `--workers N` pustí
+  N běhů najednou, pořadí dokončení pak není zaručené. Fronta a
   `request_key` jsou soubory v `<runs>/_queue/` — po restartu serveru se
   čekající požadavky zpracují; běh přerušený uprostřed se neopakuje,
   pošle se callback `internal` (ověř ručně).
@@ -97,6 +98,7 @@ skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
 | `server.py` | webhook server, fronta, request_key |
 | `mcp_client.py` | `mcp.yaml`, MCP servery běhu (SDK `mcp` 2.2), normalizace schémat nástrojů |
 | `task.py` | krok `task` (smyčka model ↔ nástroje, `load_skill`), `dedupe_key` |
+| `api.py` | veřejné API pro obálky (CLI, `serve`, později Modal a MCP): `load`, `run`, `dry_run`, `runs_list`, `run_status` |
 | `cli.py` | příkaz `agencast` |
 
 Zatím ne: Modal a úložiště R2 (Fáze 3c). Nejasnosti spec: `docs/spec/ISSUES.md`.

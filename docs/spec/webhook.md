@@ -43,6 +43,12 @@ Content-Type: application/json
   ani callback** — chybu dostane volající hned v odpovědi.
 - **`queue_position`** počítá framework (Modal ho spolehlivě nedává, D5);
   smí být `null`, když ho nezná. Je to informace, ne slib.
+- **Souběžné běhy** (od frameworku 0.3.0): `agencast serve --workers N`
+  (výchozí 1) pouští N běhů najednou nad jednou frontou. `queue_position`
+  pak počítá čekající i běžící požadavky včetně tohoto — hodnota ≤ N
+  znamená, že běh už běží nebo začne, jakmile se uvolní worker. **Pořadí
+  dokončení (a tedy callbacků) není zaručené**; s `--workers 1` jdou běhy
+  jeden po druhém v pořadí přijetí.
 - **Od přidělení `run_id` se callback posílá vždy** — i když `validate`
   selže až po vyzvednutí z fronty (např. změnil se mezitím soubor), pak
   s třídou `config`.

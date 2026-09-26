@@ -4,11 +4,13 @@ import hashlib
 import hmac
 import json
 import re
+from datetime import datetime
 
 import httpx
 import pytest
 from conftest import events, model_ids, run, scenario
 
+from agencast import AgencastError, engine, providers
 from agencast.engine import dry_run, run_scenario
 from agencast.fake import Fake
 from agencast.validate import validate
@@ -520,3 +522,55 @@ def test_callback_requires_https_and_secret(wf, monkeypatch):
     with pytest.raises(ConfigErrors) as e:
         run(ask_scenario(wf), callback_url="http://n8n.example.com/w")
     assert "https://" in str(e.value) and "CALLBACK_SECRET" in str(e.value)
+
+
+# --- souběžné běhy (ISSUES 39) ------------------------------------------------------------
+
+class _FrozenNow(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return datetime(2026, 9, 26, 12, 0, 0, tzinfo=tz)
+
+
+def _same_suffix(monkeypatch, suffixes):
+    """run_id ve stejné sekundě a se suffixy z `suffixes` (ostatní token_hex beze změny)."""
+    real, it = engine.secrets.token_hex, iter(suffixes)
+    monkeypatch.setattr(engine, "datetime", _FrozenNow)
+    monkeypatch.setattr(engine.secrets, "token_hex", lambda n=None: next(it) if n == 2 else real(n))
+
+
+def test_run_id_collision_retries_with_new_suffix(wf, monkeypatch):
+    """ISSUES 35: druhý běh ve stejné sekundě se stejným suffixem dostane jiné ID, oba záznamy vzniknou."""
+    _same_suffix(monkeypatch, ["aaaa", "aaaa", "bbbb"])
+    path = ask_scenario(wf)
+    r1, _ = run(path)
+    r2, _ = run(path)
+    assert (r1.run_id, r2.run_id) == ("20260926-120000-test-aaaa", "20260926-120000-test-bbbb")
+    assert all((wf.parent / "runs" / r.run_id / "events.jsonl").is_file() for r in (r1, r2))
+
+
+def test_run_id_collision_gives_up_after_five_tries(wf, monkeypatch):
+    _same_suffix(monkeypatch, ["aaaa"] * 6)
+    path = ask_scenario(wf)
+    run(path)
+    with pytest.raises(AgencastError, match="5× kolize run_id") as e:
+        run(path)
+    assert e.value.cls == "internal"
+
+
+def test_models_cache_atomic_and_corrupt_is_ignored(tmp_path, monkeypatch):
+    """Cache /models: poškozený JSON = cache není; zápis přes dočasný soubor + os.replace."""
+    calls = []
+
+    def handle(request):
+        calls.append(request.url.path)
+        return httpx.Response(200, json={"data": [{"id": "a/b"}]})
+    real_client = httpx.Client
+    monkeypatch.setattr(providers.httpx, "Client",
+                        lambda **kw: real_client(**{**kw, "transport": httpx.MockTransport(handle)}))
+    (tmp_path / "_models.json").write_text('{"base_url": "https://x", "fetch')  # půlka zápisu
+    assert [m["id"] for m in providers.list_models("https://x", tmp_path)] == ["a/b"]
+    assert json.loads((tmp_path / "_models.json").read_text())["base_url"] == "https://x"
+    assert [p.name for p in tmp_path.iterdir()] == ["_models.json"]  # žádný zbylý .tmp
+    providers.list_models("https://x", tmp_path)
+    assert len(calls) == 1  # podruhé z cache

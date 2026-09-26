@@ -64,8 +64,8 @@ def hold(hook) -> threading.Event:
     return gate
 
 
-def start(wf, script=None):
-    hook = Webhook(wf, fake=Fake(script, model_ids(wf)))
+def start(wf, script=None, workers=1):
+    hook = Webhook(wf, fake=Fake(script, model_ids(wf)), workers=workers)
     hook.start()
     srv = Server(hook, "127.0.0.1", 0)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -84,8 +84,8 @@ def env(monkeypatch):
 def server(wf, env):
     started = []
 
-    def make(script=None):
-        started.append(start(wf, script))
+    def make(script=None, workers=1):
+        started.append(start(wf, script, workers))
         return started[-1]
     yield make
     for _, srv, client in started:
@@ -212,6 +212,24 @@ def test_queue_runs_one_after_another(wf, server):
             if e["type"] == type_:
                 return e["ts"]
     assert ts(a["run_id"], "callback_sent") <= ts(b["run_id"], "run_started")  # bez překryvu
+
+
+def test_workers_run_in_parallel(wf, server):
+    """--workers 2: tři požadavky, dva běhy se časově překrývají, všechny callbacky dojdou."""
+    hook, _, client = server({"kontrola": {"sleep": 0.3}}, workers=2)
+    gate, rcv = hold(hook), Receiver()
+    ids = [client.post("/runs", json=req(rcv)).json()["run_id"] for _ in range(3)]
+    assert len(set(ids)) == 3
+    gate.set()
+    assert sorted(c["run_id"] for c in rcv.wait(3)) == sorted(ids)
+    for run_id in ids:
+        finished(hook, run_id)
+    spans = []
+    for run_id in ids:
+        ev = [json.loads(x) for x in (hook.runs / run_id / "events.jsonl").read_text().splitlines()]
+        spans.append((ev[0]["ts"], next(e["ts"] for e in ev if e["type"] == "run_finished")))
+    spans.sort()
+    assert spans[1][0] < spans[0][1]  # druhý běh začal dřív, než první skončil
 
 
 def test_validate_failing_after_dequeue_still_sends_callback(wf, server):

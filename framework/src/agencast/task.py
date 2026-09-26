@@ -10,6 +10,7 @@ import base64
 import hashlib
 import json
 import os
+import threading
 import time
 
 from . import AgencastError
@@ -42,23 +43,61 @@ def skill_tool(agent) -> dict:
 
 # --- dedupe_key -----------------------------------------------------------------------
 
-def dedupe_file(run, info: StepInfo):
-    """`<runs>/_dedupe/<sha256(scénář/krok/klíč)>.json` — klíč vázaný na scénář a krok; falešný běh
-    (`--fake`) má vlastní `_dedupe-fake/`, aby jeho vymyšlený výstup nepřeskočil ostrý krok (BUGS 8)."""
+class DedupeStore:
+    """Úložiště `dedupe_key` (DESIGN „Obálky“): lokálně `<složka>/<sha256>.json`. Na Modalu sem
+    obálka dosadí vlastní úložiště (Dict apod.) se stejnými třemi metodami."""
+
+    def __init__(self, directory):
+        self.dir = directory
+
+    def where(self, key: str) -> str:
+        return str(self.dir / f"{key}.json")
+
+    def get(self, key: str) -> dict | None:
+        path = self.dir / f"{key}.json"
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+    def claim(self, key: str, run_id: str):
+        """Výhradně a atomicky zapíše `started`; když už záznam je, `config`."""
+        path = self.dir / f"{key}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            raise AgencastError("config", f"krok mezitím spustil jiný běh, ověř ručně a smaž {path}") from None
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"state": "started", "run_id": run_id, "output": None}, ensure_ascii=False))
+
+    def finish(self, key: str, data: dict):
+        """Atomicky (přejmenováním) přepíše záznam na `data` (`state: succeeded`)."""
+        path = self.dir / f"{key}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, path)
+
+
+def local_dedupe(runs_dir, fake: bool) -> DedupeStore:
+    """`<runs>/_dedupe/`; falešný běh (`--fake`) má vlastní `_dedupe-fake/`, aby jeho vymyšlený
+    výstup nepřeskočil ostrý krok (BUGS 8)."""
+    return DedupeStore(runs_dir / ("_dedupe-fake" if fake else "_dedupe"))
+
+
+def dedupe_key(run, info: StepInfo) -> tuple[str, str]:
+    """(sha256(scénář/krok/klíč), klíč) — klíč vázaný na scénář a krok."""
     key = run.text(info.data["dedupe_key"], "dedupe_key")
-    h = hashlib.sha256(f"{run.p.scenario['name']}/{info.key}/{key}".encode()).hexdigest()  # key = id v souboru
-    return run.p.runs_dir / ("_dedupe-fake" if run.fake else "_dedupe") / f"{h}.json", key
+    return hashlib.sha256(f"{run.p.scenario['name']}/{info.key}/{key}".encode()).hexdigest(), key
 
 
 def dedupe_skip(run, info: StepInfo) -> bool:
     """Krok už v jiném běhu proběhl → přeskočit s jeho výstupem; `started` bez `succeeded` → `config`."""
-    path, key = dedupe_file(run, info)
-    if not path.is_file():
+    h, key = dedupe_key(run, info)
+    rec = run.dedupe.get(h)
+    if rec is None:
         return False
-    rec = json.loads(path.read_text(encoding="utf-8"))
     if rec.get("state") != "succeeded":
         raise AgencastError("config", f"krok mohl proběhnout jen částečně (dedupe_key {key!r}, běh {rec.get('run_id')}), "
-                                 f"ověř ručně a smaž {path}")
+                                 f"ověř ručně a smaž {run.dedupe.where(h)}")
     reason = f"dedupe_key {key!r}: krok už proběhl v běhu {rec['run_id']}"
     run.rec.event("step_skipped", step=info.id, kind=info.kind, reason_code="dedupe", reason=reason,
                   default_used=False)
@@ -66,23 +105,6 @@ def dedupe_skip(run, info: StepInfo) -> bool:
                          "duration": None, "cost": 0.0, "note": reason}
     run.values["steps"][info.key] = rec["output"]
     return True
-
-
-def _dedupe_write(path, data: dict, exclusive: bool):
-    """Atomicky: `started` jen když soubor neexistuje, `succeeded` přes přejmenování."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(data, ensure_ascii=False)
-    if exclusive:
-        try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-        except FileExistsError:
-            raise AgencastError("config", f"krok mezitím spustil jiný běh, ověř ručně a smaž {path}") from None
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(text)
-        return
-    tmp = path.with_suffix(f".{os.getpid()}.tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
 
 
 # --- smyčka -----------------------------------------------------------------------------
@@ -104,7 +126,7 @@ class _Loop:
         self.alias = agent.data["model"]
         self.m = run.p.config["models"][self.alias]
         self.schema = json_schema(self.t["schema"]) if "schema" in self.t else None
-        self.dedupe = dedupe_file(run, info)[0] if "dedupe_key" in info.data else None
+        self.dedupe = dedupe_key(run, info)[0] if "dedupe_key" in info.data else None
         self.started = False     # dedupe `started` už zapsán
         self.routes: dict = {}   # jméno pro API → (Server, mcp Tool)
         self.notes: dict = {}    # data URL obrázku → text do záznamu
@@ -182,7 +204,7 @@ class _Loop:
                     run.warnings.append(f"krok {info.id}: model spolu s {SUBMIT_TOOL} volal i jiné nástroje "
                                         f"({', '.join(c['function']['name'] for c in calls)}) — nespustily se")
                 if self.dedupe:
-                    _dedupe_write(self.dedupe, {"state": "succeeded", "run_id": run.run_id, "output": out}, False)
+                    run.dedupe.finish(self.dedupe, {"state": "succeeded", "run_id": run.run_id, "output": out})
                 run.rows[info.id]["note"] = (f"{self.alias} → {self.m['id']}, tahů {turn}, nástrojů {self.tool_calls}"
                                              + (f" ({st['level']})" if self.schema else ""))
                 return out
@@ -230,7 +252,7 @@ class _Loop:
             text = next(b for s, _, b in self.agent.skills if s == args["name"])
         else:
             if self.dedupe and not self.started:  # started před prvním voláním nástroje (§5.2)
-                _dedupe_write(self.dedupe, {"state": "started", "run_id": run.run_id, "output": None}, True)
+                run.dedupe.claim(self.dedupe, run.run_id)
                 self.started = True
             res = await Pool.call(route[0], tool, args)
             flags["is_error"] = res.is_error

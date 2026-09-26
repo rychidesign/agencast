@@ -166,7 +166,9 @@ rozhoduje koordinátor nebo uživatel.
     požadavku, `agencast run` spadne na existující složce běhu. Návrh: delší
     náhodná část, nebo nové id, když složka/záznam fronty už existuje.
     Neopraveno (mimo zadání 0.2.1). (Zjištěno při hledání nestabilních
-    testů.)
+    testů.) **Vyřešeno ve frameworku 0.3.0 opakováním** (bod 39): formát
+    id se nemění; při kolizi se vygeneruje nový suffix, nejvýš 5×, pak
+    chyba `internal`.
 36. **`task` se `schema` začíná kaskádu vždy na `tool_wrapper`** (výklad,
     rozhodl koordinátor 2026-09-25, framework 0.2.2). Spec (scenario.md,
     kaskáda) říká „úroveň začíná na `models.<alias>.structured_output`",
@@ -206,3 +208,21 @@ rozhoduje koordinátor nebo uživatel.
     Celkem = čas celého běhu (`duration_s` z `run_finished`, stejné číslo
     jako v hlavičce), ne součet sloupce — větve `parallel` běží současně
     a vnořené kroky jsou už v čase nadřazeného kroku.
+39. **Souběžné běhy** (zadání koordinátora 2026-09-26, framework 0.3.0).
+    `agencast serve --workers N` pouští N běhů najednou nad jednou frontou
+    (výchozí 1 = dosavadní chování, D2); `api.run` z více vláken nebo
+    procesů nad stejnou složkou `runs/` také. Co souběh rozbíjel:
+    (a) **`run_id`** (bod 35) — `Record` se složkou `exist_ok=False` při
+    `FileExistsError` zkusí nový suffix, nejvýš 5×, pak `internal`;
+    webhook při přijetí stejně přeskočí id, které už má záznam fronty
+    nebo složku běhu. Obnova po restartu serveru (`exist_ok=True`) se
+    nemění. (b) **Cache `/models`** (`<runs>/_models.json`) se zapisuje
+    do dočasného souboru ve stejné složce a `os.replace`; poškozený JSON
+    čtenář bere jako „cache není“. (c) **`dedupe_key`** je za rozhraním
+    `DedupeStore` (`get`, `claim` výhradně a atomicky přes `O_EXCL`,
+    `finish` přes přejmenování); lokální soubory a cesty
+    `<runs>/_dedupe/<sha256>.json` a `_dedupe-fake/` zůstávají beze
+    změny, staré záznamy platí. Na Modalu se sem dosadí vlastní úložiště
+    (DESIGN „Obálky“). Obnova fronty a `request_key` (`_queue/keys/`)
+    jsou dál pod zámkem; `queue_position` počítá čekající i běžící,
+    pořadí dokončení s N > 1 není zaručené (webhook.md).

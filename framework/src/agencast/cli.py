@@ -3,7 +3,7 @@
     agencast validate <scénář> [--offline]
     agencast run <scénář> -i klíč=hodnota [--dry-run] [--fake [SKRIPT]] [--callback-url URL]
     agencast runs list | show <run_id>
-    agencast serve [--host H] [--port P] [--fake [SKRIPT]]
+    agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]]
     agencast migrate <soubor>
 
 <scénář> je jméno (ig-post) nebo cesta k .yaml. Kořen projektu = první složka
@@ -13,12 +13,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import ConfigErrors, __version__
+from . import ConfigErrors, __version__, api
 from .loader import LoadError, load_dotenv, read_frontmatter, read_yaml, version_error
-from .engine import dry_run, run_scenario
 from .fake import Fake
-from .record import count, cz, cz_usd, run_status
-from .validate import load_config, resolve_inputs, validate
+from .record import count, cz, cz_usd
+from .validate import load_config, resolve_inputs
 
 
 def _fail_config(errors: list[str]) -> int:
@@ -33,46 +32,19 @@ def _fake(arg: str | None, config_models: dict):
 
 
 def _root(a) -> Path:
-    """Kořen projektu: --project, jinak první složka s workflows/ od cwd nahoru."""
-    if a.project:
-        root = Path(a.project).resolve()
-        root = root.parent if root.name == "workflows" else root
-        if not (root / "workflows").is_dir():
-            raise ConfigErrors([f"{root}: chybí složka workflows/ — --project má ukazovat na kořen projektu"])
-        return root
-    for d in (Path.cwd(), *Path.cwd().parents):
-        if (d / "workflows").is_dir():
-            return d
-    raise ConfigErrors(["složka workflows/ není v aktuální ani nadřazené složce — použij --project <cesta>"])
+    return api.find_root(a.project)
 
 
-def _scenario_path(a) -> str:
-    """Jméno scénáře → workflows/scenarios/<jméno>.yaml v kořeni projektu; cesta zůstává cestou."""
-    s = a.scenario
-    if s.endswith((".yaml", ".yml")) or "/" in s:
-        return s
-    return str(_root(a) / "workflows" / "scenarios" / f"{s}.yaml")
-
-
-def _project(path: str, *, fake_arg=None, offline=False):
+def _project(a, *, offline=False):
     """Ověří scénář; s --fake se modely ověřují proti falešnému /models."""
-    wf = Path(path).resolve().parent.parent
-    load_dotenv(wf.parent / ".env")
-    load_dotenv(Path.cwd() / ".env")
-    fake = None
-    if fake_arg is not None:
-        errs = []
-        cfg = load_config(wf, errs)
-        if errs:
-            raise ConfigErrors(errs)
-        fake = _fake(fake_arg, cfg["models"])
-    p = validate(path, transport=fake.transport() if fake else None, check_models=not offline)
-    return p, fake
+    arg = getattr(a, "fake", None)
+    fake = _fake(arg, {}) if arg is not None else None  # modely doplní api.load z config.yaml
+    return api.load(a.scenario, project_root=a.project, fake=fake, offline=offline), fake
 
 
 def cmd_validate(a) -> int:
     try:
-        p, _ = _project(_scenario_path(a), offline=a.offline)
+        p, _ = _project(a, offline=a.offline)
     except ConfigErrors as e:
         return _fail_config(e.errors)
     print(f"v pořádku: {p.scenario['name']} ({count(len(p.order), 'krok', 'kroky', 'kroků')}"
@@ -88,14 +60,14 @@ def cmd_run(a) -> int:
             return _fail_config([f"vstup '{item}' má mít tvar klíč=hodnota"])
         raw[key] = value
     try:
-        p, fake = _project(_scenario_path(a), fake_arg=a.fake)
+        p, fake = _project(a)
         inputs = resolve_inputs(p.scenario, raw, from_text=True)
         if a.dry_run:
-            rec = dry_run(p, inputs)
+            rec = api.dry_run(p, inputs)
             print((rec.dir / "plan.md").read_text(encoding="utf-8"))
             print(f"\nplán: {rec.dir / 'plan.md'}")
             return 0
-        run = run_scenario(p, inputs, fake=fake, callback_url=a.callback_url, request_key=a.request_key)
+        run = api.run(p, inputs, fake=fake, callback_url=a.callback_url, request_key=a.request_key)
     except (ConfigErrors, LoadError) as e:
         return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
     ok = run.status == "succeeded"
@@ -128,16 +100,15 @@ def cmd_runs(a) -> int:
         return _fail_config(e.errors)
     runs = wf.parent / cfg["runs_dir"]
     if a.runs_cmd == "list":
-        dirs = sorted((d for d in runs.glob("*") if d.is_dir() and not d.name.startswith("_")), reverse=True)
-        queued = sorted(f.stem for f in (runs / "_queue").glob("*.json") if not (runs / f.stem).is_dir())
-        for run_id in queued:
-            print(f"{run_id:45} ve frontě (agencast serve)")
-        for d in dirs:
-            s = run_status(d)
+        items = api.runs_list(wf.parent)
+        for s in items:
+            if s["status"] == "queued":
+                print(f"{s['run_id']:45} ve frontě (agencast serve)")
+                continue
             cost = "" if s["cost_usd"] is None else f"{cz_usd(s['cost_usd'])} USD"
             dur = "" if s["duration_s"] is None else f"{cz(s['duration_s'], 1)} s"
             print(f"{s['run_id']:45} {s['status']:30} {dur:>8} {cost:>12} {s['callback']}")
-        if not dirs and not queued:
+        if not items:
             print(f"žádné běhy v {runs}")
         return 0
     d = runs / a.run_id
@@ -156,7 +127,9 @@ def cmd_serve(a) -> int:
     from .server import Server, Webhook
     try:
         wf, cfg = _config(a)
-        hook = Webhook(wf, fake=_fake(a.fake, cfg["models"]) if a.fake is not None else None)
+        if a.workers < 1:
+            raise ConfigErrors([f"--workers má být aspoň 1, je {a.workers}"])
+        hook = Webhook(wf, fake=_fake(a.fake, cfg["models"]) if a.fake is not None else None, workers=a.workers)
         srv = Server(hook, a.host, a.port)
     except (ConfigErrors, LoadError) as e:
         return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
@@ -164,7 +137,7 @@ def cmd_serve(a) -> int:
         return _fail_config([f"server nejde spustit na {a.host}:{a.port}: {e.strerror}"])
     hook.start()
     print(f"agencast serve: http://{a.host}:{srv.server_address[1]} — POST /runs, GET /runs/<run_id> · "
-          f"ve frontě {count(hook.q.qsize(), 'běh', 'běhy', 'běhů')} · záznamy {hook.runs}" + (" · falešný poskytovatel" if hook.fake else ""),
+          f"workerů {hook.workers} · ve frontě {count(hook.q.qsize(), 'běh', 'běhy', 'běhů')} · záznamy {hook.runs}" + (" · falešný poskytovatel" if hook.fake else ""),
           flush=True)
     try:
         srv.serve_forever()
@@ -215,6 +188,8 @@ def main(argv=None) -> int:
     s = sub.add_parser("serve", parents=[common], help="webhook server: POST /runs, GET /runs/<run_id>")
     s.add_argument("--host", default="127.0.0.1", help="výchozí 127.0.0.1")
     s.add_argument("--port", type=int, default=8080, help="výchozí 8080")
+    s.add_argument("--workers", type=int, default=1, metavar="N",
+                   help="kolik běhů najednou (výchozí 1 = jeden po druhém; víc = pořadí dokončení není zaručené)")
     s.add_argument("--fake", nargs="?", const="", metavar="SKRIPT", help="falešný poskytovatel bez sítě")
     m = sub.add_parser("migrate", parents=[common], help="převede soubor na aktuální verzi formátu")
     m.add_argument("file", help="scénář, config nebo agent (.md)")

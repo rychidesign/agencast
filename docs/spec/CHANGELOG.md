@@ -128,3 +128,8 @@ každého nálezu je na konci REVIEW.md.
   [run-record.md](run-record.md) a ISSUES). Žádný formát jméno
   neobsahoval: záznam běhu, callback (`X-Run-Id`, `X-Signature`) ani fake
   skripty se nemění.
+- [webhook.md](webhook.md): `agencast serve --workers N` (výchozí 1) —
+  N běhů najednou nad jednou frontou; `queue_position` počítá čekající
+  i běžící, pořadí dokončení s N > 1 není zaručené (ISSUES 39). Tvar
+  požadavku, odpovědí ani callbacku se nemění.
+- Kolize `run_id` (ISSUES 35) řeší nový suffix; formát id se nemění.
