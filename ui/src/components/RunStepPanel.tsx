@@ -179,7 +179,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
         {detail.error && <ErrorText error={detail.error} />}
         {rs && (
           <>
-            <div role="tablist" aria-label={t("run.tabs")} className="flex flex-wrap gap-1">
+            <div role="tablist" aria-label={t("rpanel.tabs")} className="flex flex-wrap gap-1">
                 {tabs.map((k) => (
                   <button key={k} type="button" role="tab" aria-selected={k === active} onClick={() => setTab(k)}
                     className={`rounded-full px-3 py-1 text-sm ${k === active ? "bg-zinc-700 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}>

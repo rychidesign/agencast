@@ -222,7 +222,6 @@
   "conflict.overwriteTitle": "Přepsat verzi na disku?",
   "conflict.overwriteText": "Soubor na disku se od načtení změnil. Uložení přepíše, co je na disku, tvými změnami.",
   "conflict.overwrite": "Přepsat verzi na disku",
-  "edit.addHere": "Vložit krok sem",
   "edit.addEnd": "Přidat krok na konec",
   "edit.added": "Přidán krok {id}.",
   "edit.cut": "Vyjmout (Ctrl+X)",
@@ -380,5 +379,9 @@
   "edit.renamed": "Krok {id} přejmenován na {to}.",
   "edit.renameTitle": "Přepsat odkazy v {n, plural, one {# kroku} few {# krocích} other {# krocích}}?",
   "edit.renameText": "Krok „{id}“ se přejmenuje na „{to}“ a odkazy steps.{id}.… se přepíšou na steps.{to}.… v krocích:",
-  "edit.renameRefs": "Přejmenovat a přepsat odkazy"
+  "edit.renameRefs": "Přejmenovat a přepsat odkazy",
+  "edit.addAfter": "Vložit krok za {id}",
+  "edit.addStart": "Vložit krok na začátek",
+  "rpanel.tabs": "Části kroku",
+  "leave.confirm": "Máš neuložené změny. Odejít? Rozpracovaný stav zůstane v tomto prohlížeči."
 }

@@ -50,7 +50,8 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
         <div className="flex min-w-max">
           <div aria-hidden className="py-4 pr-3 pl-4 text-right text-zinc-500 select-none">
             {lines.map((_, i) => (
-              <div key={i} className={bad.has(i + 1) ? "-ml-4 border-l-2 border-rose-400 pl-[14px] text-rose-400" : ""}>{i + 1}</div>
+              <div key={i} data-testid={bad.has(i + 1) ? `yaml-line-${i + 1}` : undefined}
+                className={bad.has(i + 1) ? "-ml-4 border-l-2 border-rose-400 pl-[14px] text-rose-400" : ""}>{i + 1}</div>
             ))}
           </div>
           <div className="relative flex-1 py-4 pr-4">
@@ -93,7 +94,7 @@ export function ConflictBar({ conflict, onDiff, onReload, onKeep }: {
   conflict: Conflict; onDiff: () => void; onReload: () => void; onKeep: () => void;
 }) {
   return (
-    <div role="alert" className="sticky top-[4.5rem] z-10 mx-auto mb-4 flex max-w-4xl flex-wrap items-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm ring-1 ring-amber-400/40">
+    <div role="alert" data-testid="conflict-bar" className="sticky top-[4.5rem] z-10 mx-auto mb-4 flex max-w-4xl flex-wrap items-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm ring-1 ring-amber-400/40">
       <span className="flex-1 text-amber-400">{t(conflict.stale ? "conflict.stale" : "conflict.changed")}</span>
       <button type="button" className={btn.secondary} onClick={onDiff}>{t("conflict.diff")}</button>
       <button type="button" className={btn.secondary} onClick={onReload}>{t("conflict.reload")}</button>

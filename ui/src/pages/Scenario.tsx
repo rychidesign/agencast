@@ -248,7 +248,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const p = proj.data;
   return (
     <main className="min-h-screen" onKeyDown={onKey}>
-      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-5 gap-y-2 bg-zinc-900/95 px-8 py-4">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-5 gap-y-2 bg-zinc-900/95 px-4 py-4 sm:px-8">
         <a href={href(project, "scenare")} className="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100">
           <ArrowLeft className="size-4" aria-hidden /> {t("editor.back", { project })}
         </a>
@@ -276,7 +276,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         </div>
       </header>
       <p className="sr-only" aria-live="polite">{announce}</p>
-      <div className="px-8 pb-16">
+      <div className="px-4 pb-16 sm:px-8">
         {conflict && (
           <ConflictBar conflict={conflict} onDiff={() => void showDiff()}
             onReload={yaml ? text.reloadFromDisk : form.reloadFromDisk}
@@ -294,7 +294,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         )}
         {work && !yaml && (
           <div className="flex justify-center gap-6 pt-6">
-            <section className="w-full max-w-[640px] pr-20" aria-label={t("step.list")} onKeyDown={onColumnKey}>
+            <section className="w-full max-w-[640px] pr-20 pointer-coarse:pr-28" aria-label={t("step.list")} onKeyDown={onColumnKey}>
               <HeaderCard inputs={work.header.inputs} outputs={work.header.outputs} selected={selected === HEADER_KEY} onSelect={() => select(HEADER_KEY)} />
               <Connector ctx={ctx} at={{ list: { parent: null, key: [] } }} />
               <StepList steps={steps} ctx={ctx} />

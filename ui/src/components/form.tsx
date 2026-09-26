@@ -5,7 +5,7 @@ import type { ErrorItem } from "../types";
 import { btn } from "./ui";
 
 export const inputCls =
-  "w-full rounded-lg bg-zinc-900 px-3 py-2 text-sm ring-1 ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:opacity-50 aria-invalid:ring-rose-400";
+  "w-full rounded-lg bg-zinc-900 px-3 py-2 text-sm pointer-coarse:text-base ring-1 ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:opacity-50 aria-invalid:ring-rose-400";
 const mono = "font-mono text-[13px]";
 
 /** Pole se štítkem nad sebou (§6): `aria-describedby` na nápovědu i chybu. */

@@ -115,7 +115,7 @@ describe("TypePicker", () => {
 describe("editor scénáře", () => {
   it("vložení kroku: + → typ → panel; Uložit = jedna dávka s otiskem, pak Uloženo", async () => {
     await openEditor();
-    fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok sem" })[1]); // mezi copy a out
+    fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok za copy" })[0]); // mezi copy a out
     fireEvent.keyDown(screen.getByRole("listbox"), { key: "f" });
     fireEvent.keyDown(screen.getByRole("listbox"), { key: "Enter" });
     const panel = await screen.findByRole("complementary");
@@ -131,7 +131,7 @@ describe("editor scénáře", () => {
 
   it("přesun Alt+↓, smazání klávesou Delete a krok zpět", async () => {
     await openEditor();
-    fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok sem" })[1]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok za copy" })[0]);
     fireEvent.keyDown(screen.getByRole("listbox"), { key: "Enter" }); // ask_1 za copy
     const copy = screen.getByRole("button", { name: /Krok 1: ask copy/ });
     fireEvent.keyDown(copy, { key: "ArrowDown", altKey: true });
@@ -150,7 +150,7 @@ describe("editor scénáře", () => {
 
   it("409 → ConflictBar; Ponechat moje → Uložit se ptá na přepsání a pošle aktuální otisk", async () => {
     await openEditor();
-    extra = (m, u, b) => (u.endsWith("/batch") && b.etag === "e0" ? [409, { error: "změněno", etag: "e5" }] : undefined);
+    extra = (_m, u, b) => (u.endsWith("/batch") && b.etag === "e0" ? [409, { error: "změněno", etag: "e5" }] : undefined);
     fireEvent.click(screen.getByRole("button", { name: /Krok 1: ask copy/ }));
     fireEvent.change(screen.getByRole("combobox", { name: /Prompt/ }), { target: { value: "nový" } });
     await save();

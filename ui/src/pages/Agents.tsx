@@ -20,7 +20,7 @@ export function MasterDetail({ project, tab, items, selected, onNew, children }:
 }) {
   const current = selected ?? items[0]?.name;
   return (
-    <div className="grid grid-cols-[14rem_1fr] gap-8">
+    <div className="grid gap-6 min-[1100px]:grid-cols-[14rem_1fr] min-[1100px]:gap-8">
       <nav aria-label={t(`project.tab.${tab}`)} className="space-y-2">
         <button type="button" onClick={onNew} className={`${btn.secondary} w-full`}>
           <Plus className="size-4" aria-hidden />{t(`${tab}.new`)}
@@ -53,7 +53,7 @@ export function SaveNote({ dirty, state, errors = 0 }: { dirty: boolean; state: 
     : t("save.clean");
   return (
     <span className="inline-flex items-center gap-2 text-sm" aria-live="polite">
-      <span className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
+      <span data-testid="save-status" className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
       {errors > 0 && <StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip>}
     </span>
   );
@@ -293,7 +293,7 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
           </ul>
         )}
       </FormField>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <FormField label="max_turns" required={needTurns} errors={fe("limits.max_turns")}
           help={needTurns ? t("agent.turnsRequired") : t("agent.turnsHelp")}>
           {(a) => (

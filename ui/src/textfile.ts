@@ -53,13 +53,24 @@ export function useWatch(check: () => void, active: boolean) {
   }, [active]);
 }
 
-/** Varování před odchodem s neuloženými změnami (rozpracovaný stav přesto zůstává v localStorage). */
+/** Varování před odchodem s neuloženými změnami: obnovení/zavření stránky i odkaz na jinou stránku GUI
+ *  (`#/…` s jinou cestou; změna jen `?krok=` se neptá). Rozpracovaný stav přesto zůstává v localStorage. */
 export function useLeaveGuard(dirty: boolean) {
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    // ponytail: jen kliknutí na odkaz; tlačítko Zpět prohlížeče (hashchange) se neptá
+    const link = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.("a[href^='#']");
+      if (!a || e.defaultPrevented || a.getAttribute("href")!.split("?")[0] === location.hash.split("?")[0]) return;
+      if (!window.confirm(t("leave.confirm"))) e.preventDefault();
+    };
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
+    document.addEventListener("click", link, true);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("click", link, true);
+    };
   }, [dirty]);
 }
 

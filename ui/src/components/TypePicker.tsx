@@ -90,8 +90,8 @@ export function TypePicker({ onPick, onClose, paste }: {
 }
 
 /** `AddButton` (§3): (+) 28 px; mezi kartami se ukazuje při hoveru/fokusu místo šipky, na konci trvale. */
-export function AddButton({ label, onPick, paste, always = false }: {
-  label: string; onPick: (p: Pick) => void; paste?: string; always?: boolean;
+export function AddButton({ label, onPick, paste, always = false, testid }: {
+  label: string; onPick: (p: Pick) => void; paste?: string; always?: boolean; testid?: string;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -101,9 +101,9 @@ export function AddButton({ label, onPick, paste, always = false }: {
   };
   return (
     <div className="relative inline-flex">
-      <button ref={btnRef} type="button" aria-label={label} title={label} aria-haspopup="listbox" aria-expanded={open}
+      <button ref={btnRef} type="button" aria-label={label} title={label} aria-haspopup="listbox" aria-expanded={open} data-testid={testid}
         onClick={() => setOpen(!open)}
-        className={`grid size-7 place-items-center rounded-full bg-zinc-900 text-zinc-300 ring-1 ring-zinc-600 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:outline-none ${paste ? "ring-zinc-300" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100"}`}>
+        className={`grid size-7 place-items-center rounded-full bg-zinc-900 text-zinc-300 ring-1 ring-zinc-600 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:outline-none pointer-coarse:size-11 ${paste ? "ring-zinc-300" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
         <Plus className="size-4" aria-hidden />
       </button>
       {open && <TypePicker paste={paste} onClose={close} onPick={(p) => (setOpen(false), onPick(p))} />}

@@ -36,7 +36,7 @@ export function ScenariosTab({ project, onChanged }: { project: Project; onChang
   };
   return (
     <>
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
         <li>
           <button type="button" onClick={() => setCreating(true)}
             className="flex min-h-52 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-600 p-5 text-zinc-300 hover:bg-zinc-800/40 hover:text-zinc-100">

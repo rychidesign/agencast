@@ -18,7 +18,7 @@ export function ProjectsPage() {
   const reload = () => (list.reload(), setGen(gen + 1));
   const writable = !!list.data?.writable;
   return (
-    <main className="mx-auto max-w-6xl p-8">
+    <main className="mx-auto max-w-6xl p-4 sm:p-8">
       <header className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-lg font-semibold">{t("projects.title")}</h1>
@@ -31,7 +31,7 @@ export function ProjectsPage() {
         </button>
       </header>
       {list.error && list.error.status !== 0 && <ErrorText error={list.error} />}
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
         <li>
           <button type="button" onClick={() => setAdding(true)}
             className="flex min-h-44 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-600 p-5 text-zinc-300 hover:bg-zinc-800/40 hover:text-zinc-100">
