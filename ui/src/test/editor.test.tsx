@@ -229,6 +229,23 @@ describe("editor scénáře", () => {
 });
 
 describe("YAML režim", () => {
+  it("tlačítko Zpět při neuložené změně zobrazí stejné potvrzení a vrátí hash", async () => {
+    const hash = "#/p/p/scenare/s?krok=copy&rezim=yaml";
+    await openEditor(hash);
+    fireEvent.change(screen.getByRole("textbox", { name: "scenarios/s.yaml" }), { target: { value: `${TEXT}# změna\n` } });
+    expect(screen.getByText("Neuloženo")).toBeTruthy();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    await act(async () => {
+      location.hash = "#/p/p/agenti/publisher";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    expect(confirm).toHaveBeenCalledWith("Máš neuložené změny. Odejít? Rozpracovaný stav zůstane v tomto prohlížeči.");
+    expect(location.hash).toBe(hash);
+    expect(screen.getByRole("textbox", { name: "scenarios/s.yaml" })).toBeTruthy();
+  });
+
   it("syntaktická chyba nechává potvrzovací dialog; oprava pustí Uložit přes files/", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     await openEditor("#/p/p/scenare/s?krok=copy&rezim=yaml");

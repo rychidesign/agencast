@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from conftest import WORKFLOWS
 
-from agencast import ConfigErrors, api
+from agencast import ConfigErrors, api, edit
 from agencast.edit import FRONTMATTER, _new, merge, yaml_edit
 from agencast.loader import load_yaml
 
@@ -186,6 +186,25 @@ def test_etag_conflict_and_validation_write_nothing(proj):
     with pytest.raises(ConfigErrors, match="steps"):
         api.set_header(proj, "vetve", cur, {"steps": []})
     assert p.read_bytes() == before
+
+
+def test_file_changed_during_validation_conflicts(proj, monkeypatch):
+    rel = "scenarios/vetve.yaml"
+    p = proj / "workflows" / rel
+    doc = api.read_file(proj, rel)
+    manual = p.read_text() + "# ruční změna během validace\n"
+
+    def check(root, path, text):
+        p.write_text(manual)
+        return []
+
+    monkeypatch.setattr(edit, "_check", check)
+    with pytest.raises(api.Conflict) as exc:
+        api.write_file(proj, rel, doc["etag"], "změna z GUI\n")
+
+    assert exc.value.etag == api.read_file(proj, rel)["etag"]
+    assert p.read_text() == manual
+    assert not p.with_name(f".{p.name}.tmp").exists()
 
 
 def test_existing_errors_do_not_block(proj):

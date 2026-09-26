@@ -1,4 +1,7 @@
 """agencast new: kostra projektu, agent a scénář ze šablon (projects.md)."""
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
 import pytest
 
 from agencast import ConfigErrors, api
@@ -53,6 +56,21 @@ def test_registry_add_list_rm(tmp_path, registry, capsys):
     out = capsys.readouterr().out
     assert "muj-projekt" in out and "nedostupný" in out and "druhy" in out
     assert main(["projects", "rm", "nic"]) == 2
+
+
+def test_concurrent_registry_adds_keep_both(tmp_path):
+    roots = [tmp_path / name for name in ("alfa", "beta")]
+    for root in roots:
+        (root / "workflows").mkdir(parents=True)
+    gate = Barrier(len(roots))
+
+    def add(root):
+        gate.wait()
+        return api.add_project(root)
+
+    with ThreadPoolExecutor(max_workers=len(roots)) as pool:
+        assert set(pool.map(add, roots)) == {"alfa", "beta"}
+    assert {x["name"] for x in api.projects()} == {"alfa", "beta"}
 
 
 def test_validate_adds_project_once(tmp_path, registry, capsys):

@@ -634,4 +634,13 @@ test("N6 odchod s neuloženými změnami", async ({ page, project }) => {
   page.once("dialog", (d) => void d.accept());
   await page.getByRole("link", { name: `${project.name} / Scénáře` }).click();
   await expect(page).toHaveURL(new RegExp(`#/p/${project.name}/scenare$`));
+
+  await expect(page.getByRole("button", { name: "Nový scénář" })).toBeVisible();
+  await page.getByRole("link", { name: /Napíše krátký text/ }).click();
+  await page.getByRole("button", { name: /Krok 1: ask napis/ }).click();
+  await page.getByRole("combobox", { name: /Prompt/ }).fill("Zpět: {{ inputs.tema }}");
+  page.once("dialog", (d) => (kinds.push(d.type()), void d.dismiss()));
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`#/p/${project.name}/scenare/ukazka`));
+  expect(kinds.at(-1)).toBe("confirm");
 });

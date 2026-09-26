@@ -73,12 +73,12 @@ návrh → kdy řešit. `bez spouštěče` = komentář nenese podmínku, kdy se
 | Soubor:řádek | Co bylo odloženo (strop) | Návrh | Kdy řešit |
 |---|---|---|---|
 | `loader.py:17` | Schémata se čtou z `docs/spec/schema` vedle frameworku; wheel bez repa je nemá. | Přibalit `docs/spec/schema` do wheelu (`[tool.hatch.build.targets.wheel] force-include`), `SPEC_SCHEMAS` přes `importlib.resources`. | Před nasazením na Modal nebo instalací z wheelu. |
-| `edit.py:45` | Jeden zámek na všechny zápisy v procesu; ruční úprava souboru mezi čtením a `os.replace` se nepozná. **bez spouštěče** | Těsně před `os.replace` soubor znovu přečíst a porovnat otisk (okno se zúží z doby validace na µs), případně `flock` na souboru. | **Hned** — okno trvá celou validaci kopie projektu (viz `edit.py:103`) a roste s projektem; DESIGN slibuje „souběžná ruční úprava se nepřepíše potichu“. |
+| `edit.py:45` | Jeden zámek na všechny zápisy v procesu; ruční úprava souboru mezi čtením a `os.replace` se nepozná. **bez spouštěče** | Těsně před `os.replace` soubor znovu přečíst a porovnat otisk (okno se zúží z doby validace na µs), případně `flock` na souboru. | **Hned** — okno trvá celou validaci kopie projektu (viz `edit.py:103`) a roste s projektem; DESIGN slibuje „souběžná ruční úprava se nepřepíše potichu“. **vyřešeno 0.10.2** |
 | `edit.py:103` | Kopie celé `workflows/` při každé změně (ms u běžného projektu). | Kopírovat jen `*.yaml`/`*.md` a `SKILL.md`, ne ostatní soubory skillů. | Až bude skill s velkými soubory nebo úprava přes GUI > 200 ms. |
 | `server.py:63` | Jeden zámek na přijetí požadavku i `validate` v pracovních vláknech. **bez spouštěče** | Zámek jen kolem `request_key` + zápisu fronty; `validate` mimo zámek. | Až `workers` > 1 a `POST /runs` začne čekat (měřit latenci 202). |
 | `server.py:212` | Přerušený běh po restartu se neopakuje, jen se nahlásí (může i doběhnout bez callbacku). **bez spouštěče** | Nechat — rozhodnutí (vedlejší účinky kroků). Případně volitelné `resume` jen pro scénáře bez `task`. | Jen na žádost uživatele (nové pole = rozšíření spec). |
 | `mcp_client.py:107` | `allOf` se slučuje mělce (stačí na Pydantic: jeden `$ref`). | Hluboké sloučení `properties`/`required` napříč částmi. | S prvním MCP serverem, jehož schéma má `allOf` s víc objekty. |
-| `projects.py:201` | Registr: dva souběžné zápisy (add ze dvou terminálů) → vyhraje poslední. | `flock` na `projects.yaml.lock` kolem čtení+zápisu v `_save`. | Až GUI a CLI zapisují registr souběžně (režim registru v `serve`). |
+| `projects.py:201` | Registr: dva souběžné zápisy (add ze dvou terminálů) → vyhraje poslední. | `flock` na `projects.yaml.lock` kolem čtení+zápisu v `_save`. | Až GUI a CLI zapisují registr souběžně (režim registru v `serve`). **vyřešeno 0.10.2** |
 | `projects.py:393` | `error_fields` čte pole ze začátku hlášky; hláška jiného tvaru má jen `message`. **bez spouštěče** | Strukturované chyby už v `validate` (objekt místo textu), text z nich skládat. | Až GUI potřebuje `field`/`step` u hlášek, které ho teď nemají (hlásit z GUI). |
 | `projects.py:399` | Scénář pojmenovaný `config` nebo `mcp` se splete s `config.yaml`/`mcp.yaml`. **bez spouštěče** | Hlásit scénáře cestou `scenarios/<jméno>.yaml`, nebo jména `config`/`mcp` zakázat ve `validate` (varování). | Při příští úpravě hlášek `validate`; rozšíření spec → koordinátor. |
 
@@ -86,7 +86,7 @@ návrh → kdy řešit. `bez spouštěče` = komentář nenese podmínku, kdy se
 
 | Soubor:řádek | Co bylo odloženo (strop) | Návrh | Kdy řešit |
 |---|---|---|---|
-| `textfile.ts:62` | Varování před odchodem jen při kliknutí na odkaz; tlačítko Zpět (`hashchange`) se neptá. **bez spouštěče** | Posluchač `hashchange`: při neuloženém stavu `confirm`, při odmítnutí vrátit `location.hash`. | Až uživatel přijde o rozpracovanou změnu tlačítkem Zpět (stav zůstává v localStorage, riziko je malé). |
+| `textfile.ts:62` | Varování před odchodem jen při kliknutí na odkaz; tlačítko Zpět (`hashchange`) se neptá. **bez spouštěče** | Posluchač `hashchange`: při neuloženém stavu `confirm`, při odmítnutí vrátit `location.hash`. | Až uživatel přijde o rozpracovanou změnu tlačítkem Zpět (stav zůstává v localStorage, riziko je malé). **vyřešeno 0.10.2** |
 | `textfile.ts:270` | LCS má paměť O(n·m); pro soubory nad ~5000 řádků. | Myersův diff (O((n+m)·d)). Pozor: `Uint16Array` navíc přeteče nad 65 535 řádků. | Až bude soubor ve `workflows/` nad 2000 řádků. |
 | `edit.ts:334` | Kontejner (`parallel`/`switch`) s hodnotou `null` nejde uložit formulářem, jen v YAML. **bez spouštěče** | `replace_step` s celým krokem včetně vnořených větví. | Až to uživatel ve formuláři potřebuje (zatím hláška „uprav v YAML“). |
 
@@ -97,16 +97,15 @@ návrh → kdy řešit. `bez spouštěče` = komentář nenese podmínku, kdy se
 | `spikes/expressions/custom_eval.py:14` | Stříška předpokládá jednořádkový výraz. | Ve frameworku vyřešeno (`expressions._src`, `_fragment_error`). |
 | `spikes/mcp-python/common.py:108` | Mělké sloučení `allOf`. | Přeneseno jako `mcp_client.py:107`. |
 
-**15 markerů, 7 bez spouštěče** (`edit.py:45`, `server.py:63`, `server.py:212`, `projects.py:393`,
-`projects.py:399`, `textfile.ts:62`, `edit.ts:334`).
+**12 markerů, 5 bez spouštěče** (`server.py:63`, `server.py:212`, `projects.py:393`,
+`projects.py:399`, `edit.ts:334`).
 
 ## Celkový verdikt
 
 Repo je čisté: 25 nálezů na ~20 tis. řádků, žádná nepoužitá závislost, žádná zbytečná vrstva nad
 rámec toho, co předepisuje DESIGN. Přeinženýrování se tu skoro nevyskytuje, dluh vzniká spíš
 opisováním (4× načtení configu, 5× atomický zápis, 3× strom scénáře) mezi workery, kteří nevěděli
-o funkci o dva soubory vedle. Největší riziko není ve velikosti kódu, ale v dluhu `edit.py:45`
-+ `edit.py:103`: ruční úprava souboru během validace kopie projektu se přepíše potichu, a to okno
-roste s projektem. Příště bych zadal (1) opravu `edit.py:45` (znovu ověřit otisk před
-`os.replace`, s testem), (2) spike „jen ruamel“, který změří dopad na hlášky spec B6 a rozhodne
-o odebrání PyYAML, (3) do zadání workerů větu „před novou pomocnou funkcí grepni `framework/src`“.
+o funkci o dva soubory vedle. Riziko v `edit.py:45` — přepsání ruční změny během validace — řeší
+0.10.2 kontrolou otisku bezprostředně před zápisem. Další práce: spike „jen ruamel“, který změří
+dopad na hlášky spec B6 a rozhodne o odebrání PyYAML, a do zadání workerů věta „před novou
+pomocnou funkcí grepni `framework/src`“.
