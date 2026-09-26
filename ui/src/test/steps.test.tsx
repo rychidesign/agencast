@@ -21,6 +21,8 @@ const CASES: [Step, string][] = [
     "„Odpovídá text tónu?“ · noul; +1 otázka"],
   [step("image", { image: { model: "gemini-image", prompt: "{{ steps.p.popis }}", aspect_ratio: "4:5" } }),
     "gemini-image · 4:5 · „{{ steps.p.popis }}“"],
+  [step("image", { image: { model: "gemini-image", aspect_ratio: "{{ inputs.pomer }}", quality: "high", resolution: "1K" } }),
+    "gemini-image · {{ inputs.pomer }} · high · 1K"],
   [step("call", { call: { scenario: "ig-text", inputs: { text: "a", b: "c" } } }), "→ ig-text · 2 vstupy"],
   [step("set", { set: { slogan: "a + b", procenta: "round(x)" } }), "slogan, procenta"],
   [step("fail", { fail: "Text neodpovídá značce" }), "Text neodpovídá značce"],

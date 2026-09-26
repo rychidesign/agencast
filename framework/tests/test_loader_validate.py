@@ -126,7 +126,7 @@ HEAD = "version: 1\nname: NAME\ndescription: x\n"
     ("steps: [{ id: a, set: { x: 'True == false' } }]", "neznámé jméno 'True'"),
     ("steps: [{ id: a, set: { x: 'open(\"f\")' } }]", "funkce 'open' není povolená"),
     ('steps: [{ id: a, set: { x: "{{ inputs.y }}" } }]', "šablona {{ }} tu není povolená"),
-    ('steps: [{ id: a, image: { model: gemini-image, prompt: x, aspect_ratio: "{{ inputs.r }}" } }]', "neodpovídá tvaru"),
+    ('steps: [{ id: a, image: { model: gemini-image, prompt: x, aspect_ratio: "{{ inputs.r }}" } }]', "nemá klíč 'r'"),
     ("steps: [{ id: a, fail: x }, { id: b, fail: y }]", "nedosažitelný"),
     ("steps: [{ id: a, fail: 'x {{ inputs.nic }}' }]", "'inputs' nemá klíč 'nic'"),
     ("steps: [{ id: a, task: { agent: publisher, prompt: x } }]", "nesmí spustit agenta se serverem 'instagram'"),

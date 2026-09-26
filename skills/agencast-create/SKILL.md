@@ -53,7 +53,7 @@ bottom; a step sees only steps above it as `steps.<id>.<field>`.
 - `ask` — one model call via an agent, no tools; output `.text`, or the fields of `schema: {a: string, b: [string]}`.
 - `task` — agent loop with MCP tools (`max_turns`, `tools` subset); same outputs as `ask`.
 - `jev` — cheap classifier: `state` + `questions` (`type: noul` → 0–1, `choice` with `criteria`); output `steps.<id>.<question>`.
-- `image` — `model` (image alias), `prompt`, `aspect_ratio: "4:5"`; output `.file`.
+- `image` — `model` (pevný alias), `prompt`; `aspect_ratio`, `quality` a `resolution` mohou být šablony, kvalita kroku přebíjí alias; chat API kvalitu/rozlišení ignoruje s varováním; výstup `.file`.
 - `call` — run another scenario (`callable: true`) in the same run; output = its `outputs`.
 - `parallel` — named branches (lists of steps) run concurrently; no cross-branch refs.
 - `switch` — `value` (string expr), `cases: {v: [steps]}`, `default:` required (`[]` = nothing).

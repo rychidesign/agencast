@@ -420,6 +420,7 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
    ho tiše neinterpretuje po svém.
 
 ### 5.7 Obrázky a soubory
+- Od 0.14.0 přijímá krok `image` šablony v `aspect_ratio`, `quality` a `resolution`; kvalita kroku přebíjí alias, chat API kvalitu a rozlišení ignoruje s varováním (aditivně, version 1).
 - `image` vrací base64 → framework uloží soubor do složky běhu → krok
   vrátí cestu. Soubory v `output` se na konci běhu nahrají do úložiště
   z `config.yaml`; callback nese URL. Instagram Graph API vyžaduje

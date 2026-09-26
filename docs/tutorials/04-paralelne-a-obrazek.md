@@ -126,6 +126,12 @@ steps:
   `image`; napsat do `output` cestu jako text nejde.
 - Výběr API a kvality: [config.md](../spec/config.md#models--aliasy-55).
 
+Od 0.14.0 lze poměr předat jako `aspect_ratio: "{{ inputs.pomer }}"`;
+stejně fungují `quality` (`auto|low|medium|high`) a `resolution`
+(`"512"|"1K"|"2K"|"4K"`). Kvalita kroku přebíjí alias; chat API kvalitu
+a rozlišení ignoruje s varováním. Volatelný příklad je
+[`obrazek.yaml`](../../workflows/scenarios/obrazek.yaml).
+
 ### Nové vlastnosti kroků
 
 | Vlastnost | Tady | Co dělá |

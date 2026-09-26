@@ -612,8 +612,48 @@
               "$ref": "#/$defs/template"
             },
             "aspect_ratio": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*:[1-9][0-9]*$"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*:[1-9][0-9]*$"
+                },
+                {
+                  "$ref": "#/$defs/template",
+                  "pattern": "\\{\\{[\\s\\S]+\\}\\}"
+                }
+              ]
+            },
+            "quality": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "auto",
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                },
+                {
+                  "$ref": "#/$defs/template",
+                  "pattern": "\\{\\{[\\s\\S]+\\}\\}"
+                }
+              ]
+            },
+            "resolution": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "512",
+                    "1K",
+                    "2K",
+                    "4K"
+                  ]
+                },
+                {
+                  "$ref": "#/$defs/template",
+                  "pattern": "\\{\\{[\\s\\S]+\\}\\}"
+                }
+              ]
             }
           }
         }

@@ -495,13 +495,26 @@ class Run:
 
     async def step_image(self, info: StepInfo, ctx: Ctx):
         im = info.data["image"]
-        alias, ratio = im["model"], im.get("aspect_ratio")
+        alias = im["model"]
         m = self.p.config["models"][alias]
         prompt = self.text(im["prompt"], "image.prompt")
-        self.rec.write(f"{info.folder}/prompt.md", "# Prompt obrázku\n\n" + prompt)
+        params = {}
+        for field, pattern in (("aspect_ratio", r"[1-9][0-9]*:[1-9][0-9]*"),
+                               ("quality", r"auto|low|medium|high"), ("resolution", r"512|1K|2K|4K")):
+            value = im.get(field, m.get("quality") if field == "quality" else None)
+            if value is not None:
+                value = self.text(value, f"image.{field}")
+                if not re.fullmatch(pattern, value):
+                    raise AgencastError("config", f"image.{field}: neplatná dosazená hodnota {value!r}")
+                params[field] = value
+        ratio = params.get("aspect_ratio")
+        self.rec.write(f"{info.folder}/prompt.md", "# Prompt obrázku\n\n" + prompt
+                       + "\n\n## Parametry\n" + "\n".join(f"- {k}: {v}" for k, v in params.items()))
         images_api = m.get("api", "chat") == "images"
-        body = (images_body(m["id"], prompt, ratio, m.get("quality")) if images_api
+        body = (images_body(m["id"], prompt, ratio, params.get("quality"), params.get("resolution")) if images_api
                 else image_body(m["id"], prompt, ratio))
+        if not images_api and ("quality" in params or "resolution" in params):
+            self.warnings.append(f"krok {info.id}: model přes chat API ignoruje quality/resolution")
         parse = parse_images if images_api else parse_image
         endpoint = "/images" if images_api else "/chat/completions"
 
