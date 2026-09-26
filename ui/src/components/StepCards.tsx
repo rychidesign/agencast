@@ -1,14 +1,30 @@
-// Sloupec karet kroků (§2.3, §2.4) — stejný pro editor (jen ke čtení) a prohlížeč běhu (§2.5).
-import { AlignJustify, ArrowDown, CircleX, TriangleAlert } from "lucide-react";
-import type { KeyboardEvent, ReactNode } from "react";
+// Sloupec karet kroků (§2.3, §2.4) — stejný pro editor a prohlížeč běhu (§2.5).
+// Editor přidává `ctx.edit`: konektory s +, koš a ⋯ vně pilulky, klávesy (§4.1–4.3, §6).
+import { AlignJustify, ArrowDown, CircleX, Trash2, TriangleAlert } from "lucide-react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
+import type { Anchor, ListRef } from "../edit";
 import { formatCost, formatDuration } from "../format";
 import { t } from "../i18n";
 import { href } from "../router";
 import { callChildren, continued, runValue, type RunCtx } from "../run";
 import { stepValue } from "../steps";
 import type { ErrorItem, IoSpec, RunStep, Step } from "../types";
+import { AddButton, TypePicker, type Pick } from "./TypePicker";
 import { TypeIcon } from "./TypeIcon";
-import { StatusIcon, type Status } from "./ui";
+import { Menu, StatusIcon, type Status } from "./ui";
+
+/** Editační akce sloupce; kroky nesou `uid` (edit.ts `WStep`). */
+export interface EditCtx {
+  add: (at: Anchor, pick: Pick) => void;
+  remove: (step: Step) => void;
+  shift: (step: Step, delta: -1 | 1) => void;
+  cut: (step: Step) => void;
+  /** Vyjmutý krok čeká na „Vložit sem“. */
+  cut_?: Step;
+  addBranch: (step: Step) => void;
+  /** Hlavička má výstupy a krok `output` chybí → nabídka na konci hlavního seznamu. */
+  addOutput?: () => void;
+}
 
 export interface ListCtx {
   project: string;
@@ -16,7 +32,10 @@ export interface ListCtx {
   onSelect: (key: string) => void;
   errors: Map<string, ErrorItem[]>;
   run?: RunCtx;
+  edit?: EditCtx;
 }
+
+export const uidOf = (s: Step) => (s as { uid?: string }).uid ?? s.id;
 
 const RUN_ICON: Record<RunStep["status"], Status> = {
   running: "running", succeeded: "succeeded", failed: "failed", cancelled: "cancelled", skipped: "skipped",
@@ -27,7 +46,8 @@ const keyOf = (step: Step, ctx: ListCtx) => (ctx.run ? ctx.run.prefix + step.id 
 
 /** ↑/↓ mezi kartami sloupce (§6); karty jsou tlačítka v pořadí dokumentu. */
 export function onColumnKey(e: KeyboardEvent<HTMLElement>) {
-  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || e.altKey) return;
+  if (!(e.target as HTMLElement).matches("[data-step-card]")) return;
   const cards = [...e.currentTarget.querySelectorAll<HTMLElement>("[data-step-card]")];
   const i = cards.indexOf(document.activeElement as HTMLElement);
   if (i < 0) return;
@@ -41,9 +61,11 @@ interface CardProps {
   /** Kontejner (`parallel`, `switch`) má jiný tvar — zaoblený obdélník. */
   shape?: "pill" | "head";
   meta?: string;
+  /** Kam vložit krok „nad“ (editor). */
+  above?: Anchor;
 }
 
-export function StepCard({ step, ctx, shape = "pill", meta }: CardProps) {
+export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) {
   const key = keyOf(step, ctx);
   const rs = ctx.run?.steps.get(key);
   const selected = ctx.selected === key;
@@ -63,15 +85,26 @@ export function StepCard({ step, ctx, shape = "pill", meta }: CardProps) {
       </span>
     ) : null;
   }
-  const label = `${t("step.number", { n: step.nn })}: ${step.type ?? "?"} ${step.id}${status ? ` — ${rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}` : ""}`;
+  const edit = ctx.edit;
+  const isCut = !!edit?.cut_ && uidOf(edit.cut_) === uidOf(step);
+  const label = `${t("step.number", { n: step.nn })}: ${step.type ?? "?"} ${step.id}${status ? ` — ${rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}` : ""}${isCut ? ` — ${t("edit.cutMark")}` : ""}`;
+  const onKey = (e: KeyboardEvent) => {
+    if (!edit) return;
+    if (e.key === "Delete") edit.remove(step);
+    else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) edit.shift(step, e.key === "ArrowUp" ? -1 : 1);
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "x") edit.cut(step);
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
   return (
-    <div className={notReached ? "opacity-40" : ""}>
+    <div className={`${notReached ? "opacity-40" : ""} ${edit ? "group relative" : ""}`}>
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
-        onClick={() => ctx.onSelect(key)}
+        onClick={() => ctx.onSelect(key)} onKeyDown={onKey}
         className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${shape === "pill" ? "rounded-full" : "rounded-xl"} ${
           selected ? "bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900" : shape === "pill" ? "bg-zinc-800/60 hover:bg-zinc-800" : "hover:bg-zinc-800"
-        } ${rs?.status === "running" ? "motion-safe:animate-pulse" : ""}`}
+        } ${rs?.status === "running" ? "motion-safe:animate-pulse" : ""} ${isCut ? "opacity-50" : ""}`}
       >
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-zinc-900 text-sm font-semibold text-zinc-200">
           {status ? <StatusIcon status={status} label="" className="size-5" /> : step.nn}
@@ -88,6 +121,7 @@ export function StepCard({ step, ctx, shape = "pill", meta }: CardProps) {
         </span>
         {right && <span className="max-w-[40%] shrink-0 truncate text-[13px] text-zinc-400">{right}</span>}
       </button>
+      {edit && <CardControls step={step} edit={edit} above={above} />}
       {warn && (
         <p className="mt-1 ml-14 flex items-center gap-1.5 text-[13px] text-amber-400">
           <TriangleAlert className="size-4" aria-hidden />{t("run.warning")}
@@ -98,6 +132,49 @@ export function StepCard({ step, ctx, shape = "pill", meta }: CardProps) {
           <CircleX className="mt-0.5 size-4 shrink-0" aria-hidden /><span className="line-clamp-2">{e.message.split("\n")[0]}</span>
         </p>
       ))}
+    </div>
+  );
+}
+
+/** ⋯ a koš vně pilulky (§2.3): při hoveru a `focus-within`, na dotyku trvale ztlumeně. */
+function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?: Anchor }) {
+  const [picker, setPicker] = useState<Anchor | null>(null);
+  const uid = uidOf(step);
+  const out = step.type === "output";
+  const items = [
+    ...(out ? [] : [
+      { label: t("edit.moveUp"), onSelect: () => edit.shift(step, -1) },
+      { label: t("edit.moveDown"), onSelect: () => edit.shift(step, 1) },
+      { label: t("edit.cut"), onSelect: () => edit.cut(step) },
+    ]),
+    ...(above ? [{ label: t("edit.insertAbove"), onSelect: () => setPicker(above) }] : []),
+    ...(out ? [] : [{ label: t("edit.insertBelow"), onSelect: () => setPicker({ after: uid }) }]),
+    { label: t("edit.delete"), onSelect: () => edit.remove(step) },
+  ];
+  return (
+    <div className="absolute top-1/2 left-full ml-2 flex -translate-y-1/2 items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60">
+      <Menu items={items} label={t("common.menuFor", { name: step.id })} />
+      <button type="button" onClick={() => edit.remove(step)} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
+        className="grid size-7 place-items-center rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25">
+        <Trash2 className="size-3.5" aria-hidden />
+      </button>
+      {picker && (
+        <div className="relative">
+          <TypePicker paste={edit.cut_?.id} onClose={() => setPicker(null)} onPick={(p) => (setPicker(null), edit.add(picker, p))} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Šipka mezi kartami; v editoru se při hoveru/fokusu promění v (+) (§2.3 Konektor). */
+export function Connector({ ctx, at }: { ctx: ListCtx; at: Anchor }) {
+  const edit = ctx.edit;
+  if (!edit) return <Arrow />;
+  return (
+    <div className="group/conn relative flex h-10 items-center justify-center">
+      <ArrowDown className={`absolute size-4 text-zinc-400 group-focus-within/conn:opacity-0 group-hover/conn:opacity-0 ${edit.cut_ ? "opacity-0" : ""}`} aria-hidden />
+      <AddButton label={t("edit.addHere")} paste={edit.cut_?.id} always={!!edit.cut_} onPick={(p) => edit.add(at, p)} />
     </div>
   );
 }
@@ -115,10 +192,10 @@ const fromRun = (rs: RunStep, i: number): Step => ({
   nn: i + 1, address: [], id: rs.step.split("/").pop()!, type: rs.kind, when: null, fields: {}, refs: [],
 });
 
-function Container({ step, ctx, meta, children }: { step: Step; ctx: ListCtx; meta: string; children: ReactNode }) {
+function Container({ step, ctx, meta, above, children }: { step: Step; ctx: ListCtx; meta: string; above?: Anchor; children: ReactNode }) {
   return (
     <div className="rounded-2xl bg-zinc-800/60 p-2">
-      <StepCard step={step} ctx={ctx} shape="head" meta={meta} />
+      <StepCard step={step} ctx={ctx} shape="head" meta={meta} above={above} />
       <div className="p-2">{children}</div>
     </div>
   );
@@ -133,29 +210,38 @@ function Branch({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function StepItem({ step, ctx }: { step: Step; ctx: ListCtx }) {
+function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anchor }) {
+  const uid = uidOf(step);
+  const sub = (key: string[]): ListRef => ({ parent: uid, key });
+  const addBranch = ctx.edit && (
+    <button type="button" onClick={() => ctx.edit!.addBranch(step)} className="rounded-full px-2.5 py-1 text-[13px] text-zinc-300 hover:bg-zinc-700">
+      + {t(step.type === "parallel" ? "edit.addBranch" : "edit.addCase")}
+    </button>
+  );
   if (step.type === "parallel" && step.branches) {
     const names = Object.keys(step.branches);
     return (
-      <Container step={step} ctx={ctx} meta={`${names.join(" ∥ ")} · ${t("step.parallel.meta", { n: names.length })}`}>
+      <Container step={step} ctx={ctx} above={above} meta={`${names.join(" ∥ ")} · ${t("step.parallel.meta", { n: names.length })}`}>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
-          {names.map((b) => <Branch key={b} label={b}><StepList steps={step.branches![b]} ctx={ctx} /></Branch>)}
+          {names.map((b) => <Branch key={b} label={b}><StepList steps={step.branches![b]} ctx={ctx} list={sub(["parallel", b])} /></Branch>)}
         </div>
+        {addBranch && <div className="mt-2 text-right">{addBranch}</div>}
       </Container>
     );
   }
   if (step.type === "switch" && step.cases) {
     return (
-      <Container step={step} ctx={ctx} meta={stepValue(step)}>
+      <Container step={step} ctx={ctx} above={above} meta={stepValue(step)}>
         <div className="space-y-3">
           {Object.entries(step.cases).map(([c, steps]) => (
-            <Branch key={c} label={`= ${c}`}><StepList steps={steps} ctx={ctx} /></Branch>
+            <Branch key={c} label={`= ${c}`}><StepList steps={steps} ctx={ctx} list={sub(["switch", "cases", c])} /></Branch>
           ))}
-          {step.default?.length ? (
-            <Branch label={t("step.switch.default")}><StepList steps={step.default} ctx={ctx} /></Branch>
+          {step.default?.length || ctx.edit ? (
+            <Branch label={t("step.switch.default")}><StepList steps={step.default ?? []} ctx={ctx} list={sub(["switch", "default"])} /></Branch>
           ) : (
             <p className="px-3 font-mono text-[13px] text-zinc-500">{t("step.switch.elseNothing")}</p>
           )}
+          {addBranch && <div className="text-right">{addBranch}</div>}
         </div>
       </Container>
     );
@@ -180,23 +266,42 @@ function StepItem({ step, ctx }: { step: Step; ctx: ListCtx }) {
     }
     return (
       <div>
-        <StepCard step={step} ctx={ctx} />
+        <StepCard step={step} ctx={ctx} above={above} />
         {open && <div className="mt-1 ml-16">{open}</div>}
       </div>
     );
   }
-  return <StepCard step={step} ctx={ctx} />;
+  return <StepCard step={step} ctx={ctx} above={above} />;
 }
 
-export function StepList({ steps, ctx }: { steps: Step[]; ctx: ListCtx }) {
+const MAIN: ListRef = { parent: null, key: [] };
+
+export function StepList({ steps, ctx, list = MAIN }: { steps: Step[]; ctx: ListCtx; list?: ListRef }) {
+  const edit = ctx.edit;
+  const last = steps[steps.length - 1];
+  const end: Anchor = last ? { after: uidOf(last) } : { list };
+  const main = list.parent === null;
   return (
     <ol>
-      {steps.map((s, i) => (
-        <li key={s.id}>
-          {i > 0 && <Arrow />}
-          <StepItem step={s} ctx={ctx} />
+      {steps.map((s, i) => {
+        const above: Anchor = i ? { after: uidOf(steps[i - 1]) } : { list };
+        return (
+          <li key={uidOf(s)}>
+            {i > 0 && <Connector ctx={ctx} at={above} />}
+            <StepItem step={s} ctx={ctx} above={edit ? above : undefined} />
+          </li>
+        );
+      })}
+      {edit && last?.type !== "output" && (
+        <li className="flex h-14 items-center justify-center gap-3">
+          <AddButton always label={t("edit.addEnd")} paste={edit.cut_?.id} onPick={(p) => edit.add(end, p)} />
+          {main && edit.addOutput && (
+            <button type="button" onClick={edit.addOutput} className="rounded-full px-2.5 py-1 font-mono text-[13px] text-zinc-300 ring-1 ring-zinc-600 hover:bg-zinc-800">
+              + output
+            </button>
+          )}
         </li>
-      ))}
+      )}
     </ol>
   );
 }
