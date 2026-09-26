@@ -364,5 +364,21 @@
   "config.formNeedsValid": "config.yaml neprošel kontrolou — oprav ho v YAML",
   "scenarios.validate": "Validovat",
   "scenarios.validated": "Validace {name}",
-  "scenarios.valid": "bez chyb"
+  "scenarios.valid": "bez chyb",
+  "projects.mode": "Druh",
+  "projects.modeNew": "Založit nový",
+  "projects.modeExisting": "Přidat existující",
+  "projects.newTitle": "Nový projekt",
+  "projects.existingTitle": "Přidat existující projekt",
+  "projects.addButton": "Přidat",
+  "projects.path": "Cesta",
+  "projects.pathHelp": "Složka projektu; nesmí v ní být workflows/. Výchozí je {root}/<jméno>.",
+  "projects.pathExistingHelp": "Kořen projektu s workflows/config.yaml; relativní cesta se bere od {root}.",
+  "projects.nameHelp": "Malá písmena, číslice a pomlčka, začíná písmenem.",
+  "projects.nameExistingHelp": "Nepovinné — jinak jméno složky.",
+  "projects.addCli": "Tento server registr zapisovat nemůže (režim jednoho projektu nebo registr bez práva zápisu). Projekt přidej z terminálu:",
+  "projects.remove": "Odebrat z registru",
+  "projects.removeTitle": "Odebrat „{name}“ z registru?",
+  "projects.removeText": "Projekt zmizí jen ze seznamu. Soubory v {root} zůstanou na disku beze změny a projekt jde kdykoli přidat znovu.",
+  "projects.removeButton": "Odebrat z registru"
 }

@@ -209,13 +209,14 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
   );
 }
 
-/** Dialog se jménem (nový scénář / agent / skill): slug s kontrolou na místě. */
-export function NameDialog({ title, taken, onSubmit, onCancel, withDescription = false, pattern = /^[a-z0-9-]+$/ }: {
-  title: string; taken: string[]; onSubmit: (name: string, description: string) => Promise<void> | void;
-  onCancel: () => void; withDescription?: boolean; pattern?: RegExp;
+/** Dialog se jménem (nový scénář / agent / skill): slug s kontrolou na místě; `models` = výběr aliasu (agent). */
+export function NameDialog({ title, taken, onSubmit, onCancel, withDescription = false, models, pattern = /^[a-z0-9-]+$/ }: {
+  title: string; taken: string[]; onSubmit: (name: string, description: string, model: string) => Promise<void> | void;
+  onCancel: () => void; withDescription?: boolean; models?: string[]; pattern?: RegExp;
 }) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
+  const [model, setModel] = useState(models?.[0] ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const problem = !name ? null : !pattern.test(name) ? t("form.slug") : taken.includes(name) ? t("form.taken", { name }) : null;
@@ -223,7 +224,7 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
     if (!name || problem || busy) return;
     setBusy(true);
     try {
-      await onSubmit(name, desc);
+      await onSubmit(name, desc, model);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
@@ -239,6 +240,15 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
         {withDescription && (
           <FormField label={t("agent.description")}>
             {(a) => <input {...a} value={desc} onChange={(e) => setDesc(e.target.value)} className={inputCls} />}
+          </FormField>
+        )}
+        {models && (
+          <FormField label={t("agent.model")} help={t("agent.modelHelp")}>
+            {(a) => (
+              <select {...a} value={model} onChange={(e) => setModel(e.target.value)} className={inputCls}>
+                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            )}
           </FormField>
         )}
         {error && <p role="alert" className="font-mono text-xs whitespace-pre-wrap text-rose-400">{error}</p>}

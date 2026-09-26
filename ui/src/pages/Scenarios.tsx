@@ -1,7 +1,7 @@
 // §2.2 Záložka Scénáře: mřížka karet scénářů.
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { ApiError, enc, send, type Saved } from "../api";
+import { ApiError, enc, send } from "../api";
 import { Modal, NameDialog } from "../components/form";
 import { LastRun } from "../components/RunBadge";
 import { IconChain } from "../components/TypeIcon";
@@ -52,9 +52,7 @@ export function ScenariosTab({ project, onChanged }: { project: Project; onChang
       {creating && (
         <NameDialog title={t("scenarios.new")} withDescription taken={project.scenarios.map((s) => s.name)} onCancel={() => setCreating(false)}
           onSubmit={async (name, description) => {
-            const r = await send<{ etag: string }>("POST", `${base}/scenarios`, { name });
-            // popis do hlavičky hned (šablona má zástupný); když neprojde, scénář už existuje a popis jde změnit v editoru
-            if (description) await send<Saved>("PUT", `${base}/scenarios/${enc(name)}`, { etag: r.etag, fields: { description } }).catch(() => undefined);
+            await send("POST", `${base}/scenarios`, { name, ...(description ? { description } : {}) });
             setCreating(false);
             onChanged();
             navigate(href(project.name, "scenare", name, { krok: "_hlavicka" }));
@@ -94,7 +92,7 @@ function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; 
   const lastRun = s.last_run;
   const when = lastRun ? lastRun.finished_at ?? runIdParts(lastRun.run_id)?.startedAt : null;
   return (
-    <li className="relative flex min-h-52 flex-col rounded-xl bg-zinc-800/60 p-5 hover:bg-zinc-800">
+    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-52 flex-col rounded-xl bg-zinc-800/60 p-5 hover:bg-zinc-800">
       <div className="flex flex-wrap items-center gap-3">
         <IconChain types={s.types} />
         <div className="relative z-10 ml-auto flex items-center gap-1 whitespace-nowrap">

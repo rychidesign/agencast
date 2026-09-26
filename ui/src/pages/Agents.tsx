@@ -333,9 +333,10 @@ export function AgentsTab({ project, selected, onChanged }: { project: Project; 
         {(name) => <AgentEditor key={name} project={project} name={name} onChanged={onChanged} />}
       </MasterDetail>
       {creating && (
-        <NameDialog title={t("agenti.new")} taken={project.agents.map((a) => a.name)} onCancel={() => setCreating(false)}
-          onSubmit={async (name) => {
-            await send("POST", `/projects/${enc(project.name)}/agents`, { name });
+        <NameDialog title={t("agenti.new")} withDescription models={Object.keys(project.models)} taken={project.agents.map((a) => a.name)}
+          onCancel={() => setCreating(false)}
+          onSubmit={async (name, description, model) => {
+            await send("POST", `/projects/${enc(project.name)}/agents`, { name, ...(description ? { description } : {}), ...(model ? { model } : {}) });
             setCreating(false);
             onChanged();
             navigate(href(project.name, "agenti", name));
