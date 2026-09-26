@@ -93,13 +93,15 @@ callback:
 
 ### `models` — aliasy (§5.5)
 
-Mapa `alias: { id, max_tokens, structured_output }`. Agenti a scénáře znají jen alias;
+Mapa `alias: { id, api, quality, max_tokens, structured_output }`. Agenti a scénáře znají jen alias;
 výměna modelu = změna jednoho řádku zde.
 
 | Pole | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
 | `<alias>` | — | Jméno aliasu: malá písmena, číslice, pomlčka. | Agent/krok s neznámým aliasem → chyba `config`. | `chytry` |
-| `<alias>.id` | ano | Konkrétní model OpenRouteru. `validate` ho ověří proti `GET /api/v1/models` (pozor: `claude-haiku-4.5`, ne `-4-5`). | Chyba `config`. | `id: anthropic/claude-haiku-4.5` |
+| `<alias>.id` | ano | Konkrétní model OpenRouteru. `validate` ho ověří proti `GET /api/v1/models` pro `chat` nebo `/api/v1/images/models` pro `images` (pozor: `claude-haiku-4.5`, ne `-4-5`). | Chyba `config`. | `id: anthropic/claude-haiku-4.5` |
+| `<alias>.api` | ne | API pro krok `image`: `chat` používá chat completions a `images` dedikované Images API. | `chat` (dosavadní chování). | `api: images` |
+| `<alias>.quality` | jen při `api: images` | Kvalita požadavku Images API. | Výchozí modelu. | `quality: low` |
 | `<alias>.structured_output` | ne | Na které úrovni kaskády strukturovaného výstupu (§5.5) začít: `native_schema`, `tool_wrapper`, `prompt`. Nastavuje se podle konformačního scénáře aliasu (spike (a): Gemini flash-lite s nástroji potřebuje `tool_wrapper`). Viz [scenario.md](scenario.md#kaskáda-strukturovaného-výstupu-55). | `native_schema` | `structured_output: tool_wrapper` |
 | `<alias>.max_tokens` | ne | Strop délky odpovědi. Potřeba hlavně u reasoning modelů, které jinak vyčerpají limit na přemýšlení (`finish_reason: length`, viz scenario.md §6). | Výchozí poskytovatele. | `max_tokens: 4000` |
 

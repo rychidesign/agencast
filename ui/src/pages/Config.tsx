@@ -186,12 +186,28 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
             const setM = (k: string, v: unknown) => put("models", { ...models, [alias]: clean(m, k, v) });
             return (
               <li key={alias} className="space-y-1">
-                <div className="grid grid-cols-[10rem_1fr_9rem_7rem_auto] items-center gap-2">
+                <div className="grid grid-cols-[10rem_1fr_7rem_7rem_9rem_7rem_auto] items-center gap-2">
                   {users.length ? <span className="px-3 font-mono text-sm">{alias}</span>
                     : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
                       onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}
                   <input aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
                     value={String(m.id ?? "")} onChange={(e) => setM("id", e.target.value)} />
+                  <select aria-label={t("config.api", { alias })} className={inputCls} value={String(m.api ?? "chat")}
+                    onChange={(e) => {
+                      const next = clean(m, "api", e.target.value);
+                      put("models", { ...models, [alias]: e.target.value === "images" ? next : clean(next, "quality", undefined) });
+                    }}>
+                    <option value="chat">chat</option>
+                    <option value="images">images</option>
+                  </select>
+                  {m.api === "images" ? <select aria-label={t("config.quality", { alias })} className={inputCls} value={String(m.quality ?? "")}
+                    onChange={(e) => setM("quality", e.target.value || undefined)}>
+                    <option value="">{t("panel.default")}</option>
+                    <option value="auto">auto</option>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                  </select> : <span />}
                   <select aria-label={t("config.structured", { alias })} className={inputCls} value={String(m.structured_output ?? "")}
                     onChange={(e) => setM("structured_output", e.target.value)}>
                     <option value="">native_schema ({t("panel.default")})</option>

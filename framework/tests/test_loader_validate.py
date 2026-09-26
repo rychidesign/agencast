@@ -1,6 +1,6 @@
 """Loader (YAML 1.2 core, verze, schémata ze spec) a statické kontroly validate (scenario.md §7)."""
 import pytest
-from conftest import scenario
+from conftest import add_image_model, scenario
 
 from agencast import ConfigErrors
 from agencast.loader import SPEC_SCHEMAS, LoadError, load_dotenv, load_yaml
@@ -259,6 +259,43 @@ def test_models_checked_against_models_list(wf):
     cfg.write_text(cfg.read_text().replace("claude-haiku-4.5", "claude-haiku-4-5"))
     with pytest.raises(ConfigErrors, match="není v GET /models"):
         validate(p, transport=fake.transport())
+
+
+def test_images_api_model_and_aspect_ratio_validation(wf):
+    from agencast.fake import Fake
+
+    add_image_model(wf)
+    p = scenario(wf, HEAD + 'steps: [{ id: a, image: { model: gpt-image, prompt: x, aspect_ratio: "1:1" } }]')
+    assert validate(p, transport=Fake(None, [], ["openai/gpt-image-2"]).transport())
+    p.write_text(HEAD.replace("NAME", p.stem) + 'steps: [{ id: a, image: { model: gpt-image, prompt: x, aspect_ratio: "5:4" } }]')
+    with pytest.raises(ConfigErrors, match="nepodporuje aspect_ratio 5:4"):
+        validate(p, transport=Fake(None, [], ["openai/gpt-image-2"]).transport())
+    with pytest.raises(ConfigErrors, match="není v GET /images/models"):
+        validate(p, transport=Fake(None, [], ["openai/other-image"]).transport())
+
+
+def test_chat_image_model_only_in_images_api_suggests_config(wf):
+    from agencast.fake import Fake
+
+    add_image_model(wf, quality=None)
+    cfg_path = wf / "config.yaml"
+    cfg = __import__("yaml").safe_load(cfg_path.read_text())
+    cfg["models"]["gpt-image"]["api"] = "chat"
+    cfg_path.write_text(__import__("yaml").safe_dump(cfg, allow_unicode=True, sort_keys=False))
+    p = scenario(wf, HEAD + "steps: [{ id: a, image: { model: gpt-image, prompt: x } }]")
+    with pytest.raises(ConfigErrors, match=r"openai/gpt-image-2.*je jen v Images API — nastav models.gpt-image.api: images"):
+        validate(p, transport=Fake(None, ["anthropic/claude-haiku-4.5"], ["openai/gpt-image-2"]).transport())
+
+
+def test_quality_requires_images_api(wf):
+    add_image_model(wf)
+    cfg_path = wf / "config.yaml"
+    cfg = __import__("yaml").safe_load(cfg_path.read_text())
+    cfg["models"]["gpt-image"]["api"] = "chat"
+    cfg_path.write_text(__import__("yaml").safe_dump(cfg, allow_unicode=True, sort_keys=False))
+    p = scenario(wf, HEAD + "steps: [{ id: a, fail: done }]")
+    with pytest.raises(ConfigErrors, match=r"config.yaml.*models.gpt-image.api: má být \"images\""):
+        validate(p, check_models=False)
 
 
 def test_all_errors_at_once(wf):

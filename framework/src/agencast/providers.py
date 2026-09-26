@@ -1,5 +1,5 @@
-"""Poskytovatelé přes OpenRouter: chat completions (`ask`, `image`) a Jev
-(`/systemone`). Holé HTTP přes httpx (spike (a), DESIGN D3).
+"""Poskytovatelé přes OpenRouter: chat completions (`ask`, `image`), Images API
+(`image`) a Jev (`/systemone`). Holé HTTP přes httpx (spike (a), DESIGN D3).
 
 Tady je jen stavba požadavků a čtení odpovědí včetně třídy chyby;
 opakování, rozpočet a záznam dělá engine; smyčku `task` dělá `task.py`.
@@ -99,6 +99,37 @@ def list_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
         runs_dir.mkdir(parents=True, exist_ok=True)
         # souběžné běhy: dočasný soubor ve stejné složce + os.replace → čtenář nikdy nevidí půlku
         fd, tmp = tempfile.mkstemp(dir=runs_dir, prefix="_models.", suffix=".tmp")
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps({"base_url": base_url, "fetched_at": time.time(), "data": data}))
+        os.replace(tmp, cache)
+    return data
+
+
+def list_image_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
+    """`GET /images/models` s vlastní cache 24 h (OpenRouter Images API)."""
+    cache = runs_dir / "_images_models.json"
+    if transport is None and cache.is_file():
+        try:
+            c = json.loads(cache.read_text())
+        except ValueError:
+            c = {}
+        if c.get("base_url") == base_url and time.time() - c.get("fetched_at", 0) < MODELS_CACHE_S:
+            return c["data"]
+    url = base_url.rstrip("/") + "/images/models"
+    try:
+        with httpx.Client(transport=transport, timeout=30) as http:
+            r = http.get(url)
+        data = r.json()["data"] if r.status_code == 200 else None
+    except (httpx.HTTPError, ValueError, KeyError) as e:
+        data, r = None, e
+    if data is None:
+        raise AgencastError("transient", f"GET {url} selhalo ({getattr(r, 'status_code', r)}) a platná "
+                                    f"cache {cache} není — kontrola modelů potřebuje síť")
+    data = [{"id": m["id"], "output_modalities": (m.get("architecture") or {}).get("output_modalities") or [],
+             "supported_parameters": m.get("supported_parameters") or {}} for m in data]
+    if transport is None:
+        runs_dir.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=runs_dir, prefix="_images_models.", suffix=".tmp")
         with os.fdopen(fd, "w") as f:
             f.write(json.dumps({"base_url": base_url, "fetched_at": time.time(), "data": data}))
         os.replace(tmp, cache)
@@ -313,6 +344,15 @@ def image_body(model: str, prompt: str, aspect_ratio: str | None) -> dict:
     return body
 
 
+def images_body(model: str, prompt: str, aspect_ratio: str | None, quality: str | None = None) -> dict:
+    body = {"model": model, "prompt": prompt}
+    if aspect_ratio:
+        body["aspect_ratio"] = aspect_ratio
+    if quality:
+        body["quality"] = quality
+    return body
+
+
 def parse_image(status, body, headers):
     """(meta, (bajty, media_type), chyba). Bez obrázku: odmítnutí → content, jinak transient → content."""
     meta = _meta(status, body)
@@ -338,16 +378,72 @@ def parse_image(status, body, headers):
     return meta, (data, head[5:].split(";")[0]), _no_cost(meta)
 
 
+def parse_images(status, body, headers):
+    """Přečte Images API; prázdný výstup se opakuje jako transient a pak končí jako content."""
+    meta = _meta(status, body)
+    err = http_error(status, body, headers)
+    if err:
+        refusal = body.get("refusal")
+        detail = json.dumps(body, ensure_ascii=False).lower()
+        if status is not None and status < 500 and (refusal or any(
+                marker in detail for marker in ("moderation", "content_policy", "refusal", "flagged"))):
+            return meta, None, AgencastError("content", f"model odmítl: {refusal or 'obsah zablokoval filtr poskytovatele'}",
+                                              http_status=status)
+        return meta, None, err
+    if body.get("refusal"):
+        return meta, None, AgencastError("content", f"model odmítl: {body['refusal']}")
+    images = body.get("data") or []
+    if not images:
+        return meta, None, AgencastError("transient", "model nevrátil obrázek", final="content")
+    item = images[0] if isinstance(images[0], dict) else {}
+    try:
+        data = base64.b64decode(item.get("b64_json", ""), validate=True)
+    except (ValueError, TypeError) as e:
+        return meta, None, AgencastError("transient", f"obrázek nejde dekódovat z base64: {e}")
+    media = item.get("media_type")
+    if not media:
+        media = image_media_type(data)
+        if not media:
+            return meta, None, AgencastError("content", "nepodporovaný formát obrázku")
+    return meta, (data, media), _no_cost(meta)
+
+
+def image_media_type(data: bytes) -> str | None:
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8"):
+        return "image/jpeg"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 def image_size(data: bytes) -> tuple[int | None, int | None]:
-    """Rozměry z hlavičky PNG nebo JPEG."""
+    """Rozměry z hlavičky PNG, JPEG nebo WebP."""
     if data[:8] == b"\x89PNG\r\n\x1a\n":
+        if len(data) < 24:
+            return None, None
         return struct.unpack(">II", data[16:24])
+    if len(data) >= 30 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        chunk = data[12:16]
+        if chunk == b"VP8X":
+            return (int.from_bytes(data[24:27], "little") + 1,
+                    int.from_bytes(data[27:30], "little") + 1)
+        if chunk == b"VP8L" and data[20] == 0x2F and len(data) >= 25:
+            bits = int.from_bytes(data[21:25], "little")
+            return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
+        if chunk == b"VP8 " and data[23:26] == b"\x9d\x01\x2a":
+            return (int.from_bytes(data[26:28], "little") & 0x3FFF,
+                    int.from_bytes(data[28:30], "little") & 0x3FFF)
     if data[:2] == b"\xff\xd8":
         i = 2
-        while i + 9 < len(data):
+        while i + 9 <= len(data):
             if data[i] != 0xFF:
                 break
-            marker, length = data[i + 1], struct.unpack(">H", data[i + 2:i + 4])[0]
+            marker = data[i + 1]
+            length = struct.unpack(">H", data[i + 2:i + 4])[0]
+            if length < 2 or i + 2 + length > len(data):
+                break
             if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
                 h, w = struct.unpack(">HH", data[i + 5:i + 9])
                 return w, h

@@ -399,9 +399,12 @@ Politiku obsahu vynucuje scénář — typicky krok `jev` nad promptem před
 
 `aspect_ratio` je zdokumentovaný u OpenRouter Image API
 (`POST /api/v1/images`,
-<https://openrouter.ai/docs/features/multimodal/image-generation>, staženo
-2026-09-25). U chat completions, které použil spike, ověřený není — který
-endpoint framework použije, rozhodne Fáze 2; formát kroku se tím nemění.
+<https://openrouter.ai/docs/features/multimodal/image-generation>, ověřeno
+2026-09-27). Endpoint určuje `models.<alias>.api` v `config.yaml`:
+`chat` (výchozí) používá chat completions s `modalities: [image, text]`,
+`images` používá `POST /api/v1/images` a odešle `aspect_ratio` přímo.
+Volitelné `models.<alias>.quality` se posílá jen přes `images`; formát kroku
+se nemění.
 
 ### `parallel`
 

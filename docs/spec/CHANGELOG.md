@@ -251,3 +251,9 @@ kompatibilní. API ([api.md](api.md)) přidává počty a dnešní útratu do
 řádek chyb schématu configu a krok/pole u chyby operace dávky. Restartem
 přerušený běh zachová původní `run_started` a v API má `state: interrupted`.
 Smlouva `POST /runs` a callbacku se nemění.
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.12.0)
+
+- `config.yaml`: alias modelu může mít volitelné `api: chat|images` (výchozí
+  `chat`) a při `api: images` volitelné `quality: auto|low|medium|high`;
+  formát kroku `image` zůstává beze změny.

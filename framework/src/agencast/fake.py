@@ -57,9 +57,10 @@ def dummy(schema: dict, name: str = "hodnota"):
 
 
 class Fake:
-    def __init__(self, script: dict | None = None, models=()):
+    def __init__(self, script: dict | None = None, models=(), image_models=()):
         self.script = script or {}
         self.models = list(models)
+        self.image_models = list(image_models)
         self.calls: list[tuple[str, str, dict]] = []  # (cesta kroku, endpoint, tělo požadavku)
         self._used: dict[str, int] = {}
 
@@ -68,6 +69,14 @@ class Fake:
 
     def handle(self, request: httpx.Request):
         path = request.url.path
+        if path.endswith("/images/models"):
+            return httpx.Response(200, json={"data": [
+                {"id": m, "architecture": {"output_modalities": ["image"]},
+                 "supported_parameters": {
+                     "aspect_ratio": {"type": "enum", "values": ["1:1", "3:2", "2:3", "4:3", "3:4",
+                                                                       "16:9", "9:16", "21:9", "auto"]},
+                     "quality": {"type": "enum", "values": ["auto", "low", "medium", "high"]}}}
+                for m in self.image_models]})
         if path.endswith("/models"):
             return httpx.Response(200, json={"data": [
                 {"id": m, "architecture": {"output_modalities": ["image", "text"] if "image" in m else ["text"]},
@@ -98,6 +107,15 @@ class Fake:
                                                                   "message": spec.get("error", "falešná chyba")}},
                                   headers={"retry-after": "0"})
         cost = spec.get("cost", 0.0001)
+        if path.endswith("/images"):
+            if spec.get("refusal"):
+                return httpx.Response(403, json={"error": {"code": 403,
+                                                              "message": f"content_policy_violation: {spec['refusal']}"}})
+            w, h = self._image_size(body, spec.get("image"))
+            image = {"b64_json": base64.b64encode(png(w, h)).decode()}
+            if not spec.get("omit_media_type"):
+                image["media_type"] = spec.get("media_type", "image/png")
+            return httpx.Response(200, json={"data": [image], "usage": {"cost": spec.get("cost", 0.04)}})
         if path.endswith("/systemone"):
             return httpx.Response(200, json={
                 "model": "typesafe/jev-fake", "answers": self._answers(body["questions"], spec.get("answers") or {}),
@@ -140,6 +158,16 @@ class Fake:
             a, b = map(int, ratio.split(":"))
             return a * 64, b * 64
         return 352, 192  # poměr výchozích 1408×768 (spike (a))
+
+    @staticmethod
+    def _image_size(body, image):
+        if image and "width" in image:
+            return image["width"], image["height"]
+        ratio = body.get("aspect_ratio")
+        if ratio and ratio != "auto":
+            a, b = map(int, ratio.split(":"))
+            return a * 64, b * 64
+        return 352, 192
 
     @staticmethod
     def _content(body, spec, msg, n):

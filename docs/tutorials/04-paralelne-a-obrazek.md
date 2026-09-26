@@ -124,6 +124,7 @@ steps:
   chyba, nic se tiše neořízne.
 - Výstup: `steps.fotka.file` — typ `file`. Ten vzniká **jen** z kroku
   `image`; napsat do `output` cestu jako text nejde.
+- Výběr API a kvality: [config.md](../spec/config.md#models--aliasy-55).
 
 ### Nové vlastnosti kroků
 

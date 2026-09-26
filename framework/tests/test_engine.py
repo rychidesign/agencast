@@ -4,11 +4,13 @@ import hashlib
 import hmac
 import json
 import re
+import base64
 from datetime import datetime
+from pathlib import Path
 
 import httpx
 import pytest
-from conftest import events, model_ids, run, scenario
+from conftest import add_image_model, events, model_ids, run, scenario
 
 from agencast import AgencastError, engine, providers
 from agencast.engine import dry_run, run_scenario
@@ -278,6 +280,71 @@ def test_image_missing_becomes_content(wf):
 def test_image_refusal_is_content(wf):
     r, _ = run(scenario(wf, IMG.replace("RETRY", "")), script={"foto": {"refusal": "osoba"}})
     assert err(r)[0] == "content" and len(events(r, "model_call")) == 1
+
+
+def test_images_body_and_response_shapes():
+    assert providers.images_body("openai/gpt-image-2", "šálek", "1:1", "low") == {
+        "model": "openai/gpt-image-2", "prompt": "šálek", "aspect_ratio": "1:1", "quality": "low"}
+    data = base64.b64encode(b"\x89PNG\r\n\x1a\nheader").decode()
+    meta, value, error = providers.parse_images(200, {"data": [{"b64_json": data}], "usage": {"cost": 0.02}}, {})
+    assert value == (b"\x89PNG\r\n\x1a\nheader", "image/png") and meta["usage"]["cost_usd"] == 0.02 and error is None
+    webp = (b"RIFF\0\0\0\0WEBPVP8X\x0a\0\0\0\0\0\0\0" +
+            (63).to_bytes(3, "little") + (63).to_bytes(3, "little"))
+    _, value, error = providers.parse_images(200, {"data": [{"b64_json": base64.b64encode(webp).decode()}],
+                                                   "usage": {"cost": 0.02}}, {})
+    assert value == (webp, "image/webp") and providers.image_size(webp) == (64, 64) and error is None
+
+
+def test_images_live_response_fixture_shape():
+    fixture = json.loads((Path(__file__).parent / "fixtures/openrouter-images-response.json").read_text())
+    assert set(fixture) == {"created", "data", "usage"}
+    assert fixture["data"][0]["media_type"] == "image/png" and fixture["usage"]["cost"] > 0
+    fixture["data"][0]["b64_json"] = base64.b64encode(b"\x89PNG\r\n\x1a\nheader").decode()
+    meta, value, error = providers.parse_images(200, fixture, {})
+    assert value[1] == "image/png" and meta["usage"]["cost_usd"] == fixture["usage"]["cost"] and error is None
+
+
+@pytest.mark.parametrize("status,headers,cls,retry_after", [
+    (502, {}, "transient", None), (429, {"retry-after": "3"}, "transient", 3.0),
+    (400, {}, "config", None), (401, {}, "config", None), (404, {}, "config", None), (403, {}, "content", None),
+])
+def test_parse_images_errors(status, headers, cls, retry_after):
+    body = {"error": {"code": status, "message": "content_policy_violation" if status == 403 else "try again"}}
+    _, _, error = providers.parse_images(status, body, headers)
+    assert error.cls == cls and error.retry_after == retry_after
+
+
+def test_parse_images_empty_and_unsupported_format():
+    _, _, empty = providers.parse_images(200, {"data": []}, {})
+    assert (empty.cls, empty.final) == ("transient", "content")
+    encoded = base64.b64encode(b"not an image").decode()
+    _, _, unsupported = providers.parse_images(200, {"data": [{"b64_json": encoded}]}, {})
+    assert (unsupported.cls, unsupported.message) == ("content", "nepodporovaný formát obrázku")
+
+
+def test_image_api_generates_file_cost_and_image_budget(wf):
+    add_image_model(wf)
+    cfg = __import__("yaml").safe_load((wf / "config.yaml").read_text())
+    cfg["limits"]["run_image_budget_usd"] = 0.03
+    (wf / "config.yaml").write_text(__import__("yaml").safe_dump(cfg, allow_unicode=True, sort_keys=False))
+    p = scenario(wf, HEAD + 'steps: [{ id: foto, image: { model: gpt-image, prompt: "Káva", aspect_ratio: "1:1" } }]')
+    r, fake = run(p)
+    assert r.status == "succeeded", r.error
+    assert fake.calls[0][1:] == ("images", {"model": "openai/gpt-image-2", "prompt": "Káva",
+                                               "aspect_ratio": "1:1", "quality": "low"})
+    assert r.values["steps"]["foto"]["file"].path.endswith("/image.png")
+    assert (r.rec.dir / r.values["steps"]["foto"]["file"].path).is_file()
+    call = events(r, "model_call")[0]
+    assert call["usage"]["cost_usd"] == r.image_cost == 0.04 and call["timeout_s"] == 180
+    assert call["budget_exceeded_usd"] == 0.01
+    assert events(r, "run_finished")[0]["image_cost_usd"] == 0.04
+
+
+def test_image_api_aspect_ratio_mismatch_is_config(wf):
+    add_image_model(wf)
+    p = scenario(wf, HEAD + 'steps: [{ id: foto, image: { model: gpt-image, prompt: x, aspect_ratio: "1:1" } }]')
+    r, _ = run(p, script={"foto": {"image": {"width": 128, "height": 64}}})
+    assert err(r)[0] == "config" and "model nepodporuje aspect_ratio 1:1" in err(r)[1]
 
 
 # --- rozpočet a čas ----------------------------------------------------------------------------
@@ -574,3 +641,21 @@ def test_models_cache_atomic_and_corrupt_is_ignored(tmp_path, monkeypatch):
     assert [p.name for p in tmp_path.iterdir()] == ["_models.json"]  # žádný zbylý .tmp
     providers.list_models("https://x", tmp_path)
     assert len(calls) == 1  # podruhé z cache
+
+
+def test_images_models_have_separate_cache(tmp_path, monkeypatch):
+    calls = []
+
+    def handle(request):
+        calls.append(request.url.path)
+        return httpx.Response(200, json={"data": [{"id": "openai/gpt-image-2",
+            "architecture": {"output_modalities": ["image"]},
+            "supported_parameters": {"aspect_ratio": {"values": ["1:1"]}}}]})
+    real_client = httpx.Client
+    monkeypatch.setattr(providers.httpx, "Client",
+                        lambda **kw: real_client(**{**kw, "transport": httpx.MockTransport(handle)}))
+    models = providers.list_image_models("https://x/api/v1", tmp_path)
+    assert models[0]["supported_parameters"]["aspect_ratio"]["values"] == ["1:1"]
+    assert (tmp_path / "_images_models.json").is_file()
+    providers.list_image_models("https://x/api/v1", tmp_path)
+    assert calls == ["/api/v1/images/models"]

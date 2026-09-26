@@ -5,6 +5,11 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.12.0 — 2026-09-27 (krok image přes Images API OpenRouteru)
+
+- Aliasy modelů volí `chat` (výchozí) nebo dedikované Images API; podpora
+  kvality, validace modelů a `--fake` pro nové endpointy.
+
 ## 0.10.3 — 2026-09-26 (alias modelu z GUI)
 
 - GUI: alias modelu v Configu jde přejmenovat i s pomlčkou (`gpt-image`,

@@ -57,7 +57,21 @@ def golden_config(real: Path = WORKFLOWS / "config.yaml") -> str:
 
 def model_ids(wf: Path) -> list[str]:
     """Id modelů z config.yaml v kopii workflows/ — ty zná falešné GET /models."""
-    return [m["id"] for m in yaml.safe_load((wf / "config.yaml").read_text())["models"].values()]
+    return [m["id"] for m in yaml.safe_load((wf / "config.yaml").read_text())["models"].values()
+            if m.get("api", "chat") == "chat"]
+
+
+def image_model_ids(wf: Path) -> list[str]:
+    """Id aliasů `api: images`, které zná falešný GET /images/models."""
+    return [m["id"] for m in yaml.safe_load((wf / "config.yaml").read_text())["models"].values()
+            if m.get("api", "chat") == "images"]
+
+
+def add_image_model(wf: Path, alias="gpt-image", model_id="openai/gpt-image-2", quality="low"):
+    cfg_path = wf / "config.yaml"
+    config = yaml.safe_load(cfg_path.read_text())
+    config["models"][alias] = {"id": model_id, "api": "images", **({"quality": quality} if quality else {})}
+    cfg_path.write_text(yaml.safe_dump(config, allow_unicode=True, sort_keys=False))
 
 
 @pytest.fixture(autouse=True)
@@ -94,7 +108,7 @@ def scenario(wf: Path, text: str, name: str = "test") -> Path:
 
 def run(path: Path, inputs=None, script=None, **kw):
     """validate + běh s falešným poskytovatelem; vrací (Run, Fake)."""
-    fake = Fake(script, model_ids(path.parents[1]))
+    fake = Fake(script, model_ids(path.parents[1]), image_model_ids(path.parents[1]))
     p = validate(path, transport=fake.transport())
     r = run_scenario(p, resolve_inputs(p.scenario, inputs or {}), fake=fake, **kw)
     return r, fake
