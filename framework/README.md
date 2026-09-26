@@ -16,6 +16,8 @@ uv run --project framework agencast runs list
 uv run --project framework agencast runs show <run_id>
 uv run --project framework agencast serve --host 127.0.0.1 --port 8080 [--workers 2]
 uv run --project framework agencast migrate workflows/scenarios/ig-post.yaml
+uv run --project framework agencast new project ~/muj-projekt
+uv run --project framework agencast new agent recenzent | new scenario kontrola [--project <cesta>]
 ```
 
 - Scénář jde zadat jménem (`ig-post`) nebo cestou k `.yaml`. Kořen
@@ -39,6 +41,10 @@ uv run --project framework agencast migrate workflows/scenarios/ig-post.yaml
 - Každý běh má `report.html` (jeden soubor, CSS uvnitř, bez externích
   zdrojů, prompty a odpovědi v `<details>`); kopie jde do úložiště a jeho
   URL je v callbacku jako `report_url` (`storage.type: local` → `file://`).
+- `new project <cesta>` založí `workflows/` (config, agent `pisatel`,
+  scénář `ukazka` — projdou `validate --offline` i `--fake`),
+  `.env.example` a `.gitignore`; `new agent|scenario <jméno>` přidá
+  minimální soubor do projektu. Nic nepřepisuje (docs/spec/projects.md).
 - `migrate`: ve v1 není co převádět; neznámá verze = chyba `config`.
 - Návratový kód: 0 úspěch, 1 běh skončil chybou, 2 chyba `config`
   (validate, vstupy, prostředí).
@@ -101,7 +107,8 @@ skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
 | `server.py` | webhook server, fronta, request_key |
 | `mcp_client.py` | `mcp.yaml`, MCP servery běhu (SDK `mcp` 2.2), normalizace schémat nástrojů |
 | `task.py` | krok `task` (smyčka model ↔ nástroje, `load_skill`), `dedupe_key` |
-| `api.py` | veřejné API pro obálky (CLI, `serve`, později Modal a MCP): `load`, `run`, `dry_run`, `runs_list`, `run_status` |
+| `projects.py` | šablony pro `agencast new` |
+| `api.py` | veřejné API pro obálky (CLI, `serve`, později Modal a MCP): `load`, `run`, `dry_run`, `runs_list`, `run_status`, `new_*` |
 | `cli.py` | příkaz `agencast` |
 
 Zatím ne: Modal a úložiště R2 (Fáze 3c). Nejasnosti spec: `docs/spec/ISSUES.md`.

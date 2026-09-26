@@ -5,14 +5,15 @@ do jádra a má hermetický test. Tajné klíče jen z prostředí (a `.env`).
 """
 from pathlib import Path
 
-from . import ConfigErrors
+from . import ConfigErrors, projects
 from .engine import Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import load_dotenv
 from .record import Record, run_status
 from .validate import Project, load_config, resolve_inputs, validate
 
-__all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "Project", "Run", "Fake"]
+__all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
+           "new_scenario", "Project", "Run", "Fake"]
 
 
 def find_root(project_root=None) -> Path:
@@ -75,3 +76,18 @@ def runs_list(project_root=None) -> list[dict]:
     queued = sorted(f.stem for f in (runs / "_queue").glob("*.json") if not (runs / f.stem).is_dir())
     dirs = sorted((d for d in runs.glob("*") if d.is_dir() and not d.name.startswith("_")), reverse=True)
     return [{"run_id": r, "status": "queued"} for r in queued] + [run_status(d) for d in dirs]
+
+
+def new_project(root) -> list[Path]:
+    """Kostra projektu v `root` (odmítne existující workflows/); vrací vytvořené soubory."""
+    return projects.new_project(root)
+
+
+def new_agent(project_root, name: str) -> list[Path]:
+    """workflows/agents/<name>.md s aliasem modelu z config.yaml projektu; nepřepisuje."""
+    return projects.new_agent(find_root(project_root), name)
+
+
+def new_scenario(project_root, name: str) -> list[Path]:
+    """workflows/scenarios/<name>.yaml s prvním agentem projektu; nepřepisuje."""
+    return projects.new_scenario(find_root(project_root), name)

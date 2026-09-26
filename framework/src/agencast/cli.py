@@ -5,6 +5,7 @@
     agencast runs list | show <run_id>
     agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]]
     agencast migrate <soubor>
+    agencast new project <cesta> | agent <jméno> | scenario <jméno>
 
 <scénář> je jméno (ig-post) nebo cesta k .yaml. Kořen projektu = první složka
 s workflows/ od aktuální složky nahoru, nebo --project <cesta> (u každého příkazu).
@@ -147,6 +148,23 @@ def cmd_serve(a) -> int:
     return 0
 
 
+def cmd_new(a) -> int:
+    try:
+        if a.what == "project":
+            made = api.new_project(a.name)
+        else:
+            made = (api.new_agent if a.what == "agent" else api.new_scenario)(a.project, a.name)
+    except ConfigErrors as e:
+        return _fail_config(e.errors)
+    for p in made:
+        print(f"vytvořeno: {p}")
+    if a.what == "project":
+        root = made[0].parent.parent
+        print(f"dál: cp {root / '.env.example'} {root / '.env'}, doplň OPENROUTER_API_KEY a zkus\n"
+              f"  agencast --project {root} run ukazka --fake")
+    return 0
+
+
 def cmd_migrate(a) -> int:
     """Převod souboru na aktuální verzi formátu (§5.9 bod 2). Ve v1 není co převádět."""
     path = Path(a.file)
@@ -194,9 +212,15 @@ def main(argv=None) -> int:
     s.add_argument("--fake", nargs="?", const="", metavar="SKRIPT", help="falešný poskytovatel bez sítě")
     m = sub.add_parser("migrate", parents=[common], help="převede soubor na aktuální verzi formátu")
     m.add_argument("file", help="scénář, config nebo agent (.md)")
+    n = sub.add_parser("new", help="nový projekt, agent nebo scénář ze šablony (nic nepřepisuje)")
+    ns = n.add_subparsers(dest="what", required=True)
+    ns.add_parser("project", help="kostra projektu s ukázkovým agentem a scénářem").add_argument(
+        "name", metavar="cesta", help="složka projektu (workflows/ v ní ještě nesmí být)")
+    for what, help_ in (("agent", "workflows/agents/<jméno>.md"), ("scenario", "workflows/scenarios/<jméno>.yaml")):
+        ns.add_parser(what, parents=[common], help=help_).add_argument("name", metavar="jméno")
     a = ap.parse_args(argv)
     return {"validate": cmd_validate, "run": cmd_run, "runs": cmd_runs, "serve": cmd_serve,
-            "migrate": cmd_migrate}[a.cmd](a)
+            "migrate": cmd_migrate, "new": cmd_new}[a.cmd](a)
 
 
 if __name__ == "__main__":
