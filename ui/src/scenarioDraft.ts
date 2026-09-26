@@ -239,5 +239,3 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     },
   };
 }
-
-export type ScenarioDraft = ReturnType<typeof useScenarioDraft>;

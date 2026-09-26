@@ -355,5 +355,3 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
     </button>
   );
 }
-
-export { Arrow };

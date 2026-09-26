@@ -11,7 +11,7 @@ import { RunPanel } from "../components/RunPanel";
 import { Connector, HeaderCard, onColumnKey, StepList, uidOf, type EditCtx, type ListCtx } from "../components/StepCards";
 import { HeaderPanel, StepPanel } from "../components/StepPanel";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
-import { ErrorText, Loading, StatusChip, Toggle, btn } from "../components/ui";
+import { ErrorText, Loading, Toggle, btn } from "../components/ui";
 import {
   adopt, blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
 } from "../edit";
@@ -19,8 +19,9 @@ import { t } from "../i18n";
 import { href, setQuery, useLocation } from "../router";
 import { useScenarioDraft } from "../scenarioDraft";
 import { readBy } from "../steps";
-import { draftKey, syntaxError, useLeaveGuard, useTextFile, writeDraft, type SaveState } from "../textfile";
+import { draftKey, syntaxError, useLeaveGuard, useTextFile, writeDraft } from "../textfile";
 import type { ErrorItem, Project, Step, StepType } from "../types";
+import { SaveNote } from "./Agents";
 
 /** Výběr hlavičkové karty v `?krok=` (id kroku nesmí začínat `_`, nekoliduje). */
 export const HEADER_KEY = "_hlavicka";
@@ -55,27 +56,6 @@ export function PanelSlot({ children }: { children: ReactNode }) {
     <div className="fixed inset-x-4 bottom-4 z-20 max-h-[70vh] overflow-auto rounded-2xl shadow-2xl min-[1100px]:sticky min-[1100px]:top-20 min-[1100px]:max-h-[calc(100vh-6rem)] min-[1100px]:w-[400px] min-[1100px]:shrink-0 min-[1100px]:self-start min-[1100px]:shadow-none">
       {children}
     </div>
-  );
-}
-
-/** „Neuloženo · 2 chyby“ / „Uloženo ✓“ (§3 ValidationError) — `aria-live` pro uložení a chyby. */
-function SaveStatus({ dirty, errors, state, onJump }: { dirty: boolean; errors: number; state: SaveState; onJump: () => void }) {
-  const text =
-    state.kind === "saving" ? t("save.saving")
-    : state.kind === "failed" ? state.message
-    : dirty ? t("save.unsaved")
-    : state.kind === "saved" ? t("save.saved", { at: state.at })
-    : state.kind === "reloaded" ? t("save.reloaded", { at: state.at })
-    : t("save.clean");
-  return (
-    <span className="inline-flex items-center gap-2 text-sm" aria-live="polite">
-      <span data-testid="save-status" className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
-      {errors > 0 && (
-        <button type="button" onClick={onJump} className="hover:underline">
-          <StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip>
-        </button>
-      )}
-    </span>
   );
 }
 
@@ -269,7 +249,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
               { key: "form", label: t("code.form"), disabled: syntax && !text.dirty ? t("code.fixYaml", { n: syntax.line ?? 0 }) : undefined },
               { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> },
             ]} />
-          <SaveStatus dirty={yaml ? text.dirty : form.dirty} errors={errCount} state={yaml ? text.state : form.state} onJump={jump} />
+          <SaveNote dirty={yaml ? text.dirty : form.dirty} errors={errCount} state={yaml ? text.state : form.state} onJump={jump} />
           {!yaml && (
             <button type="button" className={btn.secondary} onClick={form.undo} disabled={!form.canUndo} title="Ctrl+Z">
               <Undo2 className="size-4" aria-hidden />{t("edit.undo")}
