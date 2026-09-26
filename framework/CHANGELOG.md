@@ -5,6 +5,11 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.11.0 — 2026-09-27 (nabídka proměnných v editoru)
+
+- GUI: do polí výrazů a šablon přibyla nabídka dostupných proměnných, která
+  je vkládá na pozici kurzoru; dosavadní našeptávač při psaní zůstává.
+
 ## 0.10.3 — 2026-09-26 (alias modelu z GUI)
 
 - GUI: alias modelu v Configu jde přejmenovat i s pomlčkou (`gpt-image`,

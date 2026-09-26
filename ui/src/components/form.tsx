@@ -1,5 +1,6 @@
 // Editační prvky (§3 inventář): pole se štítkem, výraz/šablona s našeptávačem, JSON, modál rozhodnutí.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import { Braces } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn } from "./ui";
@@ -60,6 +61,9 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
 }) {
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
   const caretAt = useRef<number | null>(null);
+  const selection = useRef<{ start: number; end: number } | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const [token, setToken] = useState<string | null>(null);
   // kurzor za doplněnou hodnotu hned po jejím vykreslení (rAF by předběhlo další úhoz)
   useLayoutEffect(() => {
@@ -68,9 +72,29 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     caretAt.current = null;
   }, [value]);
   const [active, setActive] = useState(0);
+  const [variablesOpen, setVariablesOpen] = useState(false);
+  const [variableActive, setVariableActive] = useState(0);
   const listId = `${a11y.id}-list`;
+  const menuId = `${a11y.id}-variables`;
   const matches = token ? candidates.filter((c) => c.startsWith(token) && c !== token).slice(0, 8) : [];
   const open = matches.length > 0;
+  const variableGroups = [...new Set(candidates.map((c) => c.startsWith("inputs.") ? "inputs" : `steps.${c.split(".")[1]}`))]
+    .map((key) => ({
+      label: key === "inputs" ? t("form.variables.inputs") : t("form.variables.step", { id: key.slice("steps.".length) }),
+      items: candidates.filter((c) => key === "inputs" ? c.startsWith("inputs.") : c === key || c.startsWith(`${key}.`)),
+    }));
+
+  useEffect(() => {
+    if (variablesOpen) menu.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]")[variableActive]?.focus();
+  }, [variablesOpen, variableActive]);
+  useEffect(() => {
+    if (!variablesOpen) return;
+    const close = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) setVariablesOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [variablesOpen]);
 
   const refresh = (text: string, caret: number | null) => {
     setToken(caret == null ? null : tokenAt(text, caret, template));
@@ -84,6 +108,37 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     caretAt.current = start + c.length;
     onChange(next);
     setToken(null);
+  };
+  const rememberSelection = (el: HTMLInputElement | HTMLTextAreaElement) => {
+    if (el.selectionStart != null && el.selectionEnd != null) selection.current = { start: el.selectionStart, end: el.selectionEnd };
+  };
+  const insertVariable = (candidate: string) => {
+    const start = Math.min(selection.current?.start ?? value.length, value.length);
+    const end = Math.min(selection.current?.end ?? start, value.length);
+    const before = value.slice(0, start);
+    const insideTemplate = template && before.lastIndexOf("{{") > before.lastIndexOf("}}");
+    const inserted = template && !insideTemplate ? `{{ ${candidate} }}` : candidate;
+    const next = before + inserted + value.slice(end);
+    caretAt.current = start + inserted.length;
+    selection.current = { start: caretAt.current, end: caretAt.current };
+    onChange(next);
+    setToken(null);
+    setVariablesOpen(false);
+    ref.current?.focus();
+  };
+  const onVariableMenuKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setVariableActive((i) => (i + (e.key === "ArrowDown" ? 1 : candidates.length - 1)) % candidates.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = candidates[variableActive];
+      if (item) insertVariable(item);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setVariablesOpen(false);
+      ref.current?.focus();
+    }
   };
   const onKey = (e: KeyboardEvent) => {
     if (!open) return;
@@ -104,15 +159,43 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     "aria-activedescendant": open ? `${listId}-${active}` : undefined,
     className: `${inputCls} ${mono}`, spellCheck: false,
     onKeyDown: onKey,
-    onBlur: () => setTimeout(() => setToken(null), 150),
+    onSelect: (e: React.SyntheticEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
+    onKeyUp: (e: React.KeyboardEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
+    onClick: (e: React.MouseEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
+    onBlur: (e: React.FocusEvent<HTMLInputElement & HTMLTextAreaElement>) => {
+      rememberSelection(e.currentTarget);
+      setTimeout(() => setToken(null), 150);
+    },
     onChange: (e: React.ChangeEvent<HTMLInputElement & HTMLTextAreaElement>) => {
       onChange(e.target.value);
+      rememberSelection(e.target);
       refresh(e.target.value, e.target.selectionStart);
     },
   };
   return (
-    <div className="relative">
-      {multiline ? <textarea {...props} rows={Math.min(12, Math.max(3, value.split("\n").length))} /> : <input {...props} />}
+    <div ref={root} className="relative">
+      {multiline
+        ? <textarea {...props} className={`${inputCls} ${mono} pr-12`} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
+        : <input {...props} className={`${inputCls} ${mono} pr-12`} />}
+      <button
+        type="button" className={`grid size-8 place-items-center rounded-lg pointer-coarse:size-11 absolute right-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${multiline ? "top-1" : "top-1/2 -translate-y-1/2"} ${variablesOpen ? "bg-zinc-800 text-violet-300" : "text-violet-400 hover:bg-zinc-800 hover:text-violet-300"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
+        aria-label={t("form.variables.insert")} title={candidates.length ? t("form.variables.insert") : t("form.variables.none")}
+        aria-haspopup="menu" aria-expanded={variablesOpen} aria-controls={menuId} disabled={!candidates.length}
+        onClick={() => (setVariableActive(0), setVariablesOpen((isOpen) => !isOpen))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setVariableActive(0);
+            setVariablesOpen((isOpen) => !isOpen);
+          } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !variablesOpen) {
+            e.preventDefault();
+            setVariableActive(0);
+            setVariablesOpen(true);
+          }
+        }}
+      >
+        <Braces className="size-4" aria-hidden />
+      </button>
       {open && (
         <ul id={listId} role="listbox" className="absolute left-0 z-30 mt-1 w-full rounded-xl bg-zinc-800 p-1 ring-1 ring-zinc-700">
           {matches.map((c, i) => (
@@ -123,6 +206,26 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
             </li>
           ))}
         </ul>
+      )}
+      {variablesOpen && (
+        <div ref={menu} id={menuId} role="menu" onKeyDown={onVariableMenuKey}
+          className="absolute right-0 top-full z-40 mt-1 max-h-72 w-64 overflow-y-auto rounded-xl bg-zinc-800 p-1 ring-1 ring-zinc-700">
+          {variableGroups.map((group) => (
+            <div key={group.label} role="group" aria-label={group.label}>
+              <div className="px-3 pt-2 pb-1 text-xs text-zinc-400">{group.label}</div>
+              {group.items.map((candidate) => {
+                const i = candidates.indexOf(candidate);
+                return (
+                  <button key={candidate} type="button" role="menuitem" tabIndex={-1}
+                    className={`flex min-h-9 w-full items-center rounded-lg px-3 text-left ${mono} ${i === variableActive ? "bg-zinc-700" : "hover:bg-zinc-700"} pointer-coarse:min-h-11`}
+                    onFocus={() => setVariableActive(i)} onClick={() => insertVariable(candidate)}>
+                    {candidate}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
