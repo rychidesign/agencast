@@ -69,7 +69,7 @@ export function ConfigTab({ name, project, onChanged }: { name: string; project?
 
   const save = async () => {
     const ok = mode === "form" ? await formUi.save()
-      : (await Promise.all([config.dirty && configUi.save(), mcp.dirty && mcpUi.save()])).every((x) => x !== false);
+      : (await Promise.all([config.dirty ? configUi.save() : true, mcp.dirty ? mcpUi.save() : true])).every(Boolean);
     if (ok) onChanged?.();
     return ok;
   };

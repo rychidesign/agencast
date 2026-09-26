@@ -193,9 +193,9 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
         <AgentFields project={project} name={name} value={form.value} onChange={form.setValue} errors={errors} usedBy={usedBy} />
       )}
       {ui.modal}
-      {deleting && form.doc && (
+      {deleting && active.doc && (
         <DeleteDialog what={t("delete.agent")} name={name} onCancel={() => setDeleting(false)}
-          run={() => deleteFile(url, (active.doc ?? form.doc)!.etag)}
+          run={() => deleteFile(url, active.doc!.etag)}
           onDone={() => (setDeleting(false), onChanged(), navigate(href(project.name, "agenti")))} />
       )}
     </div>

@@ -22,4 +22,4 @@ skills/       skilly pro kódovací agenty (agencast-run, agencast-create)
 Skilly [`skills/`](skills/README.md) naučí Claude Code, Codex a OMP
 AgenCast spouštět a psát; na hostu je nainstaluje `skills/install.sh`.
 
-GUI v [`ui/`](ui/README.md) je tenká obálka nad HTTP API `agencast serve`, který ho po `npm run build` podává na `/`.
+GUI v [`ui/`](ui/README.md) je tenká obálka nad HTTP API `agencast serve`, který ho po `npm run build` podává na `/`. Uživatelské cesty z [`docs/ui/uzivatelske-cesty.md`](docs/ui/uzivatelske-cesty.md) ověřují Playwright E2E testy (`cd ui && npm run e2e`).

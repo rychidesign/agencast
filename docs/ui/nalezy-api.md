@@ -1,4 +1,4 @@
-# Nálezy API pro GUI (ui/ část 1 čtecí verze, část 2 editace, část 3 API 0.7.0)
+# Nálezy API pro GUI (ui/ část 1 čtecí verze, část 2 editace, část 3 API 0.7.0, část 4 API 0.8.0–0.9.0)
 
 Co GUI při stavbě čtecí verze (2026-09-26, agencast 0.6.0) od HTTP API
 `serve` postrádalo nebo dostalo v nevhodném tvaru (návrh GUI §7). Jádro se
@@ -193,3 +193,29 @@ Ověřeno 2026-09-26 proti `agencast serve --fake` (framework 0.7.0 z větve). J
     +50); `last_run` nemá `started_at`, takže čas u čekajícího/přerušeného běhu a dry-runu
     GUI bere z `run_id`. *Potřeba (až bude běhů hodně):* kurzor `?before=<run_id>`; v `last_run`
     `started_at`.
+
+
+## Část 4 (projekty z GUI, dávky 0.8.0, Playwright E2E)
+
+GUI přešlo na `POST /projects/new`, `POST /projects`, `DELETE /projects/<p>`, `projects_root`/`writable`
+(0.9.0), dávku `…/batch`, náhled `…/render`, `HEAD …/files/<cesta>`, `description`/`model` v `POST`
+(0.8.0) — body 10–18 GUI už neobchází. Ověřeno 2026-09-26 E2E testy (`ui/e2e/`, Playwright proti
+`agencast serve --fake` z větve, framework 0.9.0). Jádro se neměnilo. Nálezy 21 a 22 platí i v 0.9.0
+(E2E test `N5b` je očekávané selhání: po restartu `serve` „chyba: internal v None“).
+
+26. **`render` bere jen operace, ne text.** Form → YAML s neuloženými změnami jde (`render` vrátí
+    `text`), ale opačně ne: GUI YAML nesestavuje ani neparsuje a žádný endpoint z rozpracovaného
+    textu nevrátí strom (`validate` vrací jen `errors`). *GUI:* YAML → Form s neuloženým textem se dál
+    ptá „Uložit a přepnout“ / „Zahodit a přepnout“. *Potřeba:* `POST …/scenarios/<s>/render`
+    (nebo `validate`) s `{text}` místo `ops`, který vrátí `tree` a `errors` bez zápisu.
+27. **Chyba operace dávky nemá krok.** 422 s `op` nese v `errors` jen `message`
+    (`ops[0] update_step: …`), bez `step`/`field`. *GUI:* drží si ke každé operaci id kroku, ze kterého
+    vznikla, a chybu ukáže u jeho karty. *Potřeba:* `step` (id kroku podle `address` před operací)
+    v chybě operace, u `add_step` id vkládaného kroku.
+28. **Ostrý (i falešný) běh v registru chce `CALLBACK_SECRET`, i když se callback neposílá.**
+    `POST /projects/<p>/runs` bez `callback_url` vrátí u projektu ze šablony 422 „chybí proměnná
+    prostředí CALLBACK_SECRET (.env nebo prostředí)“, dokud proměnnou nemá prostředí `serve` (ověřeno
+    s `--fake`; E2E proto nastavuje `CALLBACK_SECRET` a `WEBHOOK_TOKEN` na zástupné hodnoty). Projekt
+    založený z GUI tak nejde spustit, i když callback nepotřebuje. *GUI:* ukáže 422 i s `details`
+    v panelu spuštění. *Potřeba:* kontrolovat `callback.secret_env` jen s `callback_url` (a
+    `webhook.token_env` jen tam, kde se token opravdu čte).

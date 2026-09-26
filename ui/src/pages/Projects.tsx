@@ -2,7 +2,7 @@
 import { Plus, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send, useApi } from "../api";
-import { FormField, inputCls, Modal } from "../components/form";
+import { FormField, inputCls, Modal, submitOnEnter } from "../components/form";
 import { CliLine, ErrorText, Menu, Skeleton, Toggle } from "../components/ui";
 import { formatCost } from "../format";
 import { t } from "../i18n";
@@ -148,7 +148,7 @@ function AddProjectDialog({ list, onCancel, onDone }: {
   return (
     <Modal title={t(mode === "new" ? "projects.newTitle" : "projects.existingTitle")} onCancel={onCancel}
       actions={[{ label: busy ? t("common.saving") : t(mode === "new" ? "common.create" : "projects.addButton"), primary: true, onSelect: submit }]}>
-      <form onSubmit={(e) => (e.preventDefault(), submit())} className="space-y-3">
+      <form onSubmit={(e) => (e.preventDefault(), submit())} onKeyDown={submitOnEnter(submit)} className="space-y-3">
         <Toggle label={t("projects.mode")} value={mode} onChange={(m) => (setMode(m), setPath(undefined), setError(undefined))}
           options={[{ key: "new", label: t("projects.modeNew") }, { key: "existing", label: t("projects.modeExisting") }]} />
         {mode === "existing" && pathField()}

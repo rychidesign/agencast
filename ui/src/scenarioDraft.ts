@@ -49,6 +49,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
   /** Po „Ponechat moje“: změny se pošlou nad tuto verzi disku. */
   const [rebase, setRebase] = useState<{ etag: string; sim: WStep[] }>();
   const busy = useRef(false);
+  const edits = useRef(0);
   const dirty = !!work && !!base && !sameDraft(work, base.draft);
 
   const fetchServer = useCallback(async (): Promise<Snapshot> => {
@@ -64,9 +65,12 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     setErrors(s.sc.errors);
   };
 
-  const load = useCallback(async (quiet = false) => {
+  /** `keepEdits`: když uživatel mezitím začal upravovat, načtení nic nepřepíše (změnu na disku pak ohlásí hlídání). */
+  const load = useCallback(async (quiet = false, keepEdits = false) => {
+    const at = edits.current;
     try {
       const s = await fetchServer();
+      if (keepEdits && edits.current !== at) return s;
       setLoadError(undefined);
       adoptServer(s);
       setPast([]);
@@ -105,6 +109,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     const next = fn(work);
     if (!coalesce || coalesce !== lastKey.current) setPast((p) => [...p.slice(-99), work]);
     lastKey.current = coalesce;
+    edits.current++;
     setWork(next);
     persist(next);
     if (state.kind !== "saving") setState({ kind: "idle" });
@@ -115,6 +120,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     if (!prev) return;
     setPast(past.slice(0, -1));
     lastKey.current = undefined;
+    edits.current++;
     setWork(prev);
     persist(prev);
     setState({ kind: "idle" });
@@ -195,7 +201,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
   return {
     path, server, loadError, base, work, dirty, errors, state, conflict, overwrite: !!rebase, canUndo: past.length > 0,
     change, undo, save,
-    reload: () => load(true),
+    reload: () => load(true, true),
     reloadFromDisk: () => {
       writeDraft(key, null);
       void load(true);

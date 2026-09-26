@@ -8,5 +8,5 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: "./",
   build: { outDir: "../framework/src/agencast/ui", emptyOutDir: true },
-  test: { environment: "jsdom" },
+  test: { environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"] },
 });

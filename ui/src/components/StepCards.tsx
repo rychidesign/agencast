@@ -1,7 +1,7 @@
 // Sloupec karet kroků (§2.3, §2.4) — stejný pro editor a prohlížeč běhu (§2.5).
 // Editor přidává `ctx.edit`: konektory s +, koš a ⋯ vně pilulky, klávesy (§4.1–4.3, §6).
 import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Trash2, TriangleAlert } from "lucide-react";
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { Anchor, ListRef } from "../edit";
 import { formatCost, formatDuration } from "../format";
 import { t } from "../i18n";
@@ -47,6 +47,10 @@ const RUN_ICON: Record<RunStep["status"], Status> = {
 /** Klíč karty: id v editoru, cesta v běhu (`navrh/copy`). */
 const keyOf = (step: Step, ctx: ListCtx) => (ctx.run ? ctx.run.prefix + step.id : step.id);
 
+/** Výběr karty z klávesnice (Enter/mezerník, `detail` 0) pošle fokus do otevřeného panelu (§6); Esc ho vrátí. */
+const focusPanel = (e: MouseEvent) =>
+  e.detail === 0 && requestAnimationFrame(() => document.querySelector<HTMLElement>("aside :is(select, input, textarea, [role=tab])")?.focus());
+
 /** ↑/↓ mezi kartami sloupce (§6); karty jsou tlačítka v pořadí dokumentu. */
 export function onColumnKey(e: KeyboardEvent<HTMLElement>) {
   if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || e.altKey) return;
@@ -77,7 +81,8 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
     || (ctx.run ? (rs ? t(`rstatus.${rs.status}`) : t("run.notReached")) : "");
   const warn = !!rs?.continued;
   const status: Status | undefined = ctx.run ? (warn ? "warning" : rs ? RUN_ICON[rs.status] : "none") : undefined;
-  const notReached = ctx.run && !rs;
+  // nedošlo i přeskočeno (nevybraný případ, `when`) je ztlumené (§3 CaseSection); důvod nese hodnota karty
+  const dim = ctx.run && (!rs || rs.status === "skipped");
   let right: ReactNode = step.when ? <span className="font-mono">{t("step.when", { expr: step.when })}</span> : null;
   if (ctx.run) {
     const secs = rs?.status === "running" && rs.started_at ? (ctx.run.now - Date.parse(rs.started_at)) / 1000 : rs?.duration_s;
@@ -101,10 +106,10 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
     e.stopPropagation();
   };
   return (
-    <div className={`${notReached ? "opacity-40" : ""} ${edit ? "group relative" : ""}`}>
+    <div className={`${dim ? "opacity-40" : ""} ${edit ? "group relative" : ""}`}>
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
-        onClick={() => ctx.onSelect(key)} onKeyDown={onKey}
+        onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
         className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${shape === "pill" ? "rounded-full" : "rounded-xl"} ${
           selected ? "bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900" : shape === "pill" ? "bg-zinc-800/60 hover:bg-zinc-800" : "hover:bg-zinc-800"
         } ${rs?.status === "running" ? "motion-safe:animate-pulse" : ""} ${isCut ? "opacity-50" : ""}`}
@@ -338,7 +343,7 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
     outputs: o.length ? `${t("count.outputs", { n: o.length })}: ${o.join(", ")}` : t("step.header.noOutputs"),
   });
   return (
-    <button type="button" data-step-card="" aria-pressed={selected} onClick={onSelect}
+    <button type="button" data-step-card="" aria-pressed={selected} onClick={(e) => (onSelect(), !selected && focusPanel(e))}
       className={`flex w-full items-center gap-3 rounded-full px-5 py-3 text-left ${selected ? "bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900" : "bg-zinc-800/60 hover:bg-zinc-800"}`}>
       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-zinc-900 text-zinc-300">
         <AlignJustify className="size-4" strokeWidth={1.5} aria-hidden />

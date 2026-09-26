@@ -270,7 +270,7 @@
   "panel.removeRow": "Odebrat {name}",
   "panel.notCallable": "nevolatelný",
   "panel.branches": "Větve: {names}. Kroky do nich přidáš tlačítkem + v kartě.",
-  "panel.cases": "Případy: {names}. Kroky přidáš tlačítkem + v kartě; „jinak“ je povinné.",
+  "panel.cases": "Případy: {names}. Kroky přidáš tlačítkem + v kartě; „jinak“ se zapíše vždy — bez kroků znamená „nic nedělej“.",
   "panel.ioType": "Typ {name}",
   "panel.ioDescription": "Popis {name}",
   "panel.defaultOf": "Výchozí hodnota {name}",
