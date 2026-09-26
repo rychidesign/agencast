@@ -52,15 +52,15 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
           </div>
         )}
         {detail.error && detail.error.status !== 422 && detail.error.status !== 0 && <ErrorText error={detail.error} />}
-        {tab === "config" && <ConfigTab name={project} project={p} />}
+        {tab === "config" && (p || detail.error) && <ConfigTab name={project} project={p} onChanged={detail.reload} />}
         {tab === "behy" && <RunsTab project={project} />}
         {!p ? (
-          tab !== "config" && tab !== "behy" && !detail.error && <Loading rows={4} />
+          tab !== "behy" && !detail.error && <Loading rows={4} />
         ) : (
           <>
-            {tab === "scenare" && <ScenariosTab project={p} />}
-            {tab === "agenti" && <AgentsTab project={p} selected={item} />}
-            {tab === "skilly" && <SkillsTab project={p} selected={item} />}
+            {tab === "scenare" && <ScenariosTab project={p} onChanged={detail.reload} />}
+            {tab === "agenti" && <AgentsTab project={p} selected={item} onChanged={detail.reload} />}
+            {tab === "skilly" && <SkillsTab project={p} selected={item} onChanged={detail.reload} />}
           </>
         )}
       </div>

@@ -31,9 +31,13 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
   const base = `/projects/${enc(project)}`;
   const runPath = `${base}/runs/${enc(runId)}`;
   const opened = useRef(Date.now());
+  const fresh = query.get("spusteno") === "1";
   const loaded = useApi<RunData>(
     runPath,
-    (d) => (isLive(d.run.status) ? pollDelay(Date.now() - opened.current) : null),
+    // Ostrý běh spuštěný z GUI (`?spusteno=1`): než vznikne events.jsonl, API ho krátce hlásí jako
+    // `dry-run` (nalezy-api.md, část 2) — prvních 15 s se proto čte dál.
+    (d) => (isLive(d.run.status) || (fresh && runState(d.run.status) === "dry-run" && Date.now() - opened.current < 15_000)
+      ? pollDelay(Date.now() - opened.current) : null),
     async (p) => {
       const run = await getJson<Run>(p);
       const events = run.files?.includes("events.jsonl") ? parseEvents(await getText(`${p}/files/events.jsonl`)) : [];

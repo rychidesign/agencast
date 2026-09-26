@@ -212,14 +212,16 @@ export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: 
 
 /** Segmentová pilulka Form / `<>` YAML (§3 `FormYamlToggle`). */
 export function Toggle<K extends string>({ value, options, onChange, label }: {
-  value: K; options: { key: K; label: ReactNode }[]; onChange: (k: K) => void; label: string;
+  value: K; options: { key: K; label: ReactNode; /** Důvod, proč přepnout nejde (tooltip i text pro čtečku). */ disabled?: string }[];
+  onChange: (k: K) => void; label: string;
 }) {
   return (
     <div role="radiogroup" aria-label={label} className="inline-flex rounded-full bg-zinc-800 p-0.5">
       {options.map((o) => (
         <button
-          key={o.key} type="button" role="radio" aria-checked={o.key === value} onClick={() => onChange(o.key)}
-          className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm ${o.key === value ? "bg-zinc-700 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
+          key={o.key} type="button" role="radio" aria-checked={o.key === value} aria-disabled={!!o.disabled || undefined}
+          title={o.disabled} aria-description={o.disabled} onClick={() => !o.disabled && onChange(o.key)}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm ${o.key === value ? "bg-zinc-700 text-zinc-100" : o.disabled ? "cursor-not-allowed text-zinc-600" : "text-zinc-400 hover:text-zinc-100"}`}
         >
           {o.label}
         </button>

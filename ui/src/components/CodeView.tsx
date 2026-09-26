@@ -5,7 +5,7 @@ import type { ErrorItem } from "../types";
 import { ErrorList } from "./ui";
 
 /** Klíč světle, komentář ztlumeně — nic víc (§4.5: žádné barvy). */
-function Line({ text }: { text: string }) {
+export function Line({ text }: { text: string }) {
   if (/^\s*#/.test(text)) return <span className="text-zinc-500">{text}</span>;
   const m = /^(\s*(?:-\s+)?)([\w.-]+:)(.*)$/.exec(text);
   if (!m) return <span className="text-zinc-300">{text}</span>;

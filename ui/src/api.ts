@@ -15,6 +15,8 @@ export class ApiError extends Error {
     message: string,
     readonly errors: ErrorItem[] = [],
     readonly details: string[] = [],
+    /** Celé tělo chyby (409 nese aktuální `etag`). */
+    readonly body: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -52,7 +54,7 @@ export function saveToken(token: string) {
 
 // --- požadavky ---------------------------------------------------------------------------
 
-async function request(path: string): Promise<Response> {
+async function request(path: string, init: RequestInit = {}): Promise<Response> {
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
     setConn({ auth: "missing" });
@@ -60,7 +62,9 @@ async function request(path: string): Promise<Response> {
   }
   let res: Response;
   try {
-    res = await fetch(API_BASE + path, { headers: { Authorization: `Bearer ${token}` } });
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    if (init.body) headers["Content-Type"] = "application/json";
+    res = await fetch(API_BASE + path, { ...init, headers });
   } catch (e) {
     setConn({ offline: true });
     throw new ApiError(0, e instanceof Error ? e.message : String(e));
@@ -74,6 +78,7 @@ async function request(path: string): Promise<Response> {
       typeof body.error === "string" ? body.error : `HTTP ${res.status}`,
       Array.isArray(body.errors) ? body.errors : [],
       Array.isArray(body.details) ? body.details : [],
+      body,
     );
   }
   return res;
@@ -82,6 +87,16 @@ async function request(path: string): Promise<Response> {
 export const getJson = async <T>(path: string): Promise<T> => (await request(path)).json();
 export const getText = async (path: string): Promise<string> => (await request(path)).text();
 export const getBlob = async (path: string): Promise<Blob> => (await request(path)).blob();
+
+/** Zápis (editační operace, spuštění běhu): JSON tělo, odpověď JSON; chyba → ApiError. */
+export const send = async <T>(method: string, path: string, body?: unknown): Promise<T> =>
+  (await request(path, { method, body: body === undefined ? undefined : JSON.stringify(body) })).json();
+
+/** Odpověď editační operace (api.md „Editace“). */
+export interface Saved {
+  etag: string | null;
+  errors: ErrorItem[];
+}
 
 export const enc = encodeURIComponent;
 

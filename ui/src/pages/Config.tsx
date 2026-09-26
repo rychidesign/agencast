@@ -1,108 +1,278 @@
-// §2.8 Config jen ke čtení: config.yaml + MCP servery; proměnné prostředí jen ✓/✗, nikdy hodnota.
-import { CodeXml } from "lucide-react";
-import { useState } from "react";
-import { enc, useApi } from "../api";
-import { CodeView } from "../components/CodeView";
-import { ErrorList, ErrorText, Loading, StatusBadge, Toggle, ValueView } from "../components/ui";
+// §2.8 Config: formulář pro models, limits, storage, webhook, callback a openrouter.api_key_env
+// (`PUT …/config`, merge patch); YAML režim = config.yaml a mcp.yaml jako text (`files/`).
+// Proměnné prostředí jen ✓/✗, nikdy hodnota.
+import { CodeXml, Trash2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { enc } from "../api";
+import { AddPill, FormField, inputCls, Modal } from "../components/form";
+import { YamlEditor } from "../components/YamlEditor";
+import { btn, ErrorList, ErrorText, Loading, StatusBadge, Toggle } from "../components/ui";
+import { KeyInput } from "../components/StepPanel";
+import { isObj, mergePatch } from "../edit";
 import { t } from "../i18n";
+import { useFileDraft, useLeaveGuard, useTextFile } from "../textfile";
 import type { FileDoc, Project } from "../types";
-import { Row } from "./Agents";
+import { SaveNote, useConflictUi } from "./Agents";
 
 type Obj = Record<string, unknown>;
 
+/** Část config.yaml, kterou `PUT …/config` smí měnit (api.md „Operace“). */
+export function configFields(data: unknown): Obj {
+  const d: Obj = isObj(data) ? data : {};
+  const out: Obj = {};
+  for (const k of ["models", "limits", "storage", "webhook", "callback"]) if (d[k] !== undefined) out[k] = d[k];
+  const or = isObj(d.openrouter) ? d.openrouter : {};
+  if (or.api_key_env !== undefined) out.openrouter = { api_key_env: or.api_key_env };
+  return out;
+}
+
 function EnvVar({ name, env }: { name: unknown; env?: Record<string, boolean> }) {
-  if (typeof name !== "string") return <span className="text-zinc-500">–</span>;
+  if (typeof name !== "string" || !name) return <span className="text-zinc-500">–</span>;
   const set = env?.[name];
+  if (set === undefined) return <span className="text-[13px] text-zinc-500">{t("config.envUnknown")}</span>;
   return (
-    <span className="inline-flex items-center gap-3">
-      <span className="font-mono">{name}</span>
-      {set !== undefined && (
-        <StatusBadge status={set ? "succeeded" : "failed"}>
-          <span className="text-[13px] text-zinc-400">{set ? t("config.envSet") : t("config.envMissing")}</span>
-        </StatusBadge>
-      )}
-    </span>
+    <StatusBadge status={set ? "succeeded" : "failed"}>
+      <span className="text-[13px] text-zinc-400">{set ? t("config.envSet") : t("config.envMissing")}</span>
+    </StatusBadge>
   );
 }
 
-export function ConfigTab({ name, project }: { name: string; project?: Project }) {
-  const base = `/projects/${enc(name)}/files`;
-  const config = useApi<FileDoc>(`${base}/config.yaml`);
-  const mcp = useApi<FileDoc>(`${base}/mcp.yaml`);
+const Section = ({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) => (
+  <section className="space-y-3 rounded-xl bg-zinc-800/40 p-4">
+    <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">{title}</h3>{action}</div>
+    {children}
+  </section>
+);
+
+export function ConfigTab({ name, project, onChanged }: { name: string; project?: Project; onChanged?: () => void }) {
   // Bez projektu (config neprošel, 422) rovnou text souboru.
   const [mode, setMode] = useState<"form" | "yaml">(project ? "form" : "yaml");
-  if (config.error) return <ErrorText error={config.error} />;
-  if (!config.data) return <Loading rows={6} />;
-  const data = (config.data.data ?? {}) as Obj;
-  const or = (data.openrouter ?? {}) as Obj;
-  const models = (data.models ?? {}) as Record<string, Obj>;
-  const env = project?.env;
+  const url = `/projects/${enc(name)}/config`;
+  const form = useFileDraft<Obj>(name, mode === "form" ? "config.yaml" : null, {
+    fromDoc: (d: FileDoc) => configFields(d.data),
+    request: (d, v) => {
+      const fields = mergePatch(configFields(d.data), v);
+      return fields ? { method: "PUT", url, body: { fields } } : null;
+    },
+  }, "config");
+  const config = useTextFile(name, mode === "yaml" ? "config.yaml" : null);
+  const mcp = useTextFile(name, mode === "yaml" ? "mcp.yaml" : null);
+  const formUi = useConflictUi(form, () => form.doc?.text ?? "");
+  const configUi = useConflictUi(config, () => config.doc?.text ?? "");
+  const mcpUi = useConflictUi(mcp, () => mcp.doc?.text ?? "");
+  useLeaveGuard(form.dirty || config.dirty || mcp.dirty);
+  const texts = [config, mcp].filter((f) => f.dirty);
+  const dirty = mode === "form" ? form.dirty : texts.length > 0;
+  const syntax = [...config.errors, ...mcp.errors].find((e) => e.line);
+  const canSave = mode === "form" ? form.dirty && !form.conflict
+    : texts.length > 0 && !syntax && texts.every((f) => !f.validating && !f.conflict);
+
+  const save = async () => {
+    const ok = mode === "form" ? await formUi.save()
+      : (await Promise.all([config.dirty && configUi.save(), mcp.dirty && mcpUi.save()])).every((x) => x !== false);
+    if (ok) onChanged?.();
+    return ok;
+  };
+  const switchMode = (m: "form" | "yaml") => {
+    if (m === mode || (m === "form" && syntax)) return;
+    if (!dirty) return setMode(m);
+    formUi.setModal(
+      <Modal title={t("mode.title")} onCancel={formUi.close} actions={[
+        { label: t("mode.save"), primary: true, onSelect: async () => (formUi.close(), (await save()) && setMode(m)) },
+        { label: t("mode.discard"), danger: true, onSelect: () => (formUi.close(), form.discard(), config.discard(), mcp.discard(), setMode(m)) },
+      ]}><p>{t("mode.fileDirty")}</p></Modal>,
+    );
+  };
+  const state = mode === "form" ? form.state : (config.state.kind !== "idle" ? config.state : mcp.state);
+  const errors = mode === "form" ? form.errors : [...config.errors, ...mcp.errors];
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-sm text-zinc-400"><span className="font-mono">config.yaml · mcp.yaml</span></h2>
-        <Toggle label={t("code.mode")} value={mode} onChange={setMode}
-          options={[{ key: "form", label: t("code.form") }, { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> }]} />
+    <div className="space-y-5" onKeyDown={(e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (canSave) void save();
+      }
+    }}>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="mr-auto font-mono text-sm text-zinc-400">config.yaml · mcp.yaml</h2>
+        <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
+          options={[{ key: "form", label: t("code.form"), disabled: syntax ? t("code.fixYaml", { n: syntax.line! }) : !project ? t("config.formNeedsValid") : undefined },
+            { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> }]} />
+        <SaveNote dirty={dirty} state={state} errors={errors.length} />
+        <button type="button" className={btn.primary} disabled={!canSave} onClick={() => void save()} title="Ctrl+S">{t("common.save")}</button>
       </div>
-      {mode === "yaml" ? (
-        <div className="space-y-6">
-          <CodeView text={config.data.text} file="config.yaml" errors={config.data.errors} />
-          {mcp.data && <CodeView text={mcp.data.text} file="mcp.yaml" errors={mcp.data.errors} />}
-        </div>
+      {mode === "form" ? (
+        <>
+          {formUi.bar}
+          {form.loadError && <ErrorText error={form.loadError} />}
+          {!form.doc && !form.loadError && <Loading rows={6} />}
+          {form.doc && form.value && <ConfigFields project={project} value={form.value} onChange={form.setValue}
+            errors={form.errors} jev={isObj(form.doc.data) && isObj(form.doc.data.openrouter) ? form.doc.data.openrouter.jev_model : undefined} />}
+          {formUi.modal}
+        </>
       ) : (
-        <div className="space-y-5">
-          <ErrorList errors={config.data.errors} />
-          <Row label="OpenRouter">
-            <div className="space-y-1">
-              <div>{t("config.keyFrom")} <EnvVar name={or.api_key_env} env={env} /></div>
-              {or.jev_model !== undefined && <div>{t("config.jevModel")} <span className="font-mono">{String(or.jev_model)}</span></div>}
-            </div>
-          </Row>
-          <Row label={t("config.models")}>
-            <table className="text-sm">
-              <tbody>
-                {Object.entries(models).map(([alias, m]) => {
-                  const users = project?.agents.filter((a) => a.model === alias).length ?? 0;
-                  return (
-                    <tr key={alias}>
-                      <td className="py-0.5 pr-6 font-mono">{alias}</td>
-                      <td className="pr-6 font-mono text-zinc-300">{String(m.id ?? "")}</td>
-                      <td className="pr-6 font-mono text-zinc-400">{String(m.structured_output ?? "")}</td>
-                      <td className="pr-6 text-zinc-400">{m.max_tokens != null ? `max_tokens ${m.max_tokens}` : ""}</td>
-                      <td className="text-zinc-400">{users ? t("config.usedByAgents", { n: users }) : ""}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Row>
-          <Row label={t("config.storage")}><ValueView value={data.storage} /></Row>
-          <Row label={t("config.limits")}><ValueView value={data.limits} /></Row>
-          <Row label="Webhook"><EnvVar name={(data.webhook as Obj | undefined)?.token_env} env={env} /></Row>
-          <Row label="Callback"><EnvVar name={(data.callback as Obj | undefined)?.secret_env} env={env} /></Row>
-          <Row label={t("config.env")}>
-            <ul className="space-y-1">
-              {Object.keys(env ?? {}).map((k) => <li key={k}><EnvVar name={k} env={env} /></li>)}
-            </ul>
-          </Row>
-          <Row label={t("config.mcp")}>
-            <ul className="space-y-1">
-              {project?.mcp_servers.map((s) => (
-                <li key={s.name} className="text-sm">
-                  <span className="font-mono">{s.name}</span>
-                  <span className="text-zinc-400">
-                    {" "}{s.type}
-                    {s.agents && ` · ${t("config.mcpAgents")}: ${s.agents.join(", ")}`}
-                    {s.scenarios && ` · ${t("config.mcpScenarios")}: ${s.scenarios.join(", ")}`}
-                    {s.tools && ` · ${t("config.mcpTools")}: ${s.tools.join(", ")}`}
-                  </span>
-                </li>
-              ))}
-              {!project?.mcp_servers.length && <li className="text-zinc-500">–</li>}
-            </ul>
-          </Row>
+        <div className="space-y-8">
+          {configUi.bar}
+          {config.doc ? <YamlEditor text={config.text} onChange={config.setText} file="config.yaml" errors={config.errors} />
+            : config.loadError ? <ErrorText error={config.loadError} /> : <Loading rows={8} />}
+          {mcpUi.bar}
+          {mcp.doc ? <YamlEditor text={mcp.text} onChange={mcp.setText} file="mcp.yaml" errors={mcp.errors} />
+            : mcp.loadError?.status === 404 ? <p className="text-sm text-zinc-400">{t("config.noMcp")}</p>
+            : mcp.loadError ? <ErrorText error={mcp.loadError} /> : <Loading rows={4} />}
+          {formUi.modal}{configUi.modal}{mcpUi.modal}
         </div>
       )}
+    </div>
+  );
+}
+
+const LIMITS: [string, "usd" | "time" | "int"][] = [
+  ["run_budget_usd", "usd"], ["run_image_budget_usd", "usd"], ["run_timeout", "time"],
+  ["max_call_depth", "int"], ["max_parallel_runs", "int"], ["daily_budget_usd", "usd"],
+];
+const STORAGE: Record<string, string[]> = {
+  local: ["path", "public_base_url"],
+  r2: ["bucket", "account_id_env", "access_key_id_env", "secret_access_key_env", "public_base_url"],
+};
+
+function ConfigFields({ project, value, onChange, errors, jev }: {
+  project?: Project; value: Obj; onChange: (v: Obj) => void; errors: { message: string; field?: string }[]; jev: unknown;
+}) {
+  const env = project?.env;
+  const fe = (p: string) => errors.filter((e) => e.field === p || e.field?.startsWith(`${p}.`));
+  const sub = (k: string): Obj => (isObj(value[k]) ? (value[k] as Obj) : {});
+  const put = (k: string, v: Obj) => onChange({ ...value, [k]: v });
+  const clean = (o: Obj, k: string, v: unknown): Obj => {
+    const c = { ...o };
+    if (v === undefined || v === "") delete c[k];
+    else c[k] = v;
+    return c;
+  };
+  const models = sub("models") as Record<string, Obj>;
+  const limits = sub("limits");
+  const storage = sub("storage");
+  const stype = String(storage.type ?? "local");
+  const sconf = isObj(storage[stype]) ? (storage[stype] as Obj) : {};
+  const usage = (alias: string) => project?.agents.filter((a) => a.model === alias).map((a) => a.name) ?? [];
+  const envField = (label: string, section: string, k: string) => {
+    const v = String(sub(section)[k] ?? "");
+    return (
+      <FormField label={label} errors={fe(`${section}.${k}`)} help={<EnvVar name={v} env={env} />}>
+        {(a) => <input {...a} className={`${inputCls} font-mono`} value={v} placeholder="JMENO_PROMENNE"
+          onChange={(e) => put(section, clean(sub(section), k, e.target.value))} />}
+      </FormField>
+    );
+  };
+  const known = ["models", "limits", "storage", "webhook", "callback", "openrouter"];
+  return (
+    <div className="space-y-4">
+      <ErrorList errors={errors.filter((e) => !e.field || !known.some((k) => e.field!.startsWith(k)))} />
+      <p className="text-xs text-zinc-400">{t("config.secretsHelp")}</p>
+      <Section title="OpenRouter">
+        {envField(t("config.keyFrom"), "openrouter", "api_key_env")}
+        <p className="text-sm text-zinc-400">{t("config.jevModel")} <span className="font-mono">{String(jev ?? "jev-1.13")}</span> · {t("config.yamlOnly")}</p>
+      </Section>
+      <Section title={t("config.models")} action={<AddPill label={t("config.addAlias")} onClick={() => {
+        let n = 1;
+        while (`model-${n}` in models) n++;
+        put("models", { ...models, [`model-${n}`]: { id: "" } });
+      }} />}>
+        <ul className="space-y-2">
+          {Object.entries(models).map(([alias, m]) => {
+            const users = usage(alias);
+            const setM = (k: string, v: unknown) => put("models", { ...models, [alias]: clean(m, k, v) });
+            return (
+              <li key={alias} className="space-y-1">
+                <div className="grid grid-cols-[10rem_1fr_9rem_7rem_auto] items-center gap-2">
+                  {users.length ? <span className="px-3 font-mono text-sm">{alias}</span>
+                    : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} onRename={(to) =>
+                      put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}
+                  <input aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
+                    value={String(m.id ?? "")} onChange={(e) => setM("id", e.target.value)} />
+                  <select aria-label={t("config.structured", { alias })} className={inputCls} value={String(m.structured_output ?? "")}
+                    onChange={(e) => setM("structured_output", e.target.value)}>
+                    <option value="">native_schema ({t("panel.default")})</option>
+                    <option value="native_schema">native_schema</option>
+                    <option value="tool_wrapper">tool_wrapper</option>
+                    <option value="prompt">prompt</option>
+                  </select>
+                  <input aria-label={t("config.maxTokens", { alias })} type="number" min={1} className={`${inputCls} font-mono`} placeholder="max_tokens"
+                    value={typeof m.max_tokens === "number" ? m.max_tokens : ""} onChange={(e) => setM("max_tokens", e.target.value === "" ? undefined : Number(e.target.value))} />
+                  <button type="button" className={btn.icon} disabled={users.length > 0}
+                    aria-label={t("config.removeAlias", { alias })}
+                    title={users.length ? t("config.aliasUsed", { agents: users.join(", ") }) : t("config.removeAlias", { alias })}
+                    onClick={() => put("models", Object.fromEntries(Object.entries(models).filter(([k]) => k !== alias)))}>
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                </div>
+                {users.length > 0 && <p className="pl-3 text-xs text-zinc-400">{t("config.usedByAgents", { n: users.length })}: {users.join(", ")}</p>}
+                {fe(`models.${alias}`).map((e, i) => <p key={i} className="font-mono text-xs text-rose-400">{e.message}</p>)}
+              </li>
+            );
+          })}
+        </ul>
+      </Section>
+      <Section title={t("config.storage")}>
+        <FormField label="type" errors={fe("storage.type")}>
+          {(a) => (
+            <select {...a} className={inputCls} value={stype} onChange={(e) => put("storage", { type: e.target.value, [e.target.value]: isObj(storage[e.target.value]) ? storage[e.target.value] : {} })}>
+              <option value="local">local</option>
+              <option value="r2">r2</option>
+            </select>
+          )}
+        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          {(STORAGE[stype] ?? []).map((k) => (
+            <FormField key={k} label={k} errors={fe(`storage.${stype}.${k}`)} help={k.endsWith("_env") ? <EnvVar name={sconf[k]} env={env} /> : undefined}>
+              {(a) => <input {...a} className={`${inputCls} font-mono`} value={String(sconf[k] ?? "")}
+                onChange={(e) => put("storage", { ...storage, [stype]: clean(sconf, k, e.target.value) })} />}
+            </FormField>
+          ))}
+        </div>
+      </Section>
+      <Section title={t("config.limits")}>
+        <div className="grid grid-cols-3 gap-3">
+          {LIMITS.map(([k, kind]) => (
+            <FormField key={k} label={k} errors={fe(`limits.${k}`)} required={k === "run_budget_usd" || k === "run_timeout"}>
+              {(a) => kind === "time" ? (
+                <input {...a} className={`${inputCls} font-mono`} placeholder="1h" value={String(limits[k] ?? "")} onChange={(e) => put("limits", clean(limits, k, e.target.value))} />
+              ) : (
+                <input {...a} type="number" min={kind === "int" ? 1 : 0} step={kind === "int" ? 1 : 0.01} className={`${inputCls} font-mono`}
+                  value={typeof limits[k] === "number" ? (limits[k] as number) : ""}
+                  onChange={(e) => put("limits", clean(limits, k, e.target.value === "" ? undefined : Number(e.target.value)))} />
+              )}
+            </FormField>
+          ))}
+        </div>
+      </Section>
+      <Section title="Webhook · Callback">
+        <div className="grid grid-cols-2 gap-3">
+          {envField("webhook.token_env", "webhook", "token_env")}
+          {envField("callback.secret_env", "callback", "secret_env")}
+        </div>
+      </Section>
+      <Section title={t("config.env")}>
+        <ul className="space-y-1 text-sm">
+          {Object.keys(env ?? {}).map((k) => <li key={k} className="flex gap-3"><span className="font-mono">{k}</span><EnvVar name={k} env={env} /></li>)}
+        </ul>
+      </Section>
+      <Section title={t("config.mcp")}>
+        <ul className="space-y-1">
+          {project?.mcp_servers.map((s) => (
+            <li key={s.name} className="text-sm">
+              <span className="font-mono">{s.name}</span>
+              <span className="text-zinc-400">
+                {" "}{s.type}
+                {s.agents && ` · ${t("config.mcpAgents")}: ${s.agents.join(", ")}`}
+                {s.scenarios && ` · ${t("config.mcpScenarios")}: ${s.scenarios.join(", ")}`}
+                {s.tools && ` · ${t("config.mcpTools")}: ${s.tools.join(", ")}`}
+              </span>
+            </li>
+          ))}
+          {!project?.mcp_servers.length && <li className="text-zinc-500">–</li>}
+        </ul>
+        <p className="text-xs text-zinc-400">{t("config.mcpYaml")}</p>
+      </Section>
     </div>
   );
 }
