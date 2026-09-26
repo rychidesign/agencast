@@ -239,3 +239,10 @@ N5b tehdy zachytil chybu obnovy, opravenou v 0.10.0.
 ## Část 5 (GUI nad API 0.10.0)
 
 GUI používá nová pole a endpointy; nic z API neobchází.
+
+29. **`render`/`validate` s `{text}` nevrací hlavičku scénáře.** Při přepnutí YAML → Form
+    s neuloženým textem GUI dostane `tree` a `errors`, ale ne `description`, `inputs`, `outputs`
+    a `callable`. *GUI:* hlavičku převezme z verze na disku a v hlavičkové kartě to řekne větou
+    „Hlavička podle verze na disku — změny hlavičky z YAML se projeví po uložení.“ *Potřeba:*
+    `header {description, inputs, outputs, callable}` v odpovědi `render`/`validate` s textem,
+    aby GUI nic neparsovalo (rozhodnutí koordinátora 2026-09-26).
