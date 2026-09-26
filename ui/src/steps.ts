@@ -27,7 +27,7 @@ export function stepValue(step: Step): string {
       return qs.length > 1 ? `${first}; ${t("step.value.moreQuestions", { n: qs.length - 1 })}` : first;
     }
     case "image":
-      return [str(b.model), str(b.aspect_ratio), quote(str(b.prompt))].filter(Boolean).join(" · ");
+      return [str(b.model), str(b.aspect_ratio), str(b.quality), str(b.resolution), quote(str(b.prompt))].filter(Boolean).join(" · ");
     case "call": {
       if (!b.scenario) return "";
       return `→ ${str(b.scenario)} · ${t("step.value.inputs", { n: Object.keys(obj(b.inputs)).length })}`;

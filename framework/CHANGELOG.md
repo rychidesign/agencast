@@ -5,6 +5,13 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.14.0 — 2026-09-27 (parametry obrázku jako šablony)
+
+- `image`: šablony poměru stran, kvality a rozlišení, kontrola dosazených
+  hodnot a výchozích vstupů; kvalita kroku přebíjí alias.
+- GUI nabízí proměnné pro všechny tři parametry; chat API ignorované
+  parametry zaznamená jako varování. Volatelný příklad `obrazek.yaml`.
+
 ## 0.12.0 — 2026-09-27 (krok image přes Images API OpenRouteru)
 
 - Aliasy modelů volí `chat` (výchozí) nebo dedikované Images API; podpora

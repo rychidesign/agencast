@@ -344,12 +344,15 @@ def image_body(model: str, prompt: str, aspect_ratio: str | None) -> dict:
     return body
 
 
-def images_body(model: str, prompt: str, aspect_ratio: str | None, quality: str | None = None) -> dict:
+def images_body(model: str, prompt: str, aspect_ratio: str | None, quality: str | None = None,
+                resolution: str | None = None) -> dict:
     body = {"model": model, "prompt": prompt}
     if aspect_ratio:
         body["aspect_ratio"] = aspect_ratio
     if quality:
         body["quality"] = quality
+    if resolution:
+        body["resolution"] = resolution
     return body
 
 

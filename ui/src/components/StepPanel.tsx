@@ -329,9 +329,13 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
             )}
           </FormField>
           {tpl("prompt", t("field.prompt"))}
-          <FormField label={t("field.aspect_ratio")} errors={errors("image.aspect_ratio")}>
-            {(a) => <input {...a} className={`${inputCls} font-mono`} placeholder="4:5" value={str("aspect_ratio")} onChange={(e) => setBody("aspect_ratio", e.target.value)} />}
-          </FormField>
+          {([['aspect_ratio', '4:5', 'pomer'], ['quality', 'medium', 'kvalita'], ['resolution', '1K', 'rozliseni']] as const).map(([field, placeholder, input]) => (
+            <FormField key={field} label={t(`field.${field}`)} errors={errors(`image.${field}`)}
+              help={t("help.imageParameter", { example: `{{ inputs.${input} }}` })}>
+              {(a) => <CodeInput a11y={a} template placeholder={placeholder} value={str(field)} candidates={candidates}
+                onChange={(v) => setBody(field, v)} />}
+            </FormField>
+          ))}
         </div>
       );
     case "call": {

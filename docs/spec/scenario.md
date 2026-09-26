@@ -383,7 +383,9 @@ Vygeneruje obrázek přes OpenRouter a uloží ho do složky běhu (§5.7).
 |---|---|---|---|---|
 | `model` | ano | Alias obrazového modelu z `config.yaml`. | Chyba `config`. Alias modelu bez obrazového výstupu zachytí `validate` (§5.7). | `model: gemini-image` |
 | `prompt` | ano | Popis obrázku ([šablona](#šablony-)). | Chyba `config`. | |
-| `aspect_ratio` | ne | Poměr stran jako text `"šířka:výška"` (pro IG `"1:1"` nebo `"4:5"`). Po uložení framework porovná poměr stran z hlavičky souboru; odchylka > 2 % = chyba `config` („model nepodporuje aspect_ratio"), nic se tiše neořízne. | Výchozí modelu (u `gemini-3.1-flash-image` 1408×768). | `aspect_ratio: "4:5"` |
+| `aspect_ratio` | ne | Poměr stran jako text `"šířka:výška"` nebo šablona `"{{ inputs.pomer }}"` (pro IG `"1:1"` nebo `"4:5"`). Po uložení framework porovná poměr stran z hlavičky souboru; odchylka > 2 % = chyba `config` („model nepodporuje aspect_ratio"), nic se tiše neořízne. | Výchozí modelu (u `gemini-3.1-flash-image` 1408×768). | `aspect_ratio: "4:5"` |
+| `quality` | ne | Kvalita `auto`, `low`, `medium`, `high` nebo šablona. | `models.<alias>.quality`, jinak výchozí modelu. | `quality: "{{ inputs.kvalita }}"` |
+| `resolution` | ne | Rozlišení jako text `"512"`, `"1K"`, `"2K"`, `"4K"` nebo šablona. | Výchozí modelu. | `resolution: "1K"` |
 
 Výstup `steps.<id>.file` — soubor `steps/<nn>-<id>/image.png` ve složce
 běhu. V záznamu nikdy není base64, jen cesta (§5.7).
@@ -402,9 +404,17 @@ Politiku obsahu vynucuje scénář — typicky krok `jev` nad promptem před
 <https://openrouter.ai/docs/features/multimodal/image-generation>, ověřeno
 2026-09-27). Endpoint určuje `models.<alias>.api` v `config.yaml`:
 `chat` (výchozí) používá chat completions s `modalities: [image, text]`,
-`images` používá `POST /api/v1/images` a odešle `aspect_ratio` přímo.
-Volitelné `models.<alias>.quality` se posílá jen přes `images`; formát kroku
-se nemění.
+`images` používá `POST /api/v1/images` a odešle `aspect_ratio`, `quality` a
+`resolution` přímo. Přednost kvality: krok > `models.<alias>.quality` > nic.
+Po dosazení šablon se kontroluje tvar poměru a uvedené výčty; neplatná hodnota
+končí chybou `config` s dosazeným textem. Chat API posílá poměr přes
+`image_config`, kvalitu a rozlišení ignoruje s varováním v záznamu běhu
+(`summary.md` i events). Dosazené parametry jsou také v `prompt.md` kroku.
+Statická validace kontroluje pevné hodnoty proti `supported_parameters`
+z `/images/models`, pokud parametr uvádí `values`; stejně kontroluje
+`default` vstupu v jediné šabloně `{{ inputs.x }}`. Validace samostatná
+varování nepodporuje, ignorování parametrů chat API hlásí až běh.
+Formát scénáře zůstává `version: 1`.
 
 ### `parallel`
 
@@ -583,10 +593,10 @@ Ve scénáři jsou dva různé zápisy (D1c). Jednoduché pravidlo:
 | Kde | Zápis | Příklad |
 |---|---|---|
 | `when`, `switch.value`, hodnoty v `set` | **výraz** — bez závorek | `steps.kontrola.on_brand < 0.7` |
-| **jen** v: `ask.prompt`, `task.prompt`, `image.prompt`, `jev.state`, `jev.questions.*.instructions`, `jev.questions.*.criteria` (hodnoty), `fail`, hodnotách `output`, `call.inputs`, `dedupe_key` | **šablona** — `{{ }}` jen vkládá hodnotu | `"Téma: {{ inputs.tema }}"` |
+| **jen** v: `ask.prompt`, `task.prompt`, `image.prompt`, `image.aspect_ratio`, `image.quality`, `image.resolution`, `jev.state`, `jev.questions.*.instructions`, `jev.questions.*.criteria` (hodnoty), `fail`, hodnotách `output`, `call.inputs`, `dedupe_key` | **šablona** — `{{ }}` jen vkládá hodnotu | `"Téma: {{ inputs.tema }}"` |
 
 `{{` kdekoli jinde (jména, `id`, typy kroků, aliasy, agenti,
-`aspect_ratio`, `max_turns`, klíče `cases`, …) je chyba `validate`.
+`max_turns`, klíče `cases`, …) je chyba `validate`.
 
 ### Co je vidět (jména)
 

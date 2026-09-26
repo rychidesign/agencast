@@ -2,6 +2,7 @@
 a hlásí se všechny chyby najednou.
 """
 import ast
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -16,6 +17,7 @@ NOOUT = "bez výstupu"  # typ kroku parallel/switch/fail/output
 DEFAULT_TIMEOUT = {"ask": "2m", "task": "15m", "jev": "30s", "image": "3m"}  # scenario.md §3 (návrh)
 # Kde smí být šablona {{ }} (scenario.md §5); "*" = libovolný klíč/index.
 TEMPLATE_FIELDS = [("ask", "prompt"), ("task", "prompt"), ("image", "prompt"), ("jev", "state"),
+                   ("image", "aspect_ratio"), ("image", "quality"), ("image", "resolution"),
                    ("jev", "questions", "*", "instructions"), ("jev", "questions", "*", "criteria", "*"),
                    ("fail",), ("output", "*"), ("call", "inputs", "*"), ("dedupe_key",)]
 INPUT_TYPES = {"string": "string", "number": "number", "integer": "number", "boolean": "boolean",
@@ -333,12 +335,18 @@ def check_models_list(config: dict, needs: dict, models: list, image_models: lis
             else:
                 if "image" not in m["output_modalities"]:
                     errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí výstup obrázku")
-                supported = m["supported_parameters"].get("aspect_ratio") or {}
-                values = supported.get("values") if isinstance(supported, dict) else None
-                for ratio in (n.split(":", 1)[1] for n in need if n.startswith("aspect_ratio:")):
-                    if values is not None and ratio not in values:
-                        errs.append(f"config.yaml: model '{mid}' (alias {alias}) nepodporuje aspect_ratio {ratio}")
-        chat_need = need - {"image"} - {n for n in need if n.startswith("aspect_ratio:")} if images_api else need
+                for requirement in need - {"image"}:
+                    parameter, _, requested = requirement.partition(":")
+                    if parameter not in ("aspect_ratio", "quality", "resolution"):
+                        continue
+                    value, _, source = requested.partition("\t")
+                    supported = m["supported_parameters"].get(parameter) or {}
+                    values = supported.get("values") if isinstance(supported, dict) else None
+                    if values is not None and value not in values:
+                        errs.append(f"config.yaml: model '{mid}' (alias {alias}) nepodporuje {parameter} {value}"
+                                    + (f" ({source})" if source else ""))
+        chat_need = need - {"image"} - {n for n in need if n.startswith(
+            ("aspect_ratio:", "quality:", "resolution:"))} if images_api else need
         if not chat_need:
             continue
         m = by_id.get(mid)
@@ -623,8 +631,27 @@ class _Checker:
                                              f"(aliasy: {', '.join(self.config['models'])})")
         else:
             self.need(im["model"], "image")
-            if im.get("aspect_ratio"):
-                self.need(im["model"], f"aspect_ratio:{im['aspect_ratio']}")
+        for field, pattern in (("aspect_ratio", r"[1-9][0-9]*:[1-9][0-9]*"),
+                               ("quality", r"auto|low|medium|high"), ("resolution", r"512|1K|2K|4K")):
+            value = im.get(field, self.config["models"].get(im["model"], {}).get("quality")
+                           if field == "quality" else None)
+            if value is None:
+                continue
+            source = ""
+            if "{{" in value:
+                typ = tkind(self.template(info, f"image.{field}", value, res))
+                if typ and typ != "string":
+                    self.err(info.id, f"image.{field}", f"šablona musí dát text, dá {typ}")
+                ref = re.fullmatch(r"\{\{\s*inputs\.([a-z][a-z0-9_]*)\s*\}\}", value)
+                spec = (self.sc.get("inputs") or {}).get(ref[1], {}) if ref else {}
+                if "default" not in spec:
+                    continue
+                value, source = spec["default"], f"default vstupu {ref[1]}"
+            if not isinstance(value, str) or not re.fullmatch(pattern, value):
+                self.err(info.id, f"image.{field}", f"neplatná hodnota {value!r}"
+                         + (f" ({source})" if source else ""))
+            elif im["model"] in self.config["models"]:
+                self.need(im["model"], f"{field}:{value}" + (f"\t{source}" if source else ""))
         self.template(info, "image.prompt", im["prompt"], res)
         return {"file": "file"}
 

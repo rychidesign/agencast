@@ -75,7 +75,8 @@ class Fake:
                  "supported_parameters": {
                      "aspect_ratio": {"type": "enum", "values": ["1:1", "3:2", "2:3", "4:3", "3:4",
                                                                        "16:9", "9:16", "21:9", "auto"]},
-                     "quality": {"type": "enum", "values": ["auto", "low", "medium", "high"]}}}
+                     "quality": {"type": "enum", "values": ["auto", "low", "medium", "high"]},
+                     "resolution": {"type": "enum", "values": ["512", "1K", "2K", "4K"]}}}
                 for m in self.image_models]})
         if path.endswith("/models"):
             return httpx.Response(200, json={"data": [

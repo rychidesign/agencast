@@ -257,3 +257,10 @@ Smlouva `POST /runs` a callbacku se nemění.
 - `config.yaml`: alias modelu může mít volitelné `api: chat|images` (výchozí
   `chat`) a při `api: images` volitelné `quality: auto|low|medium|high`;
   formát kroku `image` zůstává beze změny.
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.14.0)
+
+- `image.aspect_ratio` nově přijímá šablonu; volitelná `quality` a
+  `resolution` přijímají pevnou hodnotu nebo šablonu. Kvalita kroku přebíjí
+  alias, chat API kvalitu a rozlišení ignoruje s varováním v záznamu běhu.
+  Stávající scénáře a výchozí chování zůstávají platné (R8).
