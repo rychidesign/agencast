@@ -242,3 +242,12 @@ Formáty agenta, scénáře, konfigurace i záznamu běhu beze změny. API
 odebere jen položku registru; `GET /projects` přidává `projects_root` a
 `writable`. Kořen pro nové projekty je volitelně nastavitelný v registru;
 chování zápisu a cesty viz [projects.md](projects.md).
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.10.0)
+
+Formáty agenta, scénáře, konfigurace i záznamu běhu zůstávají zpětně
+kompatibilní. API ([api.md](api.md)) přidává počty a dnešní útratu do
+`GET /projects`, stránkování běhů, `tree` při validaci/renderu textu,
+řádek chyb schématu configu a krok/pole u chyby operace dávky. Restartem
+přerušený běh zachová původní `run_started` a v API má `state: interrupted`.
+Smlouva `POST /runs` a callbacku se nemění.

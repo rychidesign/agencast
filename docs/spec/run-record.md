@@ -299,6 +299,14 @@ na stderr `<třída>: <hláška>` a skončí kódem 1.
 | `image_cost_usd` | z toho obrázky (§5.7 — počítají se zvlášť) |
 | `image_duration_s` | součet trvání kroků `image` (jen informace; samostatný časový limit obrázků ve v1 není) |
 
+Při restartu `serve`, který obnoví záznam fronty se stávajícím
+`run_started` a bez `run_finished`, druhé `run_started` nevzniká. Server
+doplní událost `error` a `run_finished` se `status: failed`, třídou
+`internal`, `step` posledního začatého kroku a zprávou
+`běh přerušen restartem serveru`. Původní `run_started.ts` zůstává
+`started_at`. V API má takový běh `state: interrupted` a krok bez
+`step_finished` má `status: interrupted`; záznam běhu zůstává zachovaný.
+
 **`callback_sent`** — jeden pokus o doručení callbacku (každý pokus =
 jedna událost).
 

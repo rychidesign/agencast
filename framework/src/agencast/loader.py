@@ -212,14 +212,49 @@ def _one_of(e) -> str:
     return "hodnota neodpovídá žádné povolené podobě"
 
 
-def schema_errors(kind: str, data, where: str, ref: str | None = None, skip=()) -> list[str]:
+def _yaml_line(data, path) -> int | None:
+    """YAML řádek klíče/cesty v ruamel round-trip stromu."""
+    node, line = data, None
+    for key in path:
+        try:
+            lc = getattr(node, "lc", None)
+            if lc is None:
+                return line
+            pos = lc.key(key) if isinstance(node, dict) else lc.item(key)
+            if pos:
+                line = pos[0] + 1
+            node = node[key]
+        except (AttributeError, IndexError, KeyError, TypeError):
+            return line
+    return line
+
+
+def schema_errors(kind: str, data, where: str, ref: str | None = None, skip=(), source: str | None = None) -> list[str]:
     """Chyby proti JSON Schema ze spec; `skip` = cesty, které se kontrolují zvlášť."""
-    out = []
+    out, line_data = [], None
+    if source is not None:
+        try:
+            from ruamel.yaml import YAML
+            line_data = YAML(typ="rt").load(source)
+        except Exception:
+            pass  # syntaxi už zkontroloval PyYAML; bez pozic zůstane původní hláška
     for e in sorted(_validator(kind, ref).iter_errors(data), key=lambda e: list(map(str, e.absolute_path))):
         p = tuple(e.absolute_path)
         if any(p[:len(s)] == s and len(p) > len(s) for s in skip):
             continue
-        out.append(f"{where}: {path_str(p) + ': ' if p else ''}{describe_error(e)}")
+        if e.validator == "additionalProperties" and isinstance(e.instance, dict):
+            known = e.schema.get("properties", {})
+            extra = [k for k in e.instance if k not in known]
+            if extra:
+                for key in extra:
+                    field = path_str(p + (key,))
+                    line = _yaml_line(line_data, p + (key,)) if line_data is not None else None
+                    prefix = f"{where}, řádek {line}: " if line else f"{where}: "
+                    out.append(f"{prefix}{field}: neznámé pole '{key}' (překlep?)")
+                continue
+        line = _yaml_line(line_data, p) if line_data is not None else None
+        prefix = f"{where}, řádek {line}: " if line else f"{where}: "
+        out.append(f"{prefix}{path_str(p) + ': ' if p else ''}{describe_error(e)}")
     return out
 
 

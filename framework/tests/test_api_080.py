@@ -236,10 +236,24 @@ def test_http_batch_render_head(registry_server):  # noqa: F811
     assert r.status_code == 200 and set(r.json()) == {"text", "tree", "errors"}
     assert r.json()["tree"][0]["id"] == "navrh" and r.json()["errors"][0]["file"] == "scenarios/prejmenuj.yaml"
     assert client.head("/projects/alfa/files/scenarios/prejmenuj.yaml").headers["etag"] == f'"{tag}"'
+    raw = client.post("/projects/alfa/scenarios/prejmenuj/render", json={"text": PREJMENUJ})
+    assert raw.status_code == 200 and set(raw.json()) == {"tree", "errors"}
+    assert raw.json()["tree"][0]["id"] == "napis" and raw.json()["errors"] == []
+    checked = client.post("/projects/alfa/validate", json={"path": "scenarios/prejmenuj.yaml", "text": PREJMENUJ})
+    assert checked.status_code == 200 and checked.json()["tree"][0]["id"] == "napis"
+    assert checked.json()["errors"] == []
+    assert (a / "workflows" / "scenarios" / "prejmenuj.yaml").read_text() == PREJMENUJ
     # batch: 422 s indexem operace, 409, 200
     r = client.post("/projects/alfa/scenarios/prejmenuj/batch", json={"etag": tag, "ops": [
         {"op": "set_header", "fields": {"description": "x"}}, {"op": "delete_step", "address": ["steps", 5]}]})
     assert r.status_code == 422 and r.json()["op"] == 1 and r.json()["errors"][0]["message"].startswith("ops[1]")
+    r = client.post("/projects/alfa/scenarios/prejmenuj/batch", json={"etag": tag, "ops": [
+        {"op": "rename_step", "address": ["steps", 0], "new_id": []}]})
+    assert r.status_code == 422 and r.json()["errors"][0] | {"message": ""} == {
+        "message": "", "step": "napis", "field": "new_id"}
+    r = client.post("/projects/alfa/scenarios/prejmenuj/batch", json={"etag": tag, "ops": [
+        {"op": "add_step", "after": ["steps", 9], "step": {"id": "novy", "fail": "chyba"}}]})
+    assert r.status_code == 422 and r.json()["errors"][0]["step"] == "novy"
     assert client.post("/projects/alfa/scenarios/prejmenuj/batch", json={"etag": "x", "ops": []}).status_code == 409
     r = client.post("/projects/alfa/scenarios/prejmenuj/batch", json={"etag": tag, "ops": [
         {"op": "rename_step", "address": ["steps", 0], "new_id": "navrh"}]})

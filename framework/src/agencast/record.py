@@ -42,7 +42,7 @@ class Record:
         self.dir = directory
         self.secrets = {n: v for n, v in secrets.items() if v and len(v) >= MIN_SECRET_LEN}
         self.masked: set[str] = set()
-        self.events: list[dict] = []
+        self.events: list[dict] = list(_events(directory)) if exist_ok else []
         directory.mkdir(parents=True, exist_ok=exist_ok)  # exist_ok: přerušený běh po restartu serveru
 
     def mask(self, text: str) -> str:
@@ -238,6 +238,7 @@ def total_note(run) -> str:
 
 
 RUN_DIR = re.compile(r"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-([a-z0-9-]+)-[0-9a-f]{4}")  # run_id (engine.RUN_ID)
+INTERRUPTED_BY_RESTART = "běh přerušen restartem serveru"
 
 
 def _events(run_dir: Path):
@@ -285,7 +286,10 @@ def run_status(run_dir: Path) -> dict:
             info.update(status=e["status"], state=e["status"], cost_usd=e["usage"]["cost_usd"], duration_s=e["duration_s"],
                         finished_at=e["ts"])
             if e.get("error"):
-                info["status"] += f" ({e['error']['class']} v {e['error']['step']})"
+                step = e["error"].get("step")
+                info["status"] += f" ({e['error']['class']} v {step})" if step else f" ({e['error']['class']})"
+                if e["error"].get("message") == INTERRUPTED_BY_RESTART:
+                    info["state"] = "interrupted"
         elif e["type"] == "callback_failed":
             info["callback"] = "callback nedoručen"
     if info["finished_at"] is None and running:
@@ -342,6 +346,13 @@ def _step_rows(run_dir: Path) -> tuple[dict[str, dict[str, Any]], list[dict[str,
         if st["kind"] == "task":
             st.setdefault("turns", 0)
             st.setdefault("tool_calls", 0)
+    from .task import run_locked
+    recovered = any(e["type"] == "run_finished" and (e.get("error") or {}).get("message") == INTERRUPTED_BY_RESTART
+                    for e in events)
+    if recovered or not run_locked(run_dir):
+        for st in steps.values():
+            if st.get("status") == "running":
+                st["status"] = "interrupted"
     return steps, events
 
 

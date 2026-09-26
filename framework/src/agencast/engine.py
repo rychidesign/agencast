@@ -32,7 +32,8 @@ from .loader import nested_lists
 from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
-from .record import SUM_DIGITS, Record, count, cz, cz_usd, now_iso, plan_md, report_html, scrub, summary_md
+from .record import (SUM_DIGITS, Record, count, cz, cz_usd, now_iso, plan_md,
+                     report_html, scrub, summary_md)
 from .task import dedupe_skip, hold_run_lock, local_dedupe, local_ledger, local_slots, run_task  # 3a
 from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
 
@@ -150,28 +151,44 @@ class Run:
         self.report_url = None
 
     # --- běh -----------------------------------------------------------------------
-    async def execute(self, error: AgencastError | None = None) -> str:
+    async def execute(self, error: AgencastError | None = None, resume: bool = False) -> str:
         """`error` = běh, který nezačne (3b: validate selhal až po vyzvednutí z fronty) — jen záznam a callback."""
         t0, loop = time.monotonic(), asyncio.get_running_loop()
         cfg, lim, sc = self.p.config, self.p.config["limits"], self.p.scenario
         self.run_budget = Scope("běhu (run_budget_usd)", lim["run_budget_usd"], None)
         self.image_budget = Scope("obrázků běhu (run_image_budget_usd)", lim.get("run_image_budget_usd"), None)
-        self.rec.event("run_started", run_id=self.run_id, scenario=sc["name"], scenario_version=sc["version"],
-                       request_key=self.request_key, inputs=self.inputs,
-                       models={a: m["id"] for a, m in cfg["models"].items()},
-                       limits={"run_budget_usd": lim["run_budget_usd"],
-                               "run_image_budget_usd": lim.get("run_image_budget_usd"),
-                               "run_timeout": lim["run_timeout"]},
-                       framework_version=__version__, storage_prefix=self.storage_prefix, fake=self.fake,
-                       steps_total=len(self.p.order) or None,  # 0.6.0: kroky scénáře včetně větví (bez volaných)
-                       callback_url=safe_url(self.callback_url) if self.callback_url else None)
+        if resume:
+            started = next((e["ts"] for e in self.rec.events if e["type"] == "run_started"), None)
+            if started:
+                self.started_at = started
+                try:
+                    began = datetime.fromisoformat(started.replace("Z", "+00:00"))
+                    self.duration = max(0, round((datetime.now(timezone.utc) - began).total_seconds(), 3))
+                except ValueError:
+                    self.duration = round(time.monotonic() - t0, 3)
+            images = {e.get("step") for e in self.rec.events
+                      if e["type"] == "step_started" and e.get("kind") == "image"}
+            calls = [e for e in self.rec.events if e["type"] in ("model_call", "jev_call")]
+            self.cost = sum((e.get("usage") or {}).get("cost_usd") or 0 for e in calls)
+            self.image_cost = sum((e.get("usage") or {}).get("cost_usd") or 0 for e in calls
+                                  if e.get("step") in images)
+        else:
+            self.rec.event("run_started", run_id=self.run_id, scenario=sc["name"], scenario_version=sc["version"],
+                           request_key=self.request_key, inputs=self.inputs,
+                           models={a: m["id"] for a, m in cfg["models"].items()},
+                           limits={"run_budget_usd": lim["run_budget_usd"],
+                                   "run_image_budget_usd": lim.get("run_image_budget_usd"),
+                                   "run_timeout": lim["run_timeout"]},
+                           framework_version=__version__, storage_prefix=self.storage_prefix, fake=self.fake,
+                           steps_total=len(self.p.order) or None,  # 0.6.0: kroky scénáře včetně větví (bez volaných)
+                           callback_url=safe_url(self.callback_url) if self.callback_url else None)
         if self.waited_s is not None:
             self.rec.event("run_waiting", waited_s=self.waited_s, max_parallel_runs=lim["max_parallel_runs"])
         root = Ctx([self.run_budget], [(loop.time() + seconds(lim["run_timeout"]),
                                          f"běhu (run_timeout {lim['run_timeout']})", None)])
         try:
             if error:  # 3b
-                self.rec.event("error", **{"class": error.cls}, message=error.message, attempt=None,
+                self.rec.event("error", step=error.step, **{"class": error.cls}, message=error.message, attempt=None,
                                will_retry=False, http_status=None)
                 raise error
             await self.run_list(sc["steps"], root)
@@ -185,7 +202,8 @@ class Run:
         finally:
             await self.mcp.close()  # 3a
             await self.client.aclose()
-        self.duration = round(time.monotonic() - t0, 3)
+        if not resume or not self.started_at:
+            self.duration = round(time.monotonic() - t0, 3)
         self.warnings += [f"tajná hodnota {n} byla v záznamu nahrazena textem <tajné: {n}>" for n in sorted(self.rec.masked)]
         self.publish_report()  # 3b: před run_finished, aby varování o nahrání bylo i v něm
         self.rec.event("run_finished", status=self.status, error=self.error, warnings=self.warnings,
@@ -679,7 +697,7 @@ async def mcp_offers(p: Project, servers: set) -> dict:
 
 
 def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, request_key=None,
-                 callback_transport=None, run_id=None, error: AgencastError | None = None) -> Run:
+                 callback_transport=None, run_id=None, error: AgencastError | None = None, resume=False) -> Run:
     """Spustí ověřený scénář; `fake` = agencast.fake.Fake místo sítě.
 
     3b (webhook): `run_id` přidělený už při přijetí požadavku; `error` = běh nezačne, jen záznam
@@ -711,7 +729,7 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
         run = Run(p, inputs, rec, client, run_id, callback_url=callback_url, request_key=request_key,
                   callback_transport=callback_transport, fake=fake is not None)
         run.waited_s = waited
-        asyncio.run(run.execute(error))
+        asyncio.run(run.execute(error, resume=resume))
         return run
     finally:
         if lock is not None:

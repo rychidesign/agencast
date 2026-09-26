@@ -13,6 +13,7 @@ import pytest
 from conftest import model_ids, scenario
 
 from agencast.fake import Fake
+from agencast import api
 from agencast.server import Server, Webhook
 
 TOKEN, SECRET = "token-webhooku-123", "podpis-callbacku-456"
@@ -263,7 +264,14 @@ def test_queue_survives_restart(wf, env):
     waiting = {"run_id": "20260925-140000-kontrola-tonu-aaaa", "scenario": "kontrola-tonu",
                "inputs": {"text": "x"}, "callback_url": rcv.url, "request_key": None, "queued_ns": 1}
     broken = {**waiting, "run_id": "20260925-135959-kontrola-tonu-bbbb", "queued_ns": 0}
-    (runs / broken["run_id"]).mkdir()  # běh začal, pak server spadl
+    interrupted = runs / broken["run_id"]
+    interrupted.mkdir()
+    prior = [
+        {"ts": "2026-09-25T13:59:59.250Z", "type": "run_started", "run_id": broken["run_id"],
+         "scenario": "kontrola-tonu", "scenario_version": 1, "fake": True},
+        {"ts": "2026-09-25T13:59:59.500Z", "type": "step_started", "step": "kontrola", "kind": "jev"},
+    ]
+    (interrupted / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in prior))
     for e in (waiting, broken):
         (runs / "_queue" / f"{e['run_id']}.json").write_text(json.dumps(e))
     hook, srv, client = start(wf)
@@ -274,6 +282,15 @@ def test_queue_survives_restart(wf, env):
         srv.server_close()
     assert [c["run_id"] for c in cbs] == [broken["run_id"], waiting["run_id"]]
     assert cbs[0]["status"] == "failed" and cbs[0]["error"]["class"] == "internal"
+    assert cbs[0]["error"]["step"] == "kontrola"
+    events = [json.loads(x) for x in (interrupted / "events.jsonl").read_text().splitlines()]
+    assert sum(e["type"] == "run_started" for e in events) == 1
+    finished_event = next(e for e in events if e["type"] == "run_finished")
+    assert finished_event["status"] == "failed" and finished_event["error"] == {
+        "class": "internal", "step": "kontrola", "message": "běh přerušen restartem serveru"}
+    detail = api.run_detail(wf.parent, broken["run_id"])
+    assert detail["state"] == "interrupted" and detail["started_at"] == prior[0]["ts"]
+    assert detail["steps"][0]["status"] == "interrupted"
     assert cbs[1]["status"] == "succeeded"
 
 

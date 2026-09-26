@@ -40,8 +40,10 @@ def test_registry_mode_read_api(registry_server):
     projects, client, a, b = registry_server
     assert client.get("/projects", headers={"Authorization": "Bearer spatne"}).status_code == 401
     assert client.get("/projects").json() == {"projects": [
-        {"name": "alfa", "root": str(a), "available": True, "last_run": None},
-        {"name": "beta", "root": str(b), "available": True, "last_run": None}],
+        {"name": "alfa", "root": str(a), "available": True, "last_run": None,
+         "counts": {"scenarios": 1, "agents": 1}, "spend_today_usd": 0},
+        {"name": "beta", "root": str(b), "available": True, "last_run": None,
+         "counts": {"scenarios": 1, "agents": 1}, "spend_today_usd": 0}],
         "registry": str(a.parent / "agencast-config" / "projects.yaml"),
         "projects_root": str(api.projects_root()), "writable": True}
     p = client.get("/projects/alfa").json()
@@ -98,9 +100,11 @@ def test_single_project_mode(wf, monkeypatch):
     hook.start()
     srv, client = serve(hook)
     try:
+        counts = {"scenarios": sum(1 for _ in (wf / "scenarios").glob("*.yaml")),
+                  "agents": sum(1 for _ in (wf / "agents").glob("*.md"))}
         (p,) = client.get("/projects").json()["projects"]
         assert p == {"name": default_name(wf.parent), "root": str(wf.parent.resolve()), "available": True,
-                     "last_run": None}
+                     "last_run": None, "counts": counts, "spend_today_usd": 0}
         listing = client.get("/projects").json()
         assert listing["writable"] is False and listing["projects_root"] == str(api.projects_root())
         api.add_project(wf.parent, "muj")

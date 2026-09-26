@@ -32,6 +32,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from . import ConfigErrors, AgencastError, api
 from .engine import RUN_ID, RUN_ID_TRIES, new_run_id
 from .projects import default_name, error_fields, registry_path
+from .record import INTERRUPTED_BY_RESTART
 from .validate import Project, load_config, resolve_inputs
 
 FIELDS = ("scenario", "inputs", "callback_url", "request_key")
@@ -54,7 +55,7 @@ class Webhook:
         if errs or c is None:
             raise ConfigErrors(errs)
         self.config = c
-        need = ([] if token else [c["webhook"]["token_env"]]) + [c["callback"]["secret_env"]] + (
+        need = ([] if token else [c["webhook"]["token_env"]]) + (
             [] if fake else [c["openrouter"]["api_key_env"]])
         if missing := [n for n in need if not os.environ.get(n)]:
             raise ConfigErrors([f"chybí proměnná prostředí {n} (.env nebo prostředí)" for n in missing])
@@ -112,6 +113,10 @@ class Webhook:
             errs.append("inputs: má být objekt")
         if not (gui and url is None) and (not isinstance(url, str) or not url.startswith(CALLBACK_PREFIXES)):
             errs.append("callback_url: nezačíná https://" if gui else "callback_url: chybí nebo nezačíná https://")
+        if not dry and isinstance(url, str) and url.startswith(CALLBACK_PREFIXES):
+            secret = self.config["callback"]["secret_env"]
+            if not os.environ.get(secret):
+                errs.append(f"chybí proměnná prostředí {secret} (podpis callbacku)")
         if key is not None and not (isinstance(key, str) and key):
             errs.append("request_key: má být neprázdný text")
         if not isinstance(dry, bool):
@@ -197,7 +202,24 @@ class Webhook:
         path = self.wf / "scenarios" / f"{entry['scenario']}.yaml"
         kw = dict(fake=self.fake, callback_url=entry["callback_url"], request_key=entry["request_key"],
                   run_id=entry["run_id"], callback_transport=self.callback_transport)
-        if (self.runs / entry["run_id"]).exists():
+        run_dir = self.runs / entry["run_id"]
+        if run_dir.exists():
+            event_file = run_dir / "events.jsonl"
+            try:
+                lines = event_file.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                lines = []
+            events = []
+            for line in lines:
+                try:
+                    events.append(json.loads(line))
+                except ValueError:
+                    continue
+            if any(e.get("type") == "run_started" for e in events) and not any(
+                    e.get("type") == "run_finished" for e in events):
+                step = next((e.get("step") for e in reversed(events) if e.get("type") == "step_started"), None)
+                return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
+                    "internal", INTERRUPTED_BY_RESTART, step=step), resume=True, **kw)
             # ponytail: přerušený běh se neopakuje (vedlejší účinky), jen se nahlásí; mohl i doběhnout bez callbacku
             return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
                 "internal", "běh přerušen — server skončil uprostřed běhu; co stihl, je v záznamu (ověř ručně)"), **kw)
@@ -386,8 +408,16 @@ class Projects:
                 if not self.hook:
                     raise
                 projects_root = (Path.home() / "workspace").resolve()
-            return 200, {"projects": [x | {"last_run": api.last_run(Path(str(x["root"]))) if x["available"] else None}
-                                      for x in self.listing()], "registry": str(registry_path()),
+            today = f"{datetime.now(timezone.utc):%Y-%m-%d}"
+            projects = []
+            for x in self.listing():
+                root = Path(str(x["root"]))
+                wf = root / "workflows"
+                counts = {"scenarios": sum(1 for _ in (wf / "scenarios").glob("*.yaml")),
+                          "agents": sum(1 for _ in (wf / "agents").glob("*.md"))}
+                projects.append(x | {"last_run": api.last_run(root) if x["available"] else None, "counts": counts,
+                                     "spend_today_usd": api.spend(root, today)["total_usd"]})
+            return 200, {"projects": projects, "registry": str(registry_path()),
                     "projects_root": str(projects_root),
                     "writable": self.hook is None and api.registry_writable()}
         root, err = self.project(parts[0])
@@ -406,8 +436,16 @@ class Projects:
                     limit = q.get("limit", [None])[0]
                     if limit is not None and not re.fullmatch(r"[1-9]\d*", limit):
                         return 422, {"error": f"limit má být kladné celé číslo, je '{limit}'", "details": []}
-                    return 200, {"runs": api.runs_list(root, q.get("scenario", [None])[0],
-                                                       int(limit) if limit else None)}
+                    before = q.get("before", [None])[0]
+                    if before is not None and not RUN_ID.fullmatch(before):
+                        return 422, {"error": "before má být run_id běhu", "details": []}
+                    page_size = int(limit) if limit else None
+                    runs = api.runs_list(root, q.get("scenario", [None])[0],
+                                         page_size + 1 if page_size is not None else None, before)
+                    body = {"runs": runs[:page_size] if page_size is not None else runs}
+                    if page_size is not None and len(runs) > page_size:
+                        body["next_before"] = body["runs"][-1]["run_id"]
+                    return 200, body
                 case ["runs", r]:
                     body = api.run_detail(root, r)
                     return (200, body) if body else (404, {"error": f"běh {r} neexistuje"})
@@ -455,8 +493,14 @@ class Projects:
         except api.NotFound as e:
             return 404, {"error": str(e)}
         except api.OpError as e:  # 0.8.0: dávka — index operace, která nešla provést
+            errors = structured(root, e.errors)
+            for item in errors:
+                if e.step:
+                    item["step"] = e.step
+                if e.field:
+                    item["field"] = e.field
             return 422, {"error": f"operace {e.op} dávky nejde provést, nic se nezapsalo", "op": e.op,
-                         "errors": structured(root, e.errors)}
+                         "errors": errors}
         except ConfigErrors as e:
             return 422, {"error": "změna neprošla kontrolou, nic se nezapsalo", "errors": structured(root, e.errors)}
         return status, with_structured(root, out) if status == 200 else out
@@ -464,8 +508,12 @@ class Projects:
     def route(self, method: str, parts: list[str], root: Path, body: dict[str, Any]) -> tuple[int, dict[str, Any]] | None:
         tag, g = body.get("etag"), body.get
         match method, parts:
-            case "POST", ["validate"]:  # bez zápisu; bez path = projekt, jak je na disku
-                return 200, {"errors": api.validate_text(root, g("path"), g("text"))}
+            case "POST", ["validate"]:  # bez zápisu; scénářový text navíc vrací strom
+                rel, text = g("path"), g("text")
+                m = re.fullmatch(r"scenarios/([a-z][a-z0-9-]*)\.yaml", rel) if isinstance(rel, str) else None
+                if m and text is not None:
+                    return 200, api.render_text(root, m[1], text)
+                return 200, {"errors": api.validate_text(root, rel, text)}
             case "POST", [("scenarios" | "agents") as kind]:
                 name = g("name")
                 if not isinstance(name, str):
@@ -485,6 +533,12 @@ class Projects:
             case "POST", ["scenarios", s, "batch"]:
                 return 200, api.batch(root, s, tag, g("ops"))
             case "POST", ["scenarios", s, "render"]:  # bez zápisu; etag nepovinný
+                if "text" in body:
+                    if "ops" in body:
+                        raise ConfigErrors(["text a ops nelze kombinovat"])
+                    if not (root / "workflows" / "scenarios" / f"{s}.yaml").is_file():
+                        return 404, {"error": f"scénář '{s}' v projektu neexistuje"}
+                    return 200, api.render_text(root, s, g("text"))
                 return 200, api.render(root, s, tag, g("ops", []))
             case "PUT", ["scenarios", s, "steps", *a] if a:
                 return 200, api.replace_step(root, s, tag, ["steps", *a], g("step"))

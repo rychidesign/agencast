@@ -62,5 +62,8 @@ Content-Type: application/json
   selže až po vyzvednutí z fronty (např. změnil se mezitím soubor), pak
   s třídou `config`; nedočkaný slot `max_parallel_runs` → `timeout`,
   vyčerpaný `daily_budget_usd` → `budget` (od 0.3.1).
+- V `POST /projects/<p>/runs` může být `callback_url` vynechána; v tom
+  případě se `callback.secret_env` ani podpis nevyžadují. Smlouva
+  `POST /runs` zůstává beze změny a `callback_url` nadále vyžaduje.
 - Záznam `request_key` platí po dobu uchování složek běhů (**návrh**).
 - Časový limit v n8n musí počítat i s čekáním ve frontě (D2).

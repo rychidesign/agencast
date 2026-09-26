@@ -177,22 +177,32 @@ Ověřeno 2026-09-26 proti `agencast serve --fake` (framework 0.7.0 z větve). J
     `started_at` je čas obnovy (druhý `run_started`) a `duration_s` `0.0`. *GUI:* ukáže, co
     přijde (`chyba: internal v None`). *Potřeba:* `status` bez „v None“, `started_at` z prvního
     `run_started`; zvážit, jestli obnovený běh nemá zůstat `interrupted` (nebo nést příznak).
+    **Stav (0.10.0):** obnova zachová původní `run_started` a doplní chybu `internal` s posledním
+    rozběhnutým krokem a zprávou „běh přerušen restartem serveru“; `run_finished.status` je `failed`,
+    ale API `state` zůstává `interrupted` a `started_at` původní.
 22. **Krok bez konce má v ukončeném běhu `status: running`.** Položka `steps` kroku, který
     měl `step_started` a pak běh spadl, zůstane `running` i u `state` `interrupted`/`failed`.
     *GUI:* když běh není `queued`/`running`, ukáže takový krok jako „přerušen“ (nepulzuje).
     *Potřeba:* u neživého běhu `status: interrupted` (nebo `null`) místo `running`.
+    **Stav (0.10.0):** krok bez `step_finished` má `status: interrupted`, když ho nedrží živý worker.
 23. **Chyby schématu `config.yaml` bez řádku.** `files/config.yaml` vrací u chyb schématu jen
     `field` (`limits.run_budget_usd`), `line` jen u syntaxe a duplicitního klíče (jak api.md
     uvádí). YAML režim Configu proto u nich řádek neoznačí, jen vypíše hlášku. *Potřeba:*
     `line` i u chyb schématu (loader zná pozici uzlu).
+    **Stav (0.10.0):** chyby schématu `config.yaml` obsahují `line` podle klíče v YAML, v `files/config.yaml`
+    i v 422 z `GET /projects/<p>`.
 24. **`GET /projects` bez počtů.** Karta projektu ukazuje „20 scénářů · 8 agentů“ a dnešní
     útratu, takže dál volá na každý dostupný projekt `GET /projects/<p>` (celý projekt kvůli
     dvěma číslům) a `…/spend`. *Potřeba:* `counts {scenarios, agents}` a `spend_today_usd`
     v položce `GET /projects`.
+    **Stav (0.10.0):** dostupné i nedostupné položky vrací počty podle výpisu souborů a `spend_today_usd`
+    z denní knihy bez validace projektu.
 25. **Stránkování jen `limit`.** „Načíst další“ stáhne znovu celý delší seznam (`limit`
     +50); `last_run` nemá `started_at`, takže čas u čekajícího/přerušeného běhu a dry-runu
     GUI bere z `run_id`. *Potřeba (až bude běhů hodně):* kurzor `?before=<run_id>`; v `last_run`
     `started_at`.
+    **Stav (0.10.0):** `before` stránkuje podle názvu složky a `next_before` se vrací, když jsou další běhy;
+    `last_run.started_at` je aditivní.
 
 
 ## Část 4 (projekty z GUI, dávky 0.8.0, Playwright E2E)
@@ -208,10 +218,14 @@ GUI přešlo na `POST /projects/new`, `POST /projects`, `DELETE /projects/<p>`, 
     textu nevrátí strom (`validate` vrací jen `errors`). *GUI:* YAML → Form s neuloženým textem se dál
     ptá „Uložit a přepnout“ / „Zahodit a přepnout“. *Potřeba:* `POST …/scenarios/<s>/render`
     (nebo `validate`) s `{text}` místo `ops`, který vrátí `tree` a `errors` bez zápisu.
+    **Stav (0.10.0):** `render` přijímá `{text}` a vrací `{tree, errors}`; `validate` u textu scénáře
+    vrací `tree` navíc k `errors`, bez zápisu.
 27. **Chyba operace dávky nemá krok.** 422 s `op` nese v `errors` jen `message`
     (`ops[0] update_step: …`), bez `step`/`field`. *GUI:* drží si ke každé operaci id kroku, ze kterého
     vznikla, a chybu ukáže u jeho karty. *Potřeba:* `step` (id kroku podle `address` před operací)
     v chybě operace, u `add_step` id vkládaného kroku.
+    **Stav (0.10.0):** chyby operace dávky vrací `step` podle adresy před operací (u `add_step` podle vloženého
+    kroku) a `field`, pokud ho chyba určuje.
 28. **Ostrý (i falešný) běh v registru chce `CALLBACK_SECRET`, i když se callback neposílá.**
     `POST /projects/<p>/runs` bez `callback_url` vrátí u projektu ze šablony 422 „chybí proměnná
     prostředí CALLBACK_SECRET (.env nebo prostředí)“, dokud proměnnou nemá prostředí `serve` (ověřeno
@@ -219,3 +233,5 @@ GUI přešlo na `POST /projects/new`, `POST /projects`, `DELETE /projects/<p>`, 
     založený z GUI tak nejde spustit, i když callback nepotřebuje. *GUI:* ukáže 422 i s `details`
     v panelu spuštění. *Potřeba:* kontrolovat `callback.secret_env` jen s `callback_url` (a
     `webhook.token_env` jen tam, kde se token opravdu čte).
+    **Stav (0.10.0):** `callback.secret_env` se vyžaduje jen při callbacku; `webhook.token_env` jen v režimu
+    jednoho projektu. Projekt ze šablony lze spustit s `--fake` bez `CALLBACK_SECRET`.
