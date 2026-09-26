@@ -3,6 +3,8 @@
 Jen tenké funkce nad validate, engine a record — logika sem nepatří, patří
 do jádra a má hermetický test. Tajné klíče jen z prostředí (a `.env`).
 """
+import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -11,13 +13,14 @@ from .edit import (Conflict, NotFound, add_step, delete_agent, delete_scenario, 
                    read_file, set_agent, set_config, set_header, set_skill, update_step, validate_text, write_file)
 from .engine import RUN_ID, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
-from .loader import load_dotenv
-from .record import Record, run_detail as _run_detail, run_status
+from .loader import LoadError, load_dotenv, read_yaml
+from .record import Record, run_detail as _run_detail, run_status, step_detail as _step_detail
 from .task import local_ledger
 from .validate import Project, load_config, resolve_inputs, validate
 
 __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
            "new_scenario", "projects", "add_project", "remove_project", "ensure_project", "describe_project", "describe_scenario", "run_detail", "run_file",
+           "last_run", "step_detail",
            "spend", "Project", "Run", "Fake",
            # editační operace pro GUI (edit.py, api.md „Editace“): soubor je pravda, otisk, validace před zápisem
            "Conflict", "NotFound", "set_header", "add_step", "update_step", "move_step", "delete_step",
@@ -74,21 +77,48 @@ def dry_run(project: Project, inputs: dict) -> Record:
 
 
 def _runs_dir(project_root) -> Path:
+    """`runs_dir` z config.yaml; čtení běhů nepotřebuje platný config (nalezy-api 4) — stačí to pole,
+    a když ani to nejde přečíst, výchozí `./runs`."""
     wf = find_root(project_root) / "workflows"
-    errs = []
-    cfg = load_config(wf, errs)
-    if errs or cfg is None:
-        raise ConfigErrors(errs)
-    return wf.parent / cfg["runs_dir"]
+    try:
+        cfg = read_yaml(wf / "config.yaml", "config.yaml")
+    except (OSError, LoadError):
+        cfg = None
+    d = cfg.get("runs_dir") if isinstance(cfg, dict) else None
+    return wf.parent / (d if isinstance(d, str) else "./runs")
 
 
-def runs_list(project_root=None) -> list[dict]:
+def _queued(runs: Path) -> list[dict[str, Any]]:
+    """Čekající ve frontě `serve` (nejstarší první) s `queue_position` jako v `GET /runs/<id>`
+    (čekající + běžící přede mnou, včetně mě)."""
+    entries = []
+    for f in (runs / "_queue").glob("*.json"):
+        try:
+            entries.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            pass  # běh právě skončil (nebo se záznam zapisuje)
+    return [{"run_id": e["run_id"], "status": "queued", "state": "queued", "scenario": e.get("scenario"),
+             "queue_position": sum(x["queued_ns"] <= e["queued_ns"] for x in entries)}
+            for e in sorted(entries, key=lambda e: e["queued_ns"]) if not (runs / e["run_id"]).is_dir()]
+
+
+def runs_list(project_root=None, scenario: str | None = None, limit: int | None = None) -> list[dict]:
     """Běhy projektu, nejnovější první: nejdřív čekající ve frontě `serve` (`status: queued`),
-    pak záznamy běhů (`run_status`)."""
+    pak záznamy běhů (`run_status`). `scenario` filtruje podle jména v run_id, `limit` ořízne
+    seznam dřív, než se čtou záznamy (0.7.0)."""
     runs = _runs_dir(project_root)
-    queued = sorted(f.stem for f in (runs / "_queue").glob("*.json") if not (runs / f.stem).is_dir())
-    dirs = sorted((d for d in runs.glob("*") if d.is_dir() and not d.name.startswith("_")), reverse=True)
-    return [{"run_id": r, "status": "queued"} for r in queued] + [run_status(d) for d in dirs]
+    mine = re.compile(rf"\d{{8}}-\d{{6}}-{re.escape(scenario)}-[0-9a-f]{{4}}") if scenario else RUN_ID
+    queued = [q for q in _queued(runs) if mine.fullmatch(q["run_id"])]
+    dirs = sorted((d for d in runs.glob("*") if d.is_dir() and mine.fullmatch(d.name)), reverse=True)
+    if limit is not None:
+        queued, dirs = queued[:limit], dirs[:max(limit - len(queued), 0)]
+    return queued + [run_status(d) for d in dirs]
+
+
+def last_run(project_root, scenario: str | None = None) -> dict[str, Any] | None:
+    """Nejnovější běh (projektu nebo scénáře) pro stavový čip GUI: `{run_id, state, finished_at, cost_usd}`."""
+    r = runs_list(project_root, scenario, limit=1)
+    return {k: r[0].get(k) for k in ("run_id", "state", "finished_at", "cost_usd")} if r else None
 
 
 def new_project(root, name: str | None = None) -> list[Path]:
@@ -127,8 +157,12 @@ def ensure_project(root) -> str | None:
 
 
 def describe_project(project_root) -> dict[str, Any]:
-    """Projekt pro GUI: scénáře, agenti, skilly, MCP servery, aliasy, limity, vazby (api.md)."""
-    return _projects.describe_project(find_root(project_root))
+    """Projekt pro GUI: scénáře (s posledním během), agenti, skilly, MCP servery, aliasy, limity, vazby (api.md)."""
+    root = find_root(project_root)
+    body = _projects.describe_project(root)
+    for sc in body["scenarios"]:
+        sc["last_run"] = last_run(root, sc["name"])
+    return body
 
 
 def describe_scenario(project_root, name: str) -> dict[str, Any] | None:
@@ -137,13 +171,21 @@ def describe_scenario(project_root, name: str) -> dict[str, Any] | None:
 
 
 def run_detail(project_root, run_id: str) -> dict[str, Any] | None:
-    """Stav běhu a jeho kroky; čekající ve frontě `serve` jen `status: queued`; None = neexistuje."""
+    """Stav běhu, jeho kroky a strom kroků (ze snímku `scenario/`, u starších běhů ze současného
+    souboru); čekající ve frontě `serve` jen `status: queued`; None = neexistuje."""
     runs = _runs_dir(project_root)
     if not RUN_ID.fullmatch(run_id):
         return None
     if (runs / run_id).is_dir():
-        return _run_detail(runs / run_id)
-    return {"run_id": run_id, "status": "queued"} if (runs / "_queue" / f"{run_id}.json").is_file() else None
+        body = _run_detail(runs / run_id)
+        return body | _projects.run_tree(find_root(project_root), runs / run_id, body["scenario"])
+    return next((q for q in _queued(runs) if q["run_id"] == run_id), None)
+
+
+def step_detail(project_root, run_id: str, path: str) -> dict[str, Any] | None:
+    """Krok běhu podle cesty (`copy`, u `call` `navrh/copy`): události, výstup, soubory; None = není."""
+    d = _runs_dir(project_root) / run_id
+    return _step_detail(d, path) if RUN_ID.fullmatch(run_id) and d.is_dir() else None
 
 
 def run_file(project_root, run_id: str, rel: str) -> Path | None:

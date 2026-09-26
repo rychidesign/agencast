@@ -39,7 +39,9 @@ def test_registry_mode_read_api(registry_server):
     projects, client, a, b = registry_server
     assert client.get("/projects", headers={"Authorization": "Bearer spatne"}).status_code == 401
     assert client.get("/projects").json() == {"projects": [
-        {"name": "alfa", "root": str(a), "available": True}, {"name": "beta", "root": str(b), "available": True}]}
+        {"name": "alfa", "root": str(a), "available": True, "last_run": None},
+        {"name": "beta", "root": str(b), "available": True, "last_run": None}],
+        "registry": str(a.parent / "agencast-config" / "projects.yaml")}
     p = client.get("/projects/alfa").json()
     assert p["name"] == "alfa" and p["models"]["chytry"] == "anthropic/claude-haiku-4.5" and p["errors"] == []
     (sc,) = p["scenarios"]
@@ -95,7 +97,8 @@ def test_single_project_mode(wf, monkeypatch):
     srv, client = serve(hook)
     try:
         (p,) = client.get("/projects").json()["projects"]
-        assert p == {"name": default_name(wf.parent), "root": str(wf.parent.resolve()), "available": True}
+        assert p == {"name": default_name(wf.parent), "root": str(wf.parent.resolve()), "available": True,
+                     "last_run": None}
         api.add_project(wf.parent, "muj")
         assert client.get("/projects").json()["projects"][0]["name"] == "muj"
         assert "ig-post" in [s["name"] for s in client.get("/projects/muj").json()["scenarios"]]

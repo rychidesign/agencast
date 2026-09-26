@@ -138,6 +138,30 @@ class Ledger:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def hold_run_lock(run_dir) -> int:
+    """Zámek živého běhu (nalezy-api 1): `flock` na `<run>/run.lock` po dobu života procesu; pustí ho
+    `os.close` i pád procesu. Čeká (blokující), protože čtenář `run_locked` drží sdílený zámek jen chvilku.
+    Na Modalu obálka dosadí vlastní (jako `SlotStore`)."""
+    fd = os.open(run_dir / "run.lock", os.O_RDWR | os.O_CREAT, 0o644)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    return fd
+
+
+def run_locked(run_dir) -> bool:
+    """True = zámek běhu drží živý proces (i tentýž — flock patří otevřenému souboru, ne procesu)."""
+    try:
+        fd = os.open(run_dir / "run.lock", os.O_RDONLY)
+    except FileNotFoundError:
+        return False
+    try:
+        fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        return False
+    except BlockingIOError:
+        return True
+    finally:
+        os.close(fd)
+
+
 def local_slots(runs_dir, size: int) -> SlotStore:
     """`<runs>/_slots/`; falešné běhy sdílí sloty s ostrými (jde o souběh, ne o data)."""
     return SlotStore(runs_dir / "_slots", size)
@@ -164,7 +188,7 @@ def dedupe_skip(run, info: StepInfo) -> bool:
         raise AgencastError("config", f"krok mohl proběhnout jen částečně (dedupe_key {key!r}, běh {rec.get('run_id')}), "
                                  f"ověř ručně a smaž {run.dedupe.where(h)}")
     reason = f"dedupe_key {key!r}: krok už proběhl v běhu {rec['run_id']}"
-    run.rec.event("step_skipped", step=info.id, kind=info.kind, reason_code="dedupe", reason=reason,
+    run.rec.event("step_skipped", step=info.id, kind=info.kind, nn=info.nn, reason_code="dedupe", reason=reason,
                   default_used=False)
     run.rows[info.id] = {"nn": info.nn, "id": info.id, "kind": info.kind, "status": "skipped",
                          "duration": None, "cost": 0.0, "note": reason}

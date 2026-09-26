@@ -31,7 +31,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import ConfigErrors, AgencastError, api
 from .engine import RUN_ID, RUN_ID_TRIES, new_run_id
-from .projects import default_name, error_fields
+from .projects import default_name, error_fields, registry_path
 from .validate import Project, load_config, resolve_inputs
 
 FIELDS = ("scenario", "inputs", "callback_url", "request_key")
@@ -288,8 +288,9 @@ class Projects:
         if not self.authorized(auth):
             return 401, UNAUTHORIZED
         parts = [unquote(x) for x in path.strip("/").split("/")][1:]
-        if not parts:
-            return 200, {"projects": self.listing()}
+        if not parts:  # 0.7.0: last_run u dostupných projektů, cesta k registru
+            return 200, {"projects": [x | {"last_run": api.last_run(Path(str(x["root"]))) if x["available"] else None}
+                                      for x in self.listing()], "registry": str(registry_path())}
         root, err = self.project(parts[0])
         if root is None:
             return 404, err
@@ -302,10 +303,18 @@ class Projects:
                     return (200, with_structured(root, body)) if body else (
                         404, {"error": f"scénář '{s}' v projektu '{parts[0]}' neexistuje"})
                 case ["runs"]:
-                    return 200, {"runs": api.runs_list(root)}
+                    q = parse_qs(query)
+                    limit = q.get("limit", [None])[0]
+                    if limit is not None and not re.fullmatch(r"[1-9]\d*", limit):
+                        return 422, {"error": f"limit má být kladné celé číslo, je '{limit}'", "details": []}
+                    return 200, {"runs": api.runs_list(root, q.get("scenario", [None])[0],
+                                                       int(limit) if limit else None)}
                 case ["runs", r]:
                     body = api.run_detail(root, r)
                     return (200, body) if body else (404, {"error": f"běh {r} neexistuje"})
+                case ["runs", r, "steps", *rel] if rel:
+                    body = api.step_detail(root, r, "/".join(rel))
+                    return (200, body) if body else (404, {"error": f"krok {'/'.join(rel)} v běhu {r} není"})
                 case ["runs", r, "files", *rel] if rel:
                     f = api.run_file(root, r, "/".join(rel))
                     return (200, f) if f else (404, {"error": "soubor ve složce běhu neexistuje"})
@@ -317,7 +326,8 @@ class Projects:
                         return 422, {"error": f"day má tvar RRRR-MM-DD, je '{day}'", "details": []}
                     return 200, api.spend(root, day)
         except ConfigErrors as e:
-            return 422, {"error": f"projekt '{parts[0]}' neprošel kontrolou", "details": e.errors}
+            return 422, {"error": f"projekt '{parts[0]}' neprošel kontrolou", "details": e.errors,
+                         "errors": structured(root, e.errors)}
         except api.NotFound as e:
             return 404, {"error": str(e)}
         return 404, {"error": f"neznámá adresa {path} (api.md)"}

@@ -5,6 +5,36 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.7.0 — 2026-09-26 (API podle nálezů z GUI)
+
+Minor: nová pole a endpoint, formáty v1 beze změny, v záznamu běhu nové
+soubory a pole (aditivně). Zadání `docs/ui/nalezy-api.md`, ISSUES 45.
+
+- **Běží × přerušen:** běh drží `flock` na `<run>/run.lock`
+  (`task.hold_run_lock`, `task.run_locked`); `runs list` a API mají
+  strojové `state` (`queued|running|interrupted|succeeded|failed|
+  cancelled|dry_run`) a text `běží` / `přerušen` místo „běží nebo
+  přerušen“ (i v CLI `runs list`).
+- **Podrobnosti kroků:** `steps` v `GET …/runs/<id>` mají `nn`, `dir`,
+  `error`, `continued`, `default_used`, `calls`, u `task` `turns`
+  a `tool_calls`, u `jev` `answers`; nový `GET …/runs/<id>/steps/<cesta>`
+  (události, `output`, soubory kroku). `step_started` nese `nn` a `dir`,
+  `step_skipped` `nn`, `step_finished` s `continued` `default_used`.
+- **Snímek scénáře:** `<run>/scenario/<jméno>.yaml` (spouštěný i volané
+  přes `call`); detail běhu vrací `tree`, `callees`, `tree_source`.
+- **Seznam běhů:** `fake`, `queue_position`, `current_nn`, `steps_done`,
+  u dry-runu `scenario` a `started_at` z `run_id`; `?scenario=&limit=`
+  (`api.runs_list(root, scenario, limit)`); `api.last_run` a `last_run`
+  ve `scenarios` a v `GET /projects`.
+- **Projekt:** `types` ve `scenarios`, `links.scenario_step_agent`
+  (trojice), v `GET /projects` `reason` u nedostupného a `registry`.
+- **Rozbitý config:** `files/config.yaml` a `mcp.yaml` hlásí i chyby
+  schématu a proměnných; 422 z `GET /projects/<p>` má i `errors`
+  objekty; čtení běhů a `spend` potřebují jen `runs_dir` (jinak
+  `./runs`).
+- **Oprava:** duplicitní klíč ve frontmatteru `.md` — „poprvé na řádku
+  N“ teď ukazuje řádek v souboru (chyběl posun o řádek `---`).
+
 ## 0.6.0 — 2026-09-26 (doplňky API pro GUI)
 
 Minor: nové endpointy a pole, formáty v1 beze změny (R8), v záznamu běhu

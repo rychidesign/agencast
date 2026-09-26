@@ -153,9 +153,13 @@ def _save(items: list[dict[str, str]]):
 
 
 def list_projects() -> list[dict[str, str | bool]]:
-    """Projekty z registru; `available: false` = chybí workflows/config.yaml (položka zůstává)."""
-    return [{"name": x["name"], "root": x["root"], "available": (Path(x["root"]) / "workflows" / "config.yaml").is_file()}
-            for x in _read()]
+    """Projekty z registru; `available: false` = chybí workflows/config.yaml (položka zůstává, `reason` proč)."""
+    out: list[dict[str, str | bool]] = []
+    for x in _read():
+        cfg = Path(x["root"]) / "workflows" / "config.yaml"
+        out.append({"name": x["name"], "root": x["root"], "available": cfg.is_file()}
+                   | ({} if cfg.is_file() else {"reason": f"chybí {cfg}"}))
+    return out
 
 
 def default_name(root: Path) -> str:
@@ -339,7 +343,7 @@ def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     try:
         sc = read_yaml(path, path.name)
     except LoadError as e:
-        return {**info, "steps_count": 0, "errors": [str(e)], "steps": []}, []
+        return {**info, "steps_count": 0, "errors": [str(e)], "steps": [], "types": []}, []
     sc = sc if isinstance(sc, dict) else {}
     flat: list[dict[str, Any]] = []
     tree = _steps(sc.get("steps"), flat)
@@ -349,7 +353,8 @@ def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     except ConfigErrors as e:
         errors = e.errors
     info.update({k: sc.get(k) or info[k] for k in ("description", "inputs", "outputs")},
-                callable=sc.get("callable") is True, steps_count=len(flat), errors=errors, steps=tree)
+                callable=sc.get("callable") is True, steps_count=len(flat), errors=errors, steps=tree,
+                types=[x["type"] for x in tree])
     return info, flat
 
 
@@ -364,13 +369,16 @@ def describe_project(root: Path) -> dict[str, Any]:
     wf, cfg = _workflows(root)
     errs = []
     mcp = load_mcp(wf, errs)
-    links = {"scenario_agent": set(), "scenario_scenario": set(), "agent_skill": set(), "agent_server": set()}
+    links = {"scenario_agent": set(), "scenario_step_agent": set(), "scenario_scenario": set(), "agent_skill": set(),
+             "agent_server": set()}
     scenarios = []
     for path in sorted((wf / "scenarios").glob("*.yaml")):
         info, flat = _scenario(path)
         del info["steps"]
         scenarios.append(info)
         links["scenario_agent"] |= {(info["name"], s["agent"]) for s in flat if isinstance(s.get("agent"), str)}
+        links["scenario_step_agent"] |= {(info["name"], s["id"], s["agent"]) for s in flat
+                                         if isinstance(s.get("agent"), str) and isinstance(s["id"], str)}
         links["scenario_scenario"] |= {(info["name"], s["call"]) for s in flat if isinstance(s.get("call"), str)}
     agents = []
     for path in sorted((wf / "agents").glob("*.md")):
@@ -401,3 +409,23 @@ def describe_project(root: Path) -> dict[str, Any]:
     return {"root": str(root), "models": {a: m["id"] for a, m in cfg["models"].items()}, "limits": cfg["limits"], "env": env,
             "scenarios": scenarios, "agents": agents, "skills": skills, "mcp_servers": servers,
             "links": {k: sorted(map(list, v)) for k, v in links.items()}, "errors": errs}
+
+
+def _tree(path: Path) -> list[dict[str, Any]]:
+    try:
+        sc = read_yaml(path, path.name)
+    except LoadError:
+        return []
+    return _steps(sc.get("steps") if isinstance(sc, dict) else None, [])
+
+
+def run_tree(root: Path, run_dir: Path, scenario: str | None) -> dict[str, Any]:
+    """Strom kroků pro detail běhu (tvar `steps` z GET …/scenarios/<s>): ze snímku `<run>/scenario/`
+    (0.7.0, i volané scénáře v `callees`), u starších běhů ze současného souboru (`tree_source: current`)."""
+    snap = run_dir / "scenario"
+    if snap.is_dir():
+        trees = {p.stem: _tree(p) for p in sorted(snap.glob("*.yaml"))}
+        return {"tree": trees.pop(scenario, []) if scenario else [], "callees": trees, "tree_source": "snapshot"}
+    path = root / "workflows" / "scenarios" / f"{scenario}.yaml"
+    ok = scenario is not None and NAME.fullmatch(scenario) and path.is_file()
+    return {"tree": _tree(path) if ok else [], "callees": {}, "tree_source": "current"}

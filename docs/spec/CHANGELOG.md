@@ -192,3 +192,25 @@ každého nálezu je na konci REVIEW.md.
   nemají; čtenář bere chybějící pole jako `null`.
 - [webhook.md](webhook.md) jen odkaz; smlouva `POST /runs` se nemění.
   Formáty `agent`, `scenario`, `config`, `mcp` ani JSON Schema se nemění.
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.7.0)
+
+- [api.md](api.md) „Doplňky podle nálezů GUI“ (ISSUES 45): `state`
+  (`running` × `interrupted` podle zámku běhu), `fake`,
+  `queue_position`, `current_nn`, `steps_done` v seznamu běhů,
+  `?scenario=&limit=`, `last_run`, `types` a
+  `links.scenario_step_agent` v popisu projektu, `reason` a `registry`
+  v `GET /projects`, podrobnosti kroků (`nn`, `dir`, `error`,
+  `continued`, `default_used`, `calls`, …) a nový `GET
+  …/runs/<id>/steps/<cesta>`, strom kroků běhu (`tree`, `callees`,
+  `tree_source`), `errors` objekty i v 422 a všechny chyby
+  `config.yaml`/`mcp.yaml` ve `files/`. Nová pole, stávající se nemění;
+  textový `status` „běží nebo přerušen“ je rozdělený na „běží“ a
+  „přerušen“.
+- [run-record.md](run-record.md): ve složce běhu `run.lock` a snímek
+  `scenario/<jméno>.yaml`; `step_started` má `nn` a `dir`,
+  `step_skipped` `nn`, `step_finished` s `continued: true` má
+  `default_used`. Starší záznamy je nemají; čtenář bere chybějící pole
+  jako `null`.
+- Formáty `agent`, `scenario`, `config`, `mcp`, JSON Schema a smlouva
+  `POST /runs` + callback se nemění.

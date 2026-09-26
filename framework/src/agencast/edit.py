@@ -30,7 +30,9 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarStri
 
 from . import ConfigErrors
 from .loader import LoadError, load_yaml, nested_lists
+from .mcp_client import load_mcp
 from .projects import NAME, describe_project, etag
+from .validate import load_config
 
 _N = NAME.pattern
 FILES = re.compile(rf"agents/{_N}\.md|scenarios/{_N}\.yaml|skills/{_N}/SKILL\.md|config\.yaml|mcp\.yaml")
@@ -424,6 +426,8 @@ def read_file(root, rel: str) -> dict[str, Any]:
             out["data"] = load_yaml(text, rel)
     except LoadError as e:
         out["errors"] = [str(e)]
+    if rel in ("config.yaml", "mcp.yaml") and not out["errors"]:  # i schéma a proměnné, nejen syntaxe (0.7.0)
+        (load_config if rel == "config.yaml" else load_mcp)(p.parent, out["errors"])
     return out
 
 

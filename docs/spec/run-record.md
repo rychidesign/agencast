@@ -17,6 +17,9 @@ runs/20260925-140311-ig-post-a1b2/
   summary.md           souhrn pro člověka
   report.html          totéž jako jeden HTML soubor (nahraje se do úložiště)
   callback.json        přesně to, co odešlo v callbacku
+  run.lock             zámek živého běhu (od frameworku 0.7.0), prázdný
+  scenario/            snímek scénářů při startu (od frameworku 0.7.0)
+    ig-post.yaml
   mcp/                 stderr MCP serverů: <server>.stderr.log
   steps/
     01-copy/
@@ -73,6 +76,18 @@ runs/20260925-140311-ig-post-a1b2/
   `steps/03-navrh/steps/01-copy/…`. Události jdou do jednoho
   `events.jsonl` celého běhu, `step` má cestu `navrh/copy`.
 - `--dry-run` vytvoří složku jen s `plan.md` (a `inputs.json`).
+- **`run.lock`** (od frameworku 0.7.0) — proces běhu drží na souboru
+  `flock` (výhradní) od vytvoření složky do konce běhu (i při chybě);
+  zámek uvolní i pád procesu, soubor zůstává prázdný. Čtenář (`runs
+  list`, `serve`) zkusí sdílený zámek bez čekání: nejde = běh žije
+  (`state: running`), jde a chybí `run_finished` = běh přerušen
+  (`interrupted`, [api.md](api.md)). Na Modalu obálka dosadí vlastní
+  mechanismus (jako sloty `max_parallel_runs`). Dry-run zámek nemá.
+- **`scenario/<jméno>.yaml`** (od frameworku 0.7.0) — při startu běhu
+  (po `plan.md`) kopie spouštěného scénáře a všech scénářů volaných přes
+  `call` (i vnořeně), bajt po bajtu až na maskování tajných hodnot. Detail
+  běhu z nich kreslí strom kroků, jak platil při běhu. Běh, který nezačal
+  (bez `plan.md`), a dry-run snímek nemají.
 
 ## Co do záznamu nikdy nepatří
 
@@ -167,6 +182,8 @@ na stderr `<třída>: <hláška>` a skončí kódem 1.
 |---|---|
 | `kind` | typ kroku: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail`, `output` |
 | `branch` | jméno větve `parallel` nebo hodnota `switch`, ve které krok je; jinak chybí |
+| `nn` | číslo kroku `<nn>` v jeho scénáři (u kroku volaného scénáře číslo ve volaném scénáři) (od frameworku 0.7.0) |
+| `dir` | složka kroku ve složce běhu, např. `steps/03-navrh/steps/01-copy` (od frameworku 0.7.0) |
 
 **`step_skipped`** — krok neproběhl (§5.1 bod 5: vždy s důvodem).
 
@@ -176,6 +193,7 @@ na stderr `<třída>: <hláška>` a skončí kódem 1.
 | `reason_code` | `when`, `switch`, `dedupe`, `cancelled` (nerozběhnutý krok zrušený, protože selhala jiná větev `parallel`). Kroky uvnitř přeskočeného `parallel`/`switch` dostanou každý stejný důvod. |
 | `reason` | věta pro člověka, např. `when: steps.kontrola.on_brand < 0.7 → false` |
 | `default_used` | `true`, pokud se jako výstup použil `default` |
+| `nn` | číslo kroku jako u `step_started` (od frameworku 0.7.0) |
 
 **`step_finished`** — krok skončil.
 
@@ -184,6 +202,7 @@ na stderr `<třída>: <hláška>` a skončí kódem 1.
 | `kind` | typ kroku |
 | `status` | `succeeded`, `failed`, nebo `cancelled` (rozběhnutý krok zrušený, protože selhala jiná větev `parallel`; `cost_usd` = dosavadní volání) |
 | `continued` | `true`, když selhal s `on_error: continue` (→ varování) |
+| `default_used` | jen u `continued: true`: `true`, když se jako výstup použil `default` (od frameworku 0.7.0) |
 | `duration_s` | trvání |
 | `cost_usd` | součet všech volání kroku |
 | `output_file` | cesta k `output.json` |

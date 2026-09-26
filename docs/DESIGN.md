@@ -234,6 +234,9 @@ jsou **tenké obálky nad `agencast.api`** (`load`, `run`, `dry_run`,
   lokálně `flock` na `<runs>/_slots/<n>.lock`) a denní kniha útraty pro
   `limits.daily_budget_usd` (`Ledger`: `total`, `add`; lokálně
   `<runs>/_ledger/<den>.jsonl`, `_ledger-fake/` u `--fake`) — ISSUES 40.
+  Od 0.7.0 i zámek živého běhu (`hold_run_lock`, `run_locked`; lokálně
+  `flock` na `<run>/run.lock`), podle kterého API rozliší běžící
+  a přerušený běh — ISSUES 45.
 - MCP nástroje budou „spusť a vrať ID“, „stav“ a „počkej“ — běh trvá
   minuty a web endpoint Modalu má limit 150 s (D5), takže nástroj nesmí
   čekat na konec běhu v jednom volání.

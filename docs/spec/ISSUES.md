@@ -328,3 +328,24 @@ rozhoduje koordinátor nebo uživatel.
     soubory bez dat; token dál chrání `/projects…` a `/runs…`), CORS jen
     s `--cors <origin>`. Změna tvaru `errors` je jediná neaditivní změna;
     GUI je jediný klient.
+45. **API podle nálezů z GUI** (zadání koordinátora 2026-09-26, framework
+    0.7.0; `docs/ui/nalezy-api.md`, [api.md](api.md) „Doplňky podle
+    nálezů GUI“). Běží × přerušen: `flock` na `<run>/run.lock` po dobu
+    procesu (jako sloty `max_parallel_runs` — pád proces zámek pustí, nic
+    se neuklízí); čtenář zkouší sdílený zámek bez čekání, proto běh bere
+    výhradní zámek blokující (čtenář ho drží mikrosekundy). Soubor, ne PID:
+    PID se recykluje a na Modalu nedává smysl. Strojové `state` vedle
+    textového `status`; `cancelled` je jen rezervované (běh v1 tak
+    nekončí). Podrobnosti kroků, krok běhu a `current_nn` z `events.jsonl`
+    — `step_started`/`step_skipped` mají nově `nn` a `dir` (u starších
+    běhů se odvodí z cest souborů, `current_nn` je `null`). Strom kroků
+    běhu ze snímku `<run>/scenario/` (kopie souborů, ne strom v
+    `run_started`: stejný parser jako `GET …/scenarios/<s>`, bez nového
+    formátu); běhy bez snímku mají strom ze současného souboru
+    s `tree_source: current`. `last_run` a filtr `scenario` podle jména
+    v `run_id` — bez čtení záznamů; limit se uplatní před čtením. Čtení
+    běhů bere z `config.yaml` jen `runs_dir` (jinak `./runs`), takže
+    rozbitý config nezakryje staré běhy. `links.scenario_step_agent`
+    aditivně, protože GUI část 1 čte `scenario_agent` jako dvojice.
+    Oprava loaderu: „poprvé na řádku N“ u duplicitního klíče ve
+    frontmatteru `.md` teď počítá s řádkem `---`. Vše aditivní.
