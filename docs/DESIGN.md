@@ -218,7 +218,11 @@ jsou **tenké obálky nad `agencast.api`** (`load`, `run`, `dry_run`,
   (`get`, `claim` — výhradně a atomicky, `finish`) v `agencast/task.py`.
   Lokální implementace drží soubory `<runs>/_dedupe/<sha256>.json`
   (`_dedupe-fake/` u `--fake`); **tady Modal později dosadí vlastní
-  úložiště** (`modal.Dict` apod.) přes `Run.dedupe`.
+  úložiště** (`modal.Dict` apod.) přes `Run.dedupe`. Stejně od 0.3.1
+  sloty `limits.max_parallel_runs` (`SlotStore`: `acquire`, `release`;
+  lokálně `flock` na `<runs>/_slots/<n>.lock`) a denní kniha útraty pro
+  `limits.daily_budget_usd` (`Ledger`: `total`, `add`; lokálně
+  `<runs>/_ledger/<den>.jsonl`, `_ledger-fake/` u `--fake`) — ISSUES 40.
 - MCP nástroje budou „spusť a vrať ID“, „stav“ a „počkej“ — běh trvá
   minuty a web endpoint Modalu má limit 150 s (D5), takže nástroj nesmí
   čekat na konec běhu v jednom volání.

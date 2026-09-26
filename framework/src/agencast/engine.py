@@ -14,6 +14,7 @@ import json
 import os
 import secrets
 import shutil
+import sys
 import tempfile
 import time
 import traceback
@@ -31,11 +32,12 @@ from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
 from .record import SUM_DIGITS, Record, count, cz, cz_usd, now_iso, plan_md, report_html, scrub, summary_md
-from .task import dedupe_skip, local_dedupe, run_task  # 3a
+from .task import dedupe_skip, local_dedupe, local_ledger, local_slots, run_task  # 3a
 from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
 
 RETRY_BASE_S = 2.0           # prodleva 2 s, 4 s, 8 s… (scenario.md §3 retry); testy ji stáhnou na 0
 CALLBACK_DELAYS = (5, 30)    # 3 pokusy (run-record.md callback_sent, návrh)
+SLOT_POLL_S = 0.5            # jak často zkusit volný slot max_parallel_runs; testy ji stáhnou
 # Čtecí timeout jednoho HTTP volání poskytovatele (ISSUES 34): min(zbývající čas kroku, strop); vypršení = transient.
 CALL_TIMEOUT_S = {"chat": 120, "jev": 30}  # chat = ask, tah task, image
 STEP_DEADLINE = contextvars.ContextVar("step_deadline", default=None)  # lhůta kroku (čas smyčky) z with_deadline
@@ -128,6 +130,8 @@ class Run:
         self.p, self.inputs, self.rec, self.client, self.run_id = p, inputs, record, client, run_id
         self.fake = fake  # falešný poskytovatel (--fake): vlastní dedupe, příznak v záznamu
         self.dedupe = local_dedupe(p.runs_dir, fake)  # DedupeStore; Modal dosadí vlastní
+        self.ledger = local_ledger(p.runs_dir, fake)  # denní kniha útraty (Ledger); Modal dosadí vlastní
+        self.waited_s = None  # čekání na slot max_parallel_runs (run_waiting), jinak None
         self.callback_url, self.request_key, self.callback_transport = callback_url, request_key, callback_transport
         self.storage_prefix = f"{run_id}-{secrets.token_hex(16)}"
         self.values = {"inputs": inputs, "steps": {}}
@@ -157,6 +161,8 @@ class Run:
                                "run_image_budget_usd": lim.get("run_image_budget_usd"),
                                "run_timeout": lim["run_timeout"]},
                        framework_version=__version__, storage_prefix=self.storage_prefix, fake=self.fake)
+        if self.waited_s is not None:
+            self.rec.event("run_waiting", waited_s=self.waited_s, max_parallel_runs=lim["max_parallel_runs"])
         root = Ctx([self.run_budget], [(loop.time() + seconds(lim["run_timeout"]),
                                          f"běhu (run_timeout {lim['run_timeout']})", None)])
         try:
@@ -191,6 +197,13 @@ class Run:
         if self.callback_url:
             self.callback_failed = not await self.send_callback(data)
         self.rec.write("summary.md", summary_md(self.p, self))
+        finished = now_iso()
+        try:  # až po callbacku: chyba knihy nesmí zastavit callback ani záznam
+            self.ledger.add(finished[:10], {"run_id": self.run_id, "cost_usd": round(self.cost, SUM_DIGITS),
+                                            "finished_at": finished})
+        except OSError as e:
+            print(f"zápis do denní knihy útraty selhal ({e}) — běh {self.run_id} se do daily_budget_usd "
+                  "nezapočítá", file=sys.stderr)
         return self.status
 
     def tokens(self) -> dict:
@@ -664,18 +677,55 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
     """Spustí ověřený scénář; `fake` = agencast.fake.Fake místo sítě.
 
     3b (webhook): `run_id` přidělený už při přijetí požadavku; `error` = běh nezačne, jen záznam
-    a callback (validate selhal po vyzvednutí z fronty, běh přerušen restartem serveru)."""
+    a callback (validate selhal po vyzvednutí z fronty, běh přerušen restartem serveru).
+    ISSUES 40: slot `max_parallel_runs` se bere před složkou běhu; nedočkaný slot a vyčerpaný
+    `daily_budget_usd` jdou stejnou cestou jako `error`."""
     key = preflight(p, fake=fake is not None or error is not None, callback_url=callback_url)
-    if run_id:  # webhook: run_id přidělený při přijetí; exist_ok = přerušený běh po restartu serveru
-        rec = Record(p.runs_dir / run_id, secret_values(p), exist_ok=error is not None)
-    else:
-        rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
-        run_id = rec.dir.name
-    if error is None:
-        rec.write("plan.md", plan_md(p))
-        rec.write("inputs.json", inputs)
-    client = Client(p.config["openrouter"]["base_url"], key, fake.transport() if fake else None)
-    run = Run(p, inputs, rec, client, run_id, callback_url=callback_url, request_key=request_key,
-              callback_transport=callback_transport, fake=fake is not None)
-    asyncio.run(run.execute(error))
-    return run
+    lim, held, waited = p.config["limits"], None, None
+    slots = local_slots(p.runs_dir, lim["max_parallel_runs"]) if error is None and "max_parallel_runs" in lim else None
+    if slots:
+        held, waited = take_slot(slots, lim["run_timeout"])
+        if held is None:
+            error = AgencastError("timeout", f"volný slot se neuvolnil do run_timeout {lim['run_timeout']} "
+                                             f"(max_parallel_runs={slots.size}) — běh nezačal")
+    try:
+        if error is None and "daily_budget_usd" in lim:
+            error = daily_budget_error(p, fake is not None, lim["daily_budget_usd"])
+        if run_id:  # webhook: run_id přidělený při přijetí; exist_ok = přerušený běh po restartu serveru
+            rec = Record(p.runs_dir / run_id, secret_values(p), exist_ok=error is not None)
+        else:
+            rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
+            run_id = rec.dir.name
+        if error is None:
+            rec.write("plan.md", plan_md(p))
+            rec.write("inputs.json", inputs)
+        client = Client(p.config["openrouter"]["base_url"], key, fake.transport() if fake else None)
+        run = Run(p, inputs, rec, client, run_id, callback_url=callback_url, request_key=request_key,
+                  callback_transport=callback_transport, fake=fake is not None)
+        run.waited_s = waited
+        asyncio.run(run.execute(error))
+        return run
+    finally:
+        if held is not None:
+            slots.release(held)
+
+
+def take_slot(slots, run_timeout: str) -> tuple[int | None, float | None]:
+    """(držený slot nebo None po run_timeout, doba čekání nebo None, když se nečekalo)."""
+    t0 = time.monotonic()
+    if (held := slots.acquire()) is not None:
+        return held, None
+    print(f"čekám na volný slot (max_parallel_runs={slots.size})", file=sys.stderr, flush=True)
+    while (held := slots.acquire()) is None and time.monotonic() - t0 < seconds(run_timeout):
+        time.sleep(SLOT_POLL_S)
+    return held, round(time.monotonic() - t0, 3)
+
+
+def daily_budget_error(p: Project, fake: bool, limit: float) -> AgencastError | None:
+    """Kontrola jen na startu: běh pod limitem ho může překročit nejvýš o svůj run_budget_usd."""
+    day = now_iso()[:10]
+    spent = local_ledger(p.runs_dir, fake).total(day)
+    if spent >= limit:
+        return AgencastError("budget", f"denní limit útraty vyčerpán: dnes ({day} UTC) už {cz_usd(spent)} "
+                                       f"z {limit} USD (daily_budget_usd) — běh nezačal")
+    return None

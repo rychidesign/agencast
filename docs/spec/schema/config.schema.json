@@ -197,6 +197,14 @@
         "max_call_depth": {
           "type": "integer",
           "minimum": 1
+        },
+        "max_parallel_runs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "daily_budget_usd": {
+          "type": "number",
+          "exclusiveMinimum": 0
         }
       }
     },

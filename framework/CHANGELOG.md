@@ -5,6 +5,30 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.3.1 — 2026-09-26 (strop souběžných běhů, denní limit útraty)
+
+Patch: dva volitelné klíče, bez nich se chování nemění (R8).
+Formát: spec v1, zpětně kompatibilní doplnění (ISSUES 40).
+
+- **`limits.max_parallel_runs: N`** — nejvýš N běhů naráz nad jedním
+  `runs/`, napříč procesy (CLI, n8n, cron, `serve --workers`): `flock` na
+  `<runs>/_slots/<n>.lock`, slot se bere před složkou běhu a uvolní se
+  vždy. Plno → stderr „čekám na volný slot (max_parallel_runs=N)“,
+  polling po 0,5 s nejdéle `run_timeout`, pak `timeout`. Čekání je
+  v záznamu jako událost `run_waiting` (`waited_s`). Falešné běhy se
+  slotů účastní.
+- **`limits.daily_budget_usd: X`** — denní kniha útraty
+  `<runs>/_ledger/<RRRR-MM-DD>.jsonl` (UTC, řádek `{run_id, cost_usd,
+  finished_at}` na každý dokončený běh; `--fake` do `_ledger-fake/`).
+  Součet dneška ≥ X → nový běh skončí `budget` ještě před prvním
+  voláním. Kontrola jen na startu; kniha se píše vždy, od 0.3.1.
+- Běh, který kvůli slotu nebo dennímu limitu nezačal, má záznam jako běh
+  nespuštěný webhookem (`run_scenario(error=…)`): `run_finished` s `error`,
+  `callback.json`, `summary.md`, bez `plan.md`/`inputs.json`.
+- `SlotStore` a `Ledger` v `task.py` vedle `DedupeStore` (místo pro Modal).
+- `agencast run`: chyba bez kroku se vypíše `<třída>: <hláška>` (dřív
+  „… v kroku None: …“).
+
 ## 0.3.0 — 2026-09-26 (AgenCast, souběžné běhy, API pro obálky)
 
 Minor: přejmenování a nové funkce, vše zpětně kompatibilní. Formát: spec

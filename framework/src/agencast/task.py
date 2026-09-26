@@ -1,4 +1,5 @@
-"""Krok `task` (scenario.md task, agent.md, DESIGN §5.8) a `dedupe_key` (scenario.md §3).
+"""Krok `task` (scenario.md task, agent.md, DESIGN §5.8), `dedupe_key` (scenario.md §3) a sdílený
+stav běhů za rozhraním (DedupeStore, SlotStore, Ledger — DESIGN „Obálky“).
 
 Smyčka model ↔ nástroje: každý tah je jedno `Run.call_api` (opakování po
 `transient`/`schema` jde uvnitř a do `max_turns` se nepočítá). Model vidí jen
@@ -7,6 +8,7 @@ kaskády `tool_wrapper` `_submit_output`, který smyčku ukončí a nikdy nejde
 na MCP server.
 """
 import base64
+import fcntl
 import hashlib
 import json
 import os
@@ -81,6 +83,65 @@ def local_dedupe(runs_dir, fake: bool) -> DedupeStore:
     """`<runs>/_dedupe/`; falešný běh (`--fake`) má vlastní `_dedupe-fake/`, aby jeho vymyšlený
     výstup nepřeskočil ostrý krok (BUGS 8)."""
     return DedupeStore(runs_dir / ("_dedupe-fake" if fake else "_dedupe"))
+
+
+# --- limits.max_parallel_runs a daily_budget_usd (ISSUES 40) ----------------------------
+
+class SlotStore:
+    """Sloty `max_parallel_runs` napříč procesy (DESIGN „Obálky“): lokálně `flock` na
+    `<složka>/<n>.lock`, n = 1..N; zámek pustí i pád procesu. Na Modalu sem obálka dosadí
+    vlastní semafor se stejnými dvěma metodami."""
+
+    def __init__(self, directory, size: int):
+        self.dir, self.size = directory, size
+
+    def acquire(self) -> int | None:
+        """Volný slot (držený deskriptor), jinak None — nečeká."""
+        self.dir.mkdir(parents=True, exist_ok=True)
+        for n in range(1, self.size + 1):
+            fd = os.open(self.dir / f"{n}.lock", os.O_RDWR | os.O_CREAT, 0o644)
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return fd
+            except BlockingIOError:
+                os.close(fd)
+        return None
+
+    def release(self, fd: int):
+        os.close(fd)  # zavřením deskriptoru flock zanikne
+
+
+class Ledger:
+    """Denní kniha útraty (DESIGN „Obálky“): lokálně `<složka>/<YYYY-MM-DD>.jsonl` (UTC), řádek
+    `{run_id, cost_usd, finished_at}` na dokončený běh, append pod `flock`. Na Modalu sem obálka
+    dosadí vlastní úložiště se stejnými dvěma metodami."""
+
+    def __init__(self, directory):
+        self.dir = directory
+
+    def total(self, day: str) -> float:
+        path = self.dir / f"{day}.jsonl"
+        if not path.is_file():
+            return 0.0
+        with open(path, encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_SH)
+            return sum(json.loads(line)["cost_usd"] for line in f if line.strip())
+
+    def add(self, day: str, row: dict):
+        self.dir.mkdir(parents=True, exist_ok=True)
+        with open(self.dir / f"{day}.jsonl", "a", encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def local_slots(runs_dir, size: int) -> SlotStore:
+    """`<runs>/_slots/`; falešné běhy sdílí sloty s ostrými (jde o souběh, ne o data)."""
+    return SlotStore(runs_dir / "_slots", size)
+
+
+def local_ledger(runs_dir, fake: bool) -> Ledger:
+    """`<runs>/_ledger/`; falešný běh má `_ledger-fake/` (symetrie s `_dedupe-fake/`)."""
+    return Ledger(runs_dir / ("_ledger-fake" if fake else "_ledger"))
 
 
 def dedupe_key(run, info: StepInfo) -> tuple[str, str]:

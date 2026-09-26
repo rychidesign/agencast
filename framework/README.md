@@ -64,6 +64,9 @@ GET /runs/<run_id>    stav: queued (+ queue_position) / running / tělo callback
   `request_key` jsou soubory v `<runs>/_queue/` — po restartu serveru se
   čekající požadavky zpracují; běh přerušený uprostřed se neopakuje,
   pošle se callback `internal` (ověř ručně).
+- Volitelné `limits.max_parallel_runs` a `limits.daily_budget_usd`
+  v `config.yaml` (od 0.3.1) platí pro všechny běhy nad jedním `runs/` —
+  `serve`, ruční CLI i cron sdílí jeden strop (docs/spec/config.md).
 - Callback: `https://` (výjimka `http://127.0.0.1` pro testy), podpis
   `X-Signature: sha256=<HMAC>`, 3 pokusy, pak `callback_failed`.
 - Server je HTTP bez TLS — mimo `127.0.0.1` jen za reverzní proxy s TLS

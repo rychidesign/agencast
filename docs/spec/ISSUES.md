@@ -226,3 +226,32 @@ rozhoduje koordinátor nebo uživatel.
     (DESIGN „Obálky“). Obnova fronty a `request_key` (`_queue/keys/`)
     jsou dál pod zámkem; `queue_position` počítá čekající i běžící,
     pořadí dokončení s N > 1 není zaručené (webhook.md).
+40. **Strop souběžných běhů a denní limit útraty** (rozhodl uživatel
+    2026-09-26, framework 0.3.1). S `--workers` (bod 39), ručním CLI,
+    n8n a cronem nad jedním `runs/` nešlo omezit, kolik běhů poběží
+    naráz, ani kolik se za den utratí — `run_budget_usd` hlídá jen jeden
+    běh. Nově dva **volitelné** klíče `limits` (bez nich beze změny, R8):
+    (a) **`max_parallel_runs: N`** — sloty `<runs>/_slots/<n>.lock`
+    (`flock`, sdílené všemi procesy; zámek pustí i pád procesu). Slot se
+    bere před vytvořením složky běhu a uvolní se vždy. Plno → stderr
+    „čekám na volný slot (max_parallel_runs=N)“, polling po 0,5 s,
+    nejdéle `run_timeout`, pak `timeout` („volný slot se neuvolnil do
+    run_timeout … — běh nezačal“). Čekání je v záznamu jako `run_waiting`
+    s `waited_s`. Falešné běhy se slotů účastní. Nová třída chyb nevzniká.
+    (b) **`daily_budget_usd: X`** — denní kniha
+    `<runs>/_ledger/<RRRR-MM-DD>.jsonl` (UTC podle konce běhu), řádek
+    `{run_id, cost_usd, finished_at}` na každý dokončený běh, append pod
+    `flock`; `--fake` do `_ledger-fake/`. Na startu běhu (po získání
+    slotu) součet ≥ X → `budget` před prvním voláním („denní limit útraty
+    vyčerpán: dnes (… UTC) už … z X USD (daily_budget_usd) — běh
+    nezačal“). Kontrola jen na startu — běh může limit překročit nejvýš
+    o svůj `run_budget_usd`. Kniha vzniká od 0.3.1 a píše se vždy.
+    Běh, který kvůli (a) nebo (b) nezačal, jde stejnou cestou jako běh,
+    který webhook nespustil (`run_scenario(error=…)`): složka jen se
+    záznamem a `summary.md`, bez `plan.md`/`inputs.json`, `run_finished`
+    s `error` (`step: null`) a callback. Sloty i kniha jsou za rozhraním
+    vedle `DedupeStore` (`SlotStore.acquire/release`,
+    `Ledger.total/add` v `task.py`) — sem Modal dosadí vlastní úložiště
+    (DESIGN „Obálky“). Pozn.: kniha je sdílený append-only soubor, což
+    D2 („nikdy jeden sdílený log“) formálně nepředpokládá; zápis je
+    jeden řádek pod `flock`.
