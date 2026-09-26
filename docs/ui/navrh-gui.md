@@ -30,56 +30,91 @@ Projekty  (#/)                                   celá obrazovka, seznam z regis
 
 ## 2. Obrazovky
 
-### 2.1 Seznam projektů
+### 2.1 Seznam projektů (karty)
 
 ```
-AgenCast                                                    server localhost:8787 ● připojeno
-Projekty
- ● thtd            ~/thtd             3 scénáře · 4 agenti · dnes 0,42 USD · poslední běh ✓ před 12 min
- ● ukazka          ~/ukazka           1 scénář · 1 agent · dnes 0 · bez běhů
- ○ stary-projekt   /mnt/disk/stary    nedostupný: chybí workflows/config.yaml
-Projekt přidáš příkazem  agencast projects add <cesta>
+Projekty                                                                                        ⟳
+Registr ~/.config/agencast/projects.yaml
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐  ┌────────────────────────┐  ┌────────────────────────┐  ┌────────────────────────┐
+                        │ ● dostupný          ⋯  │  │ ● dostupný          ⋯  │  │ ○ nedostupný        ⋯  │
+          +             │ thtd                   │  │ ukazka                 │  │ stary-projekt          │
+   agencast projects    │ ~/thtd                 │  │ ~/ukazka               │  │ /mnt/disk/stary        │
+   add <cesta> [kopír.] │                        │  │                        │  │ chybí workflows/       │
+                        │ 3 scénáře · 4 agenti   │  │ 1 scénář · 1 agent     │  │ config.yaml            │
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │ dnes 0,42 USD ✓ 12 min │  │ dnes 0        bez běhů │  │                        │
+                        └────────────────────────┘  └────────────────────────┘  └────────────────────────┘
 ```
-Řádek = `GET /projects`; čísla se donačtou z `GET /projects/<p>` a `spend` (skeleton do té doby). Nedostupný projekt je ztlumený, klik jen ukáže důvod.
+Karta: dostupnost + ⋯ nahoře, jméno jako titulek, cesta mono, patička počty vlevo a dnešní útrata + poslední běh vpravo (`GET /projects`, čísla z `GET /projects/<p>` a `spend`, skeleton do té doby). Nedostupný projekt: 50 % opacity, čárkovaný prstenec, důvod místo patičky. Karta + ukazuje CLI příkaz s tlačítkem kopírovat (registr nemá zápis přes API); až bude, nahradí ho formulář jméno + cesta. ⋯: Otevřít, Kopírovat cestu.
 
-### 2.2 Přehled projektu (záložka Scénáře)
+### 2.2 Přehled projektu (karty scénářů)
 
 ```
-← Projekty   thtd   ~/thtd            dnes 0,42 / 5,00 USD ▮▮▯▯▯     limity běhu 1,00 USD · 1 h     ✗ 2 chyby validace
+← Projekty   thtd   ~/thtd            dnes 0,42 / 5,00 USD ▮▮▯▯▯    limity 1,00 USD · 1 h                   ⟳
 Scénáře · Agenti · Config · Skilly · Běhy
- ig-post       Návrh IG příspěvku ke schválení      8 kroků · copywriter, photographer       poslední běh ✓ 12 min
- ig-publish    Publikace schváleného příspěvku      3 kroky · publisher · volatelný           ✗ 2 chyby
- ukazka-call   Ukázka volání                        5 kroků · volá kontrola-tonu              bez běhů
-                                                                                            [+ Nový scénář]
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ┐  ┌──────────────────────────────────────┐  ┌──────────────────────────────────────┐
+                      │ [ask]→[jev]→[fail]→[ask]→[jev] +3     │  │ [task]→[output]                       │
+        +             │                          ✓ 12 min  ⋯  │  │                         ✗ 2 chyby  ⋯  │
+   Nový scénář        │ Návrh IG příspěvku ke schválení       │  │ Publikace schváleného příspěvku       │
+                      │ 8 kroků · copywriter, photographer    │  │ 3 kroky · publisher · volatelný       │
+                      │ · 1 vstup · 3 výstupy                 │  │                                       │
+└ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │ ig-post.yaml            včera 14:03   │  │ ig-publish.yaml            bez běhů   │
+                      └──────────────────────────────────────┘  └──────────────────────────────────────┘
 ```
-„Chyby validace“ v hlavičce = součet `errors` všech souborů; klik otevře seznam s odkazy na soubor a krok.
+- Titulek = `description` scénáře (povinná věta pro člověka, autor ji píše sám; generovat větu z kroků nebudeme, u `jev` a `switch` by lhala).
+- Řetězec ikon = typy kroků v pořadí souboru, nejvýš 5, pak čip „+N“; `parallel`/`switch` jednou svou ikonou, vnitřek se nerozepisuje.
+- **Místo přepínače** stavový čip posledního běhu (✓ před 12 min · ✗ chyba · ◌ běží · bez běhů); chyby validace mají přednost („✗ 2 chyby“). `callable` je textový štítek „volatelný“ v meta řádku, ne přepínač: mění soubor a chrání schvalování (DESIGN §5.2), patří do formuláře hlavičky v editoru s vysvětlením.
+- Patička: soubor mono vlevo, čas posledního běhu vpravo (datum vytvoření jako v Buzz nemá pro scénář hodnotu; API zatím mtime nedává).
+- ⋯: Otevřít, Běhy tohoto scénáře, Kopírovat příkaz spuštění, Validovat; později Duplikovat, Smazat.
+- Karta + otevře dialog „Nový scénář“ (jméno jako slug s kontrolou, popis); ve čtecí fázi ukáže `agencast new scenario <jméno>` s kopírováním.
+- „Chyby validace“ v hlavičce = součet `errors` všech souborů; klik otevře seznam s odkazy na soubor a krok.
 
 ### 2.3 Editor scénáře (karty + panel)
 
 ```
 ← thtd / Scénáře    ig-post ✎  Návrh IG příspěvku ke schválení ✎     [Form | <> YAML]     Neuloženo · 1 chyba   [Uložit]
 
-      ( ≡  HLAVIČKA                                        )      ┌ KROK 2                              🗑   ✕ ┐
-      (    1 vstup · 3 výstupy                             )      │ jev ▾                                       │
-                           ↓                                      │                                             │
-      ( 1  ASK                            copywriter       )      │ Id            [kontrola                ]    │
-      (    copy                                            )      │ Když          [                        ]    │
-                           ↓                                      │               výraz; prázdné = vždy         │
-    ╭─( 2  JEV                            1 otázka         )─╮    │ State         [{{ steps.copy.caption }} ]   │
-    ╰─(    kontrola                                        )─╯    │ Otázky                   [+ Přidat otázku]  │
-                           ↓                                      │   on_brand   noul ▾   Odpovídá text tónu…   │
-      ( 3  FAIL   ⚑ když on_brand < 0.7                    )      │ ─────────────────────────────────────────── │
-      (    stop                                            )      │ Spolehlivost                    výchozí  ›  │
-                           ↓                                      │ ─────────────────────────────────────────── │
-      ( 4  ASK                            photographer     )      │ Odkazy              čte copy · čtou 2   ›   │
-      (    foto_prompt                                     )      └─────────────────────────────────────────────┘
+      ( ≡  HLAVIČKA                                                            )      ┌ KROK 2                              🗑   ✕ ┐
+      (    1 vstup: tema · 3 výstupy: caption, hashtags, image                 )      │ jev ▾                                       │
+                                     ↓                                                │                                             │
+      ( 1  ASK · copy                                                          )      │ Id            [kontrola                ]    │
+      (    copywriter: „Napiš IG příspěvek na téma: {{ inputs.tema }}“         )      │ Když          [                        ]    │
+                                     ↓                                                │               výraz; prázdné = vždy         │
+    ╭─( 2  JEV · kontrola                                                      )─╮ (🗑)│ State         [{{ steps.copy.caption }} ]   │
+    ╰─(    „Odpovídá text tónu značky THTD…?“ · noul                           )─╯    │ Otázky                   [+ Přidat otázku]  │
+                                     ↓                                                │   on_brand   noul ▾   Odpovídá text tónu…   │
+      ( 3  FAIL · stop                                     když on_brand < 0.7 )      │ ─────────────────────────────────────────── │
+      (    „Text neodpovídá značce (on_brand = …)“                             )      │ Spolehlivost                    výchozí  ›  │
+                                     ↓                                                │ ─────────────────────────────────────────── │
+      ( 4  ASK · foto_prompt                                                   )      │ Odkazy              čte copy · čtou 2   ›   │
+      (    photographer: „Navrhni fotku k textu…“                              )      └─────────────────────────────────────────────┘
         ✗ agent „fotograf“ neexistuje
-                           ↓  …
-      ( 8  OUTPUT                          3 hodnoty       )
-      (    out                                             )
-                          (+)
+                                     ↓  …
+      ( 7  IMAGE · foto                                                        )
+      (    gemini-image · 4:5 · „{{ steps.foto_prompt.popis_fotky }}“          )
+                                     ↓
+      ( 8  OUTPUT · out                                                        )
+      (    caption, hashtags, image                                            )
+                                    (+)
 ```
-`( … )` na dvou řádcích = jedna pilulka: eyebrow TYP uppercase nad id, vpravo sekundární údaj (agent, model, cílový scénář, počet otázek/hodnot). Hlavičková karta má místo čísla ikonu v zaobleném čtverci jako trigger v Buzz. Šipka ↓ mezi kartami se při hoveru nebo fokusu promění v (+) 28 px; trvale viditelné (+) je jen na konci každého seznamu (hlavní i každá větev). Menu ⋯ karty má navíc „Vložit krok nad / pod“ jako klávesovou cestu. Kontejnerové karty (`parallel`, `switch`) z 2.4 nejsou pilulky, ale zaoblené obdélníky (16 px), uvnitř nich zase pilulky. V prohlížeči běhu (2.5) stavová ikona nahradí číslo v kruhu a pravá strana pilulky nese čas a cenu. Panel: eyebrow „KROK n“, pod ním typ jako select, koš a ×; sbalené řádky „Spolehlivost … výchozí ›“ a „Odkazy … ›“ ve stylu „Run controls … Default ›“ z Buzz. Vlastnosti „Spolehlivost“ (timeout, budget_usd, retry, on_error, default) jen u typů, kde dávají smysl (tabulka §3 spec). „Odkazy“ = čipy z `refs` (čte z / výstup čtou), klik skočí na kartu.
+Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod ním hodnota tučně na jeden řádek s výpustkou. Vpravo v pilulce jen `když …` (šedě, mono), v prohlížeči běhu čas + cena. Hlavičková karta má místo čísla ikonu v zaobleném čtverci jako trigger v Buzz. Hodnota podle typu:
+
+| Typ | Hodnota |
+|---|---|
+| ask, task | `agent: „prompt…“` |
+| jev | první otázka · typ; „+1 otázka“ |
+| image | alias · poměr stran · „prompt…“ |
+| call | `→ ig-text` · N vstupů |
+| set | jména hodnot |
+| fail | zpráva |
+| parallel | `kratka ∥ dlouha` (kontejner) |
+| switch | `podle steps.kontrola.druh: produkt, akce, jinak` (kontejner) |
+| output | jména výstupů |
+
+**Konektor:** šipka ↓ mezi kartami se při hoveru nebo fokusu promění v (+) 28 px; trvale viditelné (+) je jen na konci každého seznamu (hlavní i každá větev). Menu ⋯ karty má navíc „Vložit krok nad / pod“ jako klávesovou cestu. Kontejnerové karty (`parallel`, `switch`) z 2.4 nejsou pilulky, ale zaoblené obdélníky (16 px), uvnitř nich zase pilulky. V prohlížeči běhu (2.5) stavová ikona nahradí číslo v kruhu a pravá strana pilulky nese čas a cenu.
+
+**Koš vně pilulky:** červený kulatý 28 px vpravo vně, zobrazí se při hoveru a při `focus-within`. Klávesnice: Tab z fokusované karty přejde na koš (je další zastávkou v pořadí, při fokusu se ukáže), nebo klávesa Delete na kartě; `aria-label="Smazat krok kontrola"`. Na dotykovém vstupu (`pointer: coarse`) je koš viditelný trvale ztlumeně. Ochrana mazání z §4.3 platí beze změny. Hlavičková karta koš nemá.
+
+**Panel:** plovoucí zaoblený obdélník s okrajem od hran; eyebrow „KROK n“, pod ním typ jako select, koš a ×; pole ze schématu daného typu; sbalené řádky „Spolehlivost … výchozí ›“ a „Odkazy … ›“ ve stylu „Run controls … Default ›“ z Buzz. Vlastnosti „Spolehlivost“ (timeout, budget_usd, retry, on_error, default) jen u typů, kde dávají smysl (tabulka §3 spec). „Odkazy“ = čipy z `refs` (čte z / výstup čtou), klik skočí na kartu. Chyba validace je přímo pod kartou a u pole v panelu.
 
 ### 2.4 Karty `parallel`, `switch`, `call`
 
@@ -177,7 +212,12 @@ Skilly            │ thtd-hlas                                                 
 
 | Komponenta | Obsah | Stavy |
 |---|---|---|
-| `StepCard` | číslo `nn`, id (mono), ikona + typ, 2. řádka podle typu, praporek `když`, chyba pod kartou | výchozí, hover, vybraná (ring), s chybou, sbalená; v běhu + stav/čas/cena, nedošlo (40 % opacity) |
+| `StepCard` | dvouřádková pilulka: eyebrow `TYP · id` + hodnota tučně (tabulka v §2.3); číslo v kruhu 36 px; vpravo `když` / v běhu čas + cena; chyba pod kartou | výchozí, hover, vybraná (ring s mezerou), s chybou, sbalená; v běhu stavová ikona místo čísla, nedošlo (40 % opacity) |
+| `DeleteButton` | červený kulatý 28 px vně pilulky | hover / focus-within / trvale na dotyku |
+| `ScenarioCard` | `IconChain` (max 5 + „+N“), stavový čip posledního běhu vpravo nahoře, ⋯, titulek = description, meta řádek, patička soubor + poslední běh | výchozí, hover, s chybami validace |
+| `ProjectCard` | dostupnost, jméno, cesta mono, patička počty + dnešní útrata + poslední běh | dostupný; nedostupný 50 % + čárkovaný prstenec + důvod |
+| `AddCard` | čárkovaná karta s +; scénář → dialog Nový scénář (čtecí fáze: CLI příkaz s kopírováním); projekt → CLI příkaz s kopírováním | |
+| `IconChain` | ikona typu v zaobleném čtverci 32 px, šipka → mezi nimi, pořadí souboru | |
 | `HeaderCard` | vstupy a výstupy scénáře | jako karta, nesmazatelná, vždy první |
 | `Connector` + `AddButton` | šipka ↓ jako glyph mezi pilulkami (mezera ~40 px), na hover/focus se promění v (+) 28 px; trvalé (+) jen na konci každého seznamu | výchozí, focus, „vložit vyjmutý krok“ |
 | `BranchColumn` / `CaseSection` | větev `parallel` vedle sebe / případ `switch` pod sebou, každý s vlastním seznamem a + | aktivní, v běhu přeskočená (ztlumená s důvodem) |
@@ -217,6 +257,11 @@ Skilly            │ thtd-hlas                                                 
 - **Ikony typů** (lucide, 16 px, tah 1,5, vždy s textovým názvem typu): ask `message-square`, task `bot`, jev `scale`, image `image`, parallel `columns-2`, switch `split`, call `corner-down-right`, set `equal`, fail `octagon-x`, output `package-check`.
 - **Nedělat:** akcentová barva na tlačítkách nebo výběru, rámečky kolem pilulek a sekcí (jen prstenec u vybrané), stíny, vnořené boxy nad dvě úrovně, linky místo šipek mezi kroky, víc než dva štítky na kartě, stav jen barvou, tooltip jako jediný nositel informace, 12px text na obsah, překryvné spinnery, modál tam, kde stačí panel.
 
+- **Mřížka karet** (projekty, scénáře): `grid gap-4`, karta min 340 px, `bg-zinc-800/60 rounded-xl p-5`, karta + `ring-1 ring-dashed ring-zinc-600 bg-transparent`.
+- **Ikony typů na kartách scénářů** v zaoblených čtvercích 32 px, `rounded-lg`. Buzz tu jako jediné místo používá modrou; totéž u nás: akcent (barva dashboardu Skynet Soul, jinak `bg-blue-500 text-white`) **jen** na tyto čtverce, všude jinde šedá.
+- **Koš:** `bg-rose-500/15 text-rose-400 hover:bg-rose-500/25`; jediná červená v editoru vedle chyb validace.
+- **Stavový čip na kartě scénáře:** ikona + text 12 px, `bg-zinc-900 rounded-full px-2`; barva jen ikona (emerald/rose/sky), text šedý.
+
 ## 6. Přístupnost a klávesnice
 
 - Karty jsou tlačítka v seznamu: ↑/↓ přesouvají fokus, Enter/mezera otevře panel, Esc zavře a vrátí fokus na kartu, Delete maže (s ochranou), Alt+↑/↓ přesouvá, Ctrl+S ukládá, Ctrl+Z vrací.
@@ -235,7 +280,7 @@ Skilly            │ thtd-hlas                                                 
 
 1. *První verze jen čtení, nebo hned editor?* — **Editor hned**; prohlížeč běhů je jeho čtecí režim (rozhodnuto 2026-09-26, uživatel chce editační variantu).
 2. *Zachovat komentáře a pořadí v YAML?* — **Ano**, round-trip na serveru (agencast 0.5.0, ruamel.yaml), GUI posílá operace, ne text.
-3. *Akcent ze Skynet Soul, nebo šedě jako Buzz?* — **Šedě jako Buzz**, bez akcentu; barva jen pro stavy běhu a chyby. Do dashboardu zapadne přes shodné pozadí a písmo (převzít ze Soulu), ne přes akcent. (Doporučení designéra po zhlédnutí screenshotu, koordinátor přijal; uživatel může změnit.)
+3. *Akcent ze Skynet Soul, nebo šedě jako Buzz?* — **Šedě jako Buzz**; barva jen pro stavy běhu a chyby a **jediné akcentové místo jsou čtverce ikon typů na kartách scénářů** (jako modré čtverce v seznamu Buzz), barva převzatá z dashboardu Skynet Soul. Pozadí a písmo také ze Soulu. (Doporučení designéra po snímcích, koordinátor přijal; uživatel může změnit.)
 4. *Ukazovat, zda je proměnná prostředí nastavená (jen ✓/✗)?* — **Ano**, nikdy hodnotu. Vyžaduje bod 7.3.
 5. *Spouštění běhu z GUI s formulářem vstupů?* — **Ano**, `POST /projects/<p>/runs` s volitelnou callback URL. Vyžaduje úpravu API.
 
