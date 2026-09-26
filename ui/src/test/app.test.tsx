@@ -41,23 +41,23 @@ describe("token", () => {
 
 describe("seznam běhů", () => {
   const running: RunListItem = {
-    run_id: "20260926-091502-ig-post-3c1f", status: "běží nebo přerušen", scenario: "ig-post",
+    run_id: "20260926-091502-ig-post-3c1f", status: "běží", state: "running", scenario: "ig-post", current_nn: 4, steps_done: 3,
     started_at: "2026-09-26T09:15:02.000Z", current_step: "foto_prompt", steps_total: 8,
   };
-  const done: RunListItem = { ...running, status: "succeeded", cost_usd: 0.0021, duration_s: 17.5, finished_at: "2026-09-26T09:15:20.000Z", current_step: null };
+  const done: RunListItem = { ...running, status: "succeeded", state: "succeeded", cost_usd: 0.0021, duration_s: 17.5, finished_at: "2026-09-26T09:15:20.000Z", current_step: null };
 
   it(`obnovuje se každých ${RUNS_POLL_MS / 1000} s, dokud něco běží`, async () => {
     vi.useFakeTimers();
     let runs = [running];
     const fetch = vi.fn((url: string) =>
-      url.endsWith("/runs") ? json(200, { runs }) : url.includes("/spend") ? json(200, { day: "x", total_usd: 0, runs: [] }) : json(200, { limits: {} }));
+      url.includes("/runs?") ? json(200, { runs }) : url.includes("/spend") ? json(200, { day: "x", total_usd: 0, runs: [] }) : json(200, { limits: {}, scenarios: [] }));
     vi.stubGlobal("fetch", fetch);
     saveToken("t");
-    const runCalls = () => fetch.mock.calls.filter(([u]) => String(u).endsWith("/runs")).length;
+    const runCalls = () => fetch.mock.calls.filter(([u]) => String(u).includes("/runs?")).length;
 
     await act(async () => render(<RunsTab project="thtd" />));
     expect(runCalls()).toBe(1);
-    expect(screen.getByText(/běží · krok foto_prompt/)).toBeTruthy();
+    expect(screen.getByText("běží · krok 4/8 foto_prompt")).toBeTruthy();
 
     await act(async () => void (await vi.advanceTimersByTimeAsync(RUNS_POLL_MS)));
     expect(runCalls()).toBe(2);

@@ -1,6 +1,6 @@
 // Drobné sdílené komponenty (§3 inventář): stavy, skeleton, kopírování, menu ⋯, záložky, hodnoty.
 import {
-  Ban, Check, ChevronRight, CircleCheck, CircleDashed, CircleDot, CircleX, Copy, Ellipsis, FileText,
+  Ban, Check, ChevronRight, CircleCheck, CircleSlash, CircleDashed, CircleDot, CircleX, Copy, Ellipsis, FileText,
   TriangleAlert, type LucideIcon, Circle,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -16,7 +16,7 @@ export const btn = {
 // --- stav ---------------------------------------------------------------------------------
 
 export type Status =
-  | "succeeded" | "failed" | "skipped" | "running" | "queued" | "warning" | "cancelled" | "dry-run" | "none";
+  | "succeeded" | "failed" | "skipped" | "running" | "queued" | "warning" | "cancelled" | "interrupted" | "dry-run" | "none";
 
 const STATUS: Record<Status, { icon: LucideIcon; color: string }> = {
   succeeded: { icon: CircleCheck, color: "text-emerald-400" },
@@ -26,6 +26,7 @@ const STATUS: Record<Status, { icon: LucideIcon; color: string }> = {
   queued: { icon: CircleDashed, color: "text-zinc-400" },
   warning: { icon: TriangleAlert, color: "text-amber-400" },
   cancelled: { icon: Ban, color: "text-amber-400" },
+  interrupted: { icon: CircleSlash, color: "text-amber-400" },
   "dry-run": { icon: FileText, color: "text-zinc-400" },
   none: { icon: Circle, color: "text-zinc-500" },
 };

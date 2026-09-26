@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCost, formatDuration, formatWhen, runIdParts, runState } from "../format";
+import { formatCost, formatDuration, formatWhen, runIdParts } from "../format";
 import { format, t } from "../i18n";
 import { href, parseHash } from "../router";
 
@@ -45,12 +45,6 @@ describe("běhy", () => {
   it("run_id", () => {
     expect(runIdParts("20260925-141502-ig-post-9f3c")).toEqual({ scenario: "ig-post", startedAt: "2026-09-25T14:15:02Z" });
     expect(runIdParts("nesmysl")).toBeNull();
-  });
-  it("stav z textu API", () => {
-    expect(runState("failed (fail v stop)")).toBe("failed");
-    expect(runState("běží nebo přerušen")).toBe("running");
-    expect(runState("dry-run")).toBe("dry-run");
-    expect(runState("?")).toBe("unknown");
   });
 });
 

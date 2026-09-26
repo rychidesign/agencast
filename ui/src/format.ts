@@ -1,6 +1,6 @@
 // Čísla, ceny a časy pro člověka — stejně jako CLI (framework record.py `cz_usd`).
 import { nf, t } from "./i18n";
-import type { RunListItem } from "./types";
+import type { RunListItem, RunState } from "./types";
 
 /** Cena: desetinná čárka, aspoň 4 místa, víc jen kvůli uloženým číslicím (max 10), nula = `0`. */
 export function formatCost(usd: number | null | undefined): string {
@@ -44,7 +44,7 @@ export function formatWhen(iso: string | null | undefined, now = new Date()): st
 /** UTC do tooltipu (§6: časy lokálně s UTC v tooltipu). */
 export const utcTitle = (iso: string | null | undefined) => (iso ? `${iso.replace("T", " ").slice(0, 19)} UTC` : undefined);
 
-/** `run_id` = `RRRRMMDD-HHMMSS-<scénář>-<4 hex>` (run-record.md) — záloha pro běhy bez `scenario`. */
+/** `run_id` = `RRRRMMDD-HHMMSS-<scénář>-<4 hex>` (run-record.md) — pro `last_run` (nemá `started_at`) a složku bez záznamu. */
 export function runIdParts(runId: string): { scenario: string; startedAt: string } | null {
   const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-(.+)-[0-9a-f]{4}$/.exec(runId);
   if (!m) return null;
@@ -54,17 +54,7 @@ export function runIdParts(runId: string): { scenario: string; startedAt: string
 export const runScenario = (r: RunListItem) => r.scenario ?? runIdParts(r.run_id)?.scenario ?? "";
 export const runStartedAt = (r: RunListItem) => r.started_at ?? runIdParts(r.run_id)?.startedAt ?? null;
 
-export type RunState = "queued" | "running" | "succeeded" | "failed" | "dry-run" | "unknown";
-
-/** Stav z textu `status` (`succeeded`, `failed (<třída> v <krok>)`, `běží nebo přerušen`, `dry-run`, `queued`). */
-export function runState(status: string): RunState {
-  if (status === "queued" || status === "succeeded" || status === "dry-run") return status;
-  if (status.startsWith("failed")) return "failed";
-  if (status.startsWith("běží") || status === "running") return "running";
-  return "unknown";
-}
-
-export const isLive = (status: string) => ["queued", "running"].includes(runState(status));
+export const isLive = (state: RunState) => state === "queued" || state === "running";
 
 /** `failed (fail v stop)` → `fail v stop`. */
 export const failReason = (status: string) => /^failed \((.*)\)$/.exec(status)?.[1] ?? "";

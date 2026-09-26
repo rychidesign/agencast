@@ -11,7 +11,7 @@ const TEXT = "version: 1\nname: s\n# komentář\nsteps:\n  - id: copy\n    ask: 
 
 const scenario = (etag = "e0"): Scenario => ({
   name: "s", etag, description: "Test", inputs: { tema: { type: "string", required: true } },
-  outputs: { text: { type: "string" } }, callable: false, steps_count: 2, errors: [],
+  outputs: { text: { type: "string" } }, callable: false, steps_count: 2, types: ["ask", "output"], last_run: null, errors: [],
   steps: [
     { nn: 1, address: ["steps", 0], id: "copy", type: "ask", when: null, fields: { ask: { agent: "copywriter", prompt: "ahoj" } }, refs: [], agent: "copywriter" },
     { nn: 2, address: ["steps", 1], id: "out", type: "output", when: null, fields: { output: { text: "{{ steps.copy.text }}" } }, refs: ["steps.copy.text"] },
@@ -28,7 +28,7 @@ const project: Project = {
   ],
   skills: [], errors: [],
   mcp_servers: [{ name: "instagram", type: "http", agents: ["publisher"], tools: ["publish_media"], scenarios: null }],
-  links: { scenario_agent: [["s", "copywriter"]], scenario_scenario: [], agent_skill: [], agent_server: [] },
+  links: { scenario_agent: [["s", "copywriter"]], scenario_step_agent: [["s", "copy", "copywriter"]], scenario_scenario: [], agent_skill: [], agent_server: [] },
   env: { OPENROUTER_API_KEY: true },
 };
 

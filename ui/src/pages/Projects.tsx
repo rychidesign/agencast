@@ -6,18 +6,19 @@ import { CliLine, ErrorText, Menu, Skeleton } from "../components/ui";
 import { formatCost } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
-import type { Project, ProjectRef, RunListItem, Spend } from "../types";
+import type { Project, ProjectRef, Spend } from "../types";
 import { LastRun } from "../components/RunBadge";
 
 export function ProjectsPage() {
   const [gen, setGen] = useState(0);
-  const list = useApi<{ projects: ProjectRef[] }>("/projects");
+  const list = useApi<{ projects: ProjectRef[]; registry: string }>("/projects");
   return (
     <main className="mx-auto max-w-6xl p-8">
       <header className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-lg font-semibold">{t("projects.title")}</h1>
           <p className="text-sm text-zinc-400">{t("projects.subtitle")}</p>
+          {list.data && <p className="font-mono text-[13px] text-zinc-400">{t("projects.registry", { path: list.data.registry })}</p>}
         </div>
         <button type="button" className="grid size-8 place-items-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
           onClick={() => (list.reload(), setGen(gen + 1))} aria-label={t("common.reload")} title={t("common.reload")}>
@@ -40,10 +41,9 @@ export function ProjectsPage() {
 
 function ProjectCard({ project }: { project: ProjectRef }) {
   const base = `/projects/${enc(project.name)}`;
-  // Nedostupný projekt vrací 404 s důvodem — ten ukážeme místo patičky.
-  const detail = useApi<Project>(base);
+  // Počty scénářů a agentů jen z detailu; poslední běh a důvod nedostupnosti nese už `GET /projects`.
+  const detail = useApi<Project>(project.available ? base : null);
   const spend = useApi<Spend>(project.available ? `${base}/spend` : null);
-  const runs = useApi<{ runs: RunListItem[] }>(project.available ? `${base}/runs` : null);
   const open = href(project.name);
   const menu = [
     { label: t("common.open"), onSelect: () => navigate(open) },
@@ -65,7 +65,7 @@ function ProjectCard({ project }: { project: ProjectRef }) {
       <p className="truncate font-mono text-[13px] text-zinc-400" title={project.root}>{project.root}</p>
       <div className="mt-auto pt-4 text-[13px] text-zinc-300">
         {!project.available || detail.error ? (
-          <p className="text-zinc-300">{detail.error?.message ?? t("projects.unavailable")}</p>
+          <p className="text-zinc-300">{project.reason ?? detail.error?.message ?? t("projects.unavailable")}</p>
         ) : !p ? (
           <Skeleton className="h-4 w-2/3" />
         ) : (
@@ -75,7 +75,7 @@ function ProjectCard({ project }: { project: ProjectRef }) {
             </span>
             <span className="inline-flex items-center gap-2">
               {spend.data && <span className="font-mono">{t("spend.today", { usd: formatCost(spend.data.total_usd) })}</span>}
-              {runs.data && <LastRun run={runs.data.runs.find((r) => r.status !== "queued")} />}
+              <LastRun run={project.last_run} />
             </span>
           </div>
         )}

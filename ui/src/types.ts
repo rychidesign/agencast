@@ -1,4 +1,4 @@
-// Tvary odpovědí `agencast serve` podle docs/spec/api.md (0.6.0).
+// Tvary odpovědí `agencast serve` podle docs/spec/api.md (0.7.0).
 
 export interface ErrorItem {
   message: string;
@@ -12,6 +12,17 @@ export interface ProjectRef {
   name: string;
   root: string;
   available: boolean;
+  /** Jen u `available: false`. */
+  reason?: string;
+  last_run?: LastRunRef | null;
+}
+
+/** `last_run` v `GET /projects` a u scénářů = první položka `…/runs` zúžená. */
+export interface LastRunRef {
+  run_id: string;
+  state: RunState;
+  finished_at: string | null;
+  cost_usd: number | null;
 }
 
 export interface IoSpec {
@@ -29,6 +40,9 @@ export interface ScenarioSummary {
   outputs: Record<string, IoSpec> | null;
   callable: boolean;
   steps_count: number;
+  /** Typy kroků hlavního seznamu v pořadí souboru. */
+  types: (StepType | null)[];
+  last_run: LastRunRef | null;
   errors: ErrorItem[];
 }
 
@@ -68,7 +82,8 @@ export interface Project {
   agents: AgentSummary[];
   skills: SkillSummary[];
   mcp_servers: McpServer[];
-  links: Record<"scenario_agent" | "scenario_scenario" | "agent_skill" | "agent_server", [string, string][]>;
+  links: Record<"scenario_agent" | "scenario_scenario" | "agent_skill" | "agent_server", [string, string][]>
+    & { scenario_step_agent: [string, string, string][] };
   env: Record<string, boolean>;
   errors: ErrorItem[];
 }
@@ -105,9 +120,14 @@ export interface FileDoc {
   body?: string;
 }
 
+/** Strojový stav běhu (api.md „Stav běhu: `state`“). */
+export type RunState = "queued" | "running" | "interrupted" | "succeeded" | "failed" | "cancelled" | "dry_run";
+
 export interface RunListItem {
   run_id: string;
+  /** Text pro člověka (`failed (<třída> v <krok>)`); stav je `state`. */
   status: string;
+  state: RunState;
   cost_usd?: number | null;
   duration_s?: number | null;
   callback?: string;
@@ -116,9 +136,14 @@ export interface RunListItem {
   finished_at?: string | null;
   current_step?: string | null;
   steps_total?: number | null;
+  fake?: boolean | null;
+  queue_position?: number | null;
+  current_nn?: number | null;
+  steps_done?: number | null;
 }
 
-export type StepStatus = "running" | "succeeded" | "failed" | "cancelled" | "skipped";
+/** `interrupted` jen v GUI: krok bez konce v běhu, který už neběží. */
+export type StepStatus = "running" | "succeeded" | "failed" | "cancelled" | "skipped" | "interrupted";
 
 export interface RunStep {
   step: string;
@@ -131,11 +156,44 @@ export interface RunStep {
   cost_usd?: number | null;
   reason_code?: string;
   reason?: string;
+  nn?: number | null;
+  /** Složka kroku ve složce běhu (`steps/02-ton/steps/01-kontrola`), bez lomítka na konci. */
+  dir?: string | null;
+  error?: { class: string; message: string } | null;
+  continued?: boolean;
+  default_used?: boolean;
+  calls?: RunCall[];
+  turns?: number;
+  tool_calls?: number;
+  answers?: Record<string, unknown>;
+}
+
+export interface RunCall {
+  attempt: number;
+  alias: string | null;
+  model: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: number | null;
+  finish_reason: string | null;
+  structured_output: string | null;
+  duration_s: number | null;
+}
+
+/** `GET …/runs/<id>/steps/<cesta>`. */
+export interface RunStepDetail extends RunStep {
+  events: RunEvent[];
+  output: unknown;
+  files: string[];
 }
 
 export interface Run extends RunListItem {
   steps?: RunStep[];
   files?: string[];
+  /** Strom kroků ze snímku scénáře (`tree_source: snapshot`), jinak ze současného souboru. */
+  tree?: Step[];
+  callees?: Record<string, Step[]>;
+  tree_source?: "snapshot" | "current";
 }
 
 export interface Spend {
@@ -144,5 +202,5 @@ export interface Spend {
   runs: { run_id: string; cost_usd: number; finished_at: string }[];
 }
 
-/** Jedna událost z events.jsonl (docs/spec/run-record.md). */
+/** Jedna událost z events.jsonl (docs/spec/run-record.md), v `RunStepDetail.events`. */
 export type RunEvent = { ts: string; type: string; step?: string } & Record<string, unknown>;

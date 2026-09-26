@@ -1,32 +1,37 @@
 // §2.6 Seznam běhů s filtry; obnovuje se každých 5 s, dokud něco běží nebo čeká (§4.8).
+// Scénář filtruje server (`?scenario=`), stav klient; stránkuje `limit` („Načíst další“).
+import { useState } from "react";
 import { enc, useApi } from "../api";
 import { RUN_STATUS } from "../components/RunBadge";
-import { EmptyState, ErrorText, Loading, StatusIcon } from "../components/ui";
+import { btn, EmptyState, ErrorText, Loading, StatusIcon } from "../components/ui";
 import {
-  failReason, formatCost, formatDuration, formatMoney, formatWhen, isLive, runScenario, runStartedAt, runState, utcTitle,
-  type RunState,
+  failReason, formatCost, formatDuration, formatMoney, formatWhen, isLive, runScenario, runStartedAt, utcTitle,
 } from "../format";
 import { t } from "../i18n";
 import { href, setQuery, useLocation } from "../router";
-import type { Project, RunListItem, Spend } from "../types";
+import type { Project, RunListItem, RunState, Spend } from "../types";
 
 export const RUNS_POLL_MS = 5000;
+export const RUNS_PAGE = 50;
 
-const FILTERS: RunState[] = ["running", "queued", "succeeded", "failed", "dry-run"];
+const FILTERS: RunState[] = ["running", "queued", "interrupted", "succeeded", "failed", "dry_run"];
 
 export function RunsTab({ project }: { project: string }) {
   const { query } = useLocation();
   const base = `/projects/${enc(project)}`;
-  const runs = useApi<{ runs: RunListItem[] }>(`${base}/runs`, (d) => (d.runs.some((r) => isLive(r.status)) ? RUNS_POLL_MS : null));
-  const spend = useApi<Spend>(`${base}/spend`);
-  const detail = useApi<Project>(base);
   const scenario = query.get("scenar") ?? "";
   const state = query.get("stav") ?? "";
+  const [limit, setLimit] = useState(RUNS_PAGE);
+  const qs = new URLSearchParams({ ...(scenario ? { scenario } : {}), limit: String(limit) });
+  const runs = useApi<{ runs: RunListItem[] }>(`${base}/runs?${qs}`, (d) => (d.runs.some((r) => isLive(r.state)) ? RUNS_POLL_MS : null));
+  const spend = useApi<Spend>(`${base}/spend`);
+  const detail = useApi<Project>(base);
   const all = runs.data?.runs ?? [];
-  const scenarios = [...new Set(all.map(runScenario))].sort();
-  const shown = all.filter((r) => (!scenario || runScenario(r) === scenario) && (!state || runState(r.status) === state));
-  const nRunning = all.filter((r) => runState(r.status) === "running").length;
-  const nQueued = all.filter((r) => r.status === "queued").length;
+  const scenarios = [...new Set([...(detail.data?.scenarios.map((s) => s.name) ?? []), ...all.map(runScenario), ...(scenario ? [scenario] : [])])]
+    .filter(Boolean).sort();
+  const shown = all.filter((r) => !state || r.state === state);
+  const nRunning = all.filter((r) => r.state === "running").length;
+  const nQueued = all.filter((r) => r.state === "queued").length;
   const daily = Number(detail.data?.limits.daily_budget_usd) || 0;
   return (
     <div className="space-y-4">
@@ -38,10 +43,10 @@ export function RunsTab({ project }: { project: string }) {
         )}
         <label className="inline-flex items-center gap-2 text-zinc-400">
           {t("runs.filter.scenario")}
-          <select value={scenario} onChange={(e) => setQuery({ scenar: e.target.value || undefined })}
+          <select value={scenario} onChange={(e) => (setLimit(RUNS_PAGE), setQuery({ scenar: e.target.value || undefined }))}
             className="h-8 rounded-lg bg-zinc-800 px-2 text-zinc-100">
             <option value="">{t("runs.filter.all")}</option>
-            {[...new Set([...scenarios, ...(scenario ? [scenario] : [])])].map((s) => <option key={s} value={s}>{s}</option>)}
+            {scenarios.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
         <label className="inline-flex items-center gap-2 text-zinc-400">
@@ -70,24 +75,33 @@ export function RunsTab({ project }: { project: string }) {
               <th>{t("runs.col.duration")}</th><th>{t("runs.col.cost")}</th><th>{t("runs.col.note")}</th></tr>
           </thead>
           <tbody>
-            {shown.map((r) => <RunRow key={r.run_id} project={project} run={r} queuePos={all.filter((x) => x.status === "queued").indexOf(r)} />)}
+            {shown.map((r) => <RunRow key={r.run_id} project={project} run={r} />)}
           </tbody>
         </table>
+      )}
+      {all.length === limit && (
+        <button type="button" className={btn.secondary} onClick={() => setLimit(limit + RUNS_PAGE)}>{t("runs.more")}</button>
       )}
     </div>
   );
 }
 
-function RunRow({ project, run: r, queuePos }: { project: string; run: RunListItem; queuePos: number }) {
-  const state = runState(r.status);
+function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
+  const { state } = r;
   const when = runStartedAt(r);
   let what: string;
   if (state === "running")
-    what = r.current_step ? t("runs.runningStep", { step: r.current_step, total: r.steps_total ?? "?" }) : t("run.state.running");
-  else if (state === "queued") what = t("runs.queued", { n: queuePos + 1 });
+    what = r.current_step
+      ? t("runs.runningStep", { n: r.current_nn ?? (r.steps_done ?? 0) + 1, total: r.steps_total ?? "?", step: r.current_step })
+      : t("run.state.running");
+  else if (state === "queued") what = t("runs.queued", { n: r.queue_position ?? "?" });
   else what = formatWhen(when);
-  const note = [state === "failed" ? failReason(r.status) : "", state === "dry-run" ? t("run.state.dry-run") : "", r.callback ?? ""]
-    .filter(Boolean).join(" · ");
+  const note = [
+    state === "failed" ? failReason(r.status) : "",
+    state === "dry_run" || state === "interrupted" ? t(`run.state.${state}`) : "",
+    r.fake ? t("run.fake") : "",
+    r.callback ?? "",
+  ].filter(Boolean).join(" · ");
   return (
     <tr className="relative hover:bg-zinc-800/60">
       <td className="w-8 py-2 pl-3"><StatusIcon status={RUN_STATUS[state]} label={t(`run.state.${state}`)} /></td>
