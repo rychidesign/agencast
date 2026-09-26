@@ -21,7 +21,7 @@ const BASE: Step[] = [
 const header = { description: "x", inputs: null, outputs: { text: { type: "string" } }, callable: false };
 const draft = (steps: WStep[]): Draft => ({ header, steps });
 
-const plan = (work: WStep[], base = adopt(BASE)) => planOps(draft(base), draft(work), base).ops;
+const plan = (work: WStep[], base = adopt(BASE)) => planOps(draft(base), draft(work), base);
 
 describe("uložení = jedna dávka operací (api.md „Dávka“)", () => {
   afterEach(() => vi.unstubAllGlobals());

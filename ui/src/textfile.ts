@@ -237,7 +237,7 @@ export function useFileDraft<T>(project: string, path: string | null, opts: File
       writeDraft(key, null);
       setConflict(undefined);
       setOverride(undefined);
-      void load(true);
+      return load(true);
     },
     keepMine: () => {
       setOverride(conflict?.etag ?? null);

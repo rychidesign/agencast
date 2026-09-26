@@ -12,6 +12,8 @@ export interface ProjectRef {
   name: string;
   root: string;
   available: boolean;
+  counts: { scenarios: number; agents: number };
+  spend_today_usd: number;
   /** Jen u `available: false`. */
   reason?: string;
   last_run?: LastRunRef | null;
@@ -31,6 +33,7 @@ export interface ProjectList {
 export interface LastRunRef {
   run_id: string;
   state: RunState;
+  started_at: string | null;
   finished_at: string | null;
   cost_usd: number | null;
 }

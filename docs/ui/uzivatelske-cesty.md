@@ -68,14 +68,14 @@ Cíl: vlastní scénář „napiš a zkontroluj“. Stav: `demo` s `pisatel`.
 5. Karta „Krok 3: output vystup“ → panel, `combobox "text"` = `{{ steps.napis.text }}`; sbalené řádky „Podmínka vždy“, „Podrobnosti kroku vystup“ (`aria-expanded`).
 6. `button "Uložit"` → „Uloženo ✓“, `POST …/scenarios/clanek/steps` 200. Disk: pořadí id `[napis, jev_1, vystup]`, blok `jev: {state, questions: {ok: {type: noul, instructions: …}}}`, komentáře šablony zachované. Karta `clanek` v přehledu: „3 kroky · pisatel · 1 vstup · 1 výstup“, řetězec ikon `aria-label "Typy kroků: ask, jev, output"`.
 
-### C5 Validace s chybou a její oprava — v panelu i v YAML **[hotovo; Form režim nevaliduje průběžně (nález 12, `render` API je, GUI ho nepoužívá) → chyba až po Uložit]**
+### C5 Validace s chybou a její oprava — v panelu i v YAML **[hotovo; Form validuje přes `render`, YAML → Form převádí neuložený text přes `render {text}`]**
 Cíl: pochopit, co je špatně, a opravit to bez terminálu. Stav: `demo/ukazka`.
 1. Editor `ukazka`, karta `napis` → `combobox "Prompt"` → `Téma: {{ steps.nic.text }}` → Uložit.
-2. → `save-status` „Změna neprošla kontrolou (1 chyba), nezapsala se.“, chip `button "1 chyba"` (klik skočí na krok), pod kartou `napis` i pod polem text `krok 'nic' neexistuje (dostupné: …)`, pole `aria-invalid=true`; disk beze změny (etag). Cíl (render): chyba se ukáže už při psaní, bez Uložit.
+2. → do 500 ms `save-status` „Neuloženo · 1 chyba“, chip `button "1 chyba"` (klik skočí na krok), pod kartou `napis` i pod polem text `krok 'nic' neexistuje (dostupné: …)`, pole `aria-invalid=true`; disk beze změny (etag).
 3. Oprava na `Téma: {{ inputs.tema }}` → Uložit → „Uloženo ✓“, chyby pryč; disk má nový prompt na jednom řádku (uvozovky kvůli `{{ }}`).
-4. `radio "YAML"` → `textbox "scenarios/ukazka.yaml"`, nápověda se jménem souboru, Uložit disabled. Rozbít odsazení řádku `- id: napis` → do ≤ 1 s seznam chyb „řádek N · …“ (klik = kurzor na řádek), značka u řádku (`yaml-line-N`), `radio "Form"` `aria-disabled=true` + `title "Oprav YAML: řádek N"`, Uložit disabled; klik na Form nic nepřepne.
+4. `radio "YAML"` → `textbox "scenarios/ukazka.yaml"`, nápověda se jménem souboru, Uložit disabled. Rozbít odsazení řádku `- id: napis` → do ≤ 1 s seznam chyb „řádek N · …“ (klik = kurzor na řádek), značka u řádku (`yaml-line-N`), Uložit disabled; klik na Form otevře dialog „Neuložené změny“.
 5. Vrátit odsazení, změnit `agent: pisatel` na `agent: nikdo` → chyba „napis · agent 'nikdo' neexistuje…“, Form už povolen, Uložit stále disabled (podle §4.5). Opravit → chyby žádné, Uložit povolen → `PUT files/…` → „Uloženo ✓“; zpět do Form vybere krok pod kurzorem (`?krok=napis`).
-6. Přepnutí s neuloženými změnami → dialog „Neuložené změny“ s „Uložit a přepnout“ / „Zahodit a přepnout“ (text „GUI YAML nesestavuje…“).
+6. Validní YAML s neuloženými změnami → Form převezme strom přes `POST …/render {text}` bez dialogu a bez zápisu. Dialog „Neuložené změny“ zůstává pro YAML se syntaktickou chybou.
 
 ### C6 Spuštění běhu s formulářem vstupů (dry-run, ostrý, živý) **[hotovo; po 202 čte GUI 15 s i stav `dry_run` (hack `?spusteno=1`, nález 15 — v 0.8.0 už není třeba)]**
 Cíl: spustit scénář a vidět, že běží. Stav: `ukazka` + fixture `dlouhy.yaml` (krok `pomalu` se `sleep: 4`).

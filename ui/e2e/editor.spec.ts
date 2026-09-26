@@ -201,10 +201,12 @@ test("C5 validace s chybou a oprava v panelu i v YAML", async ({ page, project }
   const bad = Number((await page.getByText(/^řádek \d+ ·/).first().textContent())!.match(/řádek (\d+)/)![1]);
   expect(Math.abs(bad - line)).toBeLessThanOrEqual(1);
   await expect(page.getByTestId(`yaml-line-${bad}`)).toBeVisible();
-  await expect(form).toHaveAttribute("aria-disabled", "true");
-  await expect(form).toHaveAttribute("title", `Oprav YAML: řádek ${bad}`);
+  await expect(form).not.toHaveAttribute("aria-disabled", "true");
   await expect(page.getByRole("button", { name: "Uložit" })).toBeDisabled();
-  await form.dispatchEvent("click");
+  await form.click();
+  const syntaxDialog = page.getByRole("dialog", { name: "Neuložené změny" });
+  await expect(syntaxDialog).toBeVisible();
+  await syntaxDialog.getByRole("button", { name: "Zrušit" }).click();
   await expect(page).toHaveURL(/rezim=yaml/);
 
   await area.fill(good.replace("agent: pisatel", "agent: nikdo"));
@@ -233,13 +235,25 @@ test("C5 validace s chybou a oprava v panelu i v YAML", async ({ page, project }
   await page.getByRole("radio", { name: "YAML" }).click();
   await expect(area).toHaveValue(/prompt: "Téma dne: \{\{ inputs\.tema \}\}"/);
   await expect(saveStatus(page)).toHaveText("Neuloženo");
-  // YAML → Form s neuloženým textem se ptá
+  // YAML → Form vezme neuložený text přes render, jen syntaktická chyba ponechá dialog.
+  const yamlDraft = (await area.inputValue()).replace("Téma dne:", "Téma z YAML:").replace("agent: pisatel", "agent: nikdo");
+  await area.fill(yamlDraft);
+  await area.evaluate((el: HTMLTextAreaElement) => {
+    const i = el.value.indexOf("Téma z YAML:");
+    el.focus();
+    el.setSelectionRange(i, i);
+  });
+  await area.press("ArrowRight");
   await page.getByRole("radio", { name: "Form" }).click();
-  const ask = page.getByRole("dialog", { name: "Neuložené změny" });
-  await expect(ask.getByRole("button", { name: "Uložit a přepnout" })).toBeVisible();
-  await ask.getByRole("button", { name: "Uložit a přepnout" }).click();
-  await expect(card(page, "napis")).toContainText("Téma dne");
-  expect(disk()).toContain('prompt: "Téma dne: {{ inputs.tema }}"');
+  await expect(page.getByRole("dialog", { name: "Neuložené změny" })).toBeHidden();
+  await expect(page.getByRole("complementary").getByRole("combobox", { name: "Prompt" })).toHaveValue("Téma z YAML: {{ inputs.tema }}");
+  await expect(cardBox(page, "napis")).toContainText("agent 'nikdo' neexistuje");
+  expect(disk()).toContain('prompt: "Téma: {{ inputs.tema }}"');
+  await page.getByRole("complementary").getByRole("combobox", { name: "Agent" }).selectOption("pisatel");
+  await expect(cardBox(page, "napis")).not.toContainText("neexistuje");
+  await page.getByRole("button", { name: "Uložit" }).click();
+  await expect(saveStatus(page)).toHaveText(/^Uloženo ✓/);
+  expect(disk()).toContain('prompt: "Téma z YAML: {{ inputs.tema }}"');
 });
 
 test("C9 konflikt souboru", async ({ page, project }) => {
