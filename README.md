@@ -15,4 +15,8 @@ framework/    jádro (CLI, engine, adaptéry, webhook)
 workflows/    vrstva uživatele: agents/, scenarios/, skills/, config
 docs/         návrh, specifikace formátů, changelog
 spikes/       časově omezené experimenty s REPORT.md
+skills/       skilly pro kódovací agenty (agencast-run, agencast-create)
 ```
+
+Skilly [`skills/`](skills/README.md) naučí Claude Code, Codex a OMP
+AgenCast spouštět a psát; na hostu je nainstaluje `skills/install.sh`.
