@@ -48,9 +48,12 @@ Content-Type: application/json
   pak počítá čekající i běžící požadavky včetně tohoto — hodnota ≤ N
   znamená, že běh už běží nebo začne, jakmile se uvolní worker. **Pořadí
   dokončení (a tedy callbacků) není zaručené**; s `--workers 1` jdou běhy
-  jeden po druhém v pořadí přijetí.
+  jeden po druhém v pořadí přijetí. S `limits.max_parallel_runs`
+  ([config.md](config.md#limits--pojistky-celého-běhu), od 0.3.1) čeká
+  vyzvednutý běh ještě na volný slot, který sdílí i CLI a cron.
 - **Od přidělení `run_id` se callback posílá vždy** — i když `validate`
   selže až po vyzvednutí z fronty (např. změnil se mezitím soubor), pak
-  s třídou `config`.
+  s třídou `config`; nedočkaný slot `max_parallel_runs` → `timeout`,
+  vyčerpaný `daily_budget_usd` → `budget` (od 0.3.1).
 - Záznam `request_key` platí po dobu uchování složek běhů (**návrh**).
 - Časový limit v n8n musí počítat i s čekáním ve frontě (D2).

@@ -133,3 +133,18 @@ každého nálezu je na konci REVIEW.md.
   i běžící, pořadí dokončení s N > 1 není zaručené (ISSUES 39). Tvar
   požadavku, odpovědí ani callbacku se nemění.
 - Kolize `run_id` (ISSUES 35) řeší nový suffix; formát id se nemění.
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.3.1)
+
+- [config.md](config.md), [schema/config.schema.json](schema/config.schema.json):
+  volitelné `limits.max_parallel_runs` (celé číslo ≥ 1, strop souběžných
+  běhů napříč procesy, čekání nejdéle `run_timeout`, pak `timeout`) a
+  `limits.daily_budget_usd` (číslo > 0, denní strop útraty v UTC, kontrola
+  jen na startu, pak `budget`). Bez nich se chování nemění; co dřív
+  prošlo, projde dál (ISSUES 40).
+- [run-record.md](run-record.md): vedle složek běhů `_slots/<n>.lock`
+  a denní kniha `_ledger/<RRRR-MM-DD>.jsonl` (`_ledger-fake/` u `--fake`);
+  nová událost `run_waiting` (`waited_s`, `max_parallel_runs`). Starší
+  záznamy ji nemají; čtenář neznámé události smí ignorovat.
+- [webhook.md](webhook.md): čekání na slot a třídy `timeout`/`budget`
+  u běhu, který nezačal. Tvar požadavku, odpovědí ani callbacku se nemění.

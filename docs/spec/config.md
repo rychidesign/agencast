@@ -110,7 +110,7 @@ změně `id` — to je věc frameworku (Fáze 2), ne tohoto souboru.
 
 | Pole | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
-| `runs_dir` | ne | Složka se záznamy běhů ([run-record.md](run-record.md)), `_dedupe/` a cache `_models.json`. Na Modalu cesta k Volume. | `./runs` | `runs_dir: /runs` |
+| `runs_dir` | ne | Složka se záznamy běhů ([run-record.md](run-record.md)), `_dedupe/`, `_slots/`, `_ledger/` a cache `_models.json`. Na Modalu cesta k Volume. | `./runs` | `runs_dir: /runs` |
 
 ### `storage` — kam se nahrají soubory z `output` (§5.7)
 
@@ -142,6 +142,23 @@ klíče); před implementací ověřit v dokumentaci Cloudflare R2
 | `run_image_budget_usd` | ne | Zvláštní strop pro kroky `image` (o dva řády dražší než text, §5.7). Počítá se zároveň do `run_budget_usd`. | Obrázky hlídá jen `run_budget_usd`. | `run_image_budget_usd: 0.30` |
 | `run_timeout` | ano | Nejdelší doba běhu (bez čekání ve frontě). `s`/`m`/`h`. Na Modalu nejvýš 24h (D5). | Chyba `config`. | `run_timeout: 1h` |
 | `max_call_depth` | ne | Nejvyšší hloubka vnoření `call` (§5.3). | `3` (**návrh**) | `max_call_depth: 3` |
+| `max_parallel_runs` | ne | Nejvýš tolik běhů naráz nad jedním `runs_dir` — sdílí ho CLI spuštěné ručně, n8n, cron i `agencast serve --workers` (od frameworku 0.3.1). Celé číslo ≥ 1. Další běh čeká na volný slot (na stderr `čekám na volný slot (max_parallel_runs=N)`), nejdéle `run_timeout`; pak chyba `timeout` a běh nezačne. Čekání není součást `run_timeout` běhu. Falešné běhy (`--fake`) se slotů účastní. | Bez stropu — chování jako do 0.3.0. | `max_parallel_runs: 2` |
+| `daily_budget_usd` | ne | Denní strop útraty v USD (den = UTC) přes všechny běhy nad jedním `runs_dir` (od frameworku 0.3.1). Když součet denní knihy útraty ([run-record.md](run-record.md#složka-běhu)) dosáhne limitu, nový běh nezačne — chyba `budget` ještě před prvním voláním. Kontroluje se **jen na startu**: běh, který začal pod limitem, doběhne a limit může překročit nejvýš o svůj `run_budget_usd` (souběžné běhy každý o svůj). Falešné běhy mají vlastní knihu. | Bez denního stropu — chování jako do 0.3.0. | `daily_budget_usd: 5.00` |
+
+Ukázka obou volitelných klíčů (od frameworku 0.3.1):
+
+```yaml
+limits:
+  run_budget_usd: 1.00
+  run_timeout: 1h
+  max_parallel_runs: 2      # víc běhů naráz se nespustí, další čekají (nejdéle run_timeout)
+  daily_budget_usd: 5.00    # útrata dnešního dne (UTC) ≥ 5 USD → nový běh nezačne (budget)
+```
+
+Denní kniha útraty vzniká od frameworku 0.3.1 — běhy starších verzí se do
+`daily_budget_usd` nezapočítávají. Zapisuje se vždy, i bez
+`daily_budget_usd`, takže limit zapnutý během dne počítá i dosavadní dnešní
+běhy.
 
 Pojistka mimo framework: limit útraty přímo na klíči OpenRouteru a
 časový limit v n8n (§5.1 bod 7).

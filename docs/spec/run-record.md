@@ -42,8 +42,20 @@ runs/20260925-140311-ig-post-a1b2/
 
 - `runs/` je `runs_dir` z `config.yaml` (výchozí `./runs`), na Modalu
   Volume (D5). Vedle složek běhů jsou jen `_dedupe/` (samostatné soubory
-  klíčů, [scenario.md](scenario.md#dedupe_key--jednou-a-dost)) a cache
-  `_models.json`.
+  klíčů, [scenario.md](scenario.md#dedupe_key--jednou-a-dost)), cache
+  `_models.json` a od frameworku 0.3.1:
+  - `_slots/<n>.lock`, n = 1..`max_parallel_runs` — zámky `flock`
+    ([config.md](config.md#limits--pojistky-celého-běhu)). Běh drží jeden
+    slot od chvíle před vytvořením své složky do konce (i při chybě); zámek
+    uvolní i pád procesu. Soubory zůstávají, obsah nemají. Jen s
+    `max_parallel_runs`.
+  - `_ledger/<RRRR-MM-DD>.jsonl` — denní kniha útraty (den = UTC podle
+    konce běhu), jeden řádek na dokončený běh, jen se připisuje:
+    `{"run_id": "…", "cost_usd": 0.0123, "finished_at": "2026-09-26T08:15:02.120Z"}`
+    (`cost_usd` = `usage.cost_usd` z `run_finished`, včetně obrázků).
+    Píše se vždy; čte ji `daily_budget_usd`. Falešné běhy (`--fake`) píšou
+    do `_ledger-fake/` (jako `_dedupe-fake/`). Běhy před 0.3.1 v knize
+    nejsou.
 - **`run_id`** = `RRRRMMDD-HHMMSS-<scénář>-<4 hex znaky>` v UTC
   (**návrh**) — řadí se podle času a je v něm vidět, co běželo. Jde
   uhodnout, proto má klíč v úložišti navíc 32 náhodných hex znaků (viz
@@ -130,6 +142,22 @@ Když poskytovatel cenu nevrátí, je `cost_usd: null` a vznikne varování
 | `framework_version` | verze frameworku |
 | `storage_prefix` | `<run_id>-<32 hex>` — prefix souborů v úložišti |
 | `fake` | `true` = falešný poskytovatel (`--fake`), odpovědi modelů jsou vymyšlené (od frameworku 0.2.2) |
+
+**`run_waiting`** — běh čekal na volný slot `max_parallel_runs` (od
+frameworku 0.3.1). Jen když se čekalo; je hned za `run_started`, i když
+čekání proběhlo před ním (složka běhu vzniká až po získání slotu).
+
+| Pole | Co to je |
+|---|---|
+| `waited_s` | jak dlouho běh čekal na slot |
+| `max_parallel_runs` | platný strop |
+
+Nedočkaný slot (`timeout`) a vyčerpaný `daily_budget_usd` (`budget`) jsou
+běhy, které nezačaly: záznam má jen `run_started`, `error`,
+`run_finished` s `error` (`step: null`), `callback.json` a `summary.md`,
+bez `plan.md` a `inputs.json` — stejně jako běh, který webhook nespustil
+([webhook.md](webhook.md)). Callback odejde normálně, `agencast run` vypíše
+na stderr `<třída>: <hláška>` a skončí kódem 1.
 
 **`step_started`** — krok začal.
 
