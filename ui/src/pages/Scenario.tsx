@@ -90,6 +90,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const { query } = useLocation();
   const selected = query.get("krok") ?? undefined;
   const yaml = query.get("rezim") === "yaml";
+  const trail = query.get("z") ?? "";
   const [running, setRunning] = useState(false);
   const [cut, setCut] = useState<string>();
   const [pending, setPending] = useState<Pending>();
@@ -160,7 +161,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         }
         : undefined,
   };
-  const ctx: ListCtx = { project, selected, onSelect: select, errors: byStep, edit };
+  const ctx: ListCtx = { project, selected, onSelect: select, errors: byStep, edit, scenario, trail };
 
   const retype = (s: WStep, type: StepType) => {
     setSteps((l) => update(l, s.uid, (x) => blankStep(l, type, { id: x.id, when: x.when, uid: x.uid })));
@@ -230,6 +231,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         <a href={href(project, "scenare")} className="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100">
           <ArrowLeft className="size-4" aria-hidden /> {t("editor.back", { project })}
         </a>
+        <Trail project={project} trail={trail} />
         <h1 className="font-mono text-lg font-semibold">{scenario}</h1>
         {work && <span className="min-w-0 truncate text-sm text-zinc-300">{work.header.description}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-3">
@@ -317,6 +319,23 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
           x.type === "parallel" ? { ...x, branches: { ...x.branches, [name]: [] } } : { ...x, cases: { ...x.cases, [name]: [] } })),
       }} />}
     </main>
+  );
+}
+
+/** Drobečky `ig-post › navrh › ig-text` po „otevřít“ u `call` (§4.7); `?z=ig-post:navrh,ig-text:x`.
+ *  Jméno scénáře vede zpět na jeho kartu `call`. */
+export function Trail({ project, trail }: { project: string; trail: string }) {
+  const crumbs = trail ? trail.split(",").map((c) => c.split(":") as [string, string]) : [];
+  if (!crumbs.length) return null;
+  return (
+    <nav aria-label={t("editor.trail")} className="-mr-3 font-mono text-sm text-zinc-400">
+      {crumbs.map(([sc, step], i) => (
+        <span key={i}>
+          <a className="hover:text-zinc-100 hover:underline" href={href(project, "scenare", sc, { krok: step, z: trail.split(",").slice(0, i).join(",") })}>{sc}</a>
+          {" › "}{step}{" › "}
+        </span>
+      ))}
+    </nav>
   );
 }
 

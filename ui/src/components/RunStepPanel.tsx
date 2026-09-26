@@ -1,11 +1,10 @@
 // Panel kroku v prohlížeči běhu (§2.5): záložky podle typu kroku.
 import { useState, type ReactNode } from "react";
-import { getText, useApi } from "../api";
+import { enc, getText, useApi } from "../api";
 import { formatCost, formatDuration } from "../format";
 import { t } from "../i18n";
 import { setQuery } from "../router";
-import { continued, eventsOf, stepDir, stepFiles } from "../run";
-import type { RunEvent, RunStep, StepType } from "../types";
+import type { RunEvent, RunStep, RunStepDetail, StepType } from "../types";
 import { PanelShell } from "./StepPanel";
 import { FileViewer, runFilePath } from "./RunFiles";
 import { ErrorText, Loading, StatusBadge, type Status } from "./ui";
@@ -43,8 +42,7 @@ function ResponseView({ path }: { path: string }) {
 }
 
 /** Odpovědi Jev s pravděpodobností jako pruh (0–1), jiné hodnoty textem. */
-function JevAnswers({ call }: { call: RunEvent | undefined }) {
-  const answers = (call?.answers ?? {}) as Record<string, unknown>;
+function JevAnswers({ answers = {} }: { answers?: Record<string, unknown> }) {
   if (!Object.keys(answers).length) return <Empty />;
   return (
     <dl className="space-y-2">
@@ -120,76 +118,76 @@ function Tools({ events }: { events: RunEvent[] }) {
   );
 }
 
-export function RunStepPanel({ project, runId, path, kind, nn, rs, events, files, onClose }: {
-  project: string; runId: string; path: string; kind: StepType | null; nn?: number; rs?: RunStep;
-  events: RunEvent[]; files: string[]; onClose: () => void;
+export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
+  project: string; runId: string; path: string; kind: StepType | null; rs?: RunStep; onClose: () => void;
 }) {
   const [tab, setTab] = useState<PanelTab>();
-  const own = events.filter((e) => e.step === path);
-  const dir = stepDir(files, path);
-  const mine = dir ? stepFiles(files, dir) : [];
+  // Události, výstup a soubory jednoho kroku; běžící krok se čte znovu (panel má klíč se stavem kroku).
+  const detail = useApi<RunStepDetail>(rs ? `/projects/${enc(project)}/runs/${enc(runId)}/steps/${path.split("/").map(enc).join("/")}` : null,
+    (d) => (d.status === "running" ? 2000 : null));
+  const d = detail.data;
+  const own = d?.events ?? [];
+  const files = d?.files ?? [];
+  const dir = rs?.dir ? `${rs.dir}/` : "";
   const tabs = kind ? TABS[kind] : ["files" as PanelTab];
   const active = tab && tabs.includes(tab) ? tab : tabs[0];
-  const file = (name: string) => (dir && files.includes(dir + name) ? runFilePath(project, runId, dir + name) : undefined);
-  const responses = mine.filter((f) => /calls\/\d+\.response\.json$/.test(f)).sort();
-  const skipped = eventsOf(events, path, "step_skipped")[0];
-  const errors = eventsOf(events, path, "error").filter((e) => !e.will_retry);
-  const status: Status = rs ? (continued(events, path) ? "warning" : rs.status) : "none";
+  const responses = files.filter((f) => /calls\/\d+\.response\.json$/.test(f)).sort();
+  const status: Status = rs ? (rs.continued ? "warning" : rs.status) : "none";
 
   let body: ReactNode = <Empty />;
-  if (active === "prompt" && file("prompt.md")) body = <FileViewer project={project} runId={runId} path={dir + "prompt.md"} />;
-  if (active === "output" && file("output.json")) body = <FileViewer project={project} runId={runId} path={dir + "output.json"} />;
+  if (active === "prompt" && files.includes(dir + "prompt.md")) body = <FileViewer project={project} runId={runId} path={dir + "prompt.md"} />;
+  if (active === "output" && d?.output != null)
+    body = <pre className="overflow-auto rounded-xl bg-zinc-800/60 p-4 font-mono text-[13px] leading-5 whitespace-pre-wrap break-words">{JSON.stringify(d.output, null, 2)}</pre>;
   if (active === "response")
-    body = kind === "jev" ? <JevAnswers call={eventsOf(events, path, "jev_call").pop()} />
+    body = kind === "jev" ? <JevAnswers answers={rs?.answers} />
       : responses.length ? <ResponseView path={runFilePath(project, runId, responses[responses.length - 1])} /> : <Empty />;
   if (active === "calls") body = <Calls events={own} />;
   if (active === "tools") body = <Tools events={own} />;
   if (active === "image") {
-    const imgs = mine.filter((f) => /\.(png|jpe?g|webp)$/i.test(f));
+    const imgs = files.filter((f) => /\.(png|jpe?g|webp)$/i.test(f));
     body = imgs.length ? <div className="space-y-3">{imgs.map((f) => <FileViewer key={f} project={project} runId={runId} path={f} />)}</div> : <Empty />;
   }
   if (active === "files")
-    body = mine.length ? (
+    body = files.length ? (
       <ul className="space-y-1">
-        {mine.map((f) => (
+        {files.map((f) => (
           <li key={f}>
-            <button type="button" className="font-mono text-[13px] underline" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>{f.slice(dir!.length)}</button>
+            <button type="button" className="font-mono text-[13px] underline" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>{f.slice(dir.length)}</button>
           </li>
         ))}
       </ul>
     ) : <Empty />;
 
-  // Číslo kroku ve volaném scénáři známe jen ze složky záznamu (`steps/02-ton/steps/01-kontrola/`).
-  const number = nn ?? (dir ? Number(/(\d+)-[^/]+\/$/.exec(dir)?.[1]) : undefined);
-
   return (
-    <PanelShell id="run-step-title" eyebrow={`${number ? t("panel.step", { n: number }) : ""} · ${kind ?? "?"}`.replace(/^ · /, "")}
+    <PanelShell id="run-step-title" eyebrow={`${rs?.nn ? t("panel.step", { n: rs.nn }) : ""} · ${kind ?? "?"}`.replace(/^ · /, "")}
       title={<span className="font-mono">{path}</span>} onClose={onClose}>
       <div className="space-y-4">
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
           <StatusBadge status={status}>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</StatusBadge>
           {rs?.duration_s != null && <span className="font-mono">{formatDuration(rs.duration_s)}</span>}
           {rs?.cost_usd != null && <span className="font-mono">{formatCost(rs.cost_usd)} USD</span>}
+          {rs?.turns != null && <span className="text-zinc-400">{t("rpanel.turns", { turns: rs.turns, tools: rs.tool_calls ?? 0 })}</span>}
         </p>
-        {skipped && (
+        {rs?.status === "skipped" && (
           <p className="text-sm text-zinc-300">
-            {t("run.skipped", { reason: String(skipped.reason ?? skipped.reason_code ?? "") })}
-            {skipped.default_used === true && ` · ${t("run.defaultUsed")}`}
+            {t("run.skipped", { reason: rs.reason ?? rs.reason_code ?? "" })}
+            {rs.default_used && ` · ${t("run.defaultUsed")}`}
           </p>
         )}
-        {status === "warning" && <p className="text-sm text-amber-400">{t("run.warning")}</p>}
-        {errors.map((e, i) => <ErrorText key={i} error={{ message: `${e.class}: ${e.message}` }} />)}
+        {status === "warning" && <p className="text-sm text-amber-400">{t("run.warning")}{rs?.default_used && ` · ${t("run.defaultUsed")}`}</p>}
+        {rs?.error && <ErrorText error={{ message: `${rs.error.class}: ${rs.error.message}` }} />}
+        {detail.error && <ErrorText error={detail.error} />}
         {rs && (
           <>
             <div role="tablist" aria-label={t("run.tabs")} className="flex flex-wrap gap-1">
                 {tabs.map((k) => (
                   <button key={k} type="button" role="tab" aria-selected={k === active} onClick={() => setTab(k)}
                     className={`rounded-full px-3 py-1 text-sm ${k === active ? "bg-zinc-700 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}>
-                    {t(TAB_KEY[k])}{k === "calls" ? ` (${own.filter((e) => e.type.endsWith("_call") && e.type !== "tool_call").length})` : ""}
+                    {t(TAB_KEY[k])}{k === "calls" ? ` (${rs.calls?.length ?? 0})` : ""}
                   </button>
                 ))}
             </div>
-            <div role="tabpanel">{body}</div>
+            <div role="tabpanel">{d ? body : <Loading rows={3} />}</div>
           </>
         )}
       </div>

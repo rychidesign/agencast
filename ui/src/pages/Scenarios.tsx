@@ -1,15 +1,15 @@
 // §2.2 Záložka Scénáře: mřížka karet scénářů.
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { ApiError, enc, send, useApi, type Saved } from "../api";
+import { ApiError, enc, send, type Saved } from "../api";
 import { Modal, NameDialog } from "../components/form";
 import { LastRun } from "../components/RunBadge";
 import { IconChain } from "../components/TypeIcon";
-import { EmptyState, ErrorList, Menu, Skeleton, StatusChip } from "../components/ui";
-import { formatWhen, runScenario, runStartedAt, utcTitle } from "../format";
+import { EmptyState, ErrorList, Menu, StatusChip } from "../components/ui";
+import { formatWhen, runIdParts, utcTitle } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
-import type { ErrorItem, Project, RunListItem, Scenario, ScenarioSummary } from "../types";
+import type { ErrorItem, Project, ScenarioSummary } from "../types";
 
 /** Příkaz spuštění z CLI; povinné vstupy bez `default` jako `-i jmeno=…`. */
 export function runCommand(root: string, s: ScenarioSummary): string {
@@ -21,10 +21,8 @@ export function runCommand(root: string, s: ScenarioSummary): string {
 }
 
 export function ScenariosTab({ project, onChanged }: { project: Project; onChanged: () => void }) {
-  const runs = useApi<{ runs: RunListItem[] }>(`/projects/${enc(project.name)}/runs`);
   const [creating, setCreating] = useState(false);
   const [checked, setChecked] = useState<{ name: string; errors: ErrorItem[] | string }>();
-  const lastRun = (name: string) => runs.data?.runs.find((r) => r.status !== "queued" && runScenario(r) === name);
   const base = `/projects/${enc(project.name)}`;
   /** Validovat (⋯): `POST …/validate` bez těla = projekt jak je na disku, chyby jen tohoto souboru. */
   const validate = async (name: string) => {
@@ -47,7 +45,7 @@ export function ScenariosTab({ project, onChanged }: { project: Project; onChang
           </button>
         </li>
         {project.scenarios.map((s) => (
-          <ScenarioCard key={s.name} project={project} scenario={s} lastRun={runs.data ? lastRun(s.name) ?? null : undefined} onValidate={() => void validate(s.name)} />
+          <ScenarioCard key={s.name} project={project} scenario={s} onValidate={() => void validate(s.name)} />
         ))}
         {!project.scenarios.length && <li><EmptyState text={t("scenarios.empty")} /></li>}
       </ul>
@@ -75,11 +73,7 @@ export function ScenariosTab({ project, onChanged }: { project: Project; onChang
   );
 }
 
-function ScenarioCard({ project, scenario: s, lastRun, onValidate }: {
-  project: Project; scenario: ScenarioSummary; lastRun: RunListItem | null | undefined; onValidate: () => void;
-}) {
-  // ponytail: jeden GET na scénář kvůli řetězci ikon; až API dá typy kroků v přehledu, odpadne (nalezy-api.md).
-  const detail = useApi<Scenario>(`/projects/${enc(project.name)}/scenarios/${enc(s.name)}`);
+function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; scenario: ScenarioSummary; onValidate: () => void }) {
   const open = href(project.name, "scenare", s.name);
   const agents = project.links.scenario_agent.filter(([sc]) => sc === s.name).map(([, a]) => a);
   const nIn = Object.keys(s.inputs ?? {}).length;
@@ -97,16 +91,17 @@ function ScenarioCard({ project, scenario: s, lastRun, onValidate }: {
     { label: t("scenarios.copyRun"), onSelect: () => navigator.clipboard.writeText(runCommand(project.root, s)) },
     { label: t("scenarios.validate"), onSelect: onValidate },
   ];
-  const when = lastRun ? lastRun.finished_at ?? runStartedAt(lastRun) : null;
+  const lastRun = s.last_run;
+  const when = lastRun ? lastRun.finished_at ?? runIdParts(lastRun.run_id)?.startedAt : null;
   return (
     <li className="relative flex min-h-52 flex-col rounded-xl bg-zinc-800/60 p-5 hover:bg-zinc-800">
       <div className="flex flex-wrap items-center gap-3">
-        {detail.data ? <IconChain types={detail.data.steps.map((st) => st.type)} /> : <Skeleton className="h-8 w-40" />}
+        <IconChain types={s.types} />
         <div className="relative z-10 ml-auto flex items-center gap-1 whitespace-nowrap">
           {s.errors.length > 0 ? (
             <StatusChip status="failed">{t("validation.count", { n: s.errors.length })}</StatusChip>
           ) : (
-            lastRun !== undefined && <LastRun run={lastRun ?? undefined} />
+            <LastRun run={lastRun} />
           )}
           <Menu items={menu} label={t("common.menuFor", { name: s.name })} />
         </div>
@@ -117,7 +112,7 @@ function ScenarioCard({ project, scenario: s, lastRun, onValidate }: {
       <p className="mt-1 text-[13px] text-zinc-400">{meta.join(" · ")}</p>
       <div className="mt-auto flex items-center justify-between pt-4 text-[13px] text-zinc-400">
         <span className="font-mono">{s.name}.yaml</span>
-        <span title={utcTitle(when)}>{lastRun === undefined ? "" : when ? formatWhen(when) : t("runs.none")}</span>
+        <span title={utcTitle(when)}>{when ? formatWhen(when) : t("runs.none")}</span>
       </div>
     </li>
   );

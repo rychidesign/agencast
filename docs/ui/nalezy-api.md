@@ -1,4 +1,4 @@
-# Nálezy API pro GUI (ui/ část 1 čtecí verze, část 2 editace)
+# Nálezy API pro GUI (ui/ část 1 čtecí verze, část 2 editace, část 3 API 0.7.0)
 
 Co GUI při stavbě čtecí verze (2026-09-26, agencast 0.6.0) od HTTP API
 `serve` postrádalo nebo dostalo v nevhodném tvaru (návrh GUI §7). Jádro se
@@ -140,3 +140,34 @@ Co chybělo při stavbě editoru (2026-09-26, agencast 0.6.0), ověřeno proti
     (povolené jen `openrouter.api_key_env` a pět sekcí); GUI je ukazuje
     jen ke čtení a odkazuje na YAML režim. Je-li to záměr, stačí věta
     v api.md.
+
+## Část 3 (GUI nad API 0.7.0)
+
+GUI přešlo na `state`, `steps` s podrobnostmi, `GET …/steps/<cesta>`, `tree`/`callees`,
+`types`/`last_run`, `?scenario=&limit=`, `scenario_step_agent`, `reason`/`registry` (body 1–9).
+Ověřeno 2026-09-26 proti `agencast serve --fake` (framework 0.7.0 z větve). Jádro se neměnilo.
+
+21. **Restart `serve` udělá z přerušeného běhu `failed`.** Běh, který běžel pod `serve`
+    v okamžiku pádu, dostane po startu `serve` dopsaný `run_started` + `error internal`
+    („běh přerušen — server skončil uprostřed běhu…“) + `run_finished failed`. `state:
+    interrupted` je tak vidět jen mezi pádem a restartem (a u běhu z CLI, který nikdo
+    nedokončí). Navíc: `status` je `failed (internal v None)` (krok `null` → „None“),
+    `started_at` je čas obnovy (druhý `run_started`) a `duration_s` `0.0`. *GUI:* ukáže, co
+    přijde (`chyba: internal v None`). *Potřeba:* `status` bez „v None“, `started_at` z prvního
+    `run_started`; zvážit, jestli obnovený běh nemá zůstat `interrupted` (nebo nést příznak).
+22. **Krok bez konce má v ukončeném běhu `status: running`.** Položka `steps` kroku, který
+    měl `step_started` a pak běh spadl, zůstane `running` i u `state` `interrupted`/`failed`.
+    *GUI:* když běh není `queued`/`running`, ukáže takový krok jako „přerušen“ (nepulzuje).
+    *Potřeba:* u neživého běhu `status: interrupted` (nebo `null`) místo `running`.
+23. **Chyby schématu `config.yaml` bez řádku.** `files/config.yaml` vrací u chyb schématu jen
+    `field` (`limits.run_budget_usd`), `line` jen u syntaxe a duplicitního klíče (jak api.md
+    uvádí). YAML režim Configu proto u nich řádek neoznačí, jen vypíše hlášku. *Potřeba:*
+    `line` i u chyb schématu (loader zná pozici uzlu).
+24. **`GET /projects` bez počtů.** Karta projektu ukazuje „20 scénářů · 8 agentů“ a dnešní
+    útratu, takže dál volá na každý dostupný projekt `GET /projects/<p>` (celý projekt kvůli
+    dvěma číslům) a `…/spend`. *Potřeba:* `counts {scenarios, agents}` a `spend_today_usd`
+    v položce `GET /projects`.
+25. **Stránkování jen `limit`.** „Načíst další“ stáhne znovu celý delší seznam (`limit`
+    +50); `last_run` nemá `started_at`, takže čas u čekajícího/přerušeného běhu a dry-runu
+    GUI bere z `run_id`. *Potřeba (až bude běhů hodně):* kurzor `?before=<run_id>`; v `last_run`
+    `started_at`.

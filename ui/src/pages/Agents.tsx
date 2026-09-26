@@ -159,7 +159,7 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
   const ui = useConflictUi(active, () => active.doc?.text ?? "");
   useLeaveGuard(form.dirty || text.dirty);
   const summary = project.agents.find((a) => a.name === name);
-  const usedBy = project.links.scenario_agent.filter(([, ag]) => ag === name).map(([s]) => s);
+  const usedBy = project.links.scenario_step_agent.filter(([, , ag]) => ag === name);
   const errors = active.state.kind === "failed" || active.dirty || mode === "text" ? active.errors : summary?.errors ?? [];
   const save = async () => {
     if (await ui.save()) onChanged();
@@ -203,7 +203,7 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
 }
 
 function AgentFields({ project, name, value, onChange, errors, usedBy }: {
-  project: Project; name: string; value: AgentForm; onChange: (v: AgentForm) => void; errors: ErrorItem[]; usedBy: string[];
+  project: Project; name: string; value: AgentForm; onChange: (v: AgentForm) => void; errors: ErrorItem[]; usedBy: [string, string, string][];
 }) {
   const fm = value.fm;
   const setFm = (k: string, v: unknown) => {
@@ -317,7 +317,9 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
       </FormField>
       <p className="text-sm text-zinc-400">
         {t("agent.usedBy")}{": "}
-        {usedBy.length ? usedBy.map((s, i) => <span key={s}>{i > 0 && ", "}<a className="font-mono underline" href={href(project.name, "scenare", s)}>{s}</a></span>) : "–"}
+        {usedBy.length ? usedBy.map(([s, step], i) => (
+          <span key={`${s}/${step}`}>{i > 0 && " · "}<a className="font-mono underline" href={href(project.name, "scenare", s, { krok: step })}>{s} ({step})</a></span>
+        )) : "–"}
       </p>
     </div>
   );

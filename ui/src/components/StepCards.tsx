@@ -1,13 +1,13 @@
 // Sloupec karet kroků (§2.3, §2.4) — stejný pro editor a prohlížeč běhu (§2.5).
 // Editor přidává `ctx.edit`: konektory s +, koš a ⋯ vně pilulky, klávesy (§4.1–4.3, §6).
-import { AlignJustify, ArrowDown, CircleX, Trash2, TriangleAlert } from "lucide-react";
+import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Trash2, TriangleAlert } from "lucide-react";
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import type { Anchor, ListRef } from "../edit";
 import { formatCost, formatDuration } from "../format";
 import { t } from "../i18n";
 import { href } from "../router";
-import { callChildren, continued, runValue, type RunCtx } from "../run";
-import { stepValue } from "../steps";
+import { callChildren, runValue, type RunCtx } from "../run";
+import { flatten, stepValue } from "../steps";
 import type { ErrorItem, IoSpec, RunStep, Step } from "../types";
 import { AddButton, TypePicker, type Pick } from "./TypePicker";
 import { TypeIcon } from "./TypeIcon";
@@ -33,12 +33,15 @@ export interface ListCtx {
   errors: Map<string, ErrorItem[]>;
   run?: RunCtx;
   edit?: EditCtx;
+  /** Editor: jméno scénáře a cesta přes call (`?z=`), ze kterých „otevřít“ u `call` skládá drobečky. */
+  scenario?: string;
+  trail?: string;
 }
 
 export const uidOf = (s: Step) => (s as { uid?: string }).uid ?? s.id;
 
 const RUN_ICON: Record<RunStep["status"], Status> = {
-  running: "running", succeeded: "succeeded", failed: "failed", cancelled: "cancelled", skipped: "skipped",
+  running: "running", succeeded: "succeeded", failed: "failed", cancelled: "cancelled", skipped: "skipped", interrupted: "interrupted",
 };
 
 /** Klíč karty: id v editoru, cesta v běhu (`navrh/copy`). */
@@ -70,9 +73,9 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
   const rs = ctx.run?.steps.get(key);
   const selected = ctx.selected === key;
   const errors = ctx.errors.get(step.id) ?? [];
-  const value = (ctx.run && runValue(step.type, key, ctx.run)) || meta || stepValue(step)
+  const value = (ctx.run && runValue(step.type, rs)) || meta || stepValue(step)
     || (ctx.run ? (rs ? t(`rstatus.${rs.status}`) : t("run.notReached")) : "");
-  const warn = ctx.run && continued(ctx.run.events, key);
+  const warn = !!rs?.continued;
   const status: Status | undefined = ctx.run ? (warn ? "warning" : rs ? RUN_ICON[rs.status] : "none") : undefined;
   const notReached = ctx.run && !rs;
   let right: ReactNode = step.when ? <span className="font-mono">{t("step.when", { expr: step.when })}</span> : null;
@@ -192,11 +195,22 @@ const fromRun = (rs: RunStep, i: number): Step => ({
   nn: i + 1, address: [], id: rs.step.split("/").pop()!, type: rs.kind, when: null, fields: {}, refs: [],
 });
 
-function Container({ step, ctx, meta, above, children }: { step: Step; ctx: ListCtx; meta: string; above?: Anchor; children: ReactNode }) {
+/** Kontejner se dá sbalit šipkou u čísla (§2.4): vnitřek zmizí, zůstane počet kroků. */
+function Container({ step, ctx, meta, above, inner, children }: {
+  step: Step; ctx: ListCtx; meta: string; above?: Anchor; inner: Step[]; children: ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  const Icon = open ? ChevronDown : ChevronRight;
   return (
-    <div className="rounded-2xl bg-zinc-800/60 p-2">
+    <div className="relative rounded-2xl bg-zinc-800/60 p-2">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+        aria-label={t(open ? "step.collapse" : "step.expand", { id: step.id })}
+        className="absolute top-6 -left-7 grid size-6 place-items-center rounded-full text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100">
+        <Icon className="size-4" aria-hidden />
+      </button>
       <StepCard step={step} ctx={ctx} shape="head" meta={meta} above={above} />
-      <div className="p-2">{children}</div>
+      {open ? <div className="p-2">{children}</div>
+        : <p className="px-5 pb-2 text-[13px] text-zinc-400">{t("count.steps", { n: flatten(inner).length })}</p>}
     </div>
   );
 }
@@ -221,7 +235,8 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
   if (step.type === "parallel" && step.branches) {
     const names = Object.keys(step.branches);
     return (
-      <Container step={step} ctx={ctx} above={above} meta={`${names.join(" ∥ ")} · ${t("step.parallel.meta", { n: names.length })}`}>
+      <Container step={step} ctx={ctx} above={above} inner={Object.values(step.branches).flat()}
+        meta={`${names.join(" ∥ ")} · ${t("step.parallel.meta", { n: names.length })}`}>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
           {names.map((b) => <Branch key={b} label={b}><StepList steps={step.branches![b]} ctx={ctx} list={sub(["parallel", b])} /></Branch>)}
         </div>
@@ -231,7 +246,8 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
   }
   if (step.type === "switch" && step.cases) {
     return (
-      <Container step={step} ctx={ctx} above={above} meta={stepValue(step)}>
+      <Container step={step} ctx={ctx} above={above} meta={stepValue(step)}
+        inner={[...Object.values(step.cases).flat(), ...(step.default ?? [])]}>
         <div className="space-y-3">
           {Object.entries(step.cases).map(([c, steps]) => (
             <Branch key={c} label={`= ${c}`}><StepList steps={steps} ctx={ctx} list={sub(["switch", "cases", c])} /></Branch>
@@ -249,18 +265,22 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
   if (step.type === "call") {
     const target = step.call ?? String((step.fields.call as { scenario?: string } | undefined)?.scenario ?? "");
     const path = ctx.run ? ctx.run.prefix + step.id : "";
-    const children = ctx.run ? callChildren(ctx.run, path) : [];
+    // V běhu: kroky volaného scénáře ze snímku (`callees`), bez něj jen ty ze záznamu.
+    const children = !ctx.run?.steps.has(path) ? []
+      : ctx.run.callees[target] ?? callChildren(ctx.run, path).map(fromRun);
+    // V editoru „otevřít“ nese cestu přes call (`?z=ig-post:navrh`) pro drobečky a návrat na kartu (§4.7).
+    const from = ctx.trail !== undefined ? [ctx.trail, `${ctx.scenario}:${step.id}`].filter(Boolean).join(",") : undefined;
     const open = target && (
-      <a href={href(ctx.project, "scenare", target)} className="text-[13px] text-zinc-400 underline hover:text-zinc-100">
+      <a href={href(ctx.project, "scenare", target, { z: from })} className="text-[13px] text-zinc-400 underline hover:text-zinc-100">
         {target} {t("step.call.open")}
       </a>
     );
     if (children.length && ctx.run) {
       const inner = { ...ctx, run: { ...ctx.run, prefix: `${path}/` } };
       return (
-        <Container step={step} ctx={ctx} meta={stepValue(step)}>
+        <Container step={step} ctx={ctx} meta={stepValue(step)} inner={children}>
           <div className="mb-2 px-3">{open}</div>
-          <Branch label={target}><StepList steps={children.map(fromRun)} ctx={inner} /></Branch>
+          <Branch label={target}><StepList steps={children} ctx={inner} /></Branch>
         </Container>
       );
     }
