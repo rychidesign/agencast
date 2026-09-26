@@ -5,6 +5,22 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.10.0 — 2026-09-26 (doplňky API podle nálezů GUI 21–28)
+
+Minor: pouze aditivní HTTP API a oprava obnovy běhů; formáty v1, smlouva
+`POST /runs` a callback se nemění. ISSUES 48.
+
+- Restart `serve` zachová původní `run_started`, doplní chybu `internal`
+  s posledním začatým krokem a API vrací `state: interrupted`; nedokončený
+  krok má `status: interrupted`.
+- Chyby schématu `config.yaml` vrací YAML řádek. `GET /projects` vrací
+  počty scénářů/agentů a dnešní útratu; seznam běhů podporuje `before` a
+  `next_before`, `last_run` přidává `started_at`.
+- `render` přijímá text scénáře; `validate` přidává strom textového
+  scénáře. Chyby dávky obsahují `step` a dostupné `field`.
+- Callback tajemství je nutné jen při odesílání callbacku; token projektu
+  se čte jen v jednoprojektovém režimu.
+
 ## 0.9.0 — 2026-09-26 (projekty z GUI)
 
 Minor: aditivní API pro založení, registraci a odebrání projektu; formáty

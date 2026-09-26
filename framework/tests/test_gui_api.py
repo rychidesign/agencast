@@ -10,7 +10,7 @@ import pytest
 from test_api import registry_server, serve  # noqa: F401 — fixture
 from test_webhook import SECRET, TOKEN, finished
 
-from agencast import server
+from agencast import api, server
 from agencast.fake import Fake
 from agencast.projects import error_fields
 
@@ -80,6 +80,47 @@ def test_env_flags_never_values(registry_server, monkeypatch):  # noqa: F811
     assert r.json()["env"] == {"CALLBACK_SECRET": True, "OPENROUTER_API_KEY": True, "WEBHOOK_TOKEN": False,
                                "WEB_TOKEN": False}
     assert "sk-or-tajna-hodnota" not in r.text and SECRET not in r.text
+
+
+def test_config_schema_errors_have_key_lines(registry_server):  # noqa: F811
+    _, client, a, _ = registry_server
+    path = a / "workflows" / "config.yaml"
+    lines = path.read_text().splitlines()
+    at = next(i for i, line in enumerate(lines) if line.lstrip().startswith("run_budget_usd:"))
+    lines[at:at + 1] = ['  run_budget_usd: "x"', "  run_budegt_usd: 2"]
+    path.write_text("\n".join(lines) + "\n")
+    value_line, unknown_line = at + 1, at + 2
+    errors = client.get("/projects/alfa/files/config.yaml").json()["errors"]
+    assert {e["field"]: e["line"] for e in errors} == {
+        "limits.run_budget_usd": value_line, "limits.run_budegt_usd": unknown_line}
+    response = client.get("/projects/alfa")
+    assert response.status_code == 422
+    assert {e["field"]: e["line"] for e in response.json()["errors"]} == {
+        "limits.run_budget_usd": value_line, "limits.run_budegt_usd": unknown_line}
+
+
+def test_fake_template_project_runs_without_callback_secret(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("CALLBACK_SECRET", raising=False)
+    monkeypatch.delenv("WEBHOOK_TOKEN", raising=False)
+    root = tmp_path / "sablona"
+    api.new_project(root)
+    projects = server.Projects(token=TOKEN, fake=lambda: Fake(None))
+    projects.start()
+    assert "CALLBACK_SECRET" not in capsys.readouterr().err
+    srv, client = serve(projects=projects)
+    try:
+        rejected = client.post("/projects/sablona/runs", json={"scenario": "ukazka",
+                                                                "callback_url": "https://example.com/cb"})
+        assert rejected.status_code == 422 and "CALLBACK_SECRET" in rejected.json()["details"][0]
+        response = client.post("/projects/sablona/runs", json={"scenario": "ukazka"})
+        assert response.status_code == 202
+        hook = projects.hooks[root.resolve()]
+        finished(hook, response.json()["run_id"])
+        assert client.get(f"/projects/sablona/runs/{response.json()['run_id']}").json()["status"] == "succeeded"
+    finally:
+        client.close()
+        srv.shutdown()
+        srv.server_close()
 
 
 def test_runs_for_gui(registry_server):  # noqa: F811

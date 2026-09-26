@@ -17,7 +17,9 @@ a callbacky se nemění. Projekty: [projects.md](projects.md).
   z prostředí svého procesu (a z `.env` v aktuální složce); `.env`
   jednotlivých projektů se v registru nečtou. Jména proměnných
   (`openrouter.api_key_env`, `callback.secret_env`) se dál berou
-  z `config.yaml` projektu, hodnoty z prostředí serveru.
+  z `config.yaml` projektu, hodnoty z prostředí serveru. `callback.secret_env`
+  se vyžaduje jen při běhu s `callback_url`; `webhook.token_env` se čte
+  pouze v jednoprojektovém režimu.
 - Registr se čte při každém požadavku. Každý projekt má vlastní frontu
   (`<runs>/_queue/`) a `--workers N` pracovních vláken; fronty dostupných
   projektů se obnoví při startu, projekt přidaný později při prvním `POST`.
@@ -35,7 +37,7 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
 
 | Metoda a cesta | Odpověď |
 |---|---|
-| `GET /projects` | `{"projects": [{"name", "root", "available"}]}`; od 0.7.0 `reason` u `available: false`, `last_run` a `registry`; od 0.9.0 `projects_root` a `writable` |
+| `GET /projects` | `{"projects": [{"name", "root", "available"}]}`; od 0.7.0 `reason` u `available: false`, `last_run` a `registry`; od 0.9.0 `projects_root` a `writable`; od 0.10.0 `counts` a `spend_today_usd` |
 | `POST /projects/new` | `{name, root?}` — založí projekt a registruje ho; 201 `{name, root, created}` |
 | `POST /projects` | `{root, name?}` — zaregistruje existující projekt s `workflows/config.yaml`; 201 `{name, root}` |
 | `DELETE /projects/<p>` | Odebere projekt z registru; 200 `{name, removed: true, files_deleted: false, message}`; soubory zůstávají |
@@ -43,7 +45,7 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
 | `GET /projects/<p>/scenarios/<s>` | scénář se stromem kroků (níže) |
 | `GET /projects/<p>/files/<cesta>` | soubor z `workflows/` jako text s otiskem (oddíl [Editace](#editace-od-050)); od 0.8.0 `errors` = chyby `validate` souboru a `?etag_only=1` → jen `{"etag"}` ([Doplňky 0.8.0](#dávka-náhled-a-doplňky-podle-nálezů-gui-část-2-od-080)) |
 | `HEAD /projects/<p>/files/<cesta>` | od 0.8.0: jen otisk v hlavičce `ETag` ([Doplňky 0.8.0](#dávka-náhled-a-doplňky-podle-nálezů-gui-část-2-od-080)) |
-| `GET /projects/<p>/runs` | `{"runs": [...]}` — položky jako `agencast runs list`: čekající `{"run_id", "status": "queued"}`, pak `{"run_id", "status", "cost_usd", "duration_s", "callback", "scenario", "started_at", "finished_at", "current_step", "steps_total"}` (pole od `scenario` dál od 0.6.0, [Běhy pro GUI](#běhy-pro-gui-od-060)), nejnovější první; od 0.7.0 `state`, `fake`, `current_nn`, `steps_done`, `queue_position` a `?scenario=&limit=` ([Doplňky 0.7.0](#doplňky-podle-nálezů-gui-od-070)) |
+| `GET /projects/<p>/runs` | `{"runs": [...]}` — položky jako `agencast runs list`: čekající `{"run_id", "status": "queued"}`, pak `{"run_id", "status", "cost_usd", "duration_s", "callback", "scenario", "started_at", "finished_at", "current_step", "steps_total"}` (pole od `scenario` dál od 0.6.0, [Běhy pro GUI](#běhy-pro-gui-od-060)), nejnovější první; od 0.7.0 `state`, `fake`, `current_nn`, `steps_done`, `queue_position` a `?scenario=&limit=`; od 0.10.0 `before` a `next_before` |
 | `GET /projects/<p>/runs/<id>` | stav běhu + kroky + soubory (níže); čekající ve frontě `{"run_id", "status": "queued"}` (od 0.7.0 i `state`, `scenario`, `queue_position`); od 0.7.0 strom kroků `tree` |
 | `GET /projects/<p>/runs/<id>/steps/<cesta>` | jeden krok běhu: jeho události, výstup a soubory (od 0.7.0, [níže](#get-projectspruns-idstepscesta-od-070)) |
 | `GET /projects/<p>/runs/<id>/files/<cesta>` | obsah souboru ze složky běhu (`summary.md`, `report.html`, `events.jsonl`, `steps/…`), `Content-Type` podle přípony |
@@ -291,7 +293,7 @@ objekt:
 | `file` | relativní cesta ve `workflows/` (`scenarios/ig-post.yaml`, `agents/copy.md`, `skills/hlas/SKILL.md`, `config.yaml`, `mcp.yaml`) |
 | `step` | id kroku, kterého se chyba týká |
 | `field` | pole (cesta s tečkami, např. `ask.prompt`, `inputs.tema.default`, `openrouter`) |
-| `line` | číslo řádku — jen tam, kde ho hlásí loader (syntaxe YAML, duplicitní klíč) |
+| `line` | číslo řádku — syntaxe YAML, duplicitní klíč a od 0.10.0 chyby schématu `config.yaml` podle klíče |
 
 Pole kromě `message` chybí, když je hláška neuvádí (např. chyba těla
 požadavku `fields: má být JSON objekt`). Změna tvaru proti 0.4.0/0.5.0
@@ -309,7 +311,9 @@ Validace bez zápisu, stejná mechanika jako krok 3 editačních operací
 | `{"path": "scenarios/ig-post.yaml", "text": "…"}` | projekt s tímto souborem nahrazeným textem `text` (nový soubor jde taky); `path` jen z povolených souborů `files/` |
 
 Odpověď **200** `{"errors": [...]}` = **všechny** chyby projektu (i ty,
-které tam už byly; objekty jako výše). Soubor mimo povolené → 404,
+které tam už byly; objekty jako výše). U `path: "scenarios/<jméno>.yaml"`
+vrátí text scénáře navíc `tree` ve stejném tvaru jako
+`GET …/scenarios/<s>`; nic se nezapisuje. Soubor mimo povolené → 404,
 `text` není text → 422. Otisk se nekontroluje, nic se nezapisuje.
 
 ### Běhy pro GUI (od 0.6.0)
@@ -384,7 +388,7 @@ i detail běhu mají strojové pole `state`:
 |---|---|---|
 | `queued` | požadavek ve frontě `serve`, složka běhu ještě není; od 0.8.0 i složka ze záznamu fronty, jejíž zámek nikdo nedrží a která nemá `run_finished` | `queued` |
 | `running` | zámek `run.lock` drží živý proces | `běží` |
-| `interrupted` | bez `run_finished` a bez drženého zámku (pád, restart `serve`, běh před 0.7.0 bez zámku) | `přerušen` (`?` u složky bez `events.jsonl` i `plan.md`) |
+| `interrupted` | bez drženého zámku, bez `run_finished` nebo `run_finished` obnovený po restartu `serve` (od 0.10.0) | `přerušen` nebo `failed (internal v <krok>)` po obnově |
 | `succeeded`, `failed` | `run_finished.status` | `succeeded`, `failed (<třída> v <krok>)` |
 | `cancelled` | rezervováno — běh v1 tak nekončí | — |
 | `dry_run` | jen `plan.md` (`--dry-run`, `dry_run: true`); od 0.8.0 navíc bez `run.lock` — ostrý běh ho má dřív než `plan.md` | `dry-run` |
@@ -394,11 +398,13 @@ Pozor: běh spuštěný frameworkem před 0.7.0, který ještě běží, je
 
 ### Seznam běhů
 
-`GET /projects/<p>/runs?scenario=<s>&limit=<n>`: `scenario` = jen běhy
-scénáře (podle jména v `run_id`), `limit` = nejvýš `n` položek (kladné
-celé číslo, jinak 422; bez něj všechny). Pořadí jako dřív: čekající ve
-frontě (nejstarší první), pak složky od nejnovější. Limit se uplatní dřív,
-než se čtou záznamy. Nová pole položky:
+`GET /projects/<p>/runs?scenario=<s>&limit=<n>&before=<run_id>`:
+`scenario` filtruje podle jména v `run_id`; `limit` = nejvýš `n` položek
+(kladné celé číslo, jinak 422; bez něj všechny). Výsledky řadí jméno
+složky sestupně. `before` je výlučný kurzor podle jména složky; musí mít
+tvar `run_id`, jinak 422. S `limit` vrátí API `next_before` jen tehdy, když
+existují starší výsledky; hodnota je `run_id` poslední položky stránky.
+Limit se uplatní před čtením záznamů. Nová pole položky:
 
 | Pole | Co to je |
 |---|---|
@@ -412,7 +418,7 @@ než se čtou záznamy. Nová pole položky:
 
 `last_run` (`GET /projects` u dostupného projektu, `GET /projects/<p>`
 u scénáře) = první položka seznamu (`limit=1`) zúžená na
-`{"run_id", "state", "finished_at", "cost_usd"}`, `null` bez běhů —
+`{"run_id", "state", "started_at", "finished_at", "cost_usd"}`, `null` bez běhů —
 může to být i čekající běh nebo dry-run.
 
 ### Podrobnosti kroků (od 0.7.0)
@@ -473,7 +479,10 @@ přes `call` do `<run>/scenario/<jméno>.yaml`
 jednoho projektu). `projects_root` = nastavená výchozí cesta, jinak
 `~/workspace`. `writable` je `true` jen v režimu registru, když proces může
 registr atomicky zapsat; v jednoprojektovém režimu je `false`. Nedostupný
-projekt má `reason` (`chybí <root>/workflows/config.yaml`).
+projekt má `reason` (`chybí <root>/workflows/config.yaml`). Od 0.10.0
+každá položka projektu navíc obsahuje `counts: {scenarios, agents}`
+(počet souborů ve složkách projektu) a `spend_today_usd` z denní knihy
+v UTC. Počty a útrata se načítají bez validace projektu.
 
 ## Dávka, náhled a doplňky podle nálezů GUI, část 2 (od 0.8.0)
 
@@ -539,6 +548,11 @@ a nesedí → 409.
 
 Chyba operace → 422 s `op` jako u `batch`. GUI tím validuje Form režim
 průběžně a převádí Form ↔ YAML i s neuloženými změnami.
+
+Od 0.10.0 přijímá `render` také `{"text": "…"}` místo `ops` a vrací
+`{"tree": [...], "errors": [...]}` podle rozpracovaného scénáře; text se
+nezapisuje. `text` a `ops` v jednom těle → 422. Stejný tvar stromu přidává
+`POST …/validate` pro text scénáře.
 
 ### Celý krok: `PUT …/scenarios/<s>/steps/<adresa>`
 
@@ -619,3 +633,24 @@ zakázané (422):
 `runs_dir` platí pro nové běhy a čtení běhů hned; běžící `serve` má ale
 frontu `_queue/` ve složce ze startu projektu — po změně `runs_dir`
 restartuj `serve`, jinak čekající běhy ze staré složky GUI neuvidí.
+
+## Doplňky podle nálezů GUI (od 0.10.0)
+
+- Obnovený rozběhnutý záznam zachová původní `run_started`; doplní
+  `run_finished.status: failed` s chybou `internal`, posledním začatým
+  krokem a zprávou `běh přerušen restartem serveru`. API `state` zůstává
+  `interrupted`; krok bez `step_finished` má `status: interrupted`.
+- Chyby schématu `config.yaml` nesou `line` podle klíče YAML v odpovědi
+  `GET …/files/config.yaml` i `GET /projects/<p>`.
+- `GET /projects` vrací v každé položce `counts: {scenarios, agents}` a
+  `spend_today_usd`; počty jsou výpisy souborů a útrata denní kniha,
+  bez plné validace.
+- `GET …/runs` přijímá `before=<run_id>` a při další stránce vrací
+  `next_before`; `last_run` přidává `started_at`.
+- Chyby dávkové operace nesou `step` (adresa před operací, nebo id
+  vloženého kroku u `add_step`) a `field`, je-li známé.
+- U `POST /projects/<p>/runs` se `callback.secret_env` vyžaduje jen s
+  `callback_url`. `webhook.token_env` se čte jen v jednoprojektovém
+  režimu; režim registru ověřuje token serveru.
+
+Smlouva `POST /runs`, callback a formáty v1 se nemění.

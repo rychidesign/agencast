@@ -377,3 +377,13 @@ rozhoduje koordinátor nebo uživatel.
     normalizuje cesty, zakazuje `..` a relativní únik přes symlink.
     Zápis mimo domovský adresář serveru zůstává povolený a běží s právy
     uživatele `serve`; v jednoprojektovém režimu jsou zápisy 405.
+48. **Doplňky API podle nálezů GUI 21–28** (framework 0.10.0,
+    [`docs/ui/nalezy-api.md`](../ui/nalezy-api.md)). Obnova přerušeného běhu
+    zachová `run_started`, zapisuje `run_finished failed` s posledním
+    krokem a vrací `state: interrupted`; osiřelé kroky jsou `interrupted`.
+    Chyby schématu configu dostávají YAML řádek; `/projects` přidává počty
+    a útratu dne; běhy mají kurzor `before` a `next_before`; `render` i
+    `validate` umí vrátit strom ze scénářového textu; chyby operace dávky
+    nesou krok a pole. `callback.secret_env` se kontroluje pouze s
+    callbackem a `webhook.token_env` jen v jednoprojektovém režimu. Formáty
+    v1, `POST /runs` a smlouva callbacku se nemění.

@@ -116,22 +116,32 @@ def test_runs_list_fields_filter_limit_and_last_run(registry_server):  # noqa: F
 
     items = client.get("/projects/alfa/runs").json()["runs"]
     assert [(x["run_id"][-4:], x["state"]) for x in items] == [
-        ("0004", "queued"), ("0005", "queued"), ("0003", "dry_run"), ("0002", "interrupted"), ("0001", "failed")]
-    assert [x.get("queue_position") for x in items[:2]] == [2, 3]  # běžící je ve frontě před nimi
+        ("0005", "queued"), ("0004", "queued"), ("0003", "dry_run"), ("0002", "interrupted"), ("0001", "failed")]
+    assert [x.get("queue_position") for x in items[:2]] == [3, 2]
     assert items[0]["scenario"] == "ukazka" and items[3]["fake"] is True and items[4]["fake"] is False
     assert (items[2]["scenario"], items[2]["started_at"]) == ("ukazka", "2026-09-26T12:00:00.000Z")
     assert items[4]["status"] == "failed (fail v napis)" and items[3]["status"] == "přerušen"
 
     only = client.get("/projects/alfa/runs", params={"scenario": "ukazka", "limit": "3"}).json()["runs"]
-    assert [x["run_id"][-4:] for x in only] == ["0004", "0005", "0003"]
+    assert [x["run_id"][-4:] for x in only] == ["0005", "0004", "0003"]
     assert [x["run_id"][-4:] for x in client.get("/projects/alfa/runs?scenario=jiny").json()["runs"]] == ["0002"]
     assert client.get("/projects/alfa/runs?limit=0").status_code == 422
+    first = client.get("/projects/alfa/runs?limit=2").json()
+    assert [x["run_id"][-4:] for x in first["runs"]] == ["0005", "0004"]
+    assert first["next_before"] == first["runs"][-1]["run_id"]
+    second = client.get("/projects/alfa/runs", params={"limit": 2, "before": first["next_before"]}).json()
+    assert [x["run_id"][-4:] for x in second["runs"]] == ["0003", "0002"]
+    assert second["next_before"] == second["runs"][-1]["run_id"]
+    last = client.get("/projects/alfa/runs", params={"limit": 2, "before": second["next_before"]}).json()
+    assert [x["run_id"][-4:] for x in last["runs"]] == ["0001"] and "next_before" not in last
+    assert client.get("/projects/alfa/runs?before=wrong").status_code == 422
     assert client.get("/projects/alfa/runs/20260926-130000-ukazka-0004").json()["queue_position"] == 2
 
     for f in (runs / "_queue").glob("*.json"):
         f.unlink()
     (sc,) = client.get("/projects/alfa").json()["scenarios"]
-    assert sc["last_run"] == {"run_id": dry.name, "state": "dry_run", "finished_at": None, "cost_usd": None}
+    assert sc["last_run"] == {"run_id": dry.name, "state": "dry_run", "started_at": items[2]["started_at"],
+                              "finished_at": None, "cost_usd": None}
     assert sc["types"] == ["ask", "output"]
     listing = client.get("/projects").json()["projects"]
     assert listing[0]["last_run"]["run_id"] == dry.name and listing[1]["last_run"] is None
@@ -162,7 +172,9 @@ def test_broken_config_errors_and_runs_still_readable(registry_server):  # noqa:
     cfg.write_text(text.replace("run_timeout: 1h", "run_timeout: hodina"))  # schéma: řádek loader nezná
     f = client.get("/projects/alfa/files/config.yaml").json()
     assert f["data"]["limits"]["run_timeout"] == "hodina" and f["errors"][0]["file"] == "config.yaml"
-    assert "line" not in f["errors"][0] and "run_timeout" in f["errors"][0]["message"]
+    assert f["errors"][0]["line"] == next(i for i, row in enumerate(text.splitlines(), 1)
+                                             if row.lstrip().startswith("run_timeout:"))
+    assert "run_timeout" in f["errors"][0]["message"]
     assert [x["run_id"] for x in client.get("/projects/alfa/runs").json()["runs"]] == [run_id]  # runs_dir z configu
 
     (a / "workflows" / "mcp.yaml").write_text("version: 1\nservers:\n  web: { url: https://x.example.com }\n")

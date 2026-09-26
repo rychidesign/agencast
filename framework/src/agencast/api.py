@@ -11,7 +11,7 @@ from typing import Any
 from . import ConfigErrors, projects as _projects
 from .edit import (Conflict, NotFound, OpError, add_step, batch, delete_agent, delete_scenario, delete_skill, delete_step,
                    file_etag, move_step, read_file, render, replace_step, set_agent, set_config, set_header, set_skill,
-                   update_step, validate_text, write_file)
+                   render_text as _render_text, update_step, validate_text, write_file)
 from .engine import RUN_ID, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import LoadError, load_dotenv, read_yaml
@@ -29,7 +29,7 @@ __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "ne
            "delete_scenario", "set_agent", "delete_agent", "set_skill", "delete_skill", "set_config", "read_file",
            "write_file", "validate_text",
            # 0.8.0: dávka a náhled bez zápisu, celý krok, lehký otisk souboru
-           "OpError", "batch", "render", "replace_step", "file_etag"]
+           "OpError", "batch", "render", "render_text", "replace_step", "file_etag"]
 
 
 def find_root(project_root=None) -> Path:
@@ -109,29 +109,32 @@ def _queue(runs: Path) -> dict[str, dict[str, Any]]:
 def _in_queue(info: dict[str, Any], queue: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """0.8.0: složka běhu ze fronty `serve`, jejíž zámek (ještě) nikdo nedrží a která neskončila, je `queued`
     (pracovní vlákno ji právě převzalo, nebo čeká na restart serveru) — nikdy `interrupted` ani `dry_run`."""
-    if info["run_id"] in queue and info["state"] in ("interrupted", "dry_run"):
+    if info["run_id"] in queue and info["finished_at"] is None and info["state"] in ("interrupted", "dry_run"):
         info.update(status="queued", state="queued", queue_position=queue[info["run_id"]]["queue_position"])
     return info
 
 
-def runs_list(project_root=None, scenario: str | None = None, limit: int | None = None) -> list[dict]:
-    """Běhy projektu, nejnovější první: nejdřív čekající ve frontě `serve` (`status: queued`),
-    pak záznamy běhů (`run_status`). `scenario` filtruje podle jména v run_id, `limit` ořízne
-    seznam dřív, než se čtou záznamy (0.7.0)."""
+def runs_list(project_root=None, scenario: str | None = None, limit: int | None = None,
+              before: str | None = None) -> list[dict]:
+    """Běhy projektu podle jména složky sestupně; `scenario` filtruje run_id a `before` stránkuje."""
     runs = _runs_dir(project_root)
     mine = re.compile(rf"\d{{8}}-\d{{6}}-{re.escape(scenario)}-[0-9a-f]{{4}}") if scenario else RUN_ID
     queue = _queue(runs)
-    queued = [q for q in queue.values() if mine.fullmatch(q["run_id"]) and not (runs / q["run_id"]).is_dir()]
-    dirs = sorted((d for d in runs.glob("*") if d.is_dir() and mine.fullmatch(d.name)), reverse=True)
+    queued = {q["run_id"]: q for q in queue.values()
+              if mine.fullmatch(q["run_id"]) and not (runs / q["run_id"]).is_dir()}
+    dirs = {d.name for d in runs.glob("*") if d.is_dir() and mine.fullmatch(d.name)}
+    ids = sorted(queued.keys() | dirs, reverse=True)
+    if before is not None:
+        ids = [run_id for run_id in ids if run_id < before]
     if limit is not None:
-        queued, dirs = queued[:limit], dirs[:max(limit - len(queued), 0)]
-    return queued + [_in_queue(run_status(d), queue) for d in dirs]
+        ids = ids[:limit]
+    return [queued[run_id] if run_id in queued else _in_queue(run_status(runs / run_id), queue) for run_id in ids]
 
 
 def last_run(project_root, scenario: str | None = None) -> dict[str, Any] | None:
-    """Nejnovější běh (projektu nebo scénáře) pro stavový čip GUI: `{run_id, state, finished_at, cost_usd}`."""
+    """Nejnovější běh (projektu nebo scénáře) pro GUI."""
     r = runs_list(project_root, scenario, limit=1)
-    return {k: r[0].get(k) for k in ("run_id", "state", "finished_at", "cost_usd")} if r else None
+    return {k: r[0].get(k) for k in ("run_id", "state", "started_at", "finished_at", "cost_usd")} if r else None
 
 
 def new_project(root, name: str | None = None) -> list[Path]:
@@ -194,6 +197,11 @@ def describe_project(project_root) -> dict[str, Any]:
     for sc in body["scenarios"]:
         sc["last_run"] = last_run(root, sc["name"])
     return body
+
+
+def render_text(project_root, name: str, text: Any) -> dict[str, Any]:
+    """Strom a chyby scénáře z rozpracovaného YAML textu bez zápisu."""
+    return _render_text(find_root(project_root), name, text)
 
 
 def describe_scenario(project_root, name: str) -> dict[str, Any] | None:

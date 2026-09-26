@@ -391,9 +391,38 @@ OPS: dict[str, Callable[..., None]] = {
 class OpError(ConfigErrors):
     """Operace dávky číslo `op` (od 0) nešla provést; nic se nezapsalo."""
 
-    def __init__(self, op: int, errors: list[str]):
+    def __init__(self, op: int, errors: list[str], step: str | None = None, field: str | None = None):
         super().__init__(errors)
-        self.op = op
+        self.op, self.step, self.field = op, step, field
+
+
+def _op_step(d, kind, op) -> str | None:
+    if kind == "add_step":
+        step = op.get("step")
+        return step.get("id") if isinstance(step, dict) and isinstance(step.get("id"), str) else None
+    try:
+        address = op.get("address")
+        if isinstance(address, list):
+            steps, index = _step(d, address)
+            step = steps[index]
+            return step.get("id") if isinstance(step, dict) and isinstance(step.get("id"), str) else None
+    except (ConfigErrors, NotFound):
+        pass
+    return None
+
+
+def _op_field(errors: list[str]) -> str | None:
+    for message in errors:
+        match = re.search(r"pole ['\"]([^'\"]+)", message)
+        if match:
+            return match[1]
+        match = re.match(r"(?:chybí pole|neznámé pole) ([\w.-]+)", message)
+        if match:
+            return match[1]
+        match = re.match(r"([\w.-]+): ", message)
+        if match:
+            return match[1]
+    return None
 
 
 def _apply(d, ops: Any):
@@ -402,6 +431,7 @@ def _apply(d, ops: Any):
         raise ConfigErrors(["ops: má být seznam operací"])
     for n, op in enumerate(ops):
         kind = op.get("op") if isinstance(op, dict) else None
+        step = _op_step(d, kind, op) if isinstance(op, dict) else None
         try:
             if not isinstance(kind, str) or kind not in OPS:
                 raise ConfigErrors([f"op: {kind!r} neznám (povolené: {', '.join(OPS)})"])
@@ -415,7 +445,8 @@ def _apply(d, ops: Any):
                                     f"neznámé pole {', '.join(unknown)} (povolená: {', '.join(p.name for p in params)})"])
             fn(d, **args)
         except (ConfigErrors, NotFound) as e:
-            raise OpError(n, [f"ops[{n}] {kind}: {m}" for m in (e.errors if isinstance(e, ConfigErrors) else [str(e)])]) from None
+            errors = e.errors if isinstance(e, ConfigErrors) else [str(e)]
+            raise OpError(n, [f"ops[{n}] {kind}: {m}" for m in errors], step, _op_field(errors)) from None
 
 
 def set_header(root, name: str, tag, fields: Any) -> dict[str, Any]:
@@ -473,6 +504,20 @@ def render(root, name: str, tag, ops: Any) -> dict[str, Any]:
     except LoadError:
         sc = None
     return {"text": text, "tree": _steps(sc.get("steps") if isinstance(sc, dict) else None, []),
+            "errors": _errors_with(root, rel, text)}
+
+
+def render_text(root, name: str, text: Any) -> dict[str, Any]:
+    """Strom a chyby scénáře z rozpracovaného YAML textu bez zápisu."""
+    root, rel = Path(root).resolve(), f"scenarios/{name}.yaml"
+    _path(root, rel)
+    if not isinstance(text, str):
+        raise ConfigErrors(["text: má být text"])
+    try:
+        sc = load_yaml(text, rel)
+    except LoadError:
+        sc = None
+    return {"tree": _steps(sc.get("steps") if isinstance(sc, dict) else None, []),
             "errors": _errors_with(root, rel, text)}
 
 

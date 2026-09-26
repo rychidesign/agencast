@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import ConfigErrors, AgencastError
 from .expressions import ExprError, infer, kind, parse, template_type, tkind
-from .loader import (LoadError, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors,
+from .loader import (LoadError, load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors,
                      schema_errors, seconds, step_kind, version_error)
 from .mcp_client import api_name, load_mcp, secret_names
 from .providers import DEFAULT_BASE_URL, list_models, shape_type
@@ -94,14 +94,15 @@ def load_config(workflows: Path, errs: list) -> dict | None:
         errs.append(f"{p}: chybí — zkopíruj workflows/config.example.yaml na config.yaml a uprav (mění jen vlastník)")
         return None
     try:
-        c = read_yaml(p, "config.yaml")
+        text = p.read_text(encoding="utf-8")
+        c = load_yaml(text, "config.yaml")
     except LoadError as e:
         errs.append(str(e))
         return None
     if v := version_error(c, "config.yaml"):
         errs.append(v)
         return None
-    if e := schema_errors("config", c, "config.yaml"):
+    if e := schema_errors("config", c, "config.yaml", source=text):
         errs.extend(e)
         return None
     seen = {}
