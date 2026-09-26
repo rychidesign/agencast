@@ -250,7 +250,7 @@ Skilly            │ thtd-hlas                                                 
 | `Button` | primární = světlá pilulka (`bg-zinc-100 text-zinc-900`), sekundární = tmavá pilulka (`bg-zinc-800 text-zinc-100`), drobná „+ Přidat …“ pilulka vpravo od štítku sekce (jako „+ Add header“) | výchozí, hover, focus, disabled |
 | `StatusBadge` | ikona + text: ✓ úspěch, ✗ chyba, ○ přeskočeno, ● běží (pulz), ◌ ve frontě, ⚠ varování, zrušeno | nikdy jen barva |
 | `CostChip`, `DurationChip` | `0,0015 USD` (čárka, ≥ 4 místa, nula = `0`, `USD` za číslem s pevnou mezerou), `17,5 s` / `1 min 12 s`; mono | u obrázků „z toho obrázky …“ v hlavičce |
-| `ExprInput`, `TemplateInput` | mono pole; našeptávač `inputs.` a `steps.<id>.<pole>` jen pro kroky nad a ve stejné větvi | chyba s hláškou a stříškou `^` ze serveru |
+| `ExprInput`, `TemplateInput` | mono pole; našeptávač `inputs.` a `steps.<id>.<pole>` jen pro kroky nad a ve stejné větvi; nabídka proměnných tlačítkem u pole | chyba s hláškou a stříškou `^` ze serveru |
 | `ValidationError` | text pod polem + červená tečka u karty + počet v hlavičce „Neuloženo · 2 chyby“ (klik = skok na první) | |
 | `ConflictBar` | sticky pruh nad kartami | viz 4.6 |
 | `EmptyState` | jedna věta + jedna akce + CLI ekvivalent (`agencast new scenario …`) | projekt bez scénářů, bez běhů, běh ve frontě, nedostupný projekt |
@@ -347,3 +347,5 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 5. *Spouštění běhu z GUI s formulářem vstupů?* — **Ano**, `POST /projects/<p>/runs` s volitelnou callback URL. Vyžaduje úpravu API.
 
 Body 7.2–7.4 a 8.5 jdou do navazujícího úkolu „API doplňky pro GUI“ po 0.5.0.
+
+Nabídka proměnných se inspiruje Webflow: tlačítko u výrazu a šablony otevře dostupné hodnoty a výběr vloží proměnnou na pozici kurzoru. Fialová označuje proměnnou, modrá zůstává typům kroků na kartách.

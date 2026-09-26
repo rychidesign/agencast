@@ -668,3 +668,31 @@ test("C17 alias modelu s pomlčkou v Configu", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/agenti/pisatel`);
   await expect(page.getByRole("combobox", { name: /^model/ }).locator("option", { hasText: "gpt-image — openai/gpt-image-2" })).toHaveCount(1);
 });
+
+test("C18 vložení proměnné z nabídky myší i klávesnicí", async ({ page, project }) => {
+  await page.goto(`/#/p/${project.name}/scenare/ukazka`);
+  await page.getByRole("button", { name: /Krok 1: ask napis/ }).click();
+  const prompt = page.getByRole("combobox", { name: /Prompt/ });
+  const insert = page.getByRole("button", { name: "Vložit proměnnou" });
+
+  await prompt.fill("Napiš dlouhý text");
+  await prompt.click({ position: { x: 72, y: 12 } });
+  await insert.click();
+  await page.getByRole("menuitem", { name: "inputs.tema" }).click();
+  await expect(prompt).toHaveValue(/{{ inputs\.tema }}/);
+  await page.getByRole("button", { name: "Uložit" }).click();
+  await expect(saveStatus(page)).toHaveText(/^Uloženo ✓/);
+  expect(project.read("scenarios/ukazka.yaml")).toContain("{{ inputs.tema }}");
+
+  await prompt.fill("Další text");
+  await prompt.press("Tab");
+  await expect(insert).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(prompt).toHaveValue(/{{ inputs\.tema }}/);
+  await page.getByRole("button", { name: "Uložit" }).click();
+  await expect(saveStatus(page)).toHaveText(/^Uloženo ✓/);
+  expect(project.read("scenarios/ukazka.yaml")).toContain("Další text{{ inputs.tema }}");
+});

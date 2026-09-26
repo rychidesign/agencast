@@ -36,4 +36,4 @@ React 18 + Vite + TypeScript + Tailwind; nic neparsuje ani nevaliduje samo.
   a prohlížeč Playwrightu 1.62 (`npx playwright install chromium`).
 - Každý worker pouští vlastní `agencast serve --fake` (port od `E2E_PORT`, výchozí 18700) s `AGENCAST_CONFIG_DIR`
   v tmp; každý test si založí projekt přes `POST /projects/new` (`e2e/fixtures.ts`). Síť jen na localhost.
-- Testy pokrývají cesty C1–C16 a stavy N1–N6 z `docs/ui/uzivatelske-cesty.md`.
+- Testy pokrývají cesty C1–C18 a stavy N1–N6 z `docs/ui/uzivatelske-cesty.md`.

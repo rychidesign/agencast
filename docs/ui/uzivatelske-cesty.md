@@ -161,6 +161,12 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 2. Id modelu, Uložit → `PUT …/config` (merge patch); nový alias se do `config.yaml` zapíše stejným řádkovým stylem `{ id: … }` jako ostatní, přejmenování maže starý klíč první.
 3. Po načtení je alias v nabídce modelu agenta. Test: `editor.spec.ts` „C17“.
 
+### C18 Vložení proměnné z nabídky
+
+1. `ukazka` → krok `napis` → Prompt; klik doprostřed textu → „Vložit proměnnou“ → `inputs.tema`. Proměnná se vloží na místo kurzoru jako `{{ inputs.tema }}` a fokus i kurzor zůstanou v poli.
+2. Uložit → „Uloženo ✓“; `project.read("scenarios/ukazka.yaml")` obsahuje vloženou šablonu.
+3. Klávesami: Tab z pole na tlačítko → Enter → šipka dolů → Enter; stejný výsledek. Test: `editor.spec.ts` „C18“.
+
 ## Negativní a okrajové stavy
 
 - **N1 Server neodpovídá** — Stav: `page.route("**/projects*", r => r.abort())` nebo zastavený `serve`. Očekávání: sticky `server-bar` `role=alert` „Server agencast neodpovídá (127.0.0.1:8787), zkouším znovu…“, obsah zůstává (poslední data), žádná chybová hláška navíc; po obnovení routy do 5 s pruh zmizí sám. V editoru s rozpracovanou změnou zůstává „Neuloženo“ a draft v `localStorage` (`agencast.draft.*`). **[hotovo]**
