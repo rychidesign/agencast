@@ -9,6 +9,8 @@ Rozhodnutí koordinátora k otázkám v §8 jsou na konci dokumentu.
 
 Podklady: DESIGN.md (Obálky, §5), spec scenario/agent/config/skill/api/projects/run-record, ig-post.yaml, SKILL.md agencast-create.
 
+Screenshot z Buzz (Create workflow) k designérovi nedorazil ani jako obrázek, ani jako cesta k souboru; vizuální reference je převzata z textového popisu v zadání. Po dodání screenshotu (cesta k PNG) projde designér §5 a podobu karty a panelu v §2.3 znovu.
+
 ## 1. Informační architektura
 
 ```
