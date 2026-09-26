@@ -7,12 +7,13 @@ Registr = `<AGENCAST_CONFIG_DIR, výchozí ~/.config/agencast>/projects.yaml`,
 a mění se s nimi. Nic se nepřepisuje: existující soubor = chyba `config`.
 """
 import ast
+import fcntl
 import hashlib
 import json
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -197,15 +198,19 @@ def registry_writable() -> bool:
     return os.access(directory, os.W_OK | os.X_OK)
 
 
-def _save(items: list[dict[str, str]]):
-    # ponytail: dva souběžné zápisy (add z dvou terminálů) — vyhraje poslední; zámek, až to začne vadit
+def _save(change: Callable[[list[dict[str, str]]], Any]):
     p = registry_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    data = _read_registry()
-    data["projects"] = items
-    tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    tmp.replace(p)  # serve čte registr při každém požadavku → nikdy půlka souboru
+    with p.with_suffix(p.suffix + ".lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = _read_registry()
+        items = data.get("projects") or []
+        result = change(items)
+        data["projects"] = items
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+        tmp.replace(p)  # serve čte registr při každém požadavku → nikdy půlka souboru
+    return result
 
 
 def list_projects() -> list[dict[str, str | bool]]:
@@ -235,19 +240,21 @@ def _checked_name(root: Path, name: str | None, items: list[dict[str, str]]) -> 
 
 def add(root: Path, name: str | None = None) -> str:
     """Zapíše projekt do registru; jméno výchozí = složka (kebab). Vrací jméno."""
-    items = _read()
-    if hit := next((x for x in items if Path(x["root"]) == root), None):
-        raise ProjectConflict([f"{root}: už je v registru jako '{hit['name']}'"])
-    name = _checked_name(root, name, items)
-    _save(items + [{"name": name, "root": str(root)}])
-    return name
+    def append(items):
+        if hit := next((x for x in items if Path(x["root"]) == root), None):
+            raise ProjectConflict([f"{root}: už je v registru jako '{hit['name']}'"])
+        checked_name = _checked_name(root, name, items)
+        items.append({"name": checked_name, "root": str(root)})
+        return checked_name
+    return _save(append)
 
 
 def remove(name: str):
-    items = _read()
-    if not any(x["name"] == name for x in items):
-        raise ConfigErrors([f"projekt '{name}' v registru není ({registry_path()})"])
-    _save([x for x in items if x["name"] != name])
+    def discard(items):
+        if not any(x["name"] == name for x in items):
+            raise ConfigErrors([f"projekt '{name}' v registru není ({registry_path()})"])
+        items[:] = [x for x in items if x["name"] != name]
+    _save(discard)
 
 
 def ensure(root: Path) -> str | None:

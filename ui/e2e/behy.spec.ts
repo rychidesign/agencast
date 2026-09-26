@@ -58,6 +58,7 @@ test("C6 spuštění běhu s formulářem vstupů (dry-run, ostrý, živý)", as
   await expect(limits).toHaveText(["1,00 USD", "0,30 USD", "1h", "0 USD"]);
   await expect(panel.getByText("Máš neuložené změny — běh použije verzi na disku.")).toBeVisible();
   const live = page.waitForResponse((r) => r.url().endsWith(`/projects/${project.name}/runs`) && r.request().method() === "POST");
+  page.once("dialog", (d) => void d.accept());
   await panel.getByRole("button", { name: "Spustit ostrý běh" }).click();
   expect((await live).status()).toBe(202);
   await expect(page).toHaveURL(/#\/p\/[^/]+\/behy\/[^?]+$/);

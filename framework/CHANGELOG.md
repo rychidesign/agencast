@@ -5,6 +5,15 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.10.2 — 2026-09-26 (opravy souběhu a odchodu z editoru)
+
+- Editace znovu ověří SHA-256 souboru po validaci a těsně před zápisem; změna
+  během validace vrátí 409 a zůstane zachována.
+- Zápisy do registru projektů zamykají čtení, úpravu i zápis přes
+  `projects.yaml.lock`, takže souběžná přidání neztratí záznam.
+- Neuložený editor potvrzuje odchod i při změně hashe či tlačítku Zpět;
+  odmítnutí vrátí původní hash.
+
 ## 0.10.1 — 2026-09-26 (úklid podle ponytail auditu, bez změny chování)
 
 Patch: úklid podle ponytail auditu, bez změny chování; formáty v1, záznam

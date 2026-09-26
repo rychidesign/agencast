@@ -42,7 +42,6 @@ HEADER = ("description", "inputs", "outputs", "callable")  # name a version = jm
 CONFIG = ("models", "limits", "storage", "webhook", "callback", "openrouter", "runs_dir")
 OPENROUTER = ("api_key_env", "jev_model")  # base_url ne: jinam by odešel klíč (config.md)
 
-# ponytail: jeden zámek na všechny zápisy v procesu; ruční úprava souboru mezi čtením a os.replace se nepozná (okno ms)
 _lock = threading.Lock()
 
 
@@ -73,8 +72,10 @@ def _read(p: Path) -> str | None:
     return p.read_bytes().decode() if p.is_file() else None  # bez překladu konců řádků — otisk = bajty souboru
 
 
-def _write(p: Path, text: str | None):
+def _write(p: Path, text: str | None, tag: str | None = None, *, check: bool = False):
     if text is None:
+        if check and (current := etag(_read(p))) != tag:
+            raise Conflict(current)
         p.unlink(missing_ok=True)
         if p.name == "SKILL.md":
             try:
@@ -85,6 +86,9 @@ def _write(p: Path, text: str | None):
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_name(f".{p.name}.tmp")
     tmp.write_bytes(text.encode())
+    if check and (current := etag(_read(p))) != tag:
+        tmp.unlink(missing_ok=True)
+        raise Conflict(current)
     os.replace(tmp, p)
 
 
@@ -141,7 +145,7 @@ def _save(root, rel: str, tag: str | None, change: Callable[[str | None], str | 
             raise Conflict(etag(old))
         new = change(old)
         errors = _check(root, rel, new)
-        _write(p, new)
+        _write(p, new, tag, check=True)
     return {"etag": etag(new), "errors": errors}
 
 

@@ -56,20 +56,35 @@ export function useWatch(check: () => void, active: boolean) {
 /** Varování před odchodem s neuloženými změnami: obnovení/zavření stránky i odkaz na jinou stránku GUI
  *  (`#/…` s jinou cestou; změna jen `?krok=` se neptá). Rozpracovaný stav přesto zůstává v localStorage. */
 export function useLeaveGuard(dirty: boolean) {
+  const lastHash = useRef(location.hash);
   useEffect(() => {
-    if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    // ponytail: jen kliknutí na odkaz; tlačítko Zpět prohlížeče (hashchange) se neptá
     const link = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.("a[href^='#']");
-      if (!a || e.defaultPrevented || a.getAttribute("href")!.split("?")[0] === location.hash.split("?")[0]) return;
+      const href = a?.getAttribute("href");
+      if (!href || e.defaultPrevented || href.split("?")[0] === location.hash.split("?")[0]) return;
       if (!window.confirm(t("leave.confirm"))) e.preventDefault();
+      else lastHash.current = href;
     };
-    window.addEventListener("beforeunload", warn);
-    document.addEventListener("click", link, true);
+    const hash = (e: HashChangeEvent) => {
+      const current = location.hash;
+      const previous = lastHash.current;
+      lastHash.current = current;
+      if (!dirty || previous.split("?")[0] === current.split("?")[0]) return;
+      if (window.confirm(t("leave.confirm"))) return;
+      e.stopImmediatePropagation();
+      lastHash.current = previous;
+      location.hash = previous;
+    };
+    if (dirty) {
+      window.addEventListener("beforeunload", warn);
+      document.addEventListener("click", link, true);
+    }
+    window.addEventListener("hashchange", hash, true);
     return () => {
       window.removeEventListener("beforeunload", warn);
       document.removeEventListener("click", link, true);
+      window.removeEventListener("hashchange", hash, true);
     };
   }, [dirty]);
 }
