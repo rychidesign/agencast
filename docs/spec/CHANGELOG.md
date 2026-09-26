@@ -233,3 +233,12 @@ vše aditivní:
 - `state`: záznam fronty `serve` → `queued`; `dry_run` jen bez
   `run.lock` ([run-record.md](run-record.md) — jen upřesnění, soubor
   i pořadí zápisu jsou od 0.7.0).
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.9.0)
+
+Formáty agenta, scénáře, konfigurace i záznamu běhu beze změny. API
+([api.md](api.md)): `POST /projects/new` založí a zaregistruje projekt,
+`POST /projects` zaregistruje existující projekt, `DELETE /projects/<p>`
+odebere jen položku registru; `GET /projects` přidává `projects_root` a
+`writable`. Kořen pro nové projekty je volitelně nastavitelný v registru;
+chování zápisu a cesty viz [projects.md](projects.md).

@@ -20,7 +20,8 @@ from .task import local_ledger
 from .validate import Project, load_config, resolve_inputs, validate
 
 __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
-           "new_scenario", "projects", "add_project", "remove_project", "ensure_project", "describe_project", "describe_scenario", "run_detail", "run_file",
+           "new_scenario", "projects", "projects_root", "normalize_project_root", "registry_writable",
+           "ProjectConflict", "add_project", "remove_project", "ensure_project", "describe_project", "describe_scenario", "run_detail", "run_file",
            "last_run", "step_detail",
            "spend", "Project", "Run", "Fake",
            # editační operace pro GUI (edit.py, api.md „Editace“): soubor je pravda, otisk, validace před zápisem
@@ -152,6 +153,24 @@ def new_scenario(project_root, name: str, description: str | None = None) -> lis
 def projects() -> list[dict[str, str | bool]]:
     """Registr projektů: `[{name, root, available}]` (projects.md)."""
     return _projects.list_projects()
+
+
+def projects_root() -> Path:
+    """Výchozí kořen projektů z registru (`~/workspace`, není-li nastavený)."""
+    return _projects.projects_root()
+
+
+def normalize_project_root(path: str | Path, base: Path | None = None) -> Path:
+    """Normalizuje cestu z API: rozbalí `~`, odmítne `..`, relativní drží pod `base`."""
+    return _projects.normalize_root(path, base)
+
+
+def registry_writable() -> bool:
+    """Zda proces může zapsat registr projektů."""
+    return _projects.registry_writable()
+
+
+ProjectConflict = _projects.ProjectConflict
 
 
 def add_project(path, name: str | None = None) -> str:

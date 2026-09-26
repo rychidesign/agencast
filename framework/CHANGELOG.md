@@ -5,6 +5,20 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.9.0 — 2026-09-26 (projekty z GUI)
+
+Minor: aditivní API pro založení, registraci a odebrání projektu; formáty
+v1 se nemění. ISSUES 47.
+
+- **Projekty přes HTTP:** `POST /projects/new` založí projekt ze stejných
+  šablon jako `api.new_project`, `POST /projects` zaregistruje existující
+  projekt s `workflows/config.yaml`, `DELETE /projects/<p>` odebere jen
+  položku registru. Zápis v jednoprojektovém režimu vrací 405.
+- **Kořen projektů:** volitelný `projects_root` v registru (výchozí
+  `~/workspace`); `GET /projects` vrací `projects_root` a `writable`.
+- `agencast projects add|rm` a `new project` nadále používají veřejné
+  funkce `agencast.api`, stejně jako nové HTTP zápisy.
+
 ## 0.8.0 — 2026-09-26 (API podle nálezů z GUI, část 2)
 
 Minor: nové endpointy a pole, formáty v1 i záznam běhu beze změny.

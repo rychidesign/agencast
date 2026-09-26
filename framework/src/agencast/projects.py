@@ -129,19 +129,72 @@ def registry_path() -> Path:
     return Path(os.environ.get("AGENCAST_CONFIG_DIR") or Path.home() / ".config" / "agencast") / "projects.yaml"
 
 
-def _read() -> list[dict[str, str]]:
+class ProjectConflict(ConfigErrors):
+    """Kolize projektu, kterou HTTP API vrací jako 409; CLI ji dál bere jako chybu config."""
+
+
+def _read_registry() -> dict[str, Any]:
     p = registry_path()
     if not p.is_file():
-        return []
+        return {}
     try:
         data = read_yaml(p, str(p)) or {}
     except LoadError as e:
         raise ConfigErrors([str(e)]) from None
-    items = (data.get("projects") or []) if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        raise ConfigErrors([f"{p}: má mít tvar projects: [{{name, root}}]"])
+    items = data.get("projects") or []
     if not isinstance(items, list) or not all(
             isinstance(x, dict) and isinstance(x.get("name"), str) and isinstance(x.get("root"), str) for x in items):
         raise ConfigErrors([f"{p}: má mít tvar projects: [{{name, root}}]"])
-    return items
+    if "projects_root" in data and not isinstance(data["projects_root"], str):
+        raise ConfigErrors([f"{p}: projects_root má být cesta jako text"])
+    return data
+
+
+def _read() -> list[dict[str, str]]:
+    return _read_registry().get("projects", [])
+
+
+def projects_root() -> Path:
+    """Kořen pro projekty z GUI; výchozí `~/workspace`."""
+    try:
+        return Path(_read_registry().get("projects_root", "~/workspace")).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError) as e:
+        raise ConfigErrors([f"projects_root: neplatná cesta ({e})"]) from None
+
+
+def normalize_root(value: str | Path, base: Path | None = None) -> Path:
+    """Rozbalí `~`, absolutní cestu nebo cestu pod `base`; zakáže `..` a únik relativní cesty."""
+    try:
+        path = Path(value).expanduser()
+        if ".." in path.parts:
+            raise ConfigErrors(["root: cesta nesmí obsahovat '..'"])
+        if path.is_absolute():
+            return path.resolve()
+        if base is None:
+            return path.resolve()
+        base = base.resolve()
+        root = (base / path).resolve()
+    except (OSError, RuntimeError, TypeError, ValueError) as e:
+        raise ConfigErrors([f"root: neplatná cesta ({e})"]) from None
+    if not root.is_relative_to(base):
+        raise ConfigErrors([f"root: relativní cesta musí zůstat pod {base}"])
+    return root
+
+
+def registry_writable() -> bool:
+    """Zda může proces atomicky zapsat registr (soubor i adresář pro jeho náhradu)."""
+    path = registry_path()
+    if path.exists():
+        if not os.access(path, os.W_OK):
+            return False
+        directory = path.parent
+    else:
+        directory = path.parent
+        while not directory.exists() and directory != directory.parent:
+            directory = directory.parent
+    return os.access(directory, os.W_OK | os.X_OK)
 
 
 def _save(items: list[dict[str, str]]):
@@ -149,7 +202,9 @@ def _save(items: list[dict[str, str]]):
     p = registry_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
-    tmp.write_text(yaml.safe_dump({"projects": items}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    data = _read_registry()
+    data["projects"] = items
+    tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
     tmp.replace(p)  # serve čte registr při každém požadavku → nikdy půlka souboru
 
 
@@ -170,9 +225,11 @@ def default_name(root: Path) -> str:
 def _checked_name(root: Path, name: str | None, items: list[dict[str, str]]) -> str:
     name = name or default_name(root)
     other = next((x for x in items if x["name"] == name), None)
-    if not NAME.fullmatch(name) or other:
-        why = f"už v registru je ({other['root']})" if other else "není malá písmena, číslice a pomlčka od písmene"
-        raise ConfigErrors([f"projekt '{name}' {why} — zvol jméno: agencast projects add {root} --name <jméno>"])
+    if other:
+        raise ProjectConflict([f"projekt '{name}' už v registru je ({other['root']}) — zvol jméno: agencast projects add {root} --name <jméno>"])
+    if not NAME.fullmatch(name):
+        raise ConfigErrors([f"projekt '{name}' není malá písmena, číslice a pomlčka od písmene — "
+                            f"zvol jméno: agencast projects add {root} --name <jméno>"])
     return name
 
 
@@ -180,7 +237,7 @@ def add(root: Path, name: str | None = None) -> str:
     """Zapíše projekt do registru; jméno výchozí = složka (kebab). Vrací jméno."""
     items = _read()
     if hit := next((x for x in items if Path(x["root"]) == root), None):
-        raise ConfigErrors([f"{root}: už je v registru jako '{hit['name']}'"])
+        raise ProjectConflict([f"{root}: už je v registru jako '{hit['name']}'"])
     name = _checked_name(root, name, items)
     _save(items + [{"name": name, "root": str(root)}])
     return name
@@ -208,8 +265,11 @@ def new_project(root, name: str | None = None) -> list[Path]:
     root = Path(root).resolve()
     wf = root / "workflows"
     if wf.exists():
-        raise ConfigErrors([f"{wf}: už existuje — agencast new project zakládá jen nový projekt"])
-    name = _checked_name(root, name, _read())
+        raise ProjectConflict([f"{wf}: už existuje — existující projekt přidej přes agencast projects add"])
+    items = _read()
+    if hit := next((x for x in items if Path(x["root"]) == root), None):
+        raise ProjectConflict([f"{root}: už je v registru jako '{hit['name']}'"])
+    name = _checked_name(root, name, items)
     files = {
         wf / "config.yaml": CONFIG,
         root / ".env.example": ENV_EXAMPLE,

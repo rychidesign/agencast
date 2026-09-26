@@ -369,3 +369,11 @@ rozhoduje koordinátor nebo uživatel.
     běhu `serve` potřebuje restart kvůli frontě. `description` nového
     souboru se zapisuje jako JSON řetězec (platný YAML, žádné
     escapování navíc).
+47. **Projekty z GUI** (zadání 2026-09-26, framework 0.9.0, [api.md](api.md)
+    a [projects.md](projects.md)). `serve` v režimu registru může založit
+    projekt ze stávajících šablon, zaregistrovat projekt s
+    `workflows/config.yaml` nebo odebrat položku bez mazání souborů.
+    Výchozí kořen `projects_root` je `~/workspace`; API rozbaluje `~`,
+    normalizuje cesty, zakazuje `..` a relativní únik přes symlink.
+    Zápis mimo domovský adresář serveru zůstává povolený a běží s právy
+    uživatele `serve`; v jednoprojektovém režimu jsou zápisy 405.
