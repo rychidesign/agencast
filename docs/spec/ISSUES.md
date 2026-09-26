@@ -261,3 +261,14 @@ rozhoduje koordinátor nebo uživatel.
     jeden řádek na dokončený běh, jeden soubor na den, pod `flock`;
     záznamy běhů zůstávají oddělené. Na Modalu knihu nahradí obálka přes
     rozhraní `Ledger`.
+41. **Registr projektů a `agencast new`** (rozhodli uživatel a koordinátor
+    2026-09-26, framework 0.4.0; [projects.md](projects.md)). GUI nad
+    AgenCastem potřebuje seznam projektů; skenování disku se zamítlo,
+    vede se registr `~/.config/agencast/projects.yaml`
+    (`AGENCAST_CONFIG_DIR`), `projects: [{name, root}]` bez tajemství.
+    Plní ho `new project`, `projects add` a úspěšný `validate`/`run`
+    (jednou hláška na stderr); kolize jména → `config` s nápovědou
+    `--name`, u `validate`/`run` jen výpis, příkaz doběhne. Chybějící
+    `workflows/config.yaml` = `available: false`, položka zůstává.
+    `new project|agent|scenario` zakládá soubory ze šablon ve frameworku
+    a nic nepřepisuje. Formáty v1 beze změny.

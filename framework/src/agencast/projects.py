@@ -1,12 +1,18 @@
-"""Nový projekt, agent a scénář ze šablon (`agencast new`, projects.md).
+"""Registr projektů a nový projekt, agent a scénář ze šablon (`agencast projects`, `new`; projects.md).
 
+Registr = `<AGENCAST_CONFIG_DIR, výchozí ~/.config/agencast>/projects.yaml`,
+`projects: [{name, root}]`, bez tajemství; projekty se neskenují.
 Šablony jsou tady jako řetězce, ne kopie z workflows/ — ty jsou zlaté testy
 a mění se s nimi. Nic se nepřepisuje: existující soubor = chyba `config`.
 """
+import os
 import re
 from pathlib import Path
 
+import yaml
+
 from . import ConfigErrors
+from .loader import LoadError, read_yaml
 from .validate import load_config
 
 NAME = re.compile(r"[a-z][a-z0-9-]*")  # jako name agenta a scénáře ve schématech
@@ -101,12 +107,85 @@ def _write(files: dict[Path, str]) -> list[Path]:
     return list(files)
 
 
-def new_project(root) -> list[Path]:
-    """Kostra projektu s jedním agentem a scénářem, které projdou `validate --offline` i `--fake`."""
+# --- registr ---------------------------------------------------------------------
+
+def registry_path() -> Path:
+    return Path(os.environ.get("AGENCAST_CONFIG_DIR") or Path.home() / ".config" / "agencast") / "projects.yaml"
+
+
+def _read() -> list[dict[str, str]]:
+    p = registry_path()
+    if not p.is_file():
+        return []
+    try:
+        data = read_yaml(p, str(p)) or {}
+    except LoadError as e:
+        raise ConfigErrors([str(e)]) from None
+    items = (data.get("projects") or []) if isinstance(data, dict) else None
+    if not isinstance(items, list) or not all(
+            isinstance(x, dict) and isinstance(x.get("name"), str) and isinstance(x.get("root"), str) for x in items):
+        raise ConfigErrors([f"{p}: má mít tvar projects: [{{name, root}}]"])
+    return items
+
+
+def _save(items: list[dict[str, str]]):
+    # ponytail: dva souběžné zápisy (add z dvou terminálů) — vyhraje poslední; zámek, až to začne vadit
+    p = registry_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(yaml.safe_dump({"projects": items}, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    tmp.replace(p)  # serve čte registr při každém požadavku → nikdy půlka souboru
+
+
+def list_projects() -> list[dict[str, str | bool]]:
+    """Projekty z registru; `available: false` = chybí workflows/config.yaml (položka zůstává)."""
+    return [{"name": x["name"], "root": x["root"], "available": (Path(x["root"]) / "workflows" / "config.yaml").is_file()}
+            for x in _read()]
+
+
+def _checked_name(root: Path, name: str | None, items: list[dict[str, str]]) -> str:
+    name = name or re.sub(r"[^a-z0-9]+", "-", root.name.lower()).strip("-")
+    other = next((x for x in items if x["name"] == name), None)
+    if not NAME.fullmatch(name) or other:
+        why = f"už v registru je ({other['root']})" if other else "není malá písmena, číslice a pomlčka od písmene"
+        raise ConfigErrors([f"projekt '{name}' {why} — zvol jméno: agencast projects add {root} --name <jméno>"])
+    return name
+
+
+def add(root: Path, name: str | None = None) -> str:
+    """Zapíše projekt do registru; jméno výchozí = složka (kebab). Vrací jméno."""
+    items = _read()
+    if hit := next((x for x in items if Path(x["root"]) == root), None):
+        raise ConfigErrors([f"{root}: už je v registru jako '{hit['name']}'"])
+    name = _checked_name(root, name, items)
+    _save(items + [{"name": name, "root": str(root)}])
+    return name
+
+
+def remove(name: str):
+    items = _read()
+    if not any(x["name"] == name for x in items):
+        raise ConfigErrors([f"projekt '{name}' v registru není ({registry_path()})"])
+    _save([x for x in items if x["name"] != name])
+
+
+def ensure(root: Path) -> str | None:
+    """Po úspěšném validate/run: projekt, který v registru není, přidá. Vrací hlášku pro stderr."""
+    if any(Path(x["root"]) == root for x in _read()):
+        return None
+    return f"projekt {add(root)} přidán do registru ({registry_path()})"
+
+
+# --- šablony ------------------------------------------------------------------------
+
+def new_project(root, name: str | None = None) -> list[Path]:
+    """Kostra projektu s jedním agentem a scénářem, které projdou `validate --offline` i `--fake`;
+    hned ji zapíše do registru (jméno se ověří před vytvořením souborů)."""
     root = Path(root).resolve()
     wf = root / "workflows"
     if wf.exists():
         raise ConfigErrors([f"{wf}: už existuje — agencast new project zakládá jen nový projekt"])
+    name = _checked_name(root, name, _read())
     files = {
         wf / "config.yaml": CONFIG,
         root / ".env.example": ENV_EXAMPLE,
@@ -118,7 +197,9 @@ def new_project(root) -> list[Path]:
     }
     if not (root / ".gitignore").exists():
         files[root / ".gitignore"] = GITIGNORE
-    return _write(files)
+    made = _write(files)
+    add(root, name)
+    return made
 
 
 def _workflows(root: Path):

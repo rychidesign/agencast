@@ -5,7 +5,8 @@
     agencast runs list | show <run_id>
     agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]]
     agencast migrate <soubor>
-    agencast new project <cesta> | agent <jméno> | scenario <jméno>
+    agencast new project <cesta> [--name N] | agent <jméno> | scenario <jméno>
+    agencast projects list | add <cesta> [--name N] | rm <jméno>
 
 <scénář> je jméno (ig-post) nebo cesta k .yaml. Kořen projektu = první složka
 s workflows/ od aktuální složky nahoru, nebo --project <cesta> (u každého příkazu).
@@ -40,7 +41,14 @@ def _project(a, *, offline=False):
     """Ověří scénář; s --fake se modely ověřují proti falešnému /models."""
     arg = getattr(a, "fake", None)
     fake = _fake(arg, {}) if arg is not None else None  # modely doplní api.load z config.yaml
-    return api.load(a.scenario, project_root=a.project, fake=fake, offline=offline), fake
+    p = api.load(a.scenario, project_root=a.project, fake=fake, offline=offline)
+    try:  # úspěšný validate/run zapíše projekt do registru; chyba registru příkaz nezastaví
+        msg = api.ensure_project(p.base)
+    except ConfigErrors as e:
+        msg = "\n".join(f"config: {x}" for x in e.errors)
+    if msg:
+        print(msg, file=sys.stderr)
+    return p, fake
 
 
 def cmd_validate(a) -> int:
@@ -151,7 +159,7 @@ def cmd_serve(a) -> int:
 def cmd_new(a) -> int:
     try:
         if a.what == "project":
-            made = api.new_project(a.name)
+            made = api.new_project(a.name, a.as_name)
         else:
             made = (api.new_agent if a.what == "agent" else api.new_scenario)(a.project, a.name)
     except ConfigErrors as e:
@@ -160,8 +168,28 @@ def cmd_new(a) -> int:
         print(f"vytvořeno: {p}")
     if a.what == "project":
         root = made[0].parent.parent
+        print(f"projekt {a.as_name or next(x['name'] for x in api.projects() if x['root'] == str(root))} "
+              "přidán do registru")
         print(f"dál: cp {root / '.env.example'} {root / '.env'}, doplň OPENROUTER_API_KEY a zkus\n"
               f"  agencast --project {root} run ukazka --fake")
+    return 0
+
+
+def cmd_projects(a) -> int:
+    try:
+        if a.projects_cmd == "add":
+            print(f"projekt {api.add_project(a.path, a.as_name)} přidán do registru")
+        elif a.projects_cmd == "rm":
+            api.remove_project(a.name)
+            print(f"projekt {a.name} odebrán z registru (soubory zůstávají)")
+        else:
+            items = api.projects()
+            for x in items:
+                print(f"{x['name']:30} {x['root']}{'' if x['available'] else '  (nedostupný: chybí workflows/config.yaml)'}")
+            if not items:
+                print("registr je prázdný — agencast projects add <cesta> nebo agencast new project <cesta>")
+    except ConfigErrors as e:
+        return _fail_config(e.errors)
     return 0
 
 
@@ -214,13 +242,22 @@ def main(argv=None) -> int:
     m.add_argument("file", help="scénář, config nebo agent (.md)")
     n = sub.add_parser("new", help="nový projekt, agent nebo scénář ze šablony (nic nepřepisuje)")
     ns = n.add_subparsers(dest="what", required=True)
-    ns.add_parser("project", help="kostra projektu s ukázkovým agentem a scénářem").add_argument(
-        "name", metavar="cesta", help="složka projektu (workflows/ v ní ještě nesmí být)")
+    np = ns.add_parser("project", help="kostra projektu s ukázkovým agentem a scénářem, zapíše ji do registru")
+    np.add_argument("name", metavar="cesta", help="složka projektu (workflows/ v ní ještě nesmí být)")
+    np.add_argument("--name", dest="as_name", metavar="JMÉNO", help="jméno v registru (výchozí: jméno složky)")
+    pr = sub.add_parser("projects", help="registr projektů (~/.config/agencast/projects.yaml)")
+    prs = pr.add_subparsers(dest="projects_cmd", required=True)
+    prs.add_parser("list", help="projekty v registru")
+    pa = prs.add_parser("add", help="zapíše projekt do registru")
+    pa.add_argument("path", metavar="cesta", help="kořen projektu (složka s workflows/)")
+    pa.add_argument("--name", dest="as_name", metavar="JMÉNO", help="jméno v registru (výchozí: jméno složky)")
+    prs.add_parser("rm", help="odebere projekt z registru (soubory nemaže)").add_argument("name", metavar="jméno")
     for what, help_ in (("agent", "workflows/agents/<jméno>.md"), ("scenario", "workflows/scenarios/<jméno>.yaml")):
         ns.add_parser(what, parents=[common], help=help_).add_argument("name", metavar="jméno")
     a = ap.parse_args(argv)
     return {"validate": cmd_validate, "run": cmd_run, "runs": cmd_runs, "serve": cmd_serve,
-            "migrate": cmd_migrate, "new": cmd_new}[a.cmd](a)
+            "migrate": cmd_migrate, "new": cmd_new,
+            "projects": cmd_projects}[a.cmd](a)
 
 
 if __name__ == "__main__":

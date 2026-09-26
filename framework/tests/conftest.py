@@ -102,3 +102,11 @@ def run(path: Path, inputs=None, script=None, **kw):
 
 def events(r, type_=None):
     return [e for e in r.rec.events if type_ is None or e["type"] == type_]
+
+
+@pytest.fixture(autouse=True)
+def registry(tmp_path, monkeypatch) -> Path:
+    """Registr projektů v tmp — testy nikdy nesahají na ~/.config/agencast."""
+    d = tmp_path / "agencast-config"
+    monkeypatch.setenv("AGENCAST_CONFIG_DIR", str(d))
+    return d / "projects.yaml"

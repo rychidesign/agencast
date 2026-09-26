@@ -5,7 +5,7 @@ do jádra a má hermetický test. Tajné klíče jen z prostředí (a `.env`).
 """
 from pathlib import Path
 
-from . import ConfigErrors, projects
+from . import ConfigErrors, projects as _projects
 from .engine import Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import load_dotenv
@@ -13,7 +13,7 @@ from .record import Record, run_status
 from .validate import Project, load_config, resolve_inputs, validate
 
 __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
-           "new_scenario", "Project", "Run", "Fake"]
+           "new_scenario", "projects", "add_project", "remove_project", "Project", "Run", "Fake"]
 
 
 def find_root(project_root=None) -> Path:
@@ -78,16 +78,36 @@ def runs_list(project_root=None) -> list[dict]:
     return [{"run_id": r, "status": "queued"} for r in queued] + [run_status(d) for d in dirs]
 
 
-def new_project(root) -> list[Path]:
-    """Kostra projektu v `root` (odmítne existující workflows/); vrací vytvořené soubory."""
-    return projects.new_project(root)
+def new_project(root, name: str | None = None) -> list[Path]:
+    """Kostra projektu v `root` (odmítne existující workflows/), zapsaná do registru pod `name`
+    (výchozí jméno složky); vrací vytvořené soubory."""
+    return _projects.new_project(root, name)
 
 
 def new_agent(project_root, name: str) -> list[Path]:
     """workflows/agents/<name>.md s aliasem modelu z config.yaml projektu; nepřepisuje."""
-    return projects.new_agent(find_root(project_root), name)
+    return _projects.new_agent(find_root(project_root), name)
 
 
 def new_scenario(project_root, name: str) -> list[Path]:
     """workflows/scenarios/<name>.yaml s prvním agentem projektu; nepřepisuje."""
-    return projects.new_scenario(find_root(project_root), name)
+    return _projects.new_scenario(find_root(project_root), name)
+
+
+def projects() -> list[dict[str, str | bool]]:
+    """Registr projektů: `[{name, root, available}]` (projects.md)."""
+    return _projects.list_projects()
+
+
+def add_project(path, name: str | None = None) -> str:
+    """Zapíše projekt (kořen s workflows/) do registru; vrací jeho jméno."""
+    return _projects.add(find_root(path), name)
+
+
+def remove_project(name: str):
+    _projects.remove(name)
+
+
+def ensure_project(root) -> str | None:
+    """Po úspěšném validate/run: projekt mimo registr do něj přidá; vrací hlášku pro stderr (nebo None)."""
+    return _projects.ensure(Path(root).resolve())
