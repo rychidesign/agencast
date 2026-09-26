@@ -644,3 +644,27 @@ test("N6 odchod s neuloženými změnami", async ({ page, project }) => {
   await expect(page).toHaveURL(new RegExp(`#/p/${project.name}/scenare/ukazka`));
   expect(kinds.at(-1)).toBe("confirm");
 });
+
+// Ladění 2026-09-26: alias modelu v Configu má jméno s pomlčkou (jako agent) a zapíše se stylem ostatních aliasů.
+test("C17 alias modelu s pomlčkou v Configu", async ({ page, project }) => {
+  await page.goto(`/#/p/${project.name}/config`);
+  await page.getByRole("button", { name: "+ alias" }).click();
+  const alias = page.getByRole("textbox", { name: "Alias" }).last();
+  await expect(alias).toHaveValue("model-1");
+  await alias.fill("GPT image");
+  await expect(alias).toHaveAttribute("aria-invalid", "true");
+  await alias.press("Enter");
+  await expect(alias).toHaveValue("model-1"); // neplatné se vrátí
+  await alias.fill("gpt-image");
+  await alias.press("Enter");
+  await expect(page.getByRole("textbox", { name: "Alias" }).last()).toHaveValue("gpt-image");
+  await page.getByRole("textbox", { name: "Id modelu gpt-image" }).fill("openai/gpt-image-2");
+  await page.getByRole("button", { name: "Uložit" }).click();
+  await expect(saveStatus(page)).toHaveText(/Uloženo/);
+  const text = project.read("config.yaml");
+  expect(text).toContain("  gpt-image: {id: openai/gpt-image-2}\n");
+  expect(text).toContain("  chytry:       { id: anthropic/claude-haiku-4.5 }\n"); // ostatní řádky doslova
+  // po novém načtení alias v nabídce modelu agenta
+  await page.goto(`/#/p/${project.name}/agenti/pisatel`);
+  await expect(page.getByRole("combobox", { name: /^model/ }).locator("option", { hasText: "gpt-image — openai/gpt-image-2" })).toHaveCount(1);
+});

@@ -209,14 +209,25 @@ def _new(v, old=None):
     return v
 
 
+def _flow_siblings(node) -> bool:
+    """Jsou všechny mapy v `node` v řádkovém stylu `{ … }`? Nová sourozenecká mapa pak dostane stejný styl
+    (config.yaml `models: {alias: { id: … }}`), ať soubor po úpravě vypadá jednotně."""
+    maps = [x for x in node.values() if isinstance(x, CommentedMap)]
+    return bool(maps) and all(x.fa.flow_style() for x in maps)
+
+
 def merge(node, patch: dict[str, Any]):
-    """JSON Merge Patch (RFC 7396) do mapy ruamel: null klíč smaže, mapa se slučuje, jiná hodnota nahradí."""
-    for k, v in patch.items():
+    """JSON Merge Patch (RFC 7396) do mapy ruamel: null klíč smaže, mapa se slučuje, jiná hodnota nahradí.
+    Mazání jde první, ať přejmenování (`{"stary": null, "novy": {…}}`) posuzuje styl už bez staré mapy."""
+    for k, v in sorted(patch.items(), key=lambda kv: kv[1] is not None):
         if v is None:
             node.pop(k, None)
         elif isinstance(v, dict):
             if not isinstance(node.get(k), dict):
+                flow = _flow_siblings(node)
                 node[k] = CommentedMap()
+                if flow:
+                    node[k].fa.set_flow_style()
             merge(node[k], v)
         else:
             node[k] = _new(v, node.get(k))

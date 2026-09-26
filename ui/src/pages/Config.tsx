@@ -126,6 +126,9 @@ export function ConfigTab({ name, project, onChanged }: { name: string; project?
   );
 }
 
+/** Alias modelu podle config.schema.json (`kebab`): jako jméno agenta a scénáře, s pomlčkou. */
+const KEBAB = /^[a-z][a-z0-9-]*$/;
+
 const LIMITS: [string, "usd" | "time" | "int"][] = [
   ["run_budget_usd", "usd"], ["run_image_budget_usd", "usd"], ["run_timeout", "time"],
   ["max_call_depth", "int"], ["max_parallel_runs", "int"], ["daily_budget_usd", "usd"],
@@ -185,8 +188,8 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
               <li key={alias} className="space-y-1">
                 <div className="grid grid-cols-[10rem_1fr_9rem_7rem_auto] items-center gap-2">
                   {users.length ? <span className="px-3 font-mono text-sm">{alias}</span>
-                    : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} onRename={(to) =>
-                      put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}
+                    : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
+                      onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}
                   <input aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
                     value={String(m.id ?? "")} onChange={(e) => setM("id", e.target.value)} />
                   <select aria-label={t("config.structured", { alias })} className={inputCls} value={String(m.structured_output ?? "")}
@@ -211,6 +214,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
             );
           })}
         </ul>
+        <p className="text-xs text-zinc-400">{t("config.aliasRule")}</p>
       </Section>
       <Section title={t("config.storage")}>
         <FormField label="type" errors={fe("storage.type")}>
