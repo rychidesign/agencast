@@ -35,7 +35,7 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
   const reload = () => (detail.reload(), setGen(gen + 1));
   const p = detail.data;
   return (
-    <main className="mx-auto max-w-6xl p-8" key={gen}>
+    <main className="mx-auto max-w-6xl p-4 sm:p-8" key={gen}>
       <ProjectHeader name={project} detail={detail} onReload={reload} />
       <TabLinks
         label={t("project.tabs")} active={tab}

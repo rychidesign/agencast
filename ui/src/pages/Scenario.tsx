@@ -1,6 +1,7 @@
 // §2.3–2.4 Editor scénáře: sloupec karet + panel (Form), nebo YAML přes celou šířku (§4.5).
 // Form drží rozpracovaný strom (scenarioDraft.ts), YAML rozpracovaný text (textfile.ts); na disk jde
-// obojí až tlačítkem Uložit / Ctrl+S. Režimy nesdílí rozpracovaný stav (GUI YAML nesestavuje).
+// obojí až tlačítkem Uložit / Ctrl+S. Form → YAML převede rozpracovaný strom na text přes `render`;
+// YAML → Form s neuloženým textem se ptá (text na strom API nepřevádí, nalezy-api.md bod 26).
 import { ArrowLeft, CodeXml, Play, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { enc, useApi } from "../api";
@@ -12,13 +13,13 @@ import { HeaderPanel, StepPanel } from "../components/StepPanel";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
 import { ErrorText, Loading, StatusChip, Toggle, btn } from "../components/ui";
 import {
-  blankStep, findStep, flat, insert, move, numbered, remove, shift, update, type Draft, type WStep,
+  blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
 } from "../edit";
 import { t } from "../i18n";
 import { href, setQuery, useLocation } from "../router";
 import { useScenarioDraft } from "../scenarioDraft";
 import { readBy } from "../steps";
-import { syntaxError, useLeaveGuard, useTextFile, type SaveState } from "../textfile";
+import { draftKey, syntaxError, useLeaveGuard, useTextFile, writeDraft, type SaveState } from "../textfile";
 import type { ErrorItem, Project, StepType } from "../types";
 
 /** Výběr hlavičkové karty v `?krok=` (id kroku nesmí začínat `_`, nekoliduje). */
@@ -68,7 +69,7 @@ function SaveStatus({ dirty, errors, state, onJump }: { dirty: boolean; errors: 
     : t("save.clean");
   return (
     <span className="inline-flex items-center gap-2 text-sm" aria-live="polite">
-      <span className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
+      <span data-testid="save-status" className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
       {errors > 0 && (
         <button type="button" onClick={onJump} className="hover:underline">
           <StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip>
@@ -80,6 +81,7 @@ function SaveStatus({ dirty, errors, state, onJump }: { dirty: boolean; errors: 
 
 type Pending =
   | { kind: "delete"; step: WStep; readers: string[]; nested: number }
+  | { kind: "rename"; step: WStep; to: string; readers: string[] }
   | { kind: "retype"; step: WStep; type: StepType }
   | { kind: "mode"; to: "form" | "yaml" }
   | { kind: "overwrite" }
@@ -163,6 +165,17 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   };
   const ctx: ListCtx = { project, selected, onSelect: select, errors: byStep, edit, scenario, trail };
 
+  const doRename = (s: WStep, to: string) => {
+    setSteps((l) => renameStep(l, s.uid, to));
+    if (selected === s.id) setQuery({ krok: to });
+    setAnnounce(t("edit.renamed", { id: s.id, to }));
+  };
+  /** Přejmenování: čtený krok se ptá jednou a přepíše odkazy čtenářů (dávka `rename_step`, `rename_refs`). */
+  const rename = (s: WStep, to: string) => {
+    const readers = readBy(all, s.id).filter((id) => id !== s.id);
+    if (readers.length) setPending({ kind: "rename", step: s, to, readers });
+    else doRename(s, to);
+  };
   const retype = (s: WStep, type: StepType) => {
     setSteps((l) => update(l, s.uid, (x) => blankStep(l, type, { id: x.id, when: x.when, uid: x.uid })));
     setAnnounce(t("edit.retyped", { id: s.id, type }));
@@ -188,10 +201,18 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const save = () => (yaml ? saveYaml() : saveForm());
   const canSave = yaml ? text.dirty && !syntax && !text.validating && !text.errors.length && !text.conflict : form.dirty && !form.conflict;
 
-  const switchMode = (to: "form" | "yaml") => {
+  const switchMode = async (to: "form" | "yaml") => {
     if ((to === "yaml") === yaml) return;
     if (to === "form" && syntax) return;
-    if ((to === "yaml" && form.dirty) || (to === "form" && text.dirty)) return setPending({ kind: "mode", to });
+    if (to === "yaml" && form.dirty) {
+      // rozpracovaný strom → text přes `render`; text pak drží YAML režim jako neuložený (i s otiskem verze)
+      const r = await form.renderText().catch(() => undefined);
+      if (!r) return setPending({ kind: "mode", to });
+      writeDraft(draftKey(project, file), { etag: r.etag, value: r.text });
+      form.reloadFromDisk();
+      return goMode(to);
+    }
+    if (to === "form" && text.dirty) return setPending({ kind: "mode", to });
     goMode(to);
   };
   const goMode = (to: "form" | "yaml") => {
@@ -227,7 +248,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const p = proj.data;
   return (
     <main className="min-h-screen" onKeyDown={onKey}>
-      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-5 gap-y-2 bg-zinc-900/95 px-8 py-4">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-5 gap-y-2 bg-zinc-900/95 px-4 py-4 sm:px-8">
         <a href={href(project, "scenare")} className="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100">
           <ArrowLeft className="size-4" aria-hidden /> {t("editor.back", { project })}
         </a>
@@ -235,7 +256,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         <h1 className="font-mono text-lg font-semibold">{scenario}</h1>
         {work && <span className="min-w-0 truncate text-sm text-zinc-300">{work.header.description}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-3">
-          <Toggle label={t("code.mode")} value={yaml ? "yaml" : "form"} onChange={switchMode}
+          <Toggle label={t("code.mode")} value={yaml ? "yaml" : "form"} onChange={(m) => void switchMode(m)}
             options={[
               { key: "form", label: t("code.form"), disabled: syntax ? t("code.fixYaml", { n: syntax.line ?? 0 }) : undefined },
               { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> },
@@ -255,7 +276,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         </div>
       </header>
       <p className="sr-only" aria-live="polite">{announce}</p>
-      <div className="px-8 pb-16">
+      <div className="px-4 pb-16 sm:px-8">
         {conflict && (
           <ConflictBar conflict={conflict} onDiff={() => void showDiff()}
             onReload={yaml ? text.reloadFromDisk : form.reloadFromDisk}
@@ -273,7 +294,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         )}
         {work && !yaml && (
           <div className="flex justify-center gap-6 pt-6">
-            <section className="w-full max-w-[640px] pr-20" aria-label={t("step.list")} onKeyDown={onColumnKey}>
+            <section className="w-full max-w-[640px] pr-20 pointer-coarse:pr-28" aria-label={t("step.list")} onKeyDown={onColumnKey}>
               <HeaderCard inputs={work.header.inputs} outputs={work.header.outputs} selected={selected === HEADER_KEY} onSelect={() => select(HEADER_KEY)} />
               <Connector ctx={ctx} at={{ list: { parent: null, key: [] } }} />
               <StepList steps={steps} ctx={ctx} />
@@ -297,6 +318,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
                     change: (fn, key) => setSteps((l) => update(l, step.uid, fn), key && `${step.uid}:${key}`),
                     retype: (type) => (filled(step) ? setPending({ kind: "retype", step, type }) : retype(step, type)),
                     remove: () => edit.remove(step),
+                    rename: (to) => rename(step, to),
                   }} />
               </PanelSlot>
             )}
@@ -304,7 +326,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         )}
       </div>
       {pending && <PendingModal pending={pending} close={() => setPending(undefined)} actions={{
-        remove: doRemove, retype,
+        remove: doRemove, retype, rename: doRename,
         mode: async (to, saveFirst) => {
           if (saveFirst && !(await (yaml ? text.save() : form.save()))) return;
           if (!saveFirst) (yaml ? text.discard() : form.reloadFromDisk());
@@ -352,7 +374,7 @@ export function stepAtLine(text: string, line: number): string | undefined {
 function PendingModal({ pending, close, actions }: {
   pending: Pending; close: () => void;
   actions: {
-    remove: (s: WStep) => void; retype: (s: WStep, type: StepType) => void;
+    remove: (s: WStep) => void; retype: (s: WStep, type: StepType) => void; rename: (s: WStep, to: string) => void;
     mode: (to: "form" | "yaml", saveFirst: boolean) => Promise<void>; overwrite: () => Promise<void>;
     branch: (s: WStep, name: string) => void;
   };
@@ -372,6 +394,14 @@ function PendingModal({ pending, close, actions }: {
         </Modal>
       );
     }
+    case "rename":
+      return (
+        <Modal title={t("edit.renameTitle", { n: pending.readers.length })} onCancel={close}
+          actions={[{ label: t("edit.renameRefs"), primary: true, onSelect: run(() => actions.rename(pending.step, pending.to)) }]}>
+          <p>{t("edit.renameText", { id: pending.step.id, to: pending.to })}</p>
+          <ul className="list-inside list-disc font-mono">{pending.readers.map((r) => <li key={r}>{r}</li>)}</ul>
+        </Modal>
+      );
     case "retype":
       return (
         <Modal title={t("edit.retypeTitle", { id: pending.step.id, type: pending.type })} onCancel={close}

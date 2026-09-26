@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { saveToken } from "../api";
 import {
-  adopt, blankStep, insert, mergePatch, move, remove, saveDraft, shift, update, visibleBefore, type Draft, type WStep,
+  adopt, blankStep, findStep, insert, mergePatch, move, planOps, remove, renameStep, saveDraft, shift, update, visibleBefore,
+  type Draft, type WStep,
 } from "../edit";
 import type { Step } from "../types";
 
@@ -20,76 +21,80 @@ const BASE: Step[] = [
 const header = { description: "x", inputs: null, outputs: { text: { type: "string" } }, callable: false };
 const draft = (steps: WStep[]): Draft => ({ header, steps });
 
-let calls: { method: string; url: string; body: Record<string, unknown> }[];
-beforeEach(() => {
-  calls = [];
-  let n = 0;
-  saveToken("t");
-  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
-    calls.push({ method: init.method!, url: url.replace(/^.*\/scenarios\/s/, ""), body: JSON.parse(String(init.body)) });
-    return new Response(JSON.stringify({ etag: `e${++n}`, errors: [] }), { status: 200 });
-  }));
-});
-afterEach(() => vi.unstubAllGlobals());
+const plan = (work: WStep[], base = adopt(BASE)) => planOps(draft(base), draft(work), base).ops;
 
-const save = (work: WStep[], base = adopt(BASE)) => saveDraft("/projects/p/scenarios/s", "e0", draft(base), draft(work), base);
+describe("uložení = jedna dávka operací (api.md „Dávka“)", () => {
+  afterEach(() => vi.unstubAllGlobals());
 
-describe("uložení = operace API v pořadí s otiskem", () => {
-  it("nový krok s vyplněnými poli = jeden POST celého kroku", async () => {
+  it("nový krok s vyplněnými poli = add_step celého kroku; saveDraft pošle dávku s otiskem", async () => {
     let w = adopt(BASE);
     const s = blankStep(w, "ask");
     w = insert(w, { after: "copy" }, s);
     w = update(w, s.uid, (x) => ({ ...x, fields: { ask: { agent: "copywriter", prompt: "p" } } }));
-    await save(w);
-    expect(calls).toEqual([
-      { method: "POST", url: "/steps", body: { after: ["steps", 0], step: { id: "ask_1", ask: { agent: "copywriter", prompt: "p" } }, etag: "e0" } },
-    ]);
+    const ops = [{ op: "add_step", after: ["steps", 0], step: { id: "ask_1", ask: { agent: "copywriter", prompt: "p" } } }];
+    expect(plan(w)).toEqual(ops);
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ etag: "e1", errors: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    saveToken("t");
+    const base = adopt(BASE);
+    expect((await saveDraft("/projects/p/scenarios/s", "e0", draft(base), draft(w), base)).etag).toBe("e1");
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toMatch(/\/projects\/p\/scenarios\/s\/batch$/);
+    expect(JSON.parse(String(init.body))).toEqual({ etag: "e0", ops });
   });
 
-  it("úprava, přesun a smazání; každá operace nese otisk předchozí", async () => {
+  it("úprava, přesun a smazání; adresy platí pro stav po předchozích operacích", () => {
     let w = adopt(BASE);
     w = update(w, "copy", (x) => ({ ...x, when: "inputs.x", fields: { ask: { agent: "copywriter", prompt: "Nový" } } }));
     w = shift(w, "kontrola", -1);
     w = remove(w, "kratky");
-    await save(w);
-    expect(calls.map((c) => [c.method, c.url, c.body.etag])).toEqual([
-      ["PATCH", "/steps/0", "e0"],
-      ["POST", "/steps/1/move", "e1"],
-      ["DELETE", "/steps/2/parallel/a/0", "e2"],
+    expect(plan(w)).toEqual([
+      { op: "update_step", address: ["steps", 0], fields: { when: "inputs.x", ask: { prompt: "Nový" } } },
+      { op: "move_step", address: ["steps", 1], to: ["steps"] },
+      { op: "delete_step", address: ["steps", 2, "parallel", "a", 0] },
     ]);
-    expect(calls[0].body.fields).toEqual({ when: "inputs.x", ask: { prompt: "Nový" } });
-    expect(calls[1].body.to).toEqual(["steps"]);
   });
 
-  it("přesun do větve a nový kontejner s kroky uvnitř", async () => {
+  it("přesun do větve a nový kontejner s kroky uvnitř; nová větev = add_branch a kroky do ní", () => {
     let w = adopt(BASE);
     w = move(w, "copy", { list: { parent: "varianty", key: ["parallel", "b"] } });
     const par = blankStep(w, "parallel");
     w = insert(w, { after: "kontrola" }, par);
     const inner = blankStep(w, "fail");
     w = insert(w, { list: { parent: par.uid, key: ["parallel", "a"] } }, { ...inner, fields: { fail: "x" } });
-    await save(w);
-    expect(calls.map((c) => [c.method, c.url])).toEqual([
-      ["POST", "/steps"],
-      ["POST", "/steps/0/move"],
-    ]);
+    w = update(w, "varianty", (x) => ({ ...x, branches: { ...x.branches, c: [] } }));
+    w = insert(w, { list: { parent: "varianty", key: ["parallel", "c"] } }, { ...blankStep(w, "fail"), fields: { fail: "y" } });
+    const ops = plan(w);
+    expect(ops.map((o) => o.op)).toEqual(["add_branch", "add_step", "move_step", "add_step"]);
+    expect(ops[0]).toEqual({ op: "add_branch", address: ["steps", 2], name: "c", steps: [] });
     // copy zůstává nahoře, dokud neodejde do větve — kvůli ní se nic jiného nepřesouvá
-    expect(calls[0].body).toMatchObject({ after: ["steps", 1], step: { id: "parallel_1", parallel: { a: [{ id: "fail_1", fail: "x" }], b: [] } } });
-    expect(calls[1].body.to).toEqual(["steps", 3, "parallel", "b"]);
+    expect(ops[1]).toMatchObject({ after: ["steps", 1], step: { id: "parallel_1", parallel: { a: [{ id: "fail_1", fail: "x" }], b: [] } } });
+    expect(ops[2].to).toEqual(["steps", 3, "parallel", "b"]);
+    expect(ops[3]).toMatchObject({ after: ["steps", 2, "parallel", "c"], step: { fail: "y" } });
   });
 
-  it("smazání pole = null v merge patch; hodnotu null zapsat nejde", async () => {
+  it("smazání pole = null v merge patch; hodnota null → replace_step celého kroku", () => {
     let w = adopt(BASE);
     w = update(w, "copy", (x) => ({ ...x, fields: { ask: { agent: "copywriter", prompt: "Napiš {{ inputs.tema }}" }, timeout: "1m" } }));
-    await save(w);
-    expect(calls[0].body.fields).toEqual({ timeout: "1m" });
+    expect(plan(w)).toEqual([{ op: "update_step", address: ["steps", 0], fields: { timeout: "1m" } }]);
     expect(mergePatch({ a: 1, b: { c: 1, d: 2 } }, { b: { c: 1 } })).toEqual({ a: null, b: { d: null } });
     expect(() => mergePatch({}, { default: { file: null } })).toThrow();
+    w = update(adopt(BASE), "copy", (x) => ({ ...x, fields: { ...x.fields, default: { text: null } } }));
+    expect(plan(w)).toEqual([{ op: "replace_step", address: ["steps", 0], step: { id: "copy", ask: BASE[0].fields.ask, default: { text: null } } }]);
   });
 
-  it("beze změny se nic neposílá", async () => {
-    await save(adopt(BASE));
-    expect(calls).toEqual([]);
+  it("přejmenování čteného kroku = rename_step s rename_refs; čtenáři mají odkazy přepsané už v rozpracovaném stavu", () => {
+    const w = renameStep(adopt(BASE), "copy", "text");
+    expect(findStep(w, "out")!.fields).toEqual({ output: { text: "{{ steps.text.text }}" } });
+    expect(findStep(w, "kontrola")!.refs).toEqual(["steps.text.text"]);
+    const ops = plan(w);
+    expect(ops[0]).toEqual({ op: "rename_step", address: ["steps", 0], new_id: "text", rename_refs: true });
+    // přepis čtenářů pošle i update_step se stejnou hodnotou (idempotentní po rename_refs)
+    expect(ops.slice(1).map((o) => o.op)).toEqual(["update_step", "update_step"]);
+  });
+
+  it("beze změny žádná operace", () => {
+    expect(plan(adopt(BASE))).toEqual([]);
   });
 });
 

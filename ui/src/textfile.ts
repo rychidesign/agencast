@@ -1,7 +1,7 @@
 // Soubor jako text (YAML/Markdown režim, §4.5–4.6): rozpracovaný text v localStorage, průběžná
-// validace přes `POST …/validate`, uložení s otiskem, hlídání změn na disku (fokus okna + 5 s).
+// validace přes `POST …/validate`, uložení s otiskem, hlídání změn na disku (`HEAD`, fokus okna + 5 s).
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, enc, getJson, send, type Saved } from "./api";
+import { ApiError, enc, getJson, headEtag, send, type Saved } from "./api";
 import { deepEqual } from "./edit";
 import { t } from "./i18n";
 import type { ErrorItem, FileDoc } from "./types";
@@ -53,13 +53,24 @@ export function useWatch(check: () => void, active: boolean) {
   }, [active]);
 }
 
-/** Varování před odchodem s neuloženými změnami (rozpracovaný stav přesto zůstává v localStorage). */
+/** Varování před odchodem s neuloženými změnami: obnovení/zavření stránky i odkaz na jinou stránku GUI
+ *  (`#/…` s jinou cestou; změna jen `?krok=` se neptá). Rozpracovaný stav přesto zůstává v localStorage. */
 export function useLeaveGuard(dirty: boolean) {
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    // ponytail: jen kliknutí na odkaz; tlačítko Zpět prohlížeče (hashchange) se neptá
+    const link = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.("a[href^='#']");
+      if (!a || e.defaultPrevented || a.getAttribute("href")!.split("?")[0] === location.hash.split("?")[0]) return;
+      if (!window.confirm(t("leave.confirm"))) e.preventDefault();
+    };
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
+    document.addEventListener("click", link, true);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("click", link, true);
+    };
   }, [dirty]);
 }
 
@@ -150,10 +161,15 @@ export function useFileDraft<T>(project: string, path: string | null, opts: File
     if (doc) writeDraft(key, deepEqual(v, o.current.fromDoc(doc)) ? null : { etag: doc.etag, value: v });
   };
 
-  // průběžná validace textu (500 ms po posledním úhozu); GET files/ hlásí jen chyby loaderu, proto i nad diskem
+  // průběžná validace textu (500 ms po posledním úhozu); text jako na disku má chyby už z GET files/ (0.8.0)
   const text = doc && opts.validateText ? opts.validateText(value) : undefined;
   useEffect(() => {
     if (!doc || !path || text === undefined) return;
+    if (text === doc.text) {
+      setErrors(doc.errors);
+      setValidating(false);
+      return;
+    }
     setValidating(true);
     let alive = true;
     const timer = setTimeout(async () => {
@@ -175,14 +191,15 @@ export function useFileDraft<T>(project: string, path: string | null, opts: File
   useWatch(async () => {
     if (!doc || busy.current || !path) return;
     try {
-      const d = await getJson<FileDoc>(`${base}/files/${path}`);
-      if (d.etag === (override ?? doc.etag)) return;
+      const etag = await headEtag(`${base}/files/${path}`);
+      if (etag === (override ?? doc.etag)) return;
       if (!dirty) {
+        const d = await getJson<FileDoc>(`${base}/files/${path}`);
         setDoc(d);
         setValueState(o.current.fromDoc(d));
         setErrors(d.errors);
         setState({ kind: "reloaded", at: clock() });
-      } else if (!conflict) setConflict({ etag: d.etag });
+      } else if (!conflict) setConflict({ etag });
     } catch {
       /* ServerBar ukáže nedostupný server */
     }

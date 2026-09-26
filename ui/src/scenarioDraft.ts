@@ -1,10 +1,11 @@
 // Rozpracovaný scénář ve Form režimu (§4.4, §4.6): strom kroků lokálně + v localStorage, krok zpět,
-// uložení řadou operací (edit.ts saveDraft), 409 → konflikt, 422 → chyby u karet, hlídání disku.
+// průběžná validace přes `render` (500 ms), uložení jednou dávkou (edit.ts saveDraft), 409 → konflikt,
+// 422 → chyby u karet, hlídání disku přes `HEAD files/`.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, enc, getJson } from "./api";
-import { deepEqual, draftOf, LocalError, rekey, saveDraft, SaveError, type Draft, type WStep } from "./edit";
+import { ApiError, enc, getJson, headEtag } from "./api";
+import { deepEqual, draftOf, LocalError, planErrors, planOps, renderDraft, saveDraft, type Draft, type WStep } from "./edit";
 import { t } from "./i18n";
-import { clock, draftKey, readDraft, useWatch, writeDraft, type Conflict, type SaveState } from "./textfile";
+import { clock, draftKey, readDraft, useWatch, VALIDATE_MS, writeDraft, type Conflict, type SaveState } from "./textfile";
 import type { ErrorItem, FileDoc, Scenario } from "./types";
 
 /** Obsah kroků bez odvozených polí (nn, refs) — podle něj se pozná neuložená změna. */
@@ -48,6 +49,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
   /** Po „Ponechat moje“: změny se pošlou nad tuto verzi disku. */
   const [rebase, setRebase] = useState<{ etag: string; sim: WStep[] }>();
   const busy = useRef(false);
+  const edits = useRef(0);
   const dirty = !!work && !!base && !sameDraft(work, base.draft);
 
   const fetchServer = useCallback(async (): Promise<Snapshot> => {
@@ -63,9 +65,12 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     setErrors(s.sc.errors);
   };
 
-  const load = useCallback(async (quiet = false) => {
+  /** `keepEdits`: když uživatel mezitím začal upravovat, načtení nic nepřepíše (změnu na disku pak ohlásí hlídání). */
+  const load = useCallback(async (quiet = false, keepEdits = false) => {
+    const at = edits.current;
     try {
       const s = await fetchServer();
+      if (keepEdits && edits.current !== at) return s;
       setLoadError(undefined);
       adoptServer(s);
       setPast([]);
@@ -104,6 +109,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     const next = fn(work);
     if (!coalesce || coalesce !== lastKey.current) setPast((p) => [...p.slice(-99), work]);
     lastKey.current = coalesce;
+    edits.current++;
     setWork(next);
     persist(next);
     if (state.kind !== "saving") setState({ kind: "idle" });
@@ -114,20 +120,48 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     if (!prev) return;
     setPast(past.slice(0, -1));
     lastKey.current = undefined;
+    edits.current++;
     setWork(prev);
     persist(prev);
     setState({ kind: "idle" });
   };
 
+  // průběžná validace rozpracovaného stavu: `render` vrátí všechny chyby výsledku bez zápisu
+  useEffect(() => {
+    if (!active || !server || !base || !work) return;
+    if (!dirty) {
+      setErrors(server.sc.errors);
+      return;
+    }
+    let alive = true;
+    const timer = setTimeout(async () => {
+      const sim = rebase?.sim ?? base.draft.steps;
+      try {
+        const r = await renderDraft(url, rebase?.etag ?? base.etag, base.draft, work, sim);
+        if (alive) setErrors(r.errors.filter((e) => !e.file || e.file === path));
+      } catch (e) {
+        if (!alive) return;
+        if (e instanceof ApiError && e.status === 422) setErrors(planErrors(e, planOps(base.draft, work, sim)).filter((x) => !x.file || x.file === path));
+        else if (e instanceof LocalError) setErrors([{ message: t(`save.local.${e.code}`, { step: e.step ?? "" }), step: e.step }]);
+        // 409 a nedostupný server: konflikt hlásí hlídání disku, spojení ServerBar
+      }
+    }, VALIDATE_MS);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [work, base, rebase, active, server]);
+
   useWatch(async () => {
     if (!server || busy.current) return;
     try {
-      const sc = await getJson<Scenario>(url);
-      if (sc.etag === (rebase?.etag ?? server.sc.etag)) return;
+      const etag = await headEtag(`/projects/${enc(project)}/files/${path}`);
+      if (etag === (rebase?.etag ?? server.sc.etag)) return;
       if (!dirty) {
         await load(true);
         setState({ kind: "reloaded", at: clock() });
-      } else if (!conflict) setConflict({ etag: sc.etag });
+      } else if (!conflict) setConflict({ etag });
     } catch {
       /* ServerBar */
     }
@@ -137,36 +171,26 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     if (!work || !base || busy.current || conflict) return false;
     busy.current = true;
     setState({ kind: "saving" });
+    const sim = rebase?.sim ?? base.draft.steps;
     try {
-      const r = await saveDraft(url, rebase?.etag ?? base.etag, base.draft, work, rebase?.sim ?? base.draft.steps);
+      const r = await saveDraft(url, rebase?.etag ?? base.etag, base.draft, work, sim);
       writeDraft(key, null);
       const s = await load(true);
       if (s) setErrors(r.errors.filter((e) => !e.file || e.file === path));
       setState({ kind: "saved", at: clock() });
       return true;
-    } catch (e) {
-      const err = e instanceof SaveError ? e : new SaveError(e, null, 0);
-      const cause = err.cause;
-      if (err.done > 0) {
-        // část operací je na disku: nová základna a kroky, které už na disku jsou, převezmou uid
-        const s = await fetchServer();
-        adoptServer(s);
-        setRebase(undefined);
-        const next = { header: work.header, steps: rekey(work.steps, s.draft.steps) };
-        setWork(next);
-        writeDraft(key, { etag: s.sc.etag, base: s.draft, work: next, text: s.text });
-      }
-      const done = err.done ? ` ${t("save.partial", { n: err.done })}` : "";
+    } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setConflict({ etag: (cause.body.etag as string | null) ?? null });
-        setState({ kind: "failed", message: t("save.conflict") + done });
+        setState({ kind: "failed", message: t("save.conflict") });
       } else if (cause instanceof ApiError && cause.status === 422) {
-        setErrors(cause.errors);
-        setState({ kind: "failed", message: t("save.rejected", { n: cause.errors.length }) + done });
+        const errs = planErrors(cause, planOps(base.draft, work, sim)).filter((x) => !x.file || x.file === path);
+        setErrors(errs);
+        setState({ kind: "failed", message: t("save.rejected", { n: errs.length }) });
       } else if (cause instanceof LocalError) {
-        setState({ kind: "failed", message: t(`save.local.${cause.code}`, { step: cause.step ?? "" }) + done });
+        setState({ kind: "failed", message: t(`save.local.${cause.code}`, { step: cause.step ?? "" }) });
       } else {
-        setState({ kind: "failed", message: (cause instanceof Error ? cause.message : String(cause)) + done });
+        setState({ kind: "failed", message: cause instanceof Error ? cause.message : String(cause) });
       }
       return false;
     } finally {
@@ -177,7 +201,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
   return {
     path, server, loadError, base, work, dirty, errors, state, conflict, overwrite: !!rebase, canUndo: past.length > 0,
     change, undo, save,
-    reload: () => load(true),
+    reload: () => load(true, true),
     reloadFromDisk: () => {
       writeDraft(key, null);
       void load(true);
@@ -189,6 +213,12 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
       setConflict(undefined);
     },
     diskText: async () => (await getJson<FileDoc>(`/projects/${enc(project)}/files/${path}`)).text,
+    /** Rozpracovaný stav jako YAML text (`render`) — pro přechod do YAML bez uložení. */
+    renderText: async () => {
+      if (!base || !work) return undefined;
+      const etag = rebase?.etag ?? base.etag;
+      return { etag, text: (await renderDraft(url, etag, base.draft, work, rebase?.sim ?? base.draft.steps)).text };
+    },
   };
 }
 

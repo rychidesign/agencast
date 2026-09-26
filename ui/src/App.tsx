@@ -33,7 +33,7 @@ export function App() {
 /** ServerBar: server neodpovídá — `useApi` zkouší znovu po 5 s. */
 function ServerBar() {
   return (
-    <div role="alert" className="sticky top-0 z-30 bg-zinc-800 px-6 py-2 text-sm text-amber-400">
+    <div role="alert" data-testid="server-bar" className="sticky top-0 z-30 bg-zinc-800 px-6 py-2 text-sm text-amber-400">
       {t("server.offline", { host: API_BASE || location.host })}
     </div>
   );

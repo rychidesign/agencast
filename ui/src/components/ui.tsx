@@ -8,9 +8,9 @@ import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 
 export const btn = {
-  primary: "inline-flex h-9 items-center gap-2 rounded-lg bg-zinc-100 px-4 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50",
-  secondary: "inline-flex h-9 items-center gap-2 rounded-lg bg-zinc-800 px-4 text-sm text-zinc-100 hover:bg-zinc-700 disabled:opacity-50",
-  icon: "grid size-8 place-items-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100",
+  primary: "inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-zinc-100 px-4 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50 pointer-coarse:h-11",
+  secondary: "inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-zinc-800 px-4 text-sm text-zinc-100 hover:bg-zinc-700 disabled:opacity-50 pointer-coarse:h-11",
+  icon: "grid size-8 place-items-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 pointer-coarse:size-11",
 };
 
 // --- stav ---------------------------------------------------------------------------------
@@ -182,7 +182,7 @@ export function Menu({ items, label }: { items: MenuItem[]; label: string }) {
           {items.map((it) => (
             <button
               key={it.label} type="button" role="menuitem"
-              className="flex h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-zinc-700 focus:bg-zinc-700"
+              className="flex h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-zinc-700 focus:bg-zinc-700 pointer-coarse:h-11"
               onClick={(e) => (e.stopPropagation(), setOpen(false), it.onSelect())}
             >
               {it.label}
@@ -198,11 +198,11 @@ export function Menu({ items, label }: { items: MenuItem[]; label: string }) {
 
 export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: string; href: string }[]; active: string; label: string }) {
   return (
-    <nav aria-label={label} className="flex gap-1">
+    <nav aria-label={label} className="flex flex-wrap gap-1">
       {tabs.map((tab) => (
         <a
           key={tab.key} href={tab.href} aria-current={tab.key === active ? "page" : undefined}
-          className={`rounded-full px-3 py-1.5 text-sm ${tab.key === active ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
+          className={`rounded-full px-3 py-1.5 text-sm pointer-coarse:py-3 ${tab.key === active ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
         >
           {tab.label}
         </a>
@@ -222,7 +222,7 @@ export function Toggle<K extends string>({ value, options, onChange, label }: {
         <button
           key={o.key} type="button" role="radio" aria-checked={o.key === value} aria-disabled={!!o.disabled || undefined}
           title={o.disabled} aria-description={o.disabled} onClick={() => !o.disabled && onChange(o.key)}
-          className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm ${o.key === value ? "bg-zinc-700 text-zinc-100" : o.disabled ? "cursor-not-allowed text-zinc-600" : "text-zinc-400 hover:text-zinc-100"}`}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm pointer-coarse:h-11 ${o.key === value ? "bg-zinc-700 text-zinc-100" : o.disabled ? "cursor-not-allowed text-zinc-600" : "text-zinc-400 hover:text-zinc-100"}`}
         >
           {o.label}
         </button>

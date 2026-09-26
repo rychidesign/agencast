@@ -1,7 +1,7 @@
 // Sloupec karet kroků (§2.3, §2.4) — stejný pro editor a prohlížeč běhu (§2.5).
 // Editor přidává `ctx.edit`: konektory s +, koš a ⋯ vně pilulky, klávesy (§4.1–4.3, §6).
 import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Trash2, TriangleAlert } from "lucide-react";
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { Anchor, ListRef } from "../edit";
 import { formatCost, formatDuration } from "../format";
 import { t } from "../i18n";
@@ -47,6 +47,10 @@ const RUN_ICON: Record<RunStep["status"], Status> = {
 /** Klíč karty: id v editoru, cesta v běhu (`navrh/copy`). */
 const keyOf = (step: Step, ctx: ListCtx) => (ctx.run ? ctx.run.prefix + step.id : step.id);
 
+/** Výběr karty z klávesnice (Enter/mezerník, `detail` 0) pošle fokus do otevřeného panelu (§6); Esc ho vrátí. */
+const focusPanel = (e: MouseEvent) =>
+  e.detail === 0 && requestAnimationFrame(() => document.querySelector<HTMLElement>("aside :is(select, input, textarea, [role=tab])")?.focus());
+
 /** ↑/↓ mezi kartami sloupce (§6); karty jsou tlačítka v pořadí dokumentu. */
 export function onColumnKey(e: KeyboardEvent<HTMLElement>) {
   if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || e.altKey) return;
@@ -77,14 +81,15 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
     || (ctx.run ? (rs ? t(`rstatus.${rs.status}`) : t("run.notReached")) : "");
   const warn = !!rs?.continued;
   const status: Status | undefined = ctx.run ? (warn ? "warning" : rs ? RUN_ICON[rs.status] : "none") : undefined;
-  const notReached = ctx.run && !rs;
+  // nedošlo i přeskočeno (nevybraný případ, `when`) je ztlumené (§3 CaseSection); důvod nese hodnota karty
+  const dim = ctx.run && (!rs || rs.status === "skipped");
   let right: ReactNode = step.when ? <span className="font-mono">{t("step.when", { expr: step.when })}</span> : null;
   if (ctx.run) {
     const secs = rs?.status === "running" && rs.started_at ? (ctx.run.now - Date.parse(rs.started_at)) / 1000 : rs?.duration_s;
     right = rs && rs.status !== "skipped" ? (
       <span className="inline-flex gap-4 font-mono tabular-nums">
-        <span>{formatDuration(secs)}</span>
-        {rs.cost_usd != null && <span>{formatCost(rs.cost_usd)}</span>}
+        <span data-testid={`step-duration-${key}`}>{formatDuration(secs)}</span>
+        {rs.cost_usd != null && <span data-testid={`step-cost-${key}`}>{formatCost(rs.cost_usd)}</span>}
       </span>
     ) : null;
   }
@@ -101,10 +106,10 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
     e.stopPropagation();
   };
   return (
-    <div className={`${notReached ? "opacity-40" : ""} ${edit ? "group relative" : ""}`}>
+    <div className={`${dim ? "opacity-40" : ""} ${edit ? "group relative" : ""}`}>
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
-        onClick={() => ctx.onSelect(key)} onKeyDown={onKey}
+        onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
         className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${shape === "pill" ? "rounded-full" : "rounded-xl"} ${
           selected ? "bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900" : shape === "pill" ? "bg-zinc-800/60 hover:bg-zinc-800" : "hover:bg-zinc-800"
         } ${rs?.status === "running" ? "motion-safe:animate-pulse" : ""} ${isCut ? "opacity-50" : ""}`}
@@ -155,10 +160,10 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
     { label: t("edit.delete"), onSelect: () => edit.remove(step) },
   ];
   return (
-    <div className="absolute top-1/2 left-full ml-2 flex -translate-y-1/2 items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60">
+    <div className="absolute top-1/2 left-full ml-2 flex -translate-y-1/2 items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60 pointer-coarse:group-focus-within:opacity-100">
       <Menu items={items} label={t("common.menuFor", { name: step.id })} />
       <button type="button" onClick={() => edit.remove(step)} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
-        className="grid size-7 place-items-center rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25">
+        className="grid size-7 place-items-center rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 pointer-coarse:size-11">
         <Trash2 className="size-3.5" aria-hidden />
       </button>
       {picker && (
@@ -170,14 +175,15 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
   );
 }
 
-/** Šipka mezi kartami; v editoru se při hoveru/fokusu promění v (+) (§2.3 Konektor). */
-export function Connector({ ctx, at }: { ctx: ListCtx; at: Anchor }) {
+/** Šipka mezi kartami; v editoru se při hoveru/fokusu promění v (+) (§2.3 Konektor). `afterId` = krok nad (+). */
+export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afterId?: string }) {
   const edit = ctx.edit;
   if (!edit) return <Arrow />;
   return (
-    <div className="group/conn relative flex h-10 items-center justify-center">
-      <ArrowDown className={`absolute size-4 text-zinc-400 group-focus-within/conn:opacity-0 group-hover/conn:opacity-0 ${edit.cut_ ? "opacity-0" : ""}`} aria-hidden />
-      <AddButton label={t("edit.addHere")} paste={edit.cut_?.id} always={!!edit.cut_} onPick={(p) => edit.add(at, p)} />
+    <div className="group/conn relative flex h-10 items-center justify-center pointer-coarse:h-12">
+      <ArrowDown className={`absolute size-4 text-zinc-400 group-focus-within/conn:opacity-0 group-hover/conn:opacity-0 pointer-coarse:opacity-0 ${edit.cut_ ? "opacity-0" : ""}`} aria-hidden />
+      <AddButton label={afterId ? t("edit.addAfter", { id: afterId }) : t("edit.addStart")} testid={afterId && `add-after-${afterId}`}
+        paste={edit.cut_?.id} always={!!edit.cut_} onPick={(p) => edit.add(at, p)} />
     </div>
   );
 }
@@ -215,9 +221,9 @@ function Container({ step, ctx, meta, above, inner, children }: {
   );
 }
 
-function Branch({ label, children }: { label: string; children: ReactNode }) {
+function Branch({ label, testid, children }: { label: string; testid?: string; children: ReactNode }) {
   return (
-    <section className="min-w-0 rounded-xl bg-zinc-900/60 p-3" aria-label={label}>
+    <section className="min-w-0 rounded-xl bg-zinc-900/60 p-3" aria-label={label} data-testid={testid}>
       <h4 className="mb-2 font-mono text-[13px] text-zinc-400">{label}</h4>
       {children}
     </section>
@@ -237,8 +243,8 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
     return (
       <Container step={step} ctx={ctx} above={above} inner={Object.values(step.branches).flat()}
         meta={`${names.join(" ∥ ")} · ${t("step.parallel.meta", { n: names.length })}`}>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
-          {names.map((b) => <Branch key={b} label={b}><StepList steps={step.branches![b]} ctx={ctx} list={sub(["parallel", b])} /></Branch>)}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] gap-3">
+          {names.map((b) => <Branch key={b} label={b} testid={`branch-${b}`}><StepList steps={step.branches![b]} ctx={ctx} list={sub(["parallel", b])} /></Branch>)}
         </div>
         {addBranch && <div className="mt-2 text-right">{addBranch}</div>}
       </Container>
@@ -250,10 +256,10 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
         inner={[...Object.values(step.cases).flat(), ...(step.default ?? [])]}>
         <div className="space-y-3">
           {Object.entries(step.cases).map(([c, steps]) => (
-            <Branch key={c} label={`= ${c}`}><StepList steps={steps} ctx={ctx} list={sub(["switch", "cases", c])} /></Branch>
+            <Branch key={c} label={`= ${c}`} testid={`case-${c}`}><StepList steps={steps} ctx={ctx} list={sub(["switch", "cases", c])} /></Branch>
           ))}
           {step.default?.length || ctx.edit ? (
-            <Branch label={t("step.switch.default")}><StepList steps={step.default ?? []} ctx={ctx} list={sub(["switch", "default"])} /></Branch>
+            <Branch label={t("step.switch.default")} testid="case-default"><StepList steps={step.default ?? []} ctx={ctx} list={sub(["switch", "default"])} /></Branch>
           ) : (
             <p className="px-3 font-mono text-[13px] text-zinc-500">{t("step.switch.elseNothing")}</p>
           )}
@@ -307,7 +313,7 @@ export function StepList({ steps, ctx, list = MAIN }: { steps: Step[]; ctx: List
         const above: Anchor = i ? { after: uidOf(steps[i - 1]) } : { list };
         return (
           <li key={uidOf(s)}>
-            {i > 0 && <Connector ctx={ctx} at={above} />}
+            {i > 0 && <Connector ctx={ctx} at={above} afterId={steps[i - 1].id} />}
             <StepItem step={s} ctx={ctx} above={edit ? above : undefined} />
           </li>
         );
@@ -337,7 +343,7 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
     outputs: o.length ? `${t("count.outputs", { n: o.length })}: ${o.join(", ")}` : t("step.header.noOutputs"),
   });
   return (
-    <button type="button" data-step-card="" aria-pressed={selected} onClick={onSelect}
+    <button type="button" data-step-card="" aria-pressed={selected} onClick={(e) => (onSelect(), !selected && focusPanel(e))}
       className={`flex w-full items-center gap-3 rounded-full px-5 py-3 text-left ${selected ? "bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900" : "bg-zinc-800/60 hover:bg-zinc-800"}`}>
       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-zinc-900 text-zinc-300">
         <AlignJustify className="size-4" strokeWidth={1.5} aria-hidden />

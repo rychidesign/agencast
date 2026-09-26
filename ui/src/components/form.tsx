@@ -1,11 +1,11 @@
 // Editační prvky (§3 inventář): pole se štítkem, výraz/šablona s našeptávačem, JSON, modál rozhodnutí.
-import { useEffect, useId, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn } from "./ui";
 
 export const inputCls =
-  "w-full rounded-lg bg-zinc-900 px-3 py-2 text-sm ring-1 ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:opacity-50 aria-invalid:ring-rose-400";
+  "w-full rounded-lg bg-zinc-900 px-3 py-2 text-sm pointer-coarse:text-base ring-1 ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:opacity-50 aria-invalid:ring-rose-400";
 const mono = "font-mono text-[13px]";
 
 /** Pole se štítkem nad sebou (§6): `aria-describedby` na nápovědu i chybu. */
@@ -59,7 +59,14 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   a11y: { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean }; placeholder?: string;
 }) {
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
+  const caretAt = useRef<number | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  // kurzor za doplněnou hodnotu hned po jejím vykreslení (rAF by předběhlo další úhoz)
+  useLayoutEffect(() => {
+    if (caretAt.current == null) return;
+    ref.current?.setSelectionRange(caretAt.current, caretAt.current);
+    caretAt.current = null;
+  }, [value]);
   const [active, setActive] = useState(0);
   const listId = `${a11y.id}-list`;
   const matches = token ? candidates.filter((c) => c.startsWith(token) && c !== token).slice(0, 8) : [];
@@ -74,9 +81,9 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     const caret = el.selectionStart ?? value.length;
     const start = caret - (token?.length ?? 0);
     const next = value.slice(0, start) + c + value.slice(caret);
+    caretAt.current = start + c.length;
     onChange(next);
     setToken(null);
-    requestAnimationFrame(() => el.setSelectionRange(start + c.length, start + c.length));
   };
   const onKey = (e: KeyboardEvent) => {
     if (!open) return;
@@ -174,7 +181,7 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    root.current?.querySelector<HTMLElement>("[data-autofocus], button")?.focus();
+    (root.current?.querySelector<HTMLElement>("[data-autofocus]") ?? root.current?.querySelector<HTMLElement>("button"))?.focus();
     return () => prev?.focus?.();
   }, []);
   const onKey = (e: KeyboardEvent) => {
@@ -209,13 +216,22 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
   );
 }
 
-/** Dialog se jménem (nový scénář / agent / skill): slug s kontrolou na místě. */
-export function NameDialog({ title, taken, onSubmit, onCancel, withDescription = false, pattern = /^[a-z0-9-]+$/ }: {
-  title: string; taken: string[]; onSubmit: (name: string, description: string) => Promise<void> | void;
-  onCancel: () => void; withDescription?: boolean; pattern?: RegExp;
+/** Enter v textovém poli dialogu = hlavní akce (formulář s víc poli bez submit tlačítka se sám neodešle). */
+export const submitOnEnter = (submit: () => unknown) => (e: KeyboardEvent) => {
+  if (e.key === "Enter" && (e.target as HTMLElement).matches("input:not([type=checkbox]):not([type=radio])")) {
+    e.preventDefault();
+    void submit();
+  }
+};
+
+/** Dialog se jménem (nový scénář / agent / skill): slug s kontrolou na místě; `models` = výběr aliasu (agent). */
+export function NameDialog({ title, taken, onSubmit, onCancel, withDescription = false, models, pattern = /^[a-z0-9-]+$/ }: {
+  title: string; taken: string[]; onSubmit: (name: string, description: string, model: string) => Promise<void> | void;
+  onCancel: () => void; withDescription?: boolean; models?: string[]; pattern?: RegExp;
 }) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
+  const [model, setModel] = useState(models?.[0] ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const problem = !name ? null : !pattern.test(name) ? t("form.slug") : taken.includes(name) ? t("form.taken", { name }) : null;
@@ -223,7 +239,7 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
     if (!name || problem || busy) return;
     setBusy(true);
     try {
-      await onSubmit(name, desc);
+      await onSubmit(name, desc, model);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
@@ -232,13 +248,22 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
   return (
     <Modal title={title} onCancel={onCancel}
       actions={[{ label: busy ? t("common.saving") : t("common.create"), primary: true, onSelect: submit }]}>
-      <form onSubmit={(e) => (e.preventDefault(), submit())} className="space-y-3">
+      <form onSubmit={(e) => (e.preventDefault(), submit())} onKeyDown={submitOnEnter(submit)} className="space-y-3">
         <FormField label={t("form.name")} help={t("form.slugHelp")} errors={problem ? [problem] : []} required>
           {(a) => <input {...a} data-autofocus value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} ${mono}`} autoComplete="off" />}
         </FormField>
         {withDescription && (
           <FormField label={t("agent.description")}>
             {(a) => <input {...a} value={desc} onChange={(e) => setDesc(e.target.value)} className={inputCls} />}
+          </FormField>
+        )}
+        {models && (
+          <FormField label={t("agent.model")} help={t("agent.modelHelp")}>
+            {(a) => (
+              <select {...a} value={model} onChange={(e) => setModel(e.target.value)} className={inputCls}>
+                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            )}
           </FormField>
         )}
         {error && <p role="alert" className="font-mono text-xs whitespace-pre-wrap text-rose-400">{error}</p>}

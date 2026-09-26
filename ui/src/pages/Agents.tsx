@@ -20,7 +20,7 @@ export function MasterDetail({ project, tab, items, selected, onNew, children }:
 }) {
   const current = selected ?? items[0]?.name;
   return (
-    <div className="grid grid-cols-[14rem_1fr] gap-8">
+    <div className="grid gap-6 min-[1100px]:grid-cols-[14rem_1fr] min-[1100px]:gap-8">
       <nav aria-label={t(`project.tab.${tab}`)} className="space-y-2">
         <button type="button" onClick={onNew} className={`${btn.secondary} w-full`}>
           <Plus className="size-4" aria-hidden />{t(`${tab}.new`)}
@@ -53,7 +53,7 @@ export function SaveNote({ dirty, state, errors = 0 }: { dirty: boolean; state: 
     : t("save.clean");
   return (
     <span className="inline-flex items-center gap-2 text-sm" aria-live="polite">
-      <span className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
+      <span data-testid="save-status" className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
       {errors > 0 && <StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip>}
     </span>
   );
@@ -193,9 +193,9 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
         <AgentFields project={project} name={name} value={form.value} onChange={form.setValue} errors={errors} usedBy={usedBy} />
       )}
       {ui.modal}
-      {deleting && form.doc && (
+      {deleting && active.doc && (
         <DeleteDialog what={t("delete.agent")} name={name} onCancel={() => setDeleting(false)}
-          run={() => deleteFile(url, (active.doc ?? form.doc)!.etag)}
+          run={() => deleteFile(url, active.doc!.etag)}
           onDone={() => (setDeleting(false), onChanged(), navigate(href(project.name, "agenti")))} />
       )}
     </div>
@@ -293,7 +293,7 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
           </ul>
         )}
       </FormField>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <FormField label="max_turns" required={needTurns} errors={fe("limits.max_turns")}
           help={needTurns ? t("agent.turnsRequired") : t("agent.turnsHelp")}>
           {(a) => (
@@ -333,9 +333,10 @@ export function AgentsTab({ project, selected, onChanged }: { project: Project; 
         {(name) => <AgentEditor key={name} project={project} name={name} onChanged={onChanged} />}
       </MasterDetail>
       {creating && (
-        <NameDialog title={t("agenti.new")} taken={project.agents.map((a) => a.name)} onCancel={() => setCreating(false)}
-          onSubmit={async (name) => {
-            await send("POST", `/projects/${enc(project.name)}/agents`, { name });
+        <NameDialog title={t("agenti.new")} withDescription models={Object.keys(project.models)} taken={project.agents.map((a) => a.name)}
+          onCancel={() => setCreating(false)}
+          onSubmit={async (name, description, model) => {
+            await send("POST", `/projects/${enc(project.name)}/agents`, { name, ...(description ? { description } : {}), ...(model ? { model } : {}) });
             setCreating(false);
             onChanged();
             navigate(href(project.name, "agenti", name));

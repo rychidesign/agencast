@@ -22,3 +22,7 @@ framework/src/agencast/ui/
 .DS_Store
 .idea/
 .vscode/
+
+# E2E (ui/e2e)
+ui/e2e/test-results/
+ui/e2e/playwright-report/

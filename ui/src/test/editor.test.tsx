@@ -51,9 +51,11 @@ beforeEach(() => {
     const method = init.method ?? "GET";
     const url = u.replace(/^https?:\/\/[^/]+/, "");
     const body = init.body ? JSON.parse(String(init.body)) : {};
-    if (method !== "GET") calls.push({ method, url, body });
+    if (method !== "GET" && method !== "HEAD" && !url.endsWith("/render")) calls.push({ method, url, body });
     const hit = extra?.(method, url, body);
     if (hit) return json(...hit);
+    if (method === "HEAD") return new Response(null, { status: 200, headers: { ETag: `"${etag}"` } });
+    if (url.endsWith("/render")) return json(200, { text, tree: [], errors: [] });
     if (url === "/projects/p") return json(200, project);
     if (url === "/projects/p/scenarios/s") return json(200, scenario(etag));
     if (url.startsWith("/projects/p/files/")) {
@@ -64,7 +66,7 @@ beforeEach(() => {
     }
     if (url === "/projects/p/validate") return json(200, { errors: [] });
     if (url === "/projects/p/spend") return json(200, { day: "x", total_usd: 0.42, runs: [] });
-    if (url.includes("/scenarios/s/steps") || url === "/projects/p/scenarios/s") {
+    if (url.endsWith("/scenarios/s/batch")) {
       etag = `e${Number(etag.slice(1)) + 1}`;
       return json(200, { etag, errors: [] });
     }
@@ -111,22 +113,25 @@ describe("TypePicker", () => {
 });
 
 describe("editor scénáře", () => {
-  it("vložení kroku: + → typ → panel; Uložit = jeden POST s otiskem, pak Uloženo", async () => {
+  it("vložení kroku: + → typ → panel; Uložit = jedna dávka s otiskem, pak Uloženo", async () => {
     await openEditor();
-    fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok sem" })[1]); // mezi copy a out
+    fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok za copy" })[0]); // mezi copy a out
     fireEvent.keyDown(screen.getByRole("listbox"), { key: "f" });
     fireEvent.keyDown(screen.getByRole("listbox"), { key: "Enter" });
     const panel = await screen.findByRole("complementary");
     fireEvent.change(within(panel).getByRole("combobox", { name: /Zpráva/ }), { target: { value: "Konec" } });
     expect(screen.getByText("Neuloženo")).toBeTruthy();
     await save();
-    expect(calls).toEqual([{ method: "POST", url: "/projects/p/scenarios/s/steps", body: { after: ["steps", 0], step: { id: "fail_1", fail: "Konec" }, etag: "e0" } }]);
+    expect(calls).toEqual([{
+      method: "POST", url: "/projects/p/scenarios/s/batch",
+      body: { etag: "e0", ops: [{ op: "add_step", after: ["steps", 0], step: { id: "fail_1", fail: "Konec" } }] },
+    }]);
     expect(await screen.findByText(/Uloženo ✓/)).toBeTruthy();
   });
 
   it("přesun Alt+↓, smazání klávesou Delete a krok zpět", async () => {
     await openEditor();
-    fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok sem" })[1]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok za copy" })[0]);
     fireEvent.keyDown(screen.getByRole("listbox"), { key: "Enter" }); // ask_1 za copy
     const copy = screen.getByRole("button", { name: /Krok 1: ask copy/ });
     fireEvent.keyDown(copy, { key: "ArrowDown", altKey: true });
@@ -140,12 +145,12 @@ describe("editor scénáře", () => {
     expect(screen.getByRole("dialog").textContent).toContain("čtou out");
     fireEvent.click(screen.getByRole("button", { name: "Smazat i tak" }));
     await save();
-    expect(calls.map((c) => [c.method, c.url, c.body.etag])).toEqual([["DELETE", "/projects/p/scenarios/s/steps/0", "e0"]]);
+    expect(calls).toEqual([{ method: "POST", url: "/projects/p/scenarios/s/batch", body: { etag: "e0", ops: [{ op: "delete_step", address: ["steps", 0] }] } }]);
   });
 
   it("409 → ConflictBar; Ponechat moje → Uložit se ptá na přepsání a pošle aktuální otisk", async () => {
     await openEditor();
-    extra = (m, _u, b) => (m === "PATCH" && b.etag === "e0" ? [409, { error: "změněno", etag: "e5" }] : undefined);
+    extra = (_m, u, b) => (u.endsWith("/batch") && b.etag === "e0" ? [409, { error: "změněno", etag: "e5" }] : undefined);
     fireEvent.click(screen.getByRole("button", { name: /Krok 1: ask copy/ }));
     fireEvent.change(screen.getByRole("combobox", { name: /Prompt/ }), { target: { value: "nový" } });
     await save();
@@ -154,20 +159,61 @@ describe("editor scénáře", () => {
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Ponechat moje" })));
     await save();
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Přepsat verzi na disku" })));
-    expect(calls.map((c) => [c.method, c.body.etag])).toEqual([["PATCH", "e0"], ["PATCH", "e5"]]);
-    expect(calls[1].body.fields).toEqual({ ask: { prompt: "nový" } });
+    expect(calls.map((c) => [c.method, c.body.etag])).toEqual([["POST", "e0"], ["POST", "e5"]]);
+    expect(calls[1].body.ops).toEqual([{ op: "update_step", address: ["steps", 0], fields: { ask: { prompt: "nový" } } }]);
   });
 
   it("422 → chyba u karty i u pole, nic se nezapsalo, zůstává Neuloženo", async () => {
     await openEditor();
     const err = { message: "s.yaml: krok \"copy\", ask.prompt: krok 'nic' neexistuje", file: "scenarios/s.yaml", step: "copy", field: "ask.prompt" };
-    extra = (m) => (m === "PATCH" ? [422, { error: "neprošla", errors: [err] }] : undefined);
+    extra = (_m, u) => (u.endsWith("/batch") ? [422, { error: "neprošla", errors: [err] }] : undefined);
     fireEvent.click(screen.getByRole("button", { name: /Krok 1: ask copy/ }));
     fireEvent.change(screen.getByRole("combobox", { name: /Prompt/ }), { target: { value: "{{ steps.nic.text }}" } });
     await save();
     expect(screen.getByText(/neprošla kontrolou \(1 chyba\)/)).toBeTruthy();
     expect(screen.getAllByText(/krok 'nic' neexistuje/).length).toBe(2); // pod kartou a pod polem
     expect(screen.getByRole("combobox", { name: /Prompt/ }).getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("chyba operace dávky (422 s op) se ukáže u karty kroku, kterého se operace týká", async () => {
+    await openEditor();
+    extra = (_m, u) => (u.endsWith("/batch")
+      ? [422, { error: "operace 0 dávky nejde provést", op: 0, errors: [{ message: "ops[0] update_step: adresa kroku neexistuje" }] }] : undefined);
+    fireEvent.click(screen.getByRole("button", { name: /Krok 1: ask copy/ }));
+    fireEvent.change(screen.getByRole("combobox", { name: /Prompt/ }), { target: { value: "jinak" } });
+    await save();
+    expect(screen.getByText(/neprošla kontrolou \(1 chyba\)/)).toBeTruthy();
+    const card = screen.getByRole("button", { name: /Krok 1: ask copy/ }).parentElement!;
+    expect(card.textContent).toContain("ops[0] update_step");
+  });
+
+  it("průběžná validace ve Form režimu: render 500 ms po změně, chyba u karty ještě před Uložit", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await openEditor();
+    const err = { message: "krok 'nic' neexistuje", file: "scenarios/s.yaml", step: "copy", field: "ask.prompt" };
+    extra = (_m, u) => (u.endsWith("/render") ? [200, { text, tree: [], errors: [err] }] : undefined);
+    fireEvent.click(screen.getByRole("button", { name: /Krok 1: ask copy/ }));
+    fireEvent.change(screen.getByRole("combobox", { name: /Prompt/ }), { target: { value: "{{ steps.nic.text }}" } });
+    expect(screen.queryAllByText(/krok 'nic' neexistuje/).length).toBe(0);
+    await act(async () => void (await vi.advanceTimersByTimeAsync(600)));
+    expect(screen.getAllByText(/krok 'nic' neexistuje/).length).toBe(2);
+    expect(calls).toEqual([]); // nic se nezapsalo
+  });
+
+  it("přejmenování čteného kroku se ptá a uloží rename_step s přepisem odkazů", async () => {
+    await openEditor("#/p/p/scenare/s?krok=copy");
+    fireEvent.click(await screen.findByRole("button", { name: /Podrobnosti kroku/ }));
+    const id = screen.getByRole("textbox", { name: "id" });
+    fireEvent.change(id, { target: { value: "text" } });
+    fireEvent.blur(id);
+    expect(screen.getByRole("dialog").textContent).toContain("Přepsat odkazy v 1 kroku?");
+    fireEvent.click(screen.getByRole("button", { name: "Přejmenovat a přepsat odkazy" }));
+    expect(screen.getByRole("button", { name: /Krok 1: ask text/ })).toBeTruthy();
+    await save();
+    expect(calls[0].body.ops).toEqual([
+      { op: "rename_step", address: ["steps", 0], new_id: "text", rename_refs: true },
+      { op: "update_step", address: ["steps", 1], fields: { output: { text: "{{ steps.text.text }}" } } },
+    ]);
   });
 
   it("rozpracovaný stav přežije obnovení stránky (localStorage se stejným otiskem)", async () => {
@@ -229,7 +275,7 @@ describe("spuštění z GUI", () => {
     expect(await within(panel).findByText(/0,4200/)).toBeTruthy();
     await act(async () => void fireEvent.click(within(panel).getByRole("button", { name: "Spustit ostrý běh" })));
     expect(calls).toEqual([{ method: "POST", url: "/projects/p/runs", body: { scenario: "s", inputs: { tema: "káva" } } }]);
-    expect(location.hash).toBe("#/p/p/behy/20260926-120000-s-ab12?spusteno=1");
+    expect(location.hash).toBe("#/p/p/behy/20260926-120000-s-ab12");
   });
 });
 

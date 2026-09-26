@@ -26,14 +26,8 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
   const base = `/projects/${enc(project)}`;
   const runPath = `${base}/runs/${enc(runId)}`;
   const opened = useRef(Date.now());
-  const fresh = query.get("spusteno") === "1";
-  const loaded = useApi<Run>(
-    runPath,
-    // Ostrý běh spuštěný z GUI (`?spusteno=1`): než vznikne events.jsonl, API ho krátce hlásí jako
-    // `dry_run` (nalezy-api.md, bod 15) — prvních 15 s se proto čte dál. Přerušený běh se nečte.
-    (d) => (isLive(d.state) || (fresh && d.state === "dry_run" && Date.now() - opened.current < 15_000)
-      ? pollDelay(Date.now() - opened.current) : null),
-  );
+  // Čerstvý běh je od 0.8.0 hned `queued` → `running` (nalezy-api.md bod 15); přerušený se nečte.
+  const loaded = useApi<Run>(runPath, (d) => (isLive(d.state) ? pollDelay(Date.now() - opened.current) : null));
   const run = loaded.data;
   const inputs = useApi<string>(run?.files?.includes("inputs.json") ? `${runPath}/files/inputs.json` : null, undefined, getText);
 
@@ -82,7 +76,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
 
   return (
     <main className="min-h-screen" onKeyDown={closeOnEsc(selected)}>
-      <header className="sticky top-0 z-10 space-y-2 bg-zinc-900/95 px-8 py-4">
+      <header className="sticky top-0 z-10 space-y-2 bg-zinc-900/95 px-4 py-4 sm:px-8">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <a href={href(project, "behy")} className="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100">
             <ArrowLeft className="size-4" aria-hidden /> {t("run.back", { project })}
@@ -92,15 +86,17 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
             <span className="ml-2 font-mono text-sm font-normal text-zinc-400">{runId}</span>
           </h1>
           {run && state && (
-            <StatusBadge status={RUN_STATUS[state]}>
-              {state === "failed" ? t("run.failedIn", { reason: failReason(run.status) }) : t(`run.state.${state}`)}
-            </StatusBadge>
+            <span data-testid="run-state">
+              <StatusBadge status={RUN_STATUS[state]}>
+                {state === "failed" ? t("run.failedIn", { reason: failReason(run.status) }) : t(`run.state.${state}`)}
+              </StatusBadge>
+            </span>
           )}
           {run?.fake && <span className="rounded-full bg-zinc-800 px-2 text-xs text-zinc-300">{t("run.fake")}</span>}
           {run && (
             <span className="ml-auto font-mono text-sm">
-              {run.duration_s != null && formatDuration(run.duration_s)}
-              {run.cost_usd != null && ` · ${formatCost(run.cost_usd)} USD`}
+              {run.duration_s != null && <span data-testid="run-duration">{formatDuration(run.duration_s)}</span>}
+              {run.cost_usd != null && <> · <span data-testid="run-cost">{formatCost(run.cost_usd)} USD</span></>}
             </span>
           )}
         </div>
@@ -130,7 +126,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
         )}
       </header>
 
-      <div className="px-8 pb-16">
+      <div className="px-4 pb-16 sm:px-8">
         {loaded.error && loaded.error.status !== 0 && <ErrorText error={loaded.error} />}
         {!run && !loaded.error && <div className="mx-auto max-w-[640px] pt-6"><Loading rows={4} pill /></div>}
         {run && tab === "kroky" && (

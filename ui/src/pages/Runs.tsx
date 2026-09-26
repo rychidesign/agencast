@@ -68,7 +68,8 @@ export function RunsTab({ project }: { project: string }) {
       {runs.loading && !runs.data && <Loading rows={5} />}
       {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scénář>"}`} />}
       {shown.length > 0 && (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
+        <table className="w-full min-w-[40rem] text-sm">
           <caption className="sr-only">{t("project.tab.behy")}</caption>
           <thead className="sr-only">
             <tr><th>{t("runs.col.state")}</th><th>run_id</th><th>{t("runs.col.scenario")}</th><th>{t("runs.col.when")}</th>
@@ -78,6 +79,7 @@ export function RunsTab({ project }: { project: string }) {
             {shown.map((r) => <RunRow key={r.run_id} project={project} run={r} />)}
           </tbody>
         </table>
+        </div>
       )}
       {all.length === limit && (
         <button type="button" className={btn.secondary} onClick={() => setLimit(limit + RUNS_PAGE)}>{t("runs.more")}</button>
@@ -103,7 +105,7 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
     r.callback ?? "",
   ].filter(Boolean).join(" · ");
   return (
-    <tr className="relative hover:bg-zinc-800/60">
+    <tr data-testid={`run-row-${r.run_id}`} className="relative hover:bg-zinc-800/60">
       <td className="w-8 py-2 pl-3"><StatusIcon status={RUN_STATUS[state]} label={t(`run.state.${state}`)} /></td>
       <td className="py-2 pr-4 font-mono text-[13px]">
         <a href={href(project, "behy", r.run_id)} className="after:absolute after:inset-0">{r.run_id}</a>

@@ -88,6 +88,10 @@ export const getJson = async <T>(path: string): Promise<T> => (await request(pat
 export const getText = async (path: string): Promise<string> => (await request(path)).text();
 export const getBlob = async (path: string): Promise<Blob> => (await request(path)).blob();
 
+/** Otisk souboru bez stahování (`HEAD …/files/<cesta>`, hlavička `ETag` v uvozovkách). */
+export const headEtag = async (path: string): Promise<string | null> =>
+  (await request(path, { method: "HEAD" })).headers.get("ETag")?.replace(/^(W\/)?"|"$/g, "") ?? null;
+
 /** Zápis (editační operace, spuštění běhu): JSON tělo, odpověď JSON; chyba → ApiError. */
 export const send = async <T>(method: string, path: string, body?: unknown): Promise<T> =>
   (await request(path, { method, body: body === undefined ? undefined : JSON.stringify(body) })).json();

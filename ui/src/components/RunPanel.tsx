@@ -46,7 +46,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
     try {
       const res = await send<{ run_id: string }>("POST", `/projects/${enc(project.name)}/runs`,
         { scenario, inputs: r.inputs, ...(dry ? { dry_run: true } : {}) });
-      navigate(href(project.name, "behy", res.run_id, { spusteno: dry ? undefined : "1" }));
+      navigate(href(project.name, "behy", res.run_id));
     } catch (e) {
       setError(e as ApiError);
       setBusy(false);
@@ -98,7 +98,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
             <ul className="list-inside list-disc font-mono text-xs text-rose-400">{error.details.map((d) => <li key={d}>{d}</li>)}</ul>
           </div>
         )}
-        <button type="submit" className={btn.primary} disabled={busy || hasFile}>
+        <button type="submit" className={`${btn.primary} max-sm:w-full`} disabled={busy || hasFile}>
           {busy ? t("runForm.starting") : dry ? t("runForm.submitDry") : t("runForm.submitLive")}
         </button>
       </form>

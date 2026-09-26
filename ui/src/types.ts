@@ -1,4 +1,4 @@
-// Tvary odpovědí `agencast serve` podle docs/spec/api.md (0.7.0).
+// Tvary odpovědí `agencast serve` podle docs/spec/api.md (0.9.0).
 
 export interface ErrorItem {
   message: string;
@@ -15,6 +15,16 @@ export interface ProjectRef {
   /** Jen u `available: false`. */
   reason?: string;
   last_run?: LastRunRef | null;
+}
+
+/** `GET /projects` (0.9.0: `projects_root`, `writable`). */
+export interface ProjectList {
+  projects: ProjectRef[];
+  registry: string;
+  /** Výchozí kořen nových projektů (`<projects_root>/<jméno>`). */
+  projects_root: string;
+  /** Jen v režimu registru s právem zápisu; jinak GUI nabízí příkaz pro CLI. */
+  writable: boolean;
 }
 
 /** `last_run` v `GET /projects` a u scénářů = první položka `…/runs` zúžená. */
