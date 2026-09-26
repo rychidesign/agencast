@@ -9,7 +9,7 @@ Rozhodnutí koordinátora k otázkám v §8 jsou na konci dokumentu.
 
 Podklady: DESIGN.md (Obálky, §5), spec scenario/agent/config/skill/api/projects/run-record, ig-post.yaml, SKILL.md agencast-create.
 
-Screenshot z Buzz (Create workflow) k designérovi nedorazil ani jako obrázek, ani jako cesta k souboru; vizuální reference je převzata z textového popisu v zadání. Po dodání screenshotu (cesta k PNG) projde designér §5 a podobu karty a panelu v §2.3 znovu.
+Vizuální reference: screenshot obrazovky Create workflow z Buzz, který uživatel poslal přímo; prohlédnut a promítnut do sekcí 2.3, 3 a 5. Kopie: `~/workspace/ux-reference/buzz-create-workflow.png`.
 
 ## 1. Informační architektura
 
@@ -57,24 +57,29 @@ Scénáře · Agenti · Config · Skilly · Běhy
 ### 2.3 Editor scénáře (karty + panel)
 
 ```
-← thtd / Scénáře   ig-post ✎  Návrh IG příspěvku ke schválení ✎     Form | <> YAML    Neuloženo · 1 chyba   [Uložit]
-┌ HLAVIČKA ──────────────────────────────────┐ ┌ KROK 2 · jev ▾                          🗑  ✕ ┐
-│ Vstupy   tema: string, povinný              │ │ id        [kontrola             ]              │
-│ Výstupy  caption: string · hashtags: list · │ │ když      [                     ] výraz; prázdné = vždy
-│          image: file                        │ │ ── Jev ───────────────────────────────         │
-├─────────────────────────────────────────────┤ │ state     [{{ steps.copy.caption }}    ]       │
-│ ① copy           ask · copywriter           │ │ otázky    on_brand   noul ▾  [Odpovídá text…]  │
-│      │  +                                   │ │           + Přidat otázku                      │
-│ ② kontrola       jev · 1 otázka         ◉   │ │ ── Spolehlivost   výchozí ›                    │
-│      │  +                                   │ │    (timeout, budget_usd, retry, on_error, default)
-│ ③ stop           fail  ⚑ když on_brand < 0.7│ │ ── Čte z: steps.copy.caption                   │
-│      │  +                                   │ │ ── Výstup čtou: stop (when), out                │
-│ ④ foto_prompt    ask · photographer  ✗ agent „fotograf“ neexistuje                            │
-│ …                                           │ └────────────────────────────────────────────────┘
-│ ⑧ out            output · 3 hodnoty         │
-└─────────────────────────────────────────────┘
+← thtd / Scénáře    ig-post ✎  Návrh IG příspěvku ke schválení ✎     [Form | <> YAML]     Neuloženo · 1 chyba   [Uložit]
+
+      ( ≡  HLAVIČKA                                        )      ┌ KROK 2                              🗑   ✕ ┐
+      (    1 vstup · 3 výstupy                             )      │ jev ▾                                       │
+                           ↓                                      │                                             │
+      ( 1  ASK                            copywriter       )      │ Id            [kontrola                ]    │
+      (    copy                                            )      │ Když          [                        ]    │
+                           ↓                                      │               výraz; prázdné = vždy         │
+    ╭─( 2  JEV                            1 otázka         )─╮    │ State         [{{ steps.copy.caption }} ]   │
+    ╰─(    kontrola                                        )─╯    │ Otázky                   [+ Přidat otázku]  │
+                           ↓                                      │   on_brand   noul ▾   Odpovídá text tónu…   │
+      ( 3  FAIL   ⚑ když on_brand < 0.7                    )      │ ─────────────────────────────────────────── │
+      (    stop                                            )      │ Spolehlivost                    výchozí  ›  │
+                           ↓                                      │ ─────────────────────────────────────────── │
+      ( 4  ASK                            photographer     )      │ Odkazy              čte copy · čtou 2   ›   │
+      (    foto_prompt                                     )      └─────────────────────────────────────────────┘
+        ✗ agent „fotograf“ neexistuje
+                           ↓  …
+      ( 8  OUTPUT                          3 hodnoty       )
+      (    out                                             )
+                          (+)
 ```
-Karta: číslo `nn` v kruhu, `id`, ikona + typ, druhá řádka podle typu (agent, model, cílový scénář, počet otázek/hodnot), vlevo praporek „když …“, chyba validace přímo pod kartou. Hlavička (vstupy/výstupy) je první, nesmazatelná karta; klik otevře panel se seznamem vstupů/výstupů. Panel: nahoře výběr typu jako v Buzz, pole ze schématu, sbalené „Spolehlivost“ jen pro typy, kde vlastnosti dávají smysl (tabulka §3 spec). „Čte z“ a „Výstup čtou“ jsou čipy z `refs`, klik skočí na kartu.
+`( … )` na dvou řádcích = jedna pilulka: eyebrow TYP uppercase nad id, vpravo sekundární údaj (agent, model, cílový scénář, počet otázek/hodnot). Hlavičková karta má místo čísla ikonu v zaobleném čtverci jako trigger v Buzz. Šipka ↓ mezi kartami se při hoveru nebo fokusu promění v (+) 28 px; trvale viditelné (+) je jen na konci každého seznamu (hlavní i každá větev). Menu ⋯ karty má navíc „Vložit krok nad / pod“ jako klávesovou cestu. Kontejnerové karty (`parallel`, `switch`) z 2.4 nejsou pilulky, ale zaoblené obdélníky (16 px), uvnitř nich zase pilulky. V prohlížeči běhu (2.5) stavová ikona nahradí číslo v kruhu a pravá strana pilulky nese čas a cenu. Panel: eyebrow „KROK n“, pod ním typ jako select, koš a ×; sbalené řádky „Spolehlivost … výchozí ›“ a „Odkazy … ›“ ve stylu „Run controls … Default ›“ z Buzz. Vlastnosti „Spolehlivost“ (timeout, budget_usd, retry, on_error, default) jen u typů, kde dávají smysl (tabulka §3 spec). „Odkazy“ = čipy z `refs` (čte z / výstup čtou), klik skočí na kartu.
 
 ### 2.4 Karty `parallel`, `switch`, `call`
 
@@ -174,11 +179,12 @@ Skilly            │ thtd-hlas                                                 
 |---|---|---|
 | `StepCard` | číslo `nn`, id (mono), ikona + typ, 2. řádka podle typu, praporek `když`, chyba pod kartou | výchozí, hover, vybraná (ring), s chybou, sbalená; v běhu + stav/čas/cena, nedošlo (40 % opacity) |
 | `HeaderCard` | vstupy a výstupy scénáře | jako karta, nesmazatelná, vždy první |
-| `Connector` + `AddButton` | svislá linka 28 px, uprostřed + (24 px, vždy viditelné v nízkém kontrastu, plné při hover/focus) | výchozí, focus, „vložit vyjmutý krok“ |
+| `Connector` + `AddButton` | šipka ↓ jako glyph mezi pilulkami (mezera ~40 px), na hover/focus se promění v (+) 28 px; trvalé (+) jen na konci každého seznamu | výchozí, focus, „vložit vyjmutý krok“ |
 | `BranchColumn` / `CaseSection` | větev `parallel` vedle sebe / případ `switch` pod sebou, každý s vlastním seznamem a + | aktivní, v běhu přeskočená (ztlumená s důvodem) |
 | `TypePicker` | popover u +: Model (ask, task, jev, image), Řízení (parallel, switch, call, fail), Data (set); jednořádkový popis každého | `output` se nenabízí, přidá se sám nabídkou na konci, když chybí |
-| `StepPanel` | hlavička KROK n · typ ▾, koš, zavřít; formulář; sbalené sekce | čtení, editace, s chybami; v běhu záložky Prompt/Odpověď/Výstup/Volání/Soubory |
-| `FormYamlToggle` | segmentový přepínač Form / `<>` YAML v hlavičce obrazovky | YAML s chybou = návrat do Form zakázán s nápovědou (řádek) |
+| `StepPanel` | plovoucí zaoblený panel (16 px, okraj 16 px od hran), eyebrow „KROK n“ + typ jako select, koš a ×; formulář; sbalené řádky „Spolehlivost … výchozí ›“, „Odkazy … ›“ (15 px, hodnota vpravo šedě, hairline oddělovače) | čtení, editace, s chybami; v běhu záložky Prompt/Odpověď/Výstup/Volání/Soubory |
+| `FormYamlToggle` | tmavá segmentová pilulka Form / `<>` YAML jako v Buzz (aktivní segment světlejší), v lepící horní liště editoru (stránka nemá patičku modálu) | YAML s chybou = návrat do Form zakázán s nápovědou (řádek) |
+| `Button` | primární = světlá pilulka (`bg-zinc-100 text-zinc-900`), sekundární = tmavá pilulka (`bg-zinc-800 text-zinc-100`), drobná „+ Přidat …“ pilulka vpravo od štítku sekce (jako „+ Add header“) | výchozí, hover, focus, disabled |
 | `StatusBadge` | ikona + text: ✓ úspěch, ✗ chyba, ○ přeskočeno, ● běží (pulz), ◌ ve frontě, ⚠ varování, zrušeno | nikdy jen barva |
 | `CostChip`, `DurationChip` | `0,0015 USD` (čárka, ≥ 4 místa, nula = `0`, `USD` za číslem s pevnou mezerou), `17,5 s` / `1 min 12 s`; mono | u obrázků „z toho obrázky …“ v hlavičce |
 | `ExprInput`, `TemplateInput` | mono pole; našeptávač `inputs.` a `steps.<id>.<pole>` jen pro kroky nad a ve stejné větvi | chyba s hláškou a stříškou `^` ze serveru |
@@ -200,18 +206,16 @@ Skilly            │ thtd-hlas                                                 
 8. **Živý běh:** dokud je běh `queued`/`running`, GUI čte `GET /runs/<id>` každé 2 s (po 2 min každých 5 s). Běžící karta pulzuje, uplynulý čas tiká lokálně mezi dotazy, cena v hlavičce roste. „Sledovat běh“ posouvá pohled na aktivní kartu. Po konci pruh „Běh skončil: úspěch/chyba“ a načtení Souhrnu. Seznam běhů se obnovuje každých 5 s, když něco běží. SSE později bez změny obrazovky.
 9. **Změna typu kroku** v panelu: zachová id a `když`, ostatní pole zahodí; modál jen když by se vyplněná pole ztratila.
 
-## 5. Vizuální principy (Tailwind)
+## 5. Vizuální principy (Tailwind) — podle screenshotu Buzz
 
-- **Plochy:** stránka `bg-zinc-950`, karta `bg-zinc-900`, hover `bg-zinc-800/70`, vybraná `bg-zinc-800 ring-1 ring-zinc-500/50`, větev/případ `bg-zinc-900/60`, panel `bg-zinc-900/80 border-l border-zinc-800/60`, vstupy `bg-zinc-950 ring-1 ring-zinc-800`. Jediné oddělení je jeden stupeň jasu; hloubka nejvýš dvě úrovně plochy.
-- **Text:** primární `text-zinc-100`, sekundární `text-zinc-400`; `text-zinc-500` jen na dekoraci (na zinc-900 nedosáhne 4,5:1). Štítky sekcí (`KROK 2`) 11 px, `uppercase tracking-wider`, `text-zinc-400`.
-- **Typografie:** písmo dashboardu (Inter/system); UI 14 px/1,5, sekundární 13, nadpis obrazovky 18 semibold; mono (`ui-monospace`/JetBrains Mono) 13 px pro id, výrazy, `run_id`, ceny, YAML. Nejvýš 3 velikosti v jednom pohledu.
-- **Rozestupy:** 8px škála. Karta `px-4 py-3`, konektor 28 px, mezera sloupců větví 12, odsazení vnořených seznamů 16 s levou linkou `border-zinc-800`, mezi sekcemi 32, panel `p-6`.
-- **Zaoblení:** karty `rounded-xl`, vstupy a tlačítka `rounded-lg`, štítky stavu `rounded-full`. Nic jiného.
-- **Stavy (vždy ikona + text):** úspěch `emerald-400`, chyba `rose-400`, přeskočeno `zinc-400` + čárkovaný ring, běží `sky-400` s pulzem (vypnout při `prefers-reduced-motion`), zrušeno a varování `amber-400`, ve frontě `zinc-400` prázdný kruh, nedošlo 40 % opacity bez barvy.
-- **Akcent:** jeden odstín převzatý ze Skynet Soul; jen primární tlačítko (jedno na obrazovku), focus ring, odkazy, aktivní +. Nikdy na dekoraci.
+- **Žebřík ploch podle Buzz:** stránka nejtmavší, pilulka kroku o stupeň světlejší, panel o další stupeň světlejší, vstupy uvnitř panelu zpět o stupeň tmavší s 1px linkou. Tailwind: stránka `bg-zinc-900` (nebo pozadí dashboardu), karta `bg-zinc-800/60`, hover `bg-zinc-800`, vybraná `bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900`, panel `bg-zinc-800 rounded-2xl`, vstupy `bg-zinc-900 ring-1 ring-zinc-700`, větev/případ uvnitř kontejneru `bg-zinc-900/60`.
+- **Žádný akcent.** UI je celé šedé jako Buzz. Barva zůstává jen stavům běhu (úspěch `emerald-400`, chyba `rose-400`, běží `sky-400` s pulzem, vypnout při `prefers-reduced-motion`, zrušeno/varování `amber-400`, přeskočeno `zinc-400` s čárkovaným prstencem) a chybám validace (`rose-400`). Výběr, fokus (`ring-zinc-300`) a odkazy (podtržení) jsou šedobílé.
+- **Tvary, tři poloměry:** listová karta kroku `rounded-full` (56–64 px, číslo v kruhu 36 px), kontejnerové karty a panel `rounded-2xl`, vstupy a tlačítka `rounded-lg`; malé (+) kruh 28 px s `ring-1 ring-zinc-600`.
+- **Text v pilulce:** eyebrow typu 11 px `uppercase tracking-wider text-zinc-400`, id 14 px semibold `text-zinc-100`, sekundární údaj 13 px `text-zinc-400`. Panel: štítky polí 12–13 px semibold nad polem, sbalené řádky 15 px. Nadpis obrazovky 18 semibold; jméno scénáře v hlavičce mono s tužkou (jako jméno workflow v Buzz). Mono i pro id, výrazy, `run_id`, ceny, YAML. Písmo dashboardu (Inter/system).
+- **Rozestupy:** 8px škála; pilulka `px-5 py-3`, číslo v kruhu s mezerou 12 px od textu, šipka mezi pilulkami ve 40px mezeře, panel `p-5` s vnitřním rozestupem sekcí 20 px, okraj panelu od hran 16 px.
+- **Šířky:** sloupec karet max 640 px centrovaný (Buzz má 380, u nás víc kvůli větvím `parallel` a sekundárním údajům); panel 400 px plovoucí; od 1100 px vedle sebe, pod tím panel jako vysouvací list (jediné místo se stínem).
 - **Ikony typů** (lucide, 16 px, tah 1,5, vždy s textovým názvem typu): ask `message-square`, task `bot`, jev `scale`, image `image`, parallel `columns-2`, switch `split`, call `corner-down-right`, set `equal`, fail `octagon-x`, output `package-check`.
-- **Responzivita:** od 1100 px dva sloupce (karty + panel 420), pod tím panel jako vysouvací list přes karty (jediné místo se stínem).
-- **Nedělat:** rámečky kolem karet a sekcí, stíny, vnořené boxy nad dvě úrovně, zebra tabulky, víc než dva štítky na kartě, tooltip jako jediný nositel informace, stav jen barvou, 12px text na obsah, překryvné spinnery, modál tam, kde stačí panel.
+- **Nedělat:** akcentová barva na tlačítkách nebo výběru, rámečky kolem pilulek a sekcí (jen prstenec u vybrané), stíny, vnořené boxy nad dvě úrovně, linky místo šipek mezi kroky, víc než dva štítky na kartě, stav jen barvou, tooltip jako jediný nositel informace, 12px text na obsah, překryvné spinnery, modál tam, kde stačí panel.
 
 ## 6. Přístupnost a klávesnice
 
@@ -231,7 +235,7 @@ Skilly            │ thtd-hlas                                                 
 
 1. *První verze jen čtení, nebo hned editor?* — **Editor hned**; prohlížeč běhů je jeho čtecí režim (rozhodnuto 2026-09-26, uživatel chce editační variantu).
 2. *Zachovat komentáře a pořadí v YAML?* — **Ano**, round-trip na serveru (agencast 0.5.0, ruamel.yaml), GUI posílá operace, ne text.
-3. *Převzít Tailwind tokeny Skynet Soul?* — **Ano**: akcent a písmo ze Soulu, zbytek zinc podle §5, aby záložka v Soulu působila jako jeho součást.
+3. *Akcent ze Skynet Soul, nebo šedě jako Buzz?* — **Šedě jako Buzz**, bez akcentu; barva jen pro stavy běhu a chyby. Do dashboardu zapadne přes shodné pozadí a písmo (převzít ze Soulu), ne přes akcent. (Doporučení designéra po zhlédnutí screenshotu, koordinátor přijal; uživatel může změnit.)
 4. *Ukazovat, zda je proměnná prostředí nastavená (jen ✓/✗)?* — **Ano**, nikdy hodnotu. Vyžaduje bod 7.3.
 5. *Spouštění běhu z GUI s formulářem vstupů?* — **Ano**, `POST /projects/<p>/runs` s volitelnou callback URL. Vyžaduje úpravu API.
 
