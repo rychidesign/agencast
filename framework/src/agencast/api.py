@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from . import ConfigErrors, projects as _projects
+from .edit import (Conflict, NotFound, add_step, delete_agent, delete_scenario, delete_skill, delete_step, move_step,
+                   read_file, set_agent, set_config, set_header, set_skill, update_step, write_file)
 from .engine import RUN_ID, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import load_dotenv
@@ -16,7 +18,11 @@ from .validate import Project, load_config, resolve_inputs, validate
 
 __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
            "new_scenario", "projects", "add_project", "remove_project", "ensure_project", "describe_project", "describe_scenario", "run_detail", "run_file",
-           "spend", "Project", "Run", "Fake"]
+           "spend", "Project", "Run", "Fake",
+           # editační operace pro GUI (edit.py, api.md „Editace“): soubor je pravda, otisk, validace před zápisem
+           "Conflict", "NotFound", "set_header", "add_step", "update_step", "move_step", "delete_step",
+           "delete_scenario", "set_agent", "delete_agent", "set_skill", "delete_skill", "set_config", "read_file",
+           "write_file"]
 
 
 def find_root(project_root=None) -> Path:

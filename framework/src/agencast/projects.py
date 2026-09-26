@@ -7,6 +7,7 @@ Registr = `<AGENCAST_CONFIG_DIR, výchozí ~/.config/agencast>/projects.yaml`,
 a mění se s nimi. Nic se nepřepisuje: existující soubor = chyba `config`.
 """
 import ast
+import hashlib
 import os
 import re
 from pathlib import Path
@@ -96,6 +97,15 @@ steps:
     output:
       text: "{{{{ steps.napis.text }}}}"
 """
+
+
+def etag(text: str | None) -> str | None:
+    """Otisk verze souboru pro editační operace (edit.py): sha256 obsahu, None = soubor není."""
+    return None if text is None else hashlib.sha256(text.encode()).hexdigest()
+
+
+def _etag(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _check_name(name: str, what: str):
@@ -269,23 +279,24 @@ def _refs(own: dict[str, Any]) -> list[str]:
     return sorted(out)
 
 
-def _steps(steps, flat: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Strom kroků pro karty; `nn` = pořadí v souboru hloubkově (jako složky běhu). `flat` = všechny kroky."""
+def _steps(steps, flat: list[dict[str, Any]], at: tuple = ("steps",)) -> list[dict[str, Any]]:
+    """Strom kroků pro karty; `nn` = pořadí v souboru hloubkově (jako složky běhu). `flat` = všechny kroky.
+    `address` = cesta kroku v dokumentu (`at` + index), jak ji berou editační operace (edit.py)."""
     out = []
-    for st in steps if isinstance(steps, list) else []:
+    for i, st in enumerate(steps if isinstance(steps, list) else []):
         if not isinstance(st, dict):
             continue
         k = step_kind(st)
         own = {key: v for key, v in st.items() if key not in ("id", "when", "parallel")}
         if k == "switch" and isinstance(st["switch"], dict):
             own["switch"] = {key: v for key, v in st["switch"].items() if key not in ("cases", "default")}
-        item: dict[str, Any] = {"nn": len(flat) + 1, "id": st.get("id"), "type": k, "when": st.get("when"), "fields": own,
+        item: dict[str, Any] = {"nn": len(flat) + 1, "address": [*at, i], "id": st.get("id"), "type": k, "when": st.get("when"), "fields": own,
                 "refs": _refs({**own, **({"when": st["when"]} if "when" in st else {})})}
         if k in ("ask", "task", "call") and isinstance(st[k], dict):
             item["call" if k == "call" else "agent"] = st[k].get("scenario" if k == "call" else "agent")
         flat.append(item)
         for p, lst in nested_lists(st):
-            sub = _steps(lst, flat)
+            sub = _steps(lst, flat, (*at, i, *p))
             if p[0] == "parallel":
                 item.setdefault("branches", {})[p[1]] = sub
             elif p[1] == "cases":
@@ -301,7 +312,7 @@ def _steps(steps, flat: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """(popis scénáře se stromem kroků a chybami validate, všechny kroky)."""
-    info: dict[str, Any] = {"name": path.stem, "description": None, "inputs": {}, "outputs": {}, "callable": False}
+    info: dict[str, Any] = {"name": path.stem, "etag": _etag(path), "description": None, "inputs": {}, "outputs": {}, "callable": False}
     try:
         sc = read_yaml(path, path.name)
     except LoadError as e:
@@ -349,7 +360,7 @@ def describe_project(root: Path) -> dict[str, Any]:
         if not a_errs:
             load_agent(wf, path.stem, cfg, a_errs, mcp=mcp)
         model = fm.get("model")
-        agents.append({"name": path.stem, "description": fm.get("description"), "model": model,
+        agents.append({"name": path.stem, "etag": _etag(path), "description": fm.get("description"), "model": model,
                        "model_id": cfg["models"].get(model, {}).get("id") if isinstance(model, str) else None,
                        "skills": fm.get("skills") or [], "mcp": fm.get("mcp") or [], "tools": fm.get("tools") or {},
                        "errors": a_errs})
@@ -359,7 +370,7 @@ def describe_project(root: Path) -> dict[str, Any]:
     for path in sorted((wf / "skills").glob("*/SKILL.md")):
         s_errs = []
         s = load_skill(wf, path.parent.name, s_errs, "skills")
-        skills.append({"name": path.parent.name, "description": s[1] if s else None, "errors": s_errs})
+        skills.append({"name": path.parent.name, "etag": _etag(path), "description": s[1] if s else None, "errors": s_errs})
     servers = [{"name": n, "type": "stdio" if "command" in s else "http", "agents": s["agents"],
                 "tools": s.get("tools"), "scenarios": s.get("scenarios")} for n, s in mcp.items()]
     return {"root": str(root), "models": {a: m["id"] for a, m in cfg["models"].items()}, "limits": cfg["limits"],

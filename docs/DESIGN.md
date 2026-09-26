@@ -177,6 +177,15 @@ Výchozí sada knihoven (změna jen s důvodem v changelogu): `httpx` (HTTP),
 evaluátor výrazů dle D1c. Distribuce `uv run`/`uvx` na serveru i v Modal
 image; závislosti zamčené v `uv.lock`.
 
+**Doplněk 2026-09-26 (framework 0.5.0): `ruamel.yaml`** jen pro editační
+operace GUI (`agencast/edit.py`, ISSUES 43). Důvod: GUI zapisuje do
+souborů, které píše i člověk, a zápis musí zachovat komentáře, pořadí
+klíčů, prázdné řádky a styl uvozovek (`"{{ … }}"`) — PyYAML komentáře
+zahodí. Čtení a validace zůstávají na PyYAML (YAML 1.2 core, `loader.py`);
+po úpravě se výsledek čte zase jím. ruamel přepisuje mezery ve flow
+mapách (`{ a: 1 }`) a zarovnání, proto se nezměněné řádky berou doslova
+z původního souboru.
+
 ### D5 — Hosting
 
 Vlastní server (CLI + webhook) a Modal. Trigger, cron a schvalování: n8n.
