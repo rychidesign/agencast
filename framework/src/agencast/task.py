@@ -12,7 +12,7 @@ import json
 import os
 import time
 
-from . import MawError
+from . import AgencastError
 from .mcp_client import Pool, api_name, arg_errors, provider_schema
 from .providers import (LEVELS, SUBMIT_TOOL, assistant_message, image_size, json_schema, parse_task,
                         prompt_level_suffix, task_body)
@@ -57,7 +57,7 @@ def dedupe_skip(run, info: StepInfo) -> bool:
         return False
     rec = json.loads(path.read_text(encoding="utf-8"))
     if rec.get("state") != "succeeded":
-        raise MawError("config", f"krok mohl proběhnout jen částečně (dedupe_key {key!r}, běh {rec.get('run_id')}), "
+        raise AgencastError("config", f"krok mohl proběhnout jen částečně (dedupe_key {key!r}, běh {rec.get('run_id')}), "
                                  f"ověř ručně a smaž {path}")
     reason = f"dedupe_key {key!r}: krok už proběhl v běhu {rec['run_id']}"
     run.rec.event("step_skipped", step=info.id, kind=info.kind, reason_code="dedupe", reason=reason,
@@ -76,7 +76,7 @@ def _dedupe_write(path, data: dict, exclusive: bool):
         try:
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
         except FileExistsError:
-            raise MawError("config", f"krok mezitím spustil jiný běh, ověř ručně a smaž {path}") from None
+            raise AgencastError("config", f"krok mezitím spustil jiný běh, ověř ručně a smaž {path}") from None
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
         return
@@ -117,11 +117,11 @@ class _Loop:
             for n in names:
                 tool = srv.tools.get(n)
                 if tool is None:
-                    raise MawError("config", f"MCP server '{s}' nemá nástroj '{n}' (nabízí: {', '.join(srv.tools)})")
+                    raise AgencastError("config", f"MCP server '{s}' nemá nástroj '{n}' (nabízí: {', '.join(srv.tools)})")
                 try:
                     params = provider_schema(tool.input_schema)
                 except ValueError as e:
-                    raise MawError("config", f"schéma nástroje {s}.{n}: {e}") from None
+                    raise AgencastError("config", f"schéma nástroje {s}.{n}: {e}") from None
                 self.routes[api_name(s, n)] = (srv, tool)
                 out.append({"type": "function", "function": {"name": api_name(s, n),
                                                              "description": tool.description or "",
@@ -195,7 +195,7 @@ class _Loop:
             if images:  # obrázky až v user zprávě za tool zprávami (Gemini je v tool zprávě odmítne, §5.8)
                 messages.append({"role": "user", "content": [{"type": "text", "text": "Obrázky z výsledků nástrojů:"},
                                                              *images]})
-        raise MawError("budget", f"max_turns {max_turns} vyčerpán bez finální odpovědi (model dál volá nástroje)")
+        raise AgencastError("budget", f"max_turns {max_turns} vyčerpán bez finální odpovědi (model dál volá nástroje)")
 
     async def dispatch(self, call: dict, turn: int, images: list) -> dict:
         """Jedno volání nástroje → tool zpráva. Nepovolené jméno ani špatné argumenty na server nejdou."""

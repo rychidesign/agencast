@@ -95,7 +95,7 @@ Cena volání je přesně hodnota, kterou vrátil poskytovatel (`usage.cost`),
 bez zaokrouhlení. Součty (krok, běh, obrázky, `budget_exceeded_usd`) se
 zaokrouhlují jen na 10 desetinných míst kvůli šumu floatů
 (0.30000000000000004 → 0.3). V `summary.md`, `report.html` a výpisech
-`maw` je cena desetinně s čárkou (nikdy exponent), aspoň na 4 místa, víc
+`agencast` je cena desetinně s čárkou (nikdy exponent), aspoň na 4 místa, víc
 jen když je potřeba ukázat všechny číslice (`0,000004482`); skutečná nula
 je `0` (od frameworku 0.2.4, ISSUES 38).
 

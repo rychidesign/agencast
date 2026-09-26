@@ -1,10 +1,10 @@
-"""CLI. Jméno příkazu (`maw`) je jen v pyproject.toml → [project.scripts].
+"""CLI. Jméno příkazu (`agencast`) je jen v pyproject.toml → [project.scripts].
 
-    maw validate <scénář> [--offline]
-    maw run <scénář> -i klíč=hodnota [--dry-run] [--fake [SKRIPT]] [--callback-url URL]
-    maw runs list | show <run_id>
-    maw serve [--host H] [--port P] [--fake [SKRIPT]]
-    maw migrate <soubor>
+    agencast validate <scénář> [--offline]
+    agencast run <scénář> -i klíč=hodnota [--dry-run] [--fake [SKRIPT]] [--callback-url URL]
+    agencast runs list | show <run_id>
+    agencast serve [--host H] [--port P] [--fake [SKRIPT]]
+    agencast migrate <soubor>
 
 <scénář> je jméno (ig-post) nebo cesta k .yaml. Kořen projektu = první složka
 s workflows/ od aktuální složky nahoru, nebo --project <cesta> (u každého příkazu).
@@ -131,7 +131,7 @@ def cmd_runs(a) -> int:
         dirs = sorted((d for d in runs.glob("*") if d.is_dir() and not d.name.startswith("_")), reverse=True)
         queued = sorted(f.stem for f in (runs / "_queue").glob("*.json") if not (runs / f.stem).is_dir())
         for run_id in queued:
-            print(f"{run_id:45} ve frontě (maw serve)")
+            print(f"{run_id:45} ve frontě (agencast serve)")
         for d in dirs:
             s = run_status(d)
             cost = "" if s["cost_usd"] is None else f"{cz_usd(s['cost_usd'])} USD"
@@ -163,7 +163,7 @@ def cmd_serve(a) -> int:
     except OSError as e:
         return _fail_config([f"server nejde spustit na {a.host}:{a.port}: {e.strerror}"])
     hook.start()
-    print(f"maw serve: http://{a.host}:{srv.server_address[1]} — POST /runs, GET /runs/<run_id> · "
+    print(f"agencast serve: http://{a.host}:{srv.server_address[1]} — POST /runs, GET /runs/<run_id> · "
           f"ve frontě {count(hook.q.qsize(), 'běh', 'běhy', 'běhů')} · záznamy {hook.runs}" + (" · falešný poskytovatel" if hook.fake else ""),
           flush=True)
     try:
@@ -193,8 +193,8 @@ def main(argv=None) -> int:
     for p, default in ((top, None), (common, argparse.SUPPRESS)):  # SUPPRESS: podpříkaz nepřepíše --project zadané před ním
         p.add_argument("--project", metavar="CESTA", default=default,
                        help="kořen projektu (složka s workflows/); výchozí: hledá se od aktuální složky nahoru")
-    ap = argparse.ArgumentParser(prog=Path(sys.argv[0]).name or "maw", parents=[top],
-                                 description=f"multiagent-workflows {__version__} — scénáře s LLM agenty")
+    ap = argparse.ArgumentParser(prog=Path(sys.argv[0]).name or "agencast", parents=[top],
+                                 description=f"AgenCast {__version__} — scénáře s LLM agenty")
     sub = ap.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("validate", parents=[common], help="zkontroluje scénář, agenty, skilly a config")
     v.add_argument("scenario", help="jméno scénáře nebo cesta k workflows/scenarios/<jméno>.yaml")

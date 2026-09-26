@@ -35,7 +35,7 @@ V `/tmp/pokus/workflows/config.yaml` udělej v řádku `chytry` překlep, který
 se dělá nejčastěji — `anthropic/claude-haiku-4-5` (pomlčka místo tečky):
 
 ```bash
-maw validate /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml
+agencast validate /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml
 ```
 
 ```
@@ -50,8 +50,8 @@ nepustí dál. Teď řádek přepiš na jiný skutečný model:
 ```
 
 ```bash
-maw validate /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml
-maw run /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina" --dry-run
+agencast validate /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml
+agencast run /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina" --dry-run
 ```
 
 ```
@@ -291,7 +291,7 @@ grep -o '"url": "<[^"]*"\|"reasoning_details": "<[^"]*"' runs/20260925-151755-tu
 
 ```bash
 export CALLBACK_SECRET=tutorial-demo-tajemstvi
-maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina tutorial-demo-tajemstvi" --fake framework/tests/golden/tutorial-01-nazvy.yaml
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina tutorial-demo-tajemstvi" --fake framework/tests/golden/tutorial-01-nazvy.yaml
 ```
 
   V `inputs.json`:
@@ -336,7 +336,7 @@ HTTPS server, který se tváří jako n8n a vypíše, co přišlo (skript je
 [níž](#příloha-falešné-n8n)):
 
 ```bash
-maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
 ```
 
 ```
@@ -396,7 +396,7 @@ odsazený, takže podpis z něj nevyjde.)
 ### Když n8n neodpovídá
 
 ```bash
-maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8444/webhook-waiting/4713
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8444/webhook-waiting/4713
 ```
 
 ```
@@ -417,7 +417,7 @@ Běh zůstává `úspěch` — nedoručený callback nezmění výsledek. Uvidí
 v `summary.md` („**Callback nedoručen**") i v přehledu:
 
 ```bash
-maw runs list
+agencast runs list
 ```
 
 ```
@@ -461,7 +461,7 @@ Díly 1–5 vznikly s `maw` 0.1.0; díly 6 a 7 potřebují `maw` 0.2.1:
   (smyčka model ↔ nástroje MCP s limitem tahů), `mcp.yaml` z pohledu
   vlastníka, skilly přes `load_skill`, záznam volání nástrojů.
 - **[Díl 7 — Skládání a provoz](07-skladani-a-provoz.md):** `call`
-  (scénář volá scénář), `maw serve` pro n8n (token, `request_key`,
+  (scénář volá scénář), `agencast serve` pro n8n (token, `request_key`,
   podepsaný callback), `report.html` a `dedupe_key` pro kroky, které smí
   proběhnout jen jednou.
 
@@ -536,7 +536,7 @@ Klíč je `slogan_vazny`, ne `slogan_hravy` — fixtura odpovídá krokům,
 které **opravdu proběhnou**.
 
 ```bash
-maw run workflows/scenarios/tutorial-05-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-05-cviceni.yaml
+agencast run workflows/scenarios/tutorial-05-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-05-cviceni.yaml
 ```
 
 ```
@@ -612,7 +612,7 @@ a pošli callback:
 ```bash
 export CALLBACK_SECRET=tutorial-demo-tajemstvi
 export SSL_CERT_FILE=/tmp/n8n-mock/cert.pem
-maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
 ```
 
 `SSL_CERT_FILE` nech nastavené jen v tomhle terminálu. Říká „věř **jen**

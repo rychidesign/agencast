@@ -6,7 +6,7 @@ podle výsledku krok přeskočit (`when`), běh záměrně ukončit (`fail`),
 větvit (`switch`) a psát výrazy tak, aby jim framework rozuměl.
 
 Předpoklad: díly 1 a 2 (agenti `tutorial-pojmenovavac`,
-`tutorial-sloganista`, zkratka `maw`).
+`tutorial-sloganista`, zkratka `agencast`).
 
 ---
 
@@ -191,8 +191,8 @@ slogan_hravy:
 Pro `slogan_vazny` odpověď nepotřebuješ — při `ton: hravy` se nezavolá.
 
 ```bash
-maw validate workflows/scenarios/tutorial-03-rozhodovani.yaml
-maw run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-03-rozhodovani.yaml
+agencast validate workflows/scenarios/tutorial-03-rozhodovani.yaml
+agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-03-rozhodovani.yaml
 ```
 
 ```
@@ -252,7 +252,7 @@ kontrola:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake /tmp/nezapamatovatelny.yaml
+agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake /tmp/nezapamatovatelny.yaml
 ```
 
 ```
@@ -291,7 +291,7 @@ podle ní odlišíš „text neprošel kontrolou" od poruchy.
 ## Krok 4 — ostrý běh
 
 ```bash
-maw run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka"
+agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka"
 ```
 
 ```
@@ -417,7 +417,7 @@ steps:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-03-vyrazy.yaml --fake
+agencast run workflows/scenarios/tutorial-03-vyrazy.yaml --fake
 cat runs/20260925-151532-tutorial-03-vyrazy-6194/steps/01-ukazky/output.json
 ```
 
@@ -461,7 +461,7 @@ Pravidla, která z toho plynou:
 Zkus `delitel=0`:
 
 ```bash
-maw run workflows/scenarios/tutorial-03-vyrazy.yaml --fake -i delitel=0
+agencast run workflows/scenarios/tutorial-03-vyrazy.yaml --fake -i delitel=0
 ```
 
 ```
@@ -645,8 +645,8 @@ slogan_hravy:
 ```
 
 ```bash
-maw validate workflows/scenarios/tutorial-03-cviceni.yaml
-maw run workflows/scenarios/tutorial-03-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-03-cviceni.yaml
+agencast validate workflows/scenarios/tutorial-03-cviceni.yaml
+agencast run workflows/scenarios/tutorial-03-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-03-cviceni.yaml
 ```
 
 ```
@@ -667,7 +667,7 @@ kontrola:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-03-cviceni.yaml -i produkt="veganská zmrzlina" --fake /tmp/obycejny.yaml
+agencast run workflows/scenarios/tutorial-03-cviceni.yaml -i produkt="veganská zmrzlina" --fake /tmp/obycejny.yaml
 ```
 
 ```

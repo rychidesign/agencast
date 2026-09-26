@@ -12,8 +12,8 @@ import httpx
 import pytest
 from conftest import model_ids, scenario
 
-from maw.fake import Fake
-from maw.server import Server, Webhook
+from agencast.fake import Fake
+from agencast.server import Server, Webhook
 
 TOKEN, SECRET = "token-webhooku-123", "podpis-callbacku-456"
 

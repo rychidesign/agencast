@@ -19,14 +19,14 @@ Framework se spouští přes `uv`. Aby se ti nemusel pořád psát dlouhý
 příkaz, nadefinuj si v terminálu zkratku (platí do zavření terminálu):
 
 ```bash
-alias maw="uv run --project framework maw"
-maw --help
+alias agencast="uv run --project framework agencast"
+agencast --help
 ```
 
 ```
-usage: maw [-h] {validate,run,runs} ...
+usage: agencast [-h] {validate,run,runs} ...
 
-multiagent-workflows 0.1.0 — scénáře s LLM agenty
+AgenCast 0.3.0 — scénáře s LLM agenty
 
 positional arguments:
   {validate,run,runs}
@@ -166,12 +166,12 @@ steps:
 
 ---
 
-## Krok 4 — `maw validate`
+## Krok 4 — `agencast validate`
 
 Než cokoli spustíš, nech si scénář zkontrolovat:
 
 ```bash
-maw validate workflows/scenarios/tutorial-01-nazvy.yaml
+agencast validate workflows/scenarios/tutorial-01-nazvy.yaml
 ```
 
 ```
@@ -217,7 +217,7 @@ případně **krok**, a co je špatně. Všechno oprav, ať `validate` zase pí�
 ## Krok 5 — `--dry-run`: co by se stalo
 
 ```bash
-maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --dry-run
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --dry-run
 ```
 
 ```
@@ -256,7 +256,7 @@ Běh vůbec nezačne.
 ## Krok 6 — `--fake`: běh zadarmo a bez sítě
 
 ```bash
-maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake
 ```
 
 ```
@@ -298,7 +298,7 @@ navrh:
 a spusť s ní:
 
 ```bash
-maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-01-nazvy.yaml
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-01-nazvy.yaml
 ```
 
 ```
@@ -382,7 +382,7 @@ Klíč `OPENROUTER_API_KEY` je v souboru `.env` v kořeni repozitáře;
 framework si ho načte sám (a nikam ho nevypisuje). Spusť bez `--fake`:
 
 ```bash
-maw run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka"
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka"
 ```
 
 ```
@@ -391,7 +391,7 @@ záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151000-t
 ```
 
 ```bash
-maw runs show 20260925-151000-tutorial-01-nazvy-8d6a
+agencast runs show 20260925-151000-tutorial-01-nazvy-8d6a
 ```
 
 ```
@@ -426,7 +426,7 @@ Zrníčko"
 - v přehledu všech běhů:
 
 ```bash
-maw runs list
+agencast runs list
 ```
 
 ```
@@ -510,8 +510,8 @@ navrh:
 Ověření:
 
 ```bash
-maw validate workflows/scenarios/tutorial-01-cviceni.yaml
-maw run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-cviceni.yaml
+agencast validate workflows/scenarios/tutorial-01-cviceni.yaml
+agencast run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-cviceni.yaml
 ```
 
 ```

@@ -4,6 +4,8 @@ Každá změna formátu agenta, scénáře nebo konfigurace se zapisuje sem
 (DESIGN §5.6). Formát se mění jen zvýšením `version`; framework umí číst
 všechny vydané verze (R7).
 
+Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
+
 ## version 1 — 2026-09-25 (návrh ke schválení)
 
 První specifikace. Obsahuje:
@@ -119,3 +121,10 @@ každého nálezu je na konci REVIEW.md.
 - [run-record.md](run-record.md): řádek **Celkem** v `summary.md` a
   `report.html` má ve sloupci Čas čas celého běhu (`duration_s`
   z `run_finished`), ne součet kroků (ISSUES 38).
+
+## version 1 — beze změny formátu (framework 0.3.0)
+
+- Framework se jmenuje AgenCast, příkaz `maw` → `agencast` (v textu
+  [run-record.md](run-record.md) a ISSUES). Žádný formát jméno
+  neobsahoval: záznam běhu, callback (`X-Run-Id`, `X-Signature`) ani fake
+  skripty se nemění.

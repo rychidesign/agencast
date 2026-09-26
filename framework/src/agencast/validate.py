@@ -5,7 +5,7 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import ConfigErrors, MawError
+from . import ConfigErrors, AgencastError
 from .expressions import ExprError, infer, kind, parse, template_type, tkind
 from .loader import (LoadError, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors,
                      schema_errors, seconds, step_kind, version_error)
@@ -271,7 +271,7 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
     if not errs and check_models:
         try:
             models = list_models(config["openrouter"]["base_url"], wf.parent / config["runs_dir"], transport)
-        except MawError as e:
+        except AgencastError as e:
             raise ConfigErrors([f"{e.cls}: {e.message}"]) from None
         errs += check_models_list(config, chk.model_needs, models)
     if errs:

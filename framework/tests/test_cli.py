@@ -1,8 +1,8 @@
 """CLI z libovolné složky: kořen projektu podle workflows/ nahoru nebo --project; migrate."""
 from pathlib import Path
 
-from maw.cli import main
-from maw.record import count
+from agencast.cli import main
+from agencast.record import count
 
 GOLDEN = str(Path(__file__).parent / "golden" / "ukazka-call.yaml")
 

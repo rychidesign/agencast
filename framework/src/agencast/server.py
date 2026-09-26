@@ -21,7 +21,7 @@ import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import ConfigErrors, MawError
+from . import ConfigErrors, AgencastError
 from .engine import new_run_id, run_scenario
 from .validate import Project, load_config, resolve_inputs, validate
 
@@ -54,7 +54,7 @@ class Webhook:
             self.q.put(e)
 
     def start(self):
-        threading.Thread(target=self.work, name="maw-worker", daemon=True).start()
+        threading.Thread(target=self.work, name="agencast-worker", daemon=True).start()
 
     def entries(self) -> list[dict]:
         out = []
@@ -164,14 +164,14 @@ class Webhook:
                   run_id=entry["run_id"], callback_transport=self.callback_transport)
         if (self.runs / entry["run_id"]).exists():
             # ponytail: přerušený běh se neopakuje (vedlejší účinky), jen se nahlásí; mohl i doběhnout bez callbacku
-            return run_scenario(self.stub(path, entry), entry["inputs"], error=MawError(
+            return run_scenario(self.stub(path, entry), entry["inputs"], error=AgencastError(
                 "internal", "běh přerušen — server skončil uprostřed běhu; co stihl, je v záznamu (ověř ručně)"), **kw)
         try:
             with self.lock:
                 p = validate(path, transport=self.transport())
             inputs = resolve_inputs(p.scenario, entry["inputs"])
         except ConfigErrors as e:
-            return run_scenario(self.stub(path, entry), entry["inputs"], error=MawError(
+            return run_scenario(self.stub(path, entry), entry["inputs"], error=AgencastError(
                 "config", "scénář neprošel kontrolou po vyzvednutí z fronty:\n" + "\n".join(e.errors)), **kw)
         return run_scenario(p, inputs, **kw)
 

@@ -10,7 +10,7 @@ Předpoklad: díly 1–5 a **Node.js** (`npx` spouští MCP server; poprvé si
 stáhne balíček, takže potřebuje internet).
 
 > Výstupy jsou skutečné — z běhů 25. 9. 2026 proti `maw` 0.2.1. Příkazy
-> spouštěj z kořene repozitáře se zkratkou `maw` z dílu 1.
+> spouštěj z kořene repozitáře se zkratkou `agencast` z dílu 1.
 
 ---
 
@@ -177,7 +177,7 @@ schválně není, uvidíš v kroku 7.
 Zkontroluj ho:
 
 ```bash
-maw validate tutorial-06-archiv
+agencast validate tutorial-06-archiv
 ```
 
 ```
@@ -217,7 +217,7 @@ v souboru):
 ```
 
 ```bash
-maw validate tutorial-06-archiv
+agencast validate tutorial-06-archiv
 ```
 
 ```
@@ -239,7 +239,7 @@ v kroku 9).
 ### `--dry-run` ukáže, co server nabízí
 
 ```bash
-maw run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --dry-run
+agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --dry-run
 ```
 
 ```
@@ -291,7 +291,7 @@ Jméno nástroje pro model je `<server>__<nástroj>` (dvě podtržítka) — tak
 ho framework pojmenuje, aby se nástroje dvou serverů nepletly.
 
 ```bash
-maw run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake framework/tests/golden/tutorial-06-archiv.yaml
+agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake framework/tests/golden/tutorial-06-archiv.yaml
 ```
 
 ```
@@ -325,7 +325,7 @@ sítě, se stejnými nástroji. Fixtura je stejná.
 ## Krok 7 — ostrý běh
 
 ```bash
-maw run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo a vlak měl zpoždění. Odpoledne jsme dopsali šestý díl tutoriálu. Večer jsme ho pustili naostro."
+agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo a vlak měl zpoždění. Odpoledne jsme dopsali šestý díl tutoriálu. Večer jsme ho pustili naostro."
 ```
 
 ```
@@ -580,7 +580,7 @@ zapis:
 ```
 
 ```bash
-maw run /tmp/pokus/workflows/scenarios/tutorial-06-archiv.yaml -i den=2026-09-25 -i text="Ráno pršelo." --fake /tmp/nepovoleny.yaml
+agencast run /tmp/pokus/workflows/scenarios/tutorial-06-archiv.yaml -i den=2026-09-25 -i text="Ráno pršelo." --fake /tmp/nepovoleny.yaml
 ```
 
 Běh doběhne (`úspěch`) a v `events.jsonl` jsou oba pokusy:
@@ -662,7 +662,7 @@ steps:
 ```
 
 ```bash
-maw run /tmp/pokus/workflows/scenarios/tutorial-06-ask.yaml --fake
+agencast run /tmp/pokus/workflows/scenarios/tutorial-06-ask.yaml --fake
 ```
 
 `steps/01-rada/prompt.md`:
@@ -799,7 +799,7 @@ kontrola:
 ```
 
 ```bash
-maw run tutorial-06-cviceni -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake framework/tests/golden/tutorial-06-cviceni.yaml
+agencast run tutorial-06-cviceni -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake framework/tests/golden/tutorial-06-cviceni.yaml
 ```
 
 ```
@@ -837,6 +837,6 @@ tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-06-cviceni]
 ## Co přijde dál
 
 **[Díl 7 — Skládání a provoz](07-skladani-a-provoz.md):** scénář volá
-scénář (`call`), `maw serve` pro n8n (token, `request_key`, callback
+scénář (`call`), `agencast serve` pro n8n (token, `request_key`, callback
 s podpisem), `report.html` a `dedupe_key` pro kroky, které smí proběhnout
 jen jednou.

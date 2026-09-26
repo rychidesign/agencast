@@ -9,9 +9,9 @@ import httpx
 import pytest
 from conftest import events, model_ids, run, scenario
 
-from maw.engine import dry_run, run_scenario
-from maw.fake import Fake
-from maw.validate import validate
+from agencast.engine import dry_run, run_scenario
+from agencast.fake import Fake
+from agencast.validate import validate
 
 HEAD = "version: 1\nname: NAME\ndescription: Testovací scénář\n"
 ASK = HEAD + """
@@ -515,7 +515,7 @@ def test_callback_failure_does_not_change_status(wf, monkeypatch):
 
 
 def test_callback_requires_https_and_secret(wf, monkeypatch):
-    from maw import ConfigErrors
+    from agencast import ConfigErrors
     monkeypatch.delenv("CALLBACK_SECRET", raising=False)
     with pytest.raises(ConfigErrors) as e:
         run(ask_scenario(wf), callback_url="http://n8n.example.com/w")

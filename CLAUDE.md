@@ -12,6 +12,9 @@ Závazná je i `docs/spec/` (formáty v1, schválena uživatelem 2026-09-25;
 zmražená podle DESIGN §5.9 — rozšiřovat jen zpětně kompatibilně). Rozpor
 spec × DESIGN hlas koordinátorovi, nerozhoduj ho sám.
 
+Framework se jmenuje **AgenCast** (balík i příkaz `agencast`; do 0.2.5
+`maw` — tak zůstává ve starých záznamech changelogu a BUGS.md).
+
 ## Rozdělení repozitáře
 - `framework/` — jádro. Sem patří kód frameworku, jeho testy a
   konformační scénáře.

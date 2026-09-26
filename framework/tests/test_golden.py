@@ -13,11 +13,11 @@ import pytest
 import yaml
 from conftest import REPO, WORKFLOWS, golden_config, run
 
-from maw.expressions import parse, parse_path, template_parts
-from maw.loader import (load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors, schema_errors,
+from agencast.expressions import parse, parse_path, template_parts
+from agencast.loader import (load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors, schema_errors,
                         version_error)
-from maw.mcp_client import load_mcp
-from maw.validate import load_agent, load_config, load_skill
+from agencast.mcp_client import load_mcp
+from agencast.validate import load_agent, load_config, load_skill
 
 GOLDEN = Path(__file__).parent / "golden"
 SPEC = REPO / "docs" / "spec"

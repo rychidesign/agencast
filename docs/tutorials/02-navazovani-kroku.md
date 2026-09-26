@@ -6,7 +6,7 @@ data místo volného textu (`schema`), počítat bez modelu (`set`), vrátit
 víc polí a číst hlášky `validate`.
 
 Předpoklad: díl 1 (agent `tutorial-pojmenovavac`, zkratka
-`alias maw="uv run --project framework maw"`).
+`alias agencast="uv run --project framework agencast"`).
 
 ---
 
@@ -163,8 +163,8 @@ slogan:
 ```
 
 ```bash
-maw validate workflows/scenarios/tutorial-02-nazev-a-slogan.yaml
-maw run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-02-nazev-a-slogan.yaml
+agencast validate workflows/scenarios/tutorial-02-nazev-a-slogan.yaml
+agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-02-nazev-a-slogan.yaml
 ```
 
 ```
@@ -250,7 +250,7 @@ schématu sám — `nazev: „falešný text (nazvy)"`, `pocet: 1`. Na kontrolu,
 ## Krok 4 — ostrý běh
 
 ```bash
-maw run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veganská zmrzlina z ovesného mléka"
+agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veganská zmrzlina z ovesného mléka"
 ```
 
 ```
@@ -297,7 +297,7 @@ slogan:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="zmrzlina" --fake /tmp/spatny-json.yaml
+agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="zmrzlina" --fake /tmp/spatny-json.yaml
 ```
 
 ```
@@ -427,7 +427,7 @@ navrh:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="zmrzlina" --fake /tmp/prazdne.yaml
+agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="zmrzlina" --fake /tmp/prazdne.yaml
 ```
 
 ```
@@ -528,8 +528,8 @@ slogan:
 ```
 
 ```bash
-maw validate workflows/scenarios/tutorial-02-cviceni.yaml
-maw run workflows/scenarios/tutorial-02-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-02-cviceni.yaml
+agencast validate workflows/scenarios/tutorial-02-cviceni.yaml
+agencast run workflows/scenarios/tutorial-02-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-02-cviceni.yaml
 ```
 
 ```

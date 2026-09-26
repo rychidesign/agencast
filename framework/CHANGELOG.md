@@ -3,6 +3,19 @@
 Semver podle DESIGN §5.9 bod 5: oprava = patch, přidání = minor, nová
 verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
+Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
+
+## 0.3.0 — 2026-09-26 (AgenCast)
+
+Formát: spec v1 beze změny.
+
+- **Přejmenování:** framework se jmenuje AgenCast — balík `agencast`
+  (dřív `maw`), příkaz `agencast` (dřív `maw`), výjimka `AgencastError`
+  (dřív `MawError`). Žádný formát (záznam běhu, callback, hlavičky
+  webhooku, fake skripty) jméno neobsahoval, takže staré záznamy i skripty
+  platí beze změny. Alias z tutoriálu:
+  `alias agencast="uv run --project framework agencast"`.
+
 ## 0.2.5 — 2026-09-25 (čas v řádku Celkem)
 
 Formát: spec v1, jen zpřesnění (ISSUES 38):

@@ -7,8 +7,8 @@ from pathlib import Path
 from conftest import events, run, scenario
 from test_engine import PARALLEL
 
-from maw.loader import read_yaml
-from maw.record import cz, cz_usd
+from agencast.loader import read_yaml
+from agencast.record import cz, cz_usd
 
 GOLDEN = read_yaml(Path(__file__).parent / "golden" / "ig-post.yaml")
 SECRET = "tajna-hodnota-callbacku-789"

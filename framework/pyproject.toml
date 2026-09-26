@@ -1,7 +1,7 @@
 [project]
-name = "maw"
-version = "0.2.5"
-description = "multiagent-workflows — jádro frameworku (scénáře v YAML, agenti v Markdownu, OpenRouter)"
+name = "agencast"
+version = "0.3.0"
+description = "AgenCast — jádro frameworku multiagent-workflows (scénáře v YAML, agenti v Markdownu, OpenRouter)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "pyyaml>=6",
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-maw = "maw.cli:main"
+agencast = "agencast.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

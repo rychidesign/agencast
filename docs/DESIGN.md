@@ -1,7 +1,7 @@
 # multiagent-workflows — návrh
 
-**Stav:** v0.4, 2026-09-25 — **v1 implementována**: `maw` 0.2.2 v `framework/`
-(všech 10 typů kroků, MCP a skilly, `call`, webhook `maw serve`, `report.html`;
+**Stav:** v0.4, 2026-09-25 — **v1 implementována**: AgenCast (`agencast`, do 0.2.5 `maw`) 0.3.0 v `framework/`
+(všech 10 typů kroků, MCP a skilly, `call`, webhook `agencast serve`, `report.html`;
 379 hermetických testů, zlaté scénáře pro každý soubor ve `workflows/`),
 tutoriály 1–7 v `docs/tutorials/`. Spec v1 (`docs/spec/`) schválena uživatelem
 včetně otázek 1–14; výklady při implementaci v `docs/spec/ISSUES.md` (36 bodů).

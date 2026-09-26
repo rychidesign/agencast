@@ -1,21 +1,21 @@
-# framework — jádro `maw` (multiagent-workflows)
+# framework — AgenCast, jádro `agencast` (multiagent-workflows)
 
-Verze 0.2.1, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
-v `docs/DESIGN.md`. Jméno příkazu `maw` je jen v `pyproject.toml`
-(`[project.scripts]`) — přejmenování = jeden řádek.
+Verze 0.3.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
+v `docs/DESIGN.md`. Balík i příkaz se jmenují `agencast` (do 0.2.5
+`maw`); jméno příkazu je v `pyproject.toml` (`[project.scripts]`).
 
 ## Použití
 
 ```
-uv run --project framework maw validate ig-post
-uv run --project framework maw run ig-post -i tema="nová káva" --dry-run
-uv run --project framework maw run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
-uv run --project framework maw run ig-post -i tema="nová káva"
-uv run --project framework maw run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake framework/tests/golden/ukazka-task.yaml
-uv run --project framework maw runs list
-uv run --project framework maw runs show <run_id>
-uv run --project framework maw serve --host 127.0.0.1 --port 8080
-uv run --project framework maw migrate workflows/scenarios/ig-post.yaml
+uv run --project framework agencast validate ig-post
+uv run --project framework agencast run ig-post -i tema="nová káva" --dry-run
+uv run --project framework agencast run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
+uv run --project framework agencast run ig-post -i tema="nová káva"
+uv run --project framework agencast run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake framework/tests/golden/ukazka-task.yaml
+uv run --project framework agencast runs list
+uv run --project framework agencast runs show <run_id>
+uv run --project framework agencast serve --host 127.0.0.1 --port 8080
+uv run --project framework agencast migrate workflows/scenarios/ig-post.yaml
 ```
 
 - Scénář jde zadat jménem (`ig-post`) nebo cestou k `.yaml`. Kořen
@@ -31,7 +31,7 @@ uv run --project framework maw migrate workflows/scenarios/ig-post.yaml
   `npx` potřebuje Node; na Modalu balíček předinstalovat). stderr serverů
   je v záznamu běhu v `mcp/<server>.stderr.log`.
 - `--fake` = falešný poskytovatel bez sítě; volitelný YAML se
-  skriptovanými odpověďmi podle kroků (popis v `src/maw/fake.py`).
+  skriptovanými odpověďmi podle kroků (popis v `src/agencast/fake.py`).
 - `--callback-url https://…` pošle po běhu výsledek podepsaný HMAC
   (`callback.secret_env`).
 - Záznamy běhů jsou v `runs/` (v `.gitignore`), soubory z `output`
@@ -43,7 +43,7 @@ uv run --project framework maw migrate workflows/scenarios/ig-post.yaml
 - Návratový kód: 0 úspěch, 1 běh skončil chybou, 2 chyba `config`
   (validate, vstupy, prostředí).
 
-## Webhook server (`maw serve`)
+## Webhook server (`agencast serve`)
 
 Smlouva: `docs/spec/webhook.md`. Stdlib `ThreadingHTTPServer`, žádný
 webový framework.
@@ -97,13 +97,13 @@ skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
 | `server.py` | webhook server, fronta, request_key |
 | `mcp_client.py` | `mcp.yaml`, MCP servery běhu (SDK `mcp` 2.2), normalizace schémat nástrojů |
 | `task.py` | krok `task` (smyčka model ↔ nástroje, `load_skill`), `dedupe_key` |
-| `cli.py` | příkaz `maw` |
+| `cli.py` | příkaz `agencast` |
 
 Zatím ne: Modal a úložiště R2 (Fáze 3c). Nejasnosti spec: `docs/spec/ISSUES.md`.
 
 ## Ostrý test webhooku (Fáze 3b, 2026-09-25)
 
-`maw serve --port 8788` lokálně (proti OpenRouteru, `workflows/config.yaml`
+`agencast serve --port 8788` lokálně (proti OpenRouteru, `workflows/config.yaml`
 beze změny), přijímač callbacku na `http://127.0.0.1:8799/cb` (ověřuje
 HMAC), `WEBHOOK_TOKEN` a `CALLBACK_SECRET` vygenerované jen pro test.
 Jeden `POST /runs` s `ig-post`, téma „ranní espresso na cestu do práce",
@@ -124,10 +124,10 @@ Jeden `POST /runs` s `ig-post`, téma „ranní espresso na cestu do práce",
 
 ## Ostrý běh (Fáze 2, 2026-09-25)
 
-`maw run workflows/scenarios/ig-post.yaml` proti OpenRouteru, aliasy
+`agencast run workflows/scenarios/ig-post.yaml` proti OpenRouteru, aliasy
 `chytry` = `anthropic/claude-haiku-4.5`, `rychly` =
 `google/gemini-3.5-flash-lite` (`tool_wrapper`), `gemini-image` =
-`google/gemini-3.1-flash-image`. `maw validate` proti `GET /models` prošel.
+`google/gemini-3.1-flash-image`. `agencast validate` proti `GET /models` prošel.
 
 | Běh | Téma | Výsledek | Čas | Cena |
 |---|---|---|---|---|
@@ -165,12 +165,12 @@ kroku a zkopírovaný do `outputs/<run_id>-<32 hex>/image.png`.
 
 ## Ostrý běh Fáze 3a (2026-09-25): krok `task` se skutečným MCP serverem
 
-`maw run workflows/scenarios/ukazka-task.yaml -i knihy="Karel Čapek:
+`agencast run workflows/scenarios/ukazka-task.yaml -i knihy="Karel Čapek:
 R.U.R. (1920); Božena Němcová: Babička (1855); Jaroslav Hašek: Osudy
 dobrého vojáka Švejka (1921)"`, agent `knihovnik` na aliasu `chytry` =
 `anthropic/claude-haiku-4.5` (`native_schema`), MCP server
 `@modelcontextprotocol/server-filesystem@2026.8.31` přes `npx -y`,
-kořen `runs/<běh>/work`. `maw validate` proti `GET /models` prošel.
+kořen `runs/<běh>/work`. `agencast validate` proti `GET /models` prošel.
 
 | Běh | Výsledek | Čas | Tahy | Cena |
 |---|---|---|---|---|

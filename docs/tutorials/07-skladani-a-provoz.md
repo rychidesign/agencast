@@ -3,7 +3,7 @@
 **Čas:** asi 35 minut · **Útrata:** 0 USD s `--fake`; volitelný ostrý
 běh přes webhook ~0,001 USD
 **Co budeš umět:** poskládat scénář ze stavebnic (`call`), spustit
-`maw serve` a volat ho jako n8n (token, `request_key`, callback
+`agencast serve` a volat ho jako n8n (token, `request_key`, callback
 s podpisem), otevřít `report.html` a pojistit krok s vedlejším účinkem
 přes `dedupe_key`.
 
@@ -11,7 +11,7 @@ Předpoklad: díly 1–6 (krok `task` a agent `tutorial-archivar` z dílu 6)
 a `curl`.
 
 > Výstupy jsou skutečné — z běhů 25. 9. 2026 proti `maw` 0.2.1. Příkazy
-> spouštěj z kořene repozitáře se zkratkou `maw` z dílu 1. Tvoje
+> spouštěj z kořene repozitáře se zkratkou `agencast` z dílu 1. Tvoje
 > `run_id`, časy a texty budou jiné.
 
 ---
@@ -117,7 +117,7 @@ steps:
 ```
 
 Stavebnice je normální scénář — jde spustit i sama
-(`maw run tutorial-07-slogan -i nazev=Ovena`).
+(`agencast run tutorial-07-slogan -i nazev=Ovena`).
 
 ---
 
@@ -205,8 +205,8 @@ ton/kontrola:
 stavebnici samotnou — i ona je zlatý test.)
 
 ```bash
-maw validate tutorial-07-skladani
-maw run tutorial-07-skladani -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-07-skladani.yaml
+agencast validate tutorial-07-skladani
+agencast run tutorial-07-skladani -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-07-skladani.yaml
 ```
 
 ```
@@ -250,7 +250,7 @@ A v `events.jsonl` mají kroky uvnitř cestu: `slogan/napis`,
 ### Co řekne `validate`, když smlouva nesedí
 
 Zkoušej v kopii (`rm -rf /tmp/pokus && mkdir -p /tmp/pokus && cp -r
-workflows /tmp/pokus/`) a spouštěj `maw validate
+workflows /tmp/pokus/`) a spouštěj `agencast validate
 /tmp/pokus/workflows/scenarios/tutorial-07-skladani.yaml`.
 
 Chybí povinný vstup (místo `nazev` předáš `produkt`):
@@ -308,11 +308,11 @@ hlídá i hloubku vnoření: `limits.max_call_depth` v `config.yaml`, u nás 3.
 
 ---
 
-## Krok 4 — `maw serve`: framework jako webová služba
+## Krok 4 — `agencast serve`: framework jako webová služba
 
 V provozu běhy nespouštíš ty z terminálu, ale n8n: pošle `POST` s tím,
 co spustit, hned dostane `run_id` a výsledek mu přijde později na jeho
-adresu (callback). Přesně to dělá `maw serve`.
+adresu (callback). Přesně to dělá `agencast serve`.
 
 ### Dvě tajné hodnoty do `.env`
 
@@ -377,11 +377,11 @@ python3 docs/tutorials/callback-prijemac.py
 z kroku 3:
 
 ```bash
-maw serve --fake framework/tests/golden/tutorial-07-skladani.yaml
+agencast serve --fake framework/tests/golden/tutorial-07-skladani.yaml
 ```
 
 ```
-maw serve: http://127.0.0.1:8080 — POST /runs, GET /runs/<run_id> · ve frontě 0 běhů · záznamy …/runs · falešný poskytovatel
+agencast serve: http://127.0.0.1:8080 — POST /runs, GET /runs/<run_id> · ve frontě 0 běhů · záznamy …/runs · falešný poskytovatel
 ```
 
 Poslouchá jen na `127.0.0.1` (výchozí `--host`) — z jiného počítače se
@@ -617,7 +617,7 @@ Fixtura `framework/tests/golden/tutorial-07-archiv.yaml` má stejné tahy
 jako `tutorial-06-archiv`. Restartuj server (terminál 2, Ctrl+C) s ní:
 
 ```bash
-maw serve --fake framework/tests/golden/tutorial-07-archiv.yaml
+agencast serve --fake framework/tests/golden/tutorial-07-archiv.yaml
 ```
 
 a pošli dva **různé** požadavky (`n8n-5001`, `n8n-5002`) na stejný den:
@@ -681,8 +681,8 @@ zapis:
 ```
 
 ```bash
-maw run tutorial-07-archiv -i den=2026-09-26 -i text="Rozepsáno." --fake /tmp/preruseny.yaml
-maw run tutorial-07-archiv -i den=2026-09-26 -i text="Rozepsáno." --fake /tmp/preruseny.yaml
+agencast run tutorial-07-archiv -i den=2026-09-26 -i text="Rozepsáno." --fake /tmp/preruseny.yaml
+agencast run tutorial-07-archiv -i den=2026-09-26 -i text="Rozepsáno." --fake /tmp/preruseny.yaml
 ```
 
 ```
@@ -721,11 +721,11 @@ vymyšlený výstup — BUGS.md, bod 8.)
 Zastav server (Ctrl+C) a pusť ho **bez** `--fake`:
 
 ```bash
-maw serve
+agencast serve
 ```
 
 ```
-maw serve: http://127.0.0.1:8080 — POST /runs, GET /runs/<run_id> · ve frontě 0 běhů · záznamy …/runs
+agencast serve: http://127.0.0.1:8080 — POST /runs, GET /runs/<run_id> · ve frontě 0 běhů · záznamy …/runs
 ```
 
 ```bash
@@ -792,7 +792,7 @@ stránky Webhook, Wait a Crypto node, staženo 2026-09-25):
 
 1. **Webhook node** (nebo jiný spouštěč — formulář, plán) přijme
    zadání, např. `produkt`.
-2. **HTTP Request node**: `POST https://<tvůj-maw>/runs`, hlavička
+2. **HTTP Request node**: `POST https://<tvůj-agencast>/runs`, hlavička
    `Authorization: Bearer <WEBHOOK_TOKEN>` (ulož jako credential typu
    Header Auth, ne do textu uzlu), tělo:
 
@@ -800,7 +800,7 @@ stránky Webhook, Wait a Crypto node, staženo 2026-09-25):
    {
      "scenario": "tutorial-07-skladani",
      "inputs": {"produkt": "…z kroku 1…"},
-     "callback_url": "https://<n8n>/webhook/maw-vysledek",
+     "callback_url": "https://<n8n>/webhook/agencast-vysledek",
      "request_key": "n8n-<id běhu n8n>"
    }
    ```
@@ -810,7 +810,7 @@ stránky Webhook, Wait a Crypto node, staženo 2026-09-25):
 
 **Workflow B — výsledek**
 
-3. **Webhook node** na cestě `maw-vysledek`, metoda `POST`, volba
+3. **Webhook node** na cestě `agencast-vysledek`, metoda `POST`, volba
    **Raw Body** zapnutá (podpis se počítá z přesných bajtů těla, ne
    z JSON, který n8n rozebere a znovu složí — díl 5), odpověď
    *Immediately* (framework čeká jen na 2xx).
@@ -842,7 +842,7 @@ scénář uvnitř vypadá. Smlouva je `scenario` + `inputs` dovnitř,
   stejném běhu; `validate` hlídá chybějící/navíc vstupy, typy, čtené
   výstupy, `callable` a cykly.
 - Fixtura a záznam: kroky uvnitř mají cestu `<call>/<krok>`.
-- `maw serve`: `WEBHOOK_TOKEN` a `CALLBACK_SECRET` v `.env`; 401/422
+- `agencast serve`: `WEBHOOK_TOKEN` a `CALLBACK_SECRET` v `.env`; 401/422
   hned a bez callbacku, 202 = ve frontě, callback vždy a podepsaný,
   `GET /runs/<id>` jako záloha.
 - `request_key` = stejný požadavek jen jednou; `dedupe_key` = stejný
@@ -922,7 +922,7 @@ Uvnitř obou volání je krok `napis` — rozliší je až `id` kroku `call`.
 Proto musí mít každé volání vlastní `id` (to by chtěl `validate` stejně).
 
 ```bash
-maw run tutorial-07-cviceni -i nazev=Ovena --fake framework/tests/golden/tutorial-07-cviceni.yaml
+agencast run tutorial-07-cviceni -i nazev=Ovena --fake framework/tests/golden/tutorial-07-cviceni.yaml
 ```
 
 ```

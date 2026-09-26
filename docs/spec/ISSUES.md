@@ -60,7 +60,7 @@ rozhoduje koordinátor nebo uživatel.
     jménem scénáře), vnořené kroky jsou v `events.jsonl` a `report.html`.
 14. **`callback_url` na `http://127.0.0.1`**: spec chce „jen `https://`".
     Framework povolí i `http://127.0.0.1:<port>/…` (testy, lokální
-    přijímač podle zadání 3b) — ve webhooku i v `maw run --callback-url`.
+    přijímač podle zadání 3b) — ve webhooku i v `agencast run --callback-url`.
     `localhost` ani jiné `http://` ne.
 15. **`queue_position`**: počet požadavků ve frontě včetně právě
     běžícího a tohoto (1 = začne hned). Spec jen „pozice ve frontě".
@@ -137,7 +137,7 @@ rozhoduje koordinátor nebo uživatel.
     `ask` MCP nepřipojuje, proto se tam nekontroluje.
 32. **Nástroj z allowlistu, který server nenabízí** → krok selže `config`
     za běhu (seznam nabízených nástrojů je v hlášce). Spec chce, aby to
-    ukázal `--dry-run`: `maw run … --dry-run` servery, které běh může
+    ukázal `--dry-run`: `agencast run … --dry-run` servery, které běh může
     spustit, kvůli `tools/list` spustí v dočasné složce (složka plánu
     zůstane jen s `plan.md`) a `plan.md` vypíše, co nabízejí, a výslednou
     sadu nástrojů každého `task` (doplněno při sloučení 3a + 3b).
@@ -162,8 +162,8 @@ rozhoduje koordinátor nebo uživatel.
 35. **Kolize `run_id`** (run-record.md: `<čas>-<scénář>-<4 hex>`): dva běhy
     téhož scénáře ve stejné sekundě mají shodné id s pravděpodobností
     1 : 65 536; při dávce 50 požadavků z n8n za sekundu je to ≈ 2 %.
-    Následek: `maw serve` přepíše záznam fronty `<run_id>.json` jiného
-    požadavku, `maw run` spadne na existující složce běhu. Návrh: delší
+    Následek: `agencast serve` přepíše záznam fronty `<run_id>.json` jiného
+    požadavku, `agencast run` spadne na existující složce běhu. Návrh: delší
     náhodná část, nebo nové id, když složka/záznam fronty už existuje.
     Neopraveno (mimo zadání 0.2.1). (Zjištěno při hledání nestabilních
     testů.)

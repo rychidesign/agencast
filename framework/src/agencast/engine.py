@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from . import ConfigErrors, MawError, __version__
+from . import ConfigErrors, AgencastError, __version__
 from .expressions import ExprError, FileRef, evaluate, kind, path_step, render, to_json, to_text
 from .loader import nested_lists
 from .mcp_client import Pool, secret_names  # 3a
@@ -130,7 +130,7 @@ class Run:
         self.report_url = None
 
     # --- běh -----------------------------------------------------------------------
-    async def execute(self, error: MawError | None = None) -> str:
+    async def execute(self, error: AgencastError | None = None) -> str:
         """`error` = běh, který nezačne (3b: validate selhal až po vyzvednutí z fronty) — jen záznam a callback."""
         t0, loop = time.monotonic(), asyncio.get_running_loop()
         cfg, lim, sc = self.p.config, self.p.config["limits"], self.p.scenario
@@ -152,7 +152,7 @@ class Run:
                 raise error
             await self.run_list(sc["steps"], root)
             self.status = "succeeded"
-        except MawError as e:
+        except AgencastError as e:
             self.error = {"class": e.cls, "step": e.step, "message": e.message}
         except Exception as e:  # chyba frameworku mimo krok
             self.error = {"class": "internal", "step": None, "message": f"{type(e).__name__}: {e}\n{traceback.format_exc()}"}
@@ -214,7 +214,7 @@ class Run:
             if "when" in st:
                 ok = self.expr(st["when"], "when")
                 if not isinstance(ok, bool):
-                    raise MawError("expression", f"when musí dát true/false, dal {kind(ok)}")
+                    raise AgencastError("expression", f"when musí dát true/false, dal {kind(ok)}")
                 if not ok:
                     self.skip(st, "when", f"when: {st['when']} → false")
                     return
@@ -232,8 +232,8 @@ class Run:
             self.finish(info, "cancelled", t0)
             raise
         except Exception as e:
-            if not isinstance(e, MawError):
-                e = MawError("internal", f"{type(e).__name__}: {e}\n{traceback.format_exc()}")
+            if not isinstance(e, AgencastError):
+                e = AgencastError("internal", f"{type(e).__name__}: {e}\n{traceback.format_exc()}")
             start()
             e.step = e.step or sid
             if not e.logged:
@@ -285,13 +285,13 @@ class Run:
         try:
             return evaluate(expr, self.values)
         except ExprError as e:
-            raise MawError("expression", f"{fld}: {e}") from None
+            raise AgencastError("expression", f"{fld}: {e}") from None
 
     def tpl(self, s: str, fld: str):
         try:
             return render(s, self.values, null_ok=lambda tree: path_step(tree) in self.defaulted)
         except ExprError as e:
-            raise MawError("expression", f"{fld}: {e}") from None
+            raise AgencastError("expression", f"{fld}: {e}") from None
 
     def text(self, s: str, fld: str) -> str:
         return to_text(self.tpl(s, fld))
@@ -311,7 +311,7 @@ class Run:
             async with asyncio.timeout_at(dl[0]):
                 return await coro
         except TimeoutError:
-            raise MawError("timeout", f"překročen časový limit {dl[1]}", fatal=dl[2] != info.id) from None
+            raise AgencastError("timeout", f"překročen časový limit {dl[1]}", fatal=dl[2] != info.id) from None
         finally:
             STEP_DEADLINE.reset(token)
 
@@ -322,7 +322,7 @@ class Run:
             attempt += 1
             for s in scopes:
                 if s.limit is not None and s.spent >= s.limit:
-                    raise MawError("budget", f"rozpočet {s.label} vyčerpán ({cz_usd(s.spent)} z {s.limit} USD)",
+                    raise AgencastError("budget", f"rozpočet {s.label} vyčerpán ({cz_usd(s.spent)} z {s.limit} USD)",
                                    fatal=s.owner != sid)
             body, fields = build(attempt, last)
             n = self.calls[sid] = self.calls.get(sid, 0) + 1
@@ -337,7 +337,7 @@ class Run:
             if err is None and on_value:
                 try:
                     value, note = on_value(value)
-                except MawError as e:
+                except AgencastError as e:
                     err = e
             resp = self.rec.write(f"{info.folder}/calls/{n:02d}.response.json", scrub(rbody, note))
             cost = meta["usage"]["cost_usd"]
@@ -354,7 +354,7 @@ class Run:
             self.rec.event("error", step=sid, **{"class": cls}, message=err.message, attempt=attempt,
                            will_retry=retry, http_status=err.http_status)
             if not retry:
-                e = MawError(cls, err.message, http_status=err.http_status, fatal=err.fatal)
+                e = AgencastError(cls, err.message, http_status=err.http_status, fatal=err.fatal)
                 e.logged = True
                 raise e
             last = err
@@ -460,10 +460,10 @@ class Run:
             if ratio:
                 a, b = map(int, ratio.split(":"))
                 if not w or not h:
-                    raise MawError("config", f"rozměry obrázku ({media}) nejde zjistit — aspect_ratio nejde ověřit")
+                    raise AgencastError("config", f"rozměry obrázku ({media}) nejde zjistit — aspect_ratio nejde ověřit")
                 dev = abs(w / h - a / b) / (a / b)
                 if dev > 0.02:
-                    raise MawError("config", f"model nepodporuje aspect_ratio {ratio}: obrázek má {w}×{h} "
+                    raise AgencastError("config", f"model nepodporuje aspect_ratio {ratio}: obrázek má {w}×{h} "
                                              f"(odchylka {dev:.1%}, povoleno 2 %) — nic se neořezává")
             return {"file": FileRef(rel)}, f"<soubor: {rel}, {len(data)} B>"
 
@@ -480,7 +480,7 @@ class Run:
         return {k: self.expr(v, f"set.{k}") if isinstance(v, str) else v for k, v in info.data["set"].items()}
 
     async def step_fail(self, info: StepInfo, ctx: Ctx):
-        raise MawError("fail", self.text(info.data["fail"], "fail"))
+        raise AgencastError("fail", self.text(info.data["fail"], "fail"))
 
     async def step_output(self, info: StepInfo, ctx: Ctx):
         specs, values, public = self.p.scenario["outputs"], {}, {}
@@ -489,7 +489,7 @@ class Run:
             want = specs[k]["type"]
             if val is not None and (isinstance(val, FileRef) != (want == "file")
                                     or want != "file" and not _matches(want, val)):
-                raise MawError("expression", f"output.{k}: výstup má být {want}, hodnota je {kind(val)}")
+                raise AgencastError("expression", f"output.{k}: výstup má být {want}, hodnota je {kind(val)}")
             values[k] = val
             public[k] = self.upload(k, val) if isinstance(val, FileRef) and not self.depth else val  # 3b
         self.outputs = public
@@ -500,17 +500,17 @@ class Run:
         run_dir = self.rec.dir.resolve()
         src = (run_dir / ref.path).resolve()
         if not src.is_relative_to(run_dir) or not src.is_file():
-            raise MawError("config", f"soubor {ref.path} není uvnitř složky běhu")
+            raise AgencastError("config", f"soubor {ref.path} není uvnitř složky běhu")
         st = self.p.config["storage"]
         if st["type"] != "local":  # validate to hlídá; R2 zatím není
-            raise MawError("config", "úložiště r2 framework zatím neumí — nastav storage.type: local")
+            raise AgencastError("config", "úložiště r2 framework zatím neumí — nastav storage.type: local")
         key = f"{self.storage_prefix}/{name}{src.suffix}"
         dest = self.p.base / st["local"]["path"] / key
         try:
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, dest)
         except OSError as e:
-            raise MawError("transient", f"nahrání {ref.path} do úložiště selhalo: {e}") from None
+            raise AgencastError("transient", f"nahrání {ref.path} do úložiště selhalo: {e}") from None
         base = st["local"].get("public_base_url")
         url = f"{base.rstrip('/')}/{key}" if base else dest.resolve().as_uri()
         self.rec.event("file_uploaded", output=name, path=ref.path, url=url)
@@ -524,14 +524,14 @@ class Run:
                     tg.create_task(self.run_list(lst, replace(inner, branch=b)))
         except BaseExceptionGroup as eg:
             errs = _leaves(eg)
-            raise next((e for e in errs if isinstance(e, MawError)), errs[0]) from None
+            raise next((e for e in errs if isinstance(e, AgencastError)), errs[0]) from None
         return None
 
     async def step_switch(self, info: StepInfo, ctx: Ctx):
         sw = info.data["switch"]
         v = self.expr(sw["value"], "switch.value")
         if not isinstance(v, str):
-            raise MawError("expression", f"switch.value musí dát text (string), dal {kind(v)}: {to_json(v)[:80]}")
+            raise AgencastError("expression", f"switch.value musí dát text (string), dal {kind(v)}: {to_json(v)[:80]}")
         reason = f"switch: {info.id} = {to_json(v)}"
         chosen = sw["cases"][v] if v in sw["cases"] else sw["default"]
         for lst in [*sw["cases"].values(), sw["default"]]:
@@ -554,7 +554,7 @@ class Run:
                 continue
             v = self.tpl(given[k], f"call.inputs.{k}") if isinstance(given[k], str) else given[k]
             if not _matches(sp["type"], v):
-                raise MawError("expression", f"call.inputs.{k}: vstup scénáře '{c['scenario']}' má být {sp['type']}, "
+                raise AgencastError("expression", f"call.inputs.{k}: vstup scénáře '{c['scenario']}' má být {sp['type']}, "
                                              f"hodnota je {kind(v)}")
             inputs[k] = v
         self.rec.write(f"{info.folder}/inputs.json", inputs)
@@ -566,7 +566,7 @@ class Run:
         sub.depth = self.depth + 1
         try:
             await sub.run_list(callee.scenario["steps"], ctx.inner(info))
-        except MawError as e:
+        except AgencastError as e:
             if e.fatal and f"kroku '{info.id}' (" in e.message:  # vlastní budget_usd/timeout kroku call pokryje jeho on_error
                 e.fatal = False
             raise
@@ -583,7 +583,7 @@ class Run:
             rel = self.rec.write("report.html", report_html(self))
             self.report_url = self.upload("report", FileRef(rel))
         except Exception as e:
-            why = f"{e.cls}: {e.message}" if isinstance(e, MawError) else f"{type(e).__name__}: {e}"
+            why = f"{e.cls}: {e.message}" if isinstance(e, AgencastError) else f"{type(e).__name__}: {e}"
             self.warnings.append(f"report.html se nepodařilo vytvořit nebo nahrát ({why}) — report_url je null")
 
     # --- callback --------------------------------------------------------------------
@@ -638,7 +638,7 @@ async def mcp_offers(p: Project, servers: set) -> dict:
             for s in sorted(servers):
                 try:
                     offers[s] = sorted((await pool.get(s)).tools)
-                except MawError as e:
+                except AgencastError as e:
                     offers[s] = e.message
         finally:
             await pool.close()
@@ -646,8 +646,8 @@ async def mcp_offers(p: Project, servers: set) -> dict:
 
 
 def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, request_key=None,
-                 callback_transport=None, run_id=None, error: MawError | None = None) -> Run:
-    """Spustí ověřený scénář; `fake` = maw.fake.Fake místo sítě.
+                 callback_transport=None, run_id=None, error: AgencastError | None = None) -> Run:
+    """Spustí ověřený scénář; `fake` = agencast.fake.Fake místo sítě.
 
     3b (webhook): `run_id` přidělený už při přijetí požadavku; `error` = běh nezačne, jen záznam
     a callback (validate selhal po vyzvednutí z fronty, běh přerušen restartem serveru)."""

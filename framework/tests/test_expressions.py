@@ -5,7 +5,7 @@ v jazyce nejsou, literály jsou true/false/null, `round` půlku od nuly.
 """
 import pytest
 
-from maw.expressions import (MAX_LEN, ExprError, FileRef, evaluate, infer, parse, parse_path, path_step,
+from agencast.expressions import (MAX_LEN, ExprError, FileRef, evaluate, infer, parse, parse_path, path_step,
                              render, template_type)
 
 CTX = {

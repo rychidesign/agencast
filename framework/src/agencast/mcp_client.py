@@ -27,7 +27,7 @@ from mcp.client.streamable_http import create_mcp_http_client, streamable_http_c
 from mcp.shared.exceptions import MCPError
 from mcp.types import CONNECTION_CLOSED, REQUEST_TIMEOUT
 
-from . import MawError
+from . import AgencastError
 from .loader import LoadError, describe_error, read_yaml, schema_errors, seconds, version_error
 
 DEFAULT_TIMEOUTS = {"handshake": "10s", "call": "60s"}  # config.md mcp.yaml
@@ -154,7 +154,7 @@ def _leaves(e: BaseException) -> list:
     return [e]
 
 
-def start_error(name: str, spec: dict, e: BaseException, stderr_file: str | None) -> MawError:
+def start_error(name: str, spec: dict, e: BaseException, stderr_file: str | None) -> AgencastError:
     """Selhání startu/handshaku → třída (§5.8): síť a 5xx `transient`, jinak `config`.
     Chyby přicházejí ve dvou vrstvách ExceptionGroup — rozbalí se na jednu čitelnou hlášku."""
     leaves = _leaves(e)
@@ -162,13 +162,13 @@ def start_error(name: str, spec: dict, e: BaseException, stderr_file: str | None
     detail = "; ".join(f"{type(x).__name__}: {x}" for x in leaves)[:1000]
     hint = f" (stderr: {stderr_file})" if stderr_file else ""
     if any(isinstance(x, TimeoutError) or isinstance(x, MCPError) and x.code == REQUEST_TIMEOUT for x in leaves):
-        return MawError("transient" if remote else "config",
+        return AgencastError("transient" if remote else "config",
                         f"MCP server '{name}' neodpověděl na handshake do {timeout_s(spec, 'handshake')} s{hint}")
     status = next((getattr(getattr(x, "response", None), "status_code", None) for x in leaves
                    if getattr(getattr(x, "response", None), "status_code", None)), None)
     transient = remote and (status is None and any(isinstance(x, OSError) or "Connect" in type(x).__name__
                                                     for x in leaves) or status and (status >= 500 or status in (408, 429)))
-    return MawError("transient" if transient else "config",
+    return AgencastError("transient" if transient else "config",
                     f"MCP server '{name}' se nepodařilo spustit{hint}: {detail}", http_status=status)
 
 
@@ -235,7 +235,7 @@ class Pool:
                 self.rec.event("mcp_server", server=name, action="stopped", **where)
                 raise
             err = start_error(name, spec, e, stderr_file) if not fut.done() else \
-                MawError("config", f"MCP server '{name}' skončil s chybou: {e!r}")
+                AgencastError("config", f"MCP server '{name}' skončil s chybou: {e!r}")
             self.rec.event("mcp_server", server=name, action="failed", error=err.message, **where)
             if not fut.done():
                 fut.set_exception(err)
@@ -259,14 +259,14 @@ class Pool:
             async with asyncio.timeout(server.call_s + GUARD_S):
                 res = await server.client.call_tool(tool, args, read_timeout_seconds=server.call_s)
         except TimeoutError:
-            raise MawError("timeout", f"nástroj {server.name}.{tool} neodpověděl do {server.call_s} s "
+            raise AgencastError("timeout", f"nástroj {server.name}.{tool} neodpověděl do {server.call_s} s "
                                       "(mohl proběhnout)") from None
         except MCPError as e:
             if e.code == REQUEST_TIMEOUT:
-                raise MawError("timeout", f"nástroj {server.name}.{tool} neodpověděl do {server.call_s} s "
+                raise AgencastError("timeout", f"nástroj {server.name}.{tool} neodpověděl do {server.call_s} s "
                                           "(mohl proběhnout)") from None
             if e.code == CONNECTION_CLOSED:
-                raise MawError("config", f"MCP server '{server.name}' ukončil spojení při volání {tool} "
+                raise AgencastError("config", f"MCP server '{server.name}' ukončil spojení při volání {tool} "
                                          f"(viz mcp/{server.name}.stderr.log)") from None
             return ToolResult(True, f"MCP error {e.code}: {e.message}", [])
         texts, images = [], []

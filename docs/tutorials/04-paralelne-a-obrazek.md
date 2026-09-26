@@ -156,8 +156,8 @@ agenta, zbytek limitu běhu.
 ## Krok 3 — plán a falešný běh
 
 ```bash
-maw validate workflows/scenarios/tutorial-04-paralelne.yaml
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka" --dry-run
+agencast validate workflows/scenarios/tutorial-04-paralelne.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka" --dry-run
 ```
 
 ```
@@ -195,7 +195,7 @@ popis:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-04-paralelne.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-04-paralelne.yaml
 ```
 
 ```
@@ -210,7 +210,7 @@ Placené to není.
 ## Krok 4 — ostrý běh s obrázkem
 
 ```bash
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka"
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka"
 ```
 
 ```
@@ -311,7 +311,7 @@ navrh:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/pretizeni.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/pretizeni.yaml
 ```
 
 ```
@@ -337,7 +337,7 @@ fotka:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/odmitnuti.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/odmitnuti.yaml
 ```
 
 ```
@@ -383,7 +383,7 @@ fotka:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/zruseni.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/zruseni.yaml
 ```
 
 ```
@@ -411,7 +411,7 @@ Zkusíme to s přísnějšími limity. **Dočasně** změň u kroku `fotka`
 `budget_usd: 0.10` na `budget_usd: 0.03` (falešný obrázek stojí 0,04):
 
 ```bash
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake framework/tests/golden/tutorial-04-paralelne.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake framework/tests/golden/tutorial-04-paralelne.yaml
 ```
 
 ```
@@ -435,7 +435,7 @@ fotka:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/bez-obrazku.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/bez-obrazku.yaml
 ```
 
 ```
@@ -462,7 +462,7 @@ fotka:
 ```
 
 ```bash
-maw run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/pomaly.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/pomaly.yaml
 ```
 
 ```
@@ -558,8 +558,8 @@ fotka:
 ```
 
 ```bash
-maw validate workflows/scenarios/tutorial-04-cviceni.yaml
-maw run workflows/scenarios/tutorial-04-cviceni.yaml -i produkt="zmrzlina" --fake /tmp/odmitnuti-cviceni.yaml
+agencast validate workflows/scenarios/tutorial-04-cviceni.yaml
+agencast run workflows/scenarios/tutorial-04-cviceni.yaml -i produkt="zmrzlina" --fake /tmp/odmitnuti-cviceni.yaml
 ```
 
 ```

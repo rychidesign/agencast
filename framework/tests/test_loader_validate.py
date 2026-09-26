@@ -2,9 +2,9 @@
 import pytest
 from conftest import scenario
 
-from maw import ConfigErrors
-from maw.loader import SPEC_SCHEMAS, LoadError, load_dotenv, load_yaml
-from maw.validate import resolve_inputs, validate
+from agencast import ConfigErrors
+from agencast.loader import SPEC_SCHEMAS, LoadError, load_dotenv, load_yaml
+from agencast.validate import resolve_inputs, validate
 
 
 # --- YAML 1.2 core ------------------------------------------------------------------
@@ -52,11 +52,11 @@ def test_yaml_on_as_case_key_is_text(wf):
 
 
 def test_dotenv_crlf(tmp_path, monkeypatch):
-    monkeypatch.delenv("MAW_TEST_X", raising=False)
-    (tmp_path / ".env").write_bytes(b"# komentar\r\nMAW_TEST_X=\"abc\"\r\n")
+    monkeypatch.delenv("AGENCAST_TEST_X", raising=False)
+    (tmp_path / ".env").write_bytes(b"# komentar\r\nAGENCAST_TEST_X=\"abc\"\r\n")
     load_dotenv(tmp_path / ".env")
     import os
-    assert os.environ["MAW_TEST_X"] == "abc"
+    assert os.environ["AGENCAST_TEST_X"] == "abc"
 
 
 def test_schemas_come_from_spec():
@@ -249,7 +249,7 @@ def test_config_same_env_twice(wf):
 
 
 def test_models_checked_against_models_list(wf):
-    from maw.fake import Fake
+    from agencast.fake import Fake
     p = scenario(wf, HEAD + "steps: [{ id: a, image: { model: chytry, prompt: x } }]")
     fake = Fake(None, ["anthropic/claude-haiku-4.5"])  # gemini modely v /models chybí
     with pytest.raises(ConfigErrors) as e:

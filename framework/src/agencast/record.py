@@ -237,7 +237,7 @@ def total_note(run) -> str:
 
 
 def run_status(run_dir: Path) -> dict:
-    """Stav běhu z events.jsonl (pro `maw runs list`)."""
+    """Stav běhu z events.jsonl (pro `agencast runs list`)."""
     info = {"run_id": run_dir.name, "status": "běží nebo přerušen", "cost_usd": None, "duration_s": None,
             "callback": ""}
     ev = run_dir / "events.jsonl"

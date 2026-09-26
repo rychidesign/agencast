@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from maw import engine
-from maw.engine import run_scenario
-from maw.fake import Fake
-from maw.validate import resolve_inputs, validate
+from agencast import engine
+from agencast.engine import run_scenario
+from agencast.fake import Fake
+from agencast.validate import resolve_inputs, validate
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / "workflows"

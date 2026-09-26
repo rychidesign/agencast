@@ -1,11 +1,11 @@
-"""multiagent-workflows — jádro frameworku (DESIGN D3).
+"""AgenCast — jádro frameworku (DESIGN D3).
 
 Vrstvy: loader (čtení souborů), validate (statické kontroly), expressions
 (výrazy a šablony), engine (běh scénáře), providers (OpenRouter + falešný),
 record (záznam běhu, report.html), mcp_client (MCP servery), task (krok task,
 dedupe_key), server (webhook), cli.
 """
-__version__ = "0.2.5"
+__version__ = "0.3.0"
 
 # Verze formátů, které framework umí číst (DESIGN §5.9 bod 6).
 FORMAT_VERSIONS = (1,)
@@ -15,7 +15,7 @@ ERROR_CLASSES = ("transient", "schema", "content", "budget", "timeout", "config"
                  "expression", "fail", "internal")
 
 
-class MawError(Exception):
+class AgencastError(Exception):
     """Chyba s třídou ze spec §6.
 
     `final` = třída po vyčerpání `retry` (např. chybějící cena → `budget`),

@@ -9,11 +9,11 @@ import pytest
 import yaml
 from conftest import FAKE_MCP, events, model_ids, run, scenario
 
-from maw import ConfigErrors
-from maw.mcp_client import api_name, arg_errors, provider_schema
-from maw.task import system_prompt_task
-from maw.engine import system_prompt_ask
-from maw.validate import validate
+from agencast import ConfigErrors
+from agencast.mcp_client import api_name, arg_errors, provider_schema
+from agencast.task import system_prompt_task
+from agencast.engine import system_prompt_ask
+from agencast.validate import validate
 
 ALL = "[read_text_file, write_file, broken, red_pixel, get_env, slow, complex]"
 HEAD = "version: 1\nname: NAME\ndescription: Test kroku task\n"
@@ -121,7 +121,7 @@ def test_tool_name_collision_after_normalization(wf):
 
 
 def test_model_without_tools_is_config(wf):
-    from maw.validate import check_models_list
+    from agencast.validate import check_models_list
     cfg = {"models": {"chytry": {"id": "x/y"}}}
     got = check_models_list(cfg, {"chytry": {"tools"}}, [{"id": "x/y", "output_modalities": ["text"],
                                                          "supported_parameters": ["response_format"]}])
@@ -242,27 +242,27 @@ def test_tool_timeout_is_timeout_class(wf):
 
 
 def test_secret_from_tool_is_masked(wf, monkeypatch):
-    monkeypatch.setenv("MAW_TEST_MCP_SECRET", "velmi-tajna-hodnota-42")
-    setup(wf, env="    env: { PRO_SERVER: MAW_TEST_MCP_SECRET }\n")
+    monkeypatch.setenv("AGENCAST_TEST_MCP_SECRET", "velmi-tajna-hodnota-42")
+    setup(wf, env="    env: { PRO_SERVER: AGENCAST_TEST_MCP_SECRET }\n")
     r, fake = run(task_sc(wf), script={"t": [calls(("fs__get_env", {"name": "PRO_SERVER"})), {"text": "ok"}]})
     assert r.status == "succeeded", r.error
     assert "velmi-tajna-hodnota-42" in json.dumps(fake.calls[-1][2])  # model hodnotu dostal (server ji vrátil)
     for f in r.rec.dir.rglob("*"):
         if f.is_file() and f.suffix in (".json", ".jsonl", ".md", ".log"):
             assert "velmi-tajna-hodnota-42" not in f.read_text(), f
-    assert "<tajné: MAW_TEST_MCP_SECRET>" in (r.rec.dir / "steps/01-t/calls/02.tool.json").read_text()
+    assert "<tajné: AGENCAST_TEST_MCP_SECRET>" in (r.rec.dir / "steps/01-t/calls/02.tool.json").read_text()
 
 
 def test_missing_server_env_is_config_before_run(wf, monkeypatch):
-    monkeypatch.delenv("MAW_TEST_NOPE", raising=False)
-    setup(wf, env="    env: { X: MAW_TEST_NOPE }\n")
-    with pytest.raises(ConfigErrors, match="chybí proměnná prostředí MAW_TEST_NOPE"):
+    monkeypatch.delenv("AGENCAST_TEST_NOPE", raising=False)
+    setup(wf, env="    env: { X: AGENCAST_TEST_NOPE }\n")
+    with pytest.raises(ConfigErrors, match="chybí proměnná prostředí AGENCAST_TEST_NOPE"):
         run(task_sc(wf))
 
 
 def test_server_start_failure_is_config(wf):
     setup(wf)
-    (wf / "mcp.yaml").write_text((wf / "mcp.yaml").read_text().replace(json.dumps(sys.executable), "neexistuje-maw"))
+    (wf / "mcp.yaml").write_text((wf / "mcp.yaml").read_text().replace(json.dumps(sys.executable), "neexistuje-agencast"))
     r, _ = run(task_sc(wf))
     assert r.error["class"] == "config" and "se nepodařilo spustit" in r.error["message"]
     assert events(r, "mcp_server")[0]["action"] == "failed"
@@ -310,7 +310,7 @@ def test_skills_task_list_and_load_skill(wf):
 
 
 def test_skills_ask_inlines_whole_body(wf):
-    from maw.validate import load_agent, load_config
+    from agencast.validate import load_agent, load_config
     errs = []
     agent = load_agent(wf, "copywriter", load_config(wf, errs), errs)
     ask = system_prompt_ask(agent)
@@ -358,10 +358,10 @@ def test_dedupe_started_without_succeeded_is_config(wf):
 
 def test_dedupe_fake_and_live_do_not_share_state(wf, monkeypatch):
     """BUGS 8: výstup falešného běhu nesmí přeskočit ostrý krok (a naopak) — oddělené _dedupe*/."""
-    from maw import engine
-    from maw.engine import run_scenario
-    from maw.fake import Fake
-    from maw.providers import Client
+    from agencast import engine
+    from agencast.engine import run_scenario
+    from agencast.fake import Fake
+    from agencast.providers import Client
     setup(wf)
     path = task_sc(wf, step='dedupe_key: "jednou"')
 
@@ -395,7 +395,7 @@ def test_dedupe_without_tool_call_writes_only_succeeded(wf):
 # --- po sloučení s 3b: --dry-run a task uvnitř call ------------------------------------------
 
 def test_dry_run_lists_server_tools(wf):
-    from maw.engine import dry_run
+    from agencast.engine import dry_run
     setup(wf, agent_tools="[read_text_file, write_file]")
     p = validate(task_sc(wf, ", tools: { fs: [read_text_file] }", step='dedupe_key: "k"'), check_models=False)
     rec = dry_run(p, {})

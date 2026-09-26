@@ -73,7 +73,7 @@ class Fake:
                 {"id": m, "architecture": {"output_modalities": ["image", "text"] if "image" in m else ["text"]},
                  "supported_parameters": ["max_tokens", "response_format", "structured_outputs", "tool_choice",
                                           "tools"]} for m in self.models]})
-        step = request.extensions.get("maw_step", "")
+        step = request.extensions.get("agencast_step", "")
         body = json.loads(request.content)
         self.calls.append((step, path.rsplit("/", 1)[-1], body))
         plan = self.script.get(step) or [{}]

@@ -14,7 +14,7 @@ from pathlib import Path
 import httpx
 from jsonschema import Draft202012Validator
 
-from . import MawError
+from . import AgencastError
 from .loader import describe_error
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
@@ -58,7 +58,7 @@ class Client:
     async def post(self, path: str, body: dict, step: str, timeout: float | None = None):
         """(status | None při chybě sítě, tělo jako dict, hlavičky). Vypršení `timeout` = chyba sítě → transient."""
         try:
-            r = await self.http.post(path, json=body, extensions={"maw_step": step},
+            r = await self.http.post(path, json=body, extensions={"agencast_step": step},
                                      timeout=httpx.Timeout(timeout, connect=15 if timeout is None else min(15, timeout)))
         except httpx.HTTPError as e:
             return None, {"error": {"message": f"chyba sítě: {type(e).__name__}: {e}"}}, {}
@@ -86,7 +86,7 @@ def list_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
     except (httpx.HTTPError, ValueError, KeyError) as e:
         data, r = None, e
     if data is None:
-        raise MawError("transient", f"GET {base_url}/models selhalo ({getattr(r, 'status_code', r)}) a platná "
+        raise AgencastError("transient", f"GET {base_url}/models selhalo ({getattr(r, 'status_code', r)}) a platná "
                                     f"cache {cache} není — kontrola modelů potřebuje síť")
     data = [{"id": m["id"], "output_modalities": (m.get("architecture") or {}).get("output_modalities") or [],
              "supported_parameters": m.get("supported_parameters") or []} for m in data]
@@ -105,7 +105,7 @@ def _retry_after(headers) -> float | None:
         return None
 
 
-def http_error(status, body: dict, headers) -> MawError | None:
+def http_error(status, body: dict, headers) -> AgencastError | None:
     """Třída chyby z HTTP statusu a pole `error` (scenario.md §6). 200 bez `error` = None."""
     err = body.get("error")
     if status == 200 and not err:
@@ -118,15 +118,15 @@ def http_error(status, body: dict, headers) -> MawError | None:
         text += f" {json.dumps(meta, ensure_ascii=False)[:500]}"
     kw = {"http_status": status, "retry_after": _retry_after(headers)}
     if status is None:
-        return MawError("transient", msg, **kw)
+        return AgencastError("transient", msg, **kw)
     if not isinstance(code, int) or code in (408, 429) or code >= 500:
-        return MawError("transient", text, **kw)
+        return AgencastError("transient", text, **kw)
     if code == 402:
-        return MawError("budget", text + " — došel kredit nebo limit klíče", **kw)
+        return AgencastError("budget", text + " — došel kredit nebo limit klíče", **kw)
     blob = json.dumps(body, ensure_ascii=False).lower()
     if code == 403 and any(w in blob for w in ("moderation", "content_policy", "refusal", "flagged")):
-        return MawError("content", text, **kw)
-    return MawError("config", text, **kw)
+        return AgencastError("content", text, **kw)
+    return AgencastError("config", text, **kw)
 
 
 def usage(body: dict) -> dict:
@@ -137,9 +137,9 @@ def usage(body: dict) -> dict:
             "cost_usd": u.get("cost")}
 
 
-def _no_cost(meta) -> MawError | None:
+def _no_cost(meta) -> AgencastError | None:
     if meta["usage"]["cost_usd"] is None:
-        return MawError("transient", "cena neznámá (odpověď nemá usage.cost)", final="budget")
+        return AgencastError("transient", "cena neznámá (odpověď nemá usage.cost)", final="budget")
     return None
 
 
@@ -147,20 +147,20 @@ def _choice(body: dict, meta: dict):
     """Společné kontroly chat completions: (message, finish_reason) nebo chyba."""
     choices = body.get("choices") or []
     if not choices:
-        return None, None, MawError("transient", "odpověď bez choices (HTTP 200)")
+        return None, None, AgencastError("transient", "odpověď bez choices (HTTP 200)")
     ch = choices[0]
     msg = ch.get("message") or {}
     fr = meta["finish_reason"] = ch.get("finish_reason")
     meta["native_finish_reason"] = ch.get("native_finish_reason")
     if msg.get("refusal"):
-        return msg, fr, MawError("content", f"model odmítl: {msg['refusal']}")
+        return msg, fr, AgencastError("content", f"model odmítl: {msg['refusal']}")
     if fr == "content_filter":
-        return msg, fr, MawError("content", "obsah zablokoval filtr poskytovatele (finish_reason: content_filter)")
+        return msg, fr, AgencastError("content", "obsah zablokoval filtr poskytovatele (finish_reason: content_filter)")
     if fr == "length":
-        return msg, fr, MawError("config", "odpověď useknutá limitem max_tokens (finish_reason: length) — "
+        return msg, fr, AgencastError("config", "odpověď useknutá limitem max_tokens (finish_reason: length) — "
                                            "zvyš max_tokens aliasu v config.yaml")
     if fr == "error":
-        return msg, fr, MawError("transient", "poskytovatel vrátil HTTP 200 s finish_reason: error")
+        return msg, fr, AgencastError("transient", "poskytovatel vrátil HTTP 200 s finish_reason: error")
     return msg, fr, None
 
 
@@ -217,16 +217,16 @@ def parse_chat(status, body, headers, level: str | None, schema: dict | None):
     if schema and level == "tool_wrapper":
         calls = [c for c in msg.get("tool_calls") or [] if (c.get("function") or {}).get("name") == SUBMIT_TOOL]
         if fr not in ("tool_calls", "stop"):
-            return meta, None, MawError("transient", f"neočekávaný finish_reason: {fr}")
+            return meta, None, AgencastError("transient", f"neočekávaný finish_reason: {fr}")
         if not calls:
-            return meta, None, MawError("schema", f"model nezavolal nástroj {SUBMIT_TOOL}")
+            return meta, None, AgencastError("schema", f"model nezavolal nástroj {SUBMIT_TOOL}")
         raw = calls[0]["function"].get("arguments")
     else:
         if fr != "stop":
-            return meta, None, MawError("transient", f"neočekávaný finish_reason: {fr}")
+            return meta, None, AgencastError("transient", f"neočekávaný finish_reason: {fr}")
         raw = msg.get("content")
         if not isinstance(raw, str) or not raw.strip():
-            return meta, None, MawError("transient", "prázdná odpověď bez odmítnutí (HTTP 200)")
+            return meta, None, AgencastError("transient", "prázdná odpověď bez odmítnutí (HTTP 200)")
     value = raw
     if schema:
         text = raw.strip() if isinstance(raw, str) else raw
@@ -235,11 +235,11 @@ def parse_chat(status, body, headers, level: str | None, schema: dict | None):
         try:
             value = json.loads(text) if isinstance(text, str) else text
         except (TypeError, ValueError) as e:
-            return meta, None, MawError("schema", f"odpověď není JSON ({e}): {str(raw)[:200]}")
+            return meta, None, AgencastError("schema", f"odpověď není JSON ({e}): {str(raw)[:200]}")
         errors = [f"{describe_error(e)} ({'.'.join(map(str, e.absolute_path)) or 'kořen'})"
                   for e in Draft202012Validator(schema).iter_errors(value)]
         if errors:
-            return meta, None, MawError("schema", "odpověď nesedí na schema: " + "; ".join(errors[:5]))
+            return meta, None, AgencastError("schema", "odpověď nesedí na schema: " + "; ".join(errors[:5]))
     return meta, value, _no_cost(meta)
 
 
@@ -285,7 +285,7 @@ def parse_jev(status, body, headers, questions: dict):
         v = a.get(t) if isinstance(a, dict) else None
         ok = isinstance(v, str) if t == "choice" else isinstance(v, (int, float)) and not isinstance(v, bool)
         if not ok:
-            return meta, None, MawError("transient", f"Jev nevrátil platnou odpověď na otázku '{q}' ({t}): {a!r}")
+            return meta, None, AgencastError("transient", f"Jev nevrátil platnou odpověď na otázku '{q}' ({t}): {a!r}")
         out[q] = v
         details[q] = {k: x for k, x in a.items() if k not in ("type", t)}
     meta["answers"] = dict(out)
@@ -315,17 +315,17 @@ def parse_image(status, body, headers):
         return meta, None, err
     images = msg.get("images") or []
     if not images:
-        return meta, None, MawError("transient", "model nevrátil obrázek", final="content")
+        return meta, None, AgencastError("transient", "model nevrátil obrázek", final="content")
     if fr != "stop":
-        return meta, None, MawError("transient", f"neočekávaný finish_reason: {fr}")
+        return meta, None, AgencastError("transient", f"neočekávaný finish_reason: {fr}")
     url = ((images[0] or {}).get("image_url") or {}).get("url") or ""
     head, _, b64 = url.partition(",")
     if not head.startswith("data:") or ";base64" not in head:
-        return meta, None, MawError("transient", f"obrázek není data URL base64: {url[:60]}")
+        return meta, None, AgencastError("transient", f"obrázek není data URL base64: {url[:60]}")
     try:
         data = base64.b64decode(b64, validate=True)
     except ValueError as e:
-        return meta, None, MawError("transient", f"obrázek nejde dekódovat z base64: {e}")
+        return meta, None, AgencastError("transient", f"obrázek nejde dekódovat z base64: {e}")
     return meta, (data, head[5:].split(";")[0]), _no_cost(meta)
 
 

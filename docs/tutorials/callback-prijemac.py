@@ -1,8 +1,8 @@
-"""Místní přijímač callbacku z `maw serve` (tutoriál, díl 7). Jen stdlib.
+"""Místní přijímač callbacku z `agencast serve` (tutoriál, díl 7). Jen stdlib.
 
     python3 docs/tutorials/callback-prijemac.py [port]      # výchozí 8799
 
-Poslouchá na http://127.0.0.1:<port>/ (maw dovolí http:// jen na 127.0.0.1),
+Poslouchá na http://127.0.0.1:<port>/ (agencast dovolí http:// jen na 127.0.0.1),
 každý POST vypíše a ověří podpis podle docs/spec/run-record.md: hlavička
 `X-Signature: sha256=<hex>` = HMAC-SHA256 přesných bajtů těla s tajemstvím
 CALLBACK_SECRET. Tajemství se bere z prostředí, jinak z `.env` v kořeni
@@ -45,7 +45,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             print(body.decode(errors="replace"))
         Path("/tmp/posledni-callback.json").write_bytes(body)
-        # n8n by zprávu s nesedícím podpisem odmítlo; 401 → maw to zkusí znovu a pak zapíše callback_failed
+        # n8n by zprávu s nesedícím podpisem odmítlo; 401 → agencast to zkusí znovu a pak zapíše callback_failed
         self.send_response(200 if ok else 401)
         self.end_headers()
         sys.stdout.flush()
