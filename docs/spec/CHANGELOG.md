@@ -159,3 +159,15 @@ každého nálezu je na konci REVIEW.md.
   a callback se nemění.
 - Formáty `agent`, `scenario`, `config`, `mcp`, záznam běhu ani JSON Schema
   se nemění.
+
+## version 1 — beze změny formátu (framework 0.5.0)
+
+- [api.md](api.md) „Editace“: editační operace `serve` pro GUI —
+  hlavička scénáře a kroky (přidat, upravit, přesunout, smazat), agent,
+  skill, `config.yaml`, surový text souborů ve `workflows/` a `new`
+  přes HTTP. Adresa kroku (`address` v `GET …/scenarios/<s>`), otisk
+  `etag` (sha256 obsahu) a v `GET /projects/<p>` pole `etag` u scénářů,
+  agentů a skillů — nová pole v odpovědích, stávající se nemění
+  (ISSUES 43).
+- Zápis zachovává komentáře, pořadí klíčů, prázdné řádky a uvozovky;
+  soubory zůstávají ve formátu v1, JSON Schema se nemění.

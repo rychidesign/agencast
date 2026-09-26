@@ -1,7 +1,8 @@
 """Webhook server (webhook.md, D2): `POST /runs` hned odpoví 202 + run_id, výsledek
 přijde později na `callback_url`. `GET /runs/<run_id>` vrací stav. Rodina
 `/projects/...` (api.md, od 0.4.0) čte projekty pro GUI — jeden projekt, nebo
-registr (projects.md) s tokenem serveru `AGENCAST_TOKEN`.
+registr (projects.md) s tokenem serveru `AGENCAST_TOKEN`; od 0.5.0 i editační
+operace (PUT/PATCH/DELETE, api.md „Editace“) nad `api` → edit.py.
 
 Stdlib `ThreadingHTTPServer`: požadavky obsluhují vlákna, běhy `workers`
 pracovních vláken nad jednou frontou (výchozí 1 → jeden běh po druhém; víc →
@@ -276,6 +277,8 @@ class Projects:
                 case ["runs", r, "files", *rel] if rel:
                     f = api.run_file(root, r, "/".join(rel))
                     return (200, f) if f else (404, {"error": "soubor ve složce běhu neexistuje"})
+                case ["files", *rel] if rel:
+                    return 200, api.read_file(root, "/".join(rel))
                 case ["spend"]:
                     day = parse_qs(query).get("day", [f"{datetime.now(timezone.utc):%Y-%m-%d}"])[0]
                     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
@@ -283,7 +286,65 @@ class Projects:
                     return 200, api.spend(root, day)
         except ConfigErrors as e:
             return 422, {"error": f"projekt '{parts[0]}' neprošel kontrolou", "details": e.errors}
+        except api.NotFound as e:
+            return 404, {"error": str(e)}
         return 404, {"error": f"neznámá adresa {path} (api.md)"}
+
+    def edit(self, method: str, auth: str | None, path: str, raw: bytes) -> tuple[int, dict[str, Any]]:
+        """Editační operace (api.md „Editace“): tělo JSON s `etag`; 409 otisk nesedí, 422 kontrola neprošla."""
+        if not self.authorized(auth):
+            return 401, UNAUTHORIZED
+        parts = [unquote(x) for x in path.strip("/").split("/")][1:]
+        root, err = self.project(parts[0]) if parts else (None, {"error": "chybí projekt v adrese"})
+        if root is None:
+            return 404, err
+        try:
+            body = json.loads(raw or b"{}")
+        except ValueError:
+            return 422, {"error": "tělo není platný JSON", "errors": []}
+        if not isinstance(body, dict):
+            return 422, {"error": "tělo musí být JSON objekt", "errors": []}
+        tag, g = body.get("etag"), body.get
+        try:
+            match method, parts[1:]:
+                case "POST", [("scenarios" | "agents") as kind]:
+                    name = g("name")
+                    if not isinstance(name, str):
+                        return 422, {"error": "name: chybí jméno", "errors": []}
+                    (api.new_scenario if kind == "scenarios" else api.new_agent)(root, name)
+                    rel = f"{kind}/{name}.{'yaml' if kind == 'scenarios' else 'md'}"
+                    return 200, {"name": name, "etag": api.read_file(root, rel)["etag"]}
+                case "PUT", ["scenarios", s]:
+                    return 200, api.set_header(root, s, tag, g("fields"))
+                case "DELETE", ["scenarios", s]:
+                    return 200, api.delete_scenario(root, s, tag)
+                case "POST", ["scenarios", s, "steps"]:
+                    return 200, api.add_step(root, s, tag, g("after", ["steps"]), g("step"))
+                case "POST", ["scenarios", s, "steps", *a, "move"] if a:
+                    return 200, api.move_step(root, s, tag, ["steps", *a], g("to"))
+                case "PATCH", ["scenarios", s, "steps", *a] if a:
+                    return 200, api.update_step(root, s, tag, ["steps", *a], g("fields"))
+                case "DELETE", ["scenarios", s, "steps", *a] if a:
+                    return 200, api.delete_step(root, s, tag, ["steps", *a])
+                case "PUT", ["agents", a]:
+                    return 200, api.set_agent(root, a, tag, g("frontmatter"), g("body"))
+                case "DELETE", ["agents", a]:
+                    return 200, api.delete_agent(root, a, tag)
+                case "PUT", ["skills", n]:
+                    return 200, api.set_skill(root, n, tag, g("text"))
+                case "DELETE", ["skills", n]:
+                    return 200, api.delete_skill(root, n, tag)
+                case "PUT", ["config"]:
+                    return 200, api.set_config(root, tag, g("fields"))
+                case "PUT", ["files", *rel] if rel:
+                    return 200, api.write_file(root, "/".join(rel), tag, g("text"))
+        except api.Conflict as e:
+            return 409, {"error": "soubor se mezitím změnil — načti ho znovu (etag = aktuální otisk)", "etag": e.etag}
+        except api.NotFound as e:
+            return 404, {"error": str(e)}
+        except ConfigErrors as e:
+            return 422, {"error": "změna neprošla kontrolou, nic se nezapsalo", "errors": e.errors}
+        return 404, {"error": f"neznámá adresa {method} {path} (api.md)"}
 
     def post_run(self, auth: str | None, name: str, raw: bytes) -> tuple[int, dict[str, Any]]:
         if not self.authorized(auth):
@@ -301,9 +362,22 @@ class Projects:
 class Handler(BaseHTTPRequestHandler):
     server: "Server"
 
+    def body(self) -> bytes | None:
+        """Tělo požadavku; příliš velké → odpoví 422 a vrátí None."""
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 <= n <= MAX_BODY:
+            self.reply(422, {"error": f"tělo má {n} B, nejvýš {MAX_BODY} B", "details": []})
+            return None
+        return self.rfile.read(n)
+
     def do_POST(self):
         path = urlsplit(self.path).path
         m = re.fullmatch(r"/projects/([^/]+)/runs", path)
+        if path.startswith("/projects/") and not m:
+            return self.do_edit()
         if path != "/runs" and not m:
             return self.reply(404, {"error": "neznámá adresa — běh se spouští přes POST /runs "
                                              "nebo POST /projects/<projekt>/runs"})
@@ -311,17 +385,22 @@ class Handler(BaseHTTPRequestHandler):
         if not m and not hook:
             return self.reply(404, {"error": "server běží v režimu registru — běh se spouští přes "
                                              "POST /projects/<projekt>/runs"})
-        try:
-            n = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            n = -1
-        if not 0 <= n <= MAX_BODY:
-            return self.reply(422, {"error": f"tělo má {n} B, nejvýš {MAX_BODY} B", "details": []})
-        auth, raw = self.headers.get("Authorization"), self.rfile.read(n)
+        if (raw := self.body()) is None:
+            return
+        auth = self.headers.get("Authorization")
         if m:
             return self.safe(self.server.projects.post_run, auth, unquote(m.group(1)), raw)
         assert hook
         self.safe(hook.accept, auth, raw)
+
+    def do_edit(self):
+        path = urlsplit(self.path).path
+        if not path.startswith("/projects/"):
+            return self.reply(404, {"error": f"neznámá adresa {self.command} {path} (api.md)"})
+        if (raw := self.body()) is not None:
+            self.safe(self.server.projects.edit, self.command, self.headers.get("Authorization"), path, raw)
+
+    do_PUT = do_PATCH = do_DELETE = do_edit
 
     def do_GET(self):
         u = urlsplit(self.path)

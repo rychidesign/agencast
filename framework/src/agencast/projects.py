@@ -279,7 +279,7 @@ def _refs(own: dict[str, Any]) -> list[str]:
     return sorted(out)
 
 
-def _steps(steps, flat: list[dict[str, Any]], at: tuple = ("steps",)) -> list[dict[str, Any]]:
+def _steps(steps, flat: list[dict[str, Any]], at: tuple[Any, ...] = ("steps",)) -> list[dict[str, Any]]:
     """Strom kroků pro karty; `nn` = pořadí v souboru hloubkově (jako složky běhu). `flat` = všechny kroky.
     `address` = cesta kroku v dokumentu (`at` + index), jak ji berou editační operace (edit.py)."""
     out = []

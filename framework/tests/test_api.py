@@ -119,3 +119,62 @@ def test_serve_registry_needs_token(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("AGENCAST_TOKEN", raising=False)
     assert main(["serve", "--port", "0"]) == 2
     assert "AGENCAST_TOKEN" in capsys.readouterr().err
+
+
+def test_edit_api(registry_server):
+    """Editační operace přes HTTP (api.md „Editace“): etag, 409, 422, 404 mimo workflows/, stejný token."""
+    _, client, a, _ = registry_server
+    sc = client.get("/projects/alfa/scenarios/ukazka").json()
+    assert [s["address"] for s in sc["steps"]] == [["steps", 0], ["steps", 1]]
+    assert client.put("/projects/alfa/scenarios/ukazka", json={"etag": sc["etag"], "fields": {}},
+                      headers={"Authorization": "Bearer spatne"}).status_code == 401
+    step = {"id": "zkrat", "ask": {"agent": "pisatel", "prompt": "Zkrať: {{ steps.napis.text }}"}}
+    r = client.post("/projects/alfa/scenarios/ukazka/steps", json={"etag": sc["etag"], "after": ["steps", 0], "step": step})
+    assert r.status_code == 200 and r.json()["errors"] == []
+    tag = r.json()["etag"]
+    stale = client.patch("/projects/alfa/scenarios/ukazka/steps/1", json={"etag": sc["etag"], "fields": {"timeout": "1m"}})
+    assert stale.status_code == 409 and stale.json()["etag"] == tag
+    bad = client.patch("/projects/alfa/scenarios/ukazka/steps/1",
+                       json={"etag": tag, "fields": {"ask": {"agent": "nikdo"}}})
+    assert bad.status_code == 422 and any("nikdo" in e for e in bad.json()["errors"])
+    r = client.post("/projects/alfa/scenarios/ukazka/steps/1/move", json={"etag": tag, "to": ["steps"]})
+    assert r.status_code == 422  # zkrat by odkazoval na krok, který běží až po něm
+    r = client.patch("/projects/alfa/scenarios/ukazka/steps/1", json={"etag": tag, "fields": {"timeout": "1m"}})
+    assert r.status_code == 200
+    assert client.request("DELETE", "/projects/alfa/scenarios/ukazka/steps/9", json={"etag": r.json()["etag"]}).status_code == 404
+    r = client.request("DELETE", "/projects/alfa/scenarios/ukazka/steps/1", json={"etag": r.json()["etag"]})
+    assert r.status_code == 200
+    f = client.get("/projects/alfa/files/scenarios/ukazka.yaml").json()
+    assert f["etag"] == r.json()["etag"] and f["data"]["name"] == "ukazka" and "zkrat" not in f["text"]
+    assert client.put("/projects/alfa/files/scenarios/ukazka.yaml",
+                      json={"etag": f["etag"], "text": "# nahoře\n" + f["text"]}).status_code == 200
+    assert (a / "workflows" / "scenarios" / "ukazka.yaml").read_text().startswith("# nahoře\n")
+    for url in ("/projects/alfa/files/..%2F.env", "/projects/alfa/files/%2e%2e/.env", "/projects/alfa/files/.env",
+                "/projects/alfa/files/agents/..%2F..%2F.env.example", "/projects/beta/files/runs/x.yaml"):
+        assert client.get(url).status_code == 404, url
+        assert client.put(url, json={"etag": None, "text": "X=1"}).status_code == 404, url
+    assert not (a / "workflows" / ".env").exists()
+
+    # agent: new přes HTTP, PUT, DELETE odmítnutý, když ho scénář používá
+    r = client.post("/projects/alfa/agents", json={"name": "redaktor"})
+    assert r.status_code == 200
+    r = client.put("/projects/alfa/agents/redaktor", json={"etag": r.json()["etag"],
+                                                           "frontmatter": {"description": "Rediguje"}, "body": "Rediguj.\n"})
+    assert r.status_code == 200
+    assert client.request("DELETE", "/projects/alfa/agents/redaktor", json={"etag": r.json()["etag"]}).status_code == 200
+    pis = client.get("/projects/alfa/files/agents/pisatel.md").json()
+    assert pis["frontmatter"]["name"] == "pisatel"
+    r = client.request("DELETE", "/projects/alfa/agents/pisatel", json={"etag": pis["etag"]})
+    assert r.status_code == 422 and "ukazka" in r.json()["errors"][0]
+    assert client.post("/projects/alfa/scenarios", json={"name": "druhy"}).status_code == 200
+    assert client.post("/projects/alfa/scenarios", json={"name": "druhy"}).status_code == 422  # nepřepisuje
+
+    # skill a config
+    r = client.put("/projects/alfa/skills/hlas", json={"etag": None, "text": "---\nname: hlas\ndescription: Tón\n---\nTykáme.\n"})
+    assert r.status_code == 200
+    assert client.request("DELETE", "/projects/alfa/skills/hlas", json={"etag": r.json()["etag"]}).status_code == 200
+    c = client.get("/projects/alfa/files/config.yaml").json()
+    r = client.put("/projects/alfa/config", json={"etag": c["etag"], "fields": {"limits": {"run_budget_usd": 2}}})
+    assert r.status_code == 200 and client.get("/projects/alfa").json()["limits"]["run_budget_usd"] == 2
+    assert client.put("/projects/alfa/config", json={"etag": r.json()["etag"], "fields": {"runs_dir": "/"}}).status_code == 422
+    assert client.put("/projects/alfa/nic", json={}).status_code == 404

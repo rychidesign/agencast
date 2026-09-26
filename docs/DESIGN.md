@@ -249,8 +249,20 @@ jsou **tenké obálky nad `agencast.api`** (`load`, `run`, `dry_run`,
   žádný canvas; GUI je zároveň prohlížeč běhů (stav kroků, cena, soubory
   běhu, denní útrata).
 - **Soubor je pravda:** scénáře a agenti zůstávají YAML/Markdown ve
-  `workflows/`; GUI je jen čte (editační operace přijdou později a budou
-  zapisovat do stejných souborů).
+  `workflows/`; GUI je čte a od 0.5.0 mění jen editačními operacemi
+  jádra (`agencast/edit.py`, [spec/api.md](spec/api.md) „Editace“), které
+  zapisují do stejných souborů (ISSUES 43):
+  - **otisk** = sha256 obsahu souboru, který klient načetl (ne mtime);
+    nesedí → 409 a nic se nezapíše — souběžná ruční úprava v editoru se
+    nepřepíše potichu;
+  - **validace před zápisem**: kopie `workflows/` se změnou projde
+    `validate` (bez kontroly modelů); změna nesmí přidat novou chybu,
+    dřívější chyby ji neblokují; pak atomický zápis (temp + `os.replace`);
+  - zápis zachovává komentáře, pořadí klíčů, prázdné řádky a uvozovky
+    (`ruamel.yaml`, D4); nezměněné řádky zůstávají doslova;
+  - pravidla vlastníka platí: `config.yaml` a `mcp.yaml` jen jako
+    formulář bez tajemství (jména proměnných), `.env` se nikdy nečte ani
+    nezapisuje; surový text jen pro soubory formátů uvnitř `workflows/`.
 - Projekty se **neskenují**, vede se registr
   `~/.config/agencast/projects.yaml` ([spec/projects.md](spec/projects.md));
   `agencast serve` mimo projekt obsluhuje všechny projekty z registru
