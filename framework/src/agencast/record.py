@@ -237,29 +237,51 @@ def total_note(run) -> str:
     return f"z toho obrázky {cz_usd(run.image_cost)}" if run.image_cost else ""
 
 
-def run_status(run_dir: Path) -> dict:
-    """Stav běhu z events.jsonl (pro `agencast runs list`)."""
-    info = {"run_id": run_dir.name, "status": "běží nebo přerušen", "cost_usd": None, "duration_s": None,
-            "callback": "", "scenario": None, "started_at": None, "finished_at": None, "current_step": None,
-            "steps_total": None}
+RUN_DIR = re.compile(r"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-([a-z0-9-]+)-[0-9a-f]{4}")  # run_id (engine.RUN_ID)
+
+
+def _events(run_dir: Path):
     ev = run_dir / "events.jsonl"
-    if not ev.is_file():
-        info["status"] = "dry-run" if (run_dir / "plan.md").is_file() else "?"
-        return info
-    running: dict[str, None] = {}  # rozběhnuté kroky bez step_finished, v pořadí startu
-    for line in ev.read_text(encoding="utf-8").splitlines():
+    for line in ev.read_text(encoding="utf-8").splitlines() if ev.is_file() else []:
         try:
-            e = json.loads(line)
+            yield json.loads(line)
         except ValueError:
             continue  # řádek, který běh právě zapisuje
+
+
+def run_status(run_dir: Path) -> dict:
+    """Stav běhu z events.jsonl a zámku běhu (pro `agencast runs list`). `state` (0.7.0) je strojový stav:
+    `running` jen se zámkem `run.lock` drženým živým procesem, bez `run_finished` a bez zámku `interrupted`."""
+    from .task import run_locked  # task importuje record
+    live = run_locked(run_dir)
+    info: dict[str, Any] = {"run_id": run_dir.name, "status": "běží" if live else "přerušen", "state": "running" if live else "interrupted",
+            "cost_usd": None, "duration_s": None, "callback": "", "scenario": None, "started_at": None,
+            "finished_at": None, "current_step": None, "steps_total": None, "fake": None, "current_nn": None,
+            "steps_done": None}
+    if not (run_dir / "events.jsonl").is_file():
+        m = RUN_DIR.fullmatch(run_dir.name)
+        if not live and (run_dir / "plan.md").is_file():
+            info.update(status="dry-run", state="dry_run")
+            if m:  # dry-run nemá events.jsonl: scénář a čas z run_id
+                info.update(scenario=m[7], started_at=f"{m[1]}-{m[2]}-{m[3]}T{m[4]}:{m[5]}:{m[6]}.000Z")
+        elif not live:
+            info["status"] = "?"
+        return info
+    running: dict[str, None] = {}  # rozběhnuté kroky bez step_finished, v pořadí startu
+    nns: dict[str, int] = {}
+    done = 0
+    for e in _events(run_dir):
+        if "nn" in e:
+            nns[e["step"]] = e["nn"]
         if e["type"] == "run_started":
-            info.update(scenario=e["scenario"], started_at=e["ts"], steps_total=e.get("steps_total"))
+            info.update(scenario=e["scenario"], started_at=e["ts"], steps_total=e.get("steps_total"), fake=e.get("fake"))
         elif e["type"] == "step_started":
             running[e["step"]] = None
-        elif e["type"] == "step_finished":
+        elif e["type"] in ("step_finished", "step_skipped"):
             running.pop(e["step"], None)
+            done += "/" not in e["step"]  # jako steps_total: bez kroků volaných scénářů
         elif e["type"] == "run_finished":
-            info.update(status=e["status"], cost_usd=e["usage"]["cost_usd"], duration_s=e["duration_s"],
+            info.update(status=e["status"], state=e["status"], cost_usd=e["usage"]["cost_usd"], duration_s=e["duration_s"],
                         finished_at=e["ts"])
             if e.get("error"):
                 info["status"] += f" ({e['error']['class']} v {e['error']['step']})"
@@ -267,30 +289,84 @@ def run_status(run_dir: Path) -> dict:
             info["callback"] = "callback nedoručen"
     if info["finished_at"] is None and running:
         info["current_step"] = list(running)[-1]
+    if info["finished_at"] is None and live:
+        cur = info["current_step"]
+        info.update(current_nn=nns.get(cur.split("/")[0]) if cur else None, steps_done=done)
     return info
 
 
-def run_detail(run_dir: Path) -> dict[str, Any]:
-    """`run_status` + kroky se stavem, časem a cenou z events.jsonl + soubory běhu (GET /projects/<p>/runs/<id>)."""
+def _step_rows(run_dir: Path) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    """(kroky podle cesty v pořadí první události, všechny události)."""
     steps: dict[str, dict[str, Any]] = {}
-    ev = run_dir / "events.jsonl"
-    for line in ev.read_text(encoding="utf-8").splitlines() if ev.is_file() else []:
-        try:
-            e = json.loads(line)
-        except ValueError:
-            continue  # řádek, který běh právě zapisuje
-        if e["type"] not in ("step_started", "step_skipped", "step_finished"):
+    events = list(_events(run_dir))
+    for e in events:
+        if not e.get("step") or e["type"] not in ("step_started", "step_skipped", "step_finished", "model_call",
+                                                  "jev_call", "tool_call", "error"):
             continue
-        st = steps.setdefault(e["step"], {"step": e["step"], "kind": e.get("kind")})
-        if e["type"] == "step_started":
-            st.update(status="running", branch=e.get("branch"), started_at=e["ts"])
-        elif e["type"] == "step_skipped":
-            st.update(status="skipped", reason_code=e.get("reason_code"), reason=e.get("reason"))
-        else:
+        st = steps.setdefault(e["step"], {"step": e["step"], "kind": e.get("kind"), "nn": None, "dir": None,
+                                          "error": None, "continued": False, "default_used": False, "calls": []})
+        t = e["type"]
+        if "nn" in e:
+            st["nn"] = e["nn"]
+        if t == "step_started":
+            st.update(status="running", branch=e.get("branch"), started_at=e["ts"], dir=e.get("dir") or st["dir"])
+        elif t == "step_skipped":
+            st.update(status="skipped", reason_code=e.get("reason_code"), reason=e.get("reason"),
+                      default_used=bool(e.get("default_used")))
+        elif t == "step_finished":
             st.update(status=e["status"], finished_at=e["ts"], duration_s=e.get("duration_s"),
-                      cost_usd=e.get("cost_usd"))
+                      cost_usd=e.get("cost_usd"), continued=bool(e.get("continued")),
+                      default_used=bool(e.get("default_used")))
+            if e.get("output_file"):  # běhy před 0.7.0 nemají dir ve step_started
+                st["dir"] = st["dir"] or e["output_file"].rsplit("/", 1)[0]
+        elif t in ("model_call", "jev_call"):
+            u = e.get("usage") or {}
+            st["calls"].append({"attempt": e.get("attempt"), "alias": e.get("alias"), "model": e.get("model"),
+                                "input_tokens": u.get("input_tokens"), "output_tokens": u.get("output_tokens"),
+                                "cost_usd": u.get("cost_usd"), "finish_reason": e.get("finish_reason"),
+                                "structured_output": e.get("structured_output"), "duration_s": e.get("duration_s")})
+            if e.get("request_file"):
+                st["dir"] = st["dir"] or e["request_file"].rsplit("/", 2)[0]
+            if t == "jev_call":
+                st["answers"] = e.get("answers")
+            elif e.get("turn"):
+                st["turns"] = max(st.get("turns", 0), e["turn"])
+        elif t == "tool_call":
+            st["tool_calls"] = st.get("tool_calls", 0) + 1
+        elif not e.get("will_retry"):  # error: poslední, po které se už neopakovalo
+            st["error"] = {"class": e.get("class"), "message": e.get("message")}
+    for st in steps.values():
+        if st["nn"] is None and st["dir"]:
+            st["nn"] = int(re.findall(r"steps/(\d+)-", st["dir"])[-1])
+        if st["kind"] == "task":
+            st.setdefault("turns", 0)
+            st.setdefault("tool_calls", 0)
+    return steps, events
+
+
+def run_detail(run_dir: Path) -> dict[str, Any]:
+    """`run_status` + kroky (stav, čas, cena, složka, chyba, volání) z events.jsonl + soubory běhu
+    (GET /projects/<p>/runs/<id>)."""
+    steps, _ = _step_rows(run_dir)
     files = sorted(p.relative_to(run_dir).as_posix() for p in run_dir.rglob("*") if p.is_file())
     return {**run_status(run_dir), "steps": list(steps.values()), "files": files}
+
+
+def step_detail(run_dir: Path, path: str) -> dict[str, Any] | None:
+    """Jeden krok (GET …/runs/<id>/steps/<cesta>): položka `steps` + jeho události, výstup a soubory jeho
+    složky (bez složek vnořených kroků `call`); None = krok v záznamu není."""
+    steps, events = _step_rows(run_dir)
+    if (st := steps.get(path)) is None:
+        return None
+    output, files, d = None, [], st["dir"]
+    if d:
+        try:
+            output = json.loads((run_dir / d / "output.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass  # krok bez výstupu (nebo ho právě zapisuje)
+        files = sorted(rel for p in (run_dir / d).rglob("*") if p.is_file()
+                       and not (rel := p.relative_to(run_dir).as_posix()).startswith(f"{d}/steps/"))
+    return {**st, "events": [e for e in events if e.get("step") == path], "output": output, "files": files}
 
 
 # --- report.html (3b) ---------------------------------------------------------------

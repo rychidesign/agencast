@@ -33,7 +33,7 @@ from .mcp_client import Pool, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
 from .record import SUM_DIGITS, Record, count, cz, cz_usd, now_iso, plan_md, report_html, scrub, summary_md
-from .task import dedupe_skip, local_dedupe, local_ledger, local_slots, run_task  # 3a
+from .task import dedupe_skip, hold_run_lock, local_dedupe, local_ledger, local_slots, run_task  # 3a
 from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
 
 RETRY_BASE_S = 2.0           # prodleva 2 s, 4 s, 8 s… (scenario.md §3 retry); testy ji stáhnou na 0
@@ -237,7 +237,8 @@ class Run:
         def start():
             nonlocal started
             if not started:
-                self.rec.event("step_started", step=sid, kind=k, **({"branch": ctx.branch} if ctx.branch else {}))
+                self.rec.event("step_started", step=sid, kind=k, nn=info.nn, dir=info.folder,  # 0.7.0: nn, dir
+                               **({"branch": ctx.branch} if ctx.branch else {}))
                 self.rows[sid] = {"nn": info.nn, "id": sid, "kind": k, "status": "failed", "duration": None,
                                   "cost": 0.0, "note": ""}
                 started = True
@@ -285,7 +286,8 @@ class Run:
         dur = round(time.monotonic() - t0, 3)
         cost = round(self.step_cost.get(info.id, 0.0), SUM_DIGITS)
         self.rec.event("step_finished", step=info.id, kind=info.kind, status=status, continued=continued,
-                       duration_s=dur, cost_usd=cost, **({"output_file": output_file} if output_file else {}))
+                       duration_s=dur, cost_usd=cost, **({"output_file": output_file} if output_file else {}),
+                       **({"default_used": "default" in info.data} if continued else {}))  # 0.7.0
         row = self.rows[info.id]
         row.update(status=status, duration=dur, cost=cost)
         if status == "failed" and not row["note"]:
@@ -302,7 +304,7 @@ class Run:
     def skip(self, st: dict, code: str, reason: str):
         """Krok neproběhl: důvod do záznamu, výstup = default; totéž pro kroky uvnitř."""
         info = self.p.steps[st["id"]]
-        self.rec.event("step_skipped", step=info.id, kind=info.kind, reason_code=code, reason=reason,
+        self.rec.event("step_skipped", step=info.id, kind=info.kind, nn=info.nn, reason_code=code, reason=reason,
                        default_used="default" in st)
         self.rows[info.id] = {"nn": info.nn, "id": info.id, "kind": info.kind, "status": "skipped",
                               "duration": None, "cost": 0.0, "note": reason}
@@ -685,7 +687,7 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
     ISSUES 40: slot `max_parallel_runs` se bere před složkou běhu; nedočkaný slot a vyčerpaný
     `daily_budget_usd` jdou stejnou cestou jako `error`."""
     key = preflight(p, fake=fake is not None or error is not None, callback_url=callback_url)
-    lim, held, waited = p.config["limits"], None, None
+    lim, held, waited, lock = p.config["limits"], None, None, None
     slots = local_slots(p.runs_dir, lim["max_parallel_runs"]) if error is None and "max_parallel_runs" in lim else None
     if slots:
         held, waited = take_slot(slots, lim["run_timeout"])
@@ -700,9 +702,11 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
         else:
             rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
             run_id = rec.dir.name
+        lock = hold_run_lock(rec.dir)  # 0.7.0: běží = zámek drží živý proces (record.run_status)
         if error is None:
             rec.write("plan.md", plan_md(p))
             rec.write("inputs.json", inputs)
+            snapshot(p, rec)
         client = Client(p.config["openrouter"]["base_url"], key, fake.transport() if fake else None)
         run = Run(p, inputs, rec, client, run_id, callback_url=callback_url, request_key=request_key,
                   callback_transport=callback_transport, fake=fake is not None)
@@ -710,8 +714,23 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
         asyncio.run(run.execute(error))
         return run
     finally:
+        if lock is not None:
+            os.close(lock)
         if held is not None:
             slots.release(held)
+
+
+def snapshot(p: Project, rec: Record):
+    """Kopie spouštěného scénáře a všech volaných přes `call` do `scenario/<jméno>.yaml` (run-record.md,
+    0.7.0) — detail běhu pak kreslí strom kroků, jak platil při běhu."""
+    todo, seen = [p], set()
+    while todo:
+        q = todo.pop()
+        if q.scenario["name"] not in seen:
+            seen.add(q.scenario["name"])
+            text = rec.mask(q.scenario_path.read_text(encoding="utf-8"))
+            rec.write_bytes(f"scenario/{q.scenario['name']}.yaml", text.encode())
+            todo += q.callees.values()
 
 
 def take_slot(slots, run_timeout: str) -> tuple[int | None, float | None]:

@@ -22,6 +22,7 @@ STEP_KINDS = ("ask", "task", "jev", "image", "parallel", "switch", "call", "set"
 class Yaml12Loader(yaml.SafeLoader):
     """SafeLoader bez resolverů YAML 1.1: booleany jen true/false, `yes`/`on`
     a `4:5` a datum jsou text, duplicitní klíč je chyba s řádkem (spec B6)."""
+    line_offset = 0  # řádky před YAML v souboru (frontmatter .md), ať „poprvé na řádku N“ sedí se souborem
 
     def construct_mapping(self, node, deep=False):
         seen = {}
@@ -30,7 +31,7 @@ class Yaml12Loader(yaml.SafeLoader):
             if isinstance(key, (str, int, float, bool)) and key in seen:
                 raise yaml.constructor.ConstructorError(
                     None, None, f"duplicitní klíč '{key}' (poprvé na řádku {seen[key]})", key_node.start_mark)
-            seen[key] = key_node.start_mark.line + 1
+            seen[key] = key_node.start_mark.line + 1 + self.line_offset
         return super().construct_mapping(node, deep)
 
 
@@ -61,8 +62,10 @@ class LoadError(Exception):
 
 
 def load_yaml(text: str, where: str, line_offset: int = 0):
+    loader = Yaml12Loader(text)
+    loader.line_offset = line_offset
     try:
-        return yaml.load(text, Loader=Yaml12Loader)
+        return loader.get_single_data()
     except yaml.YAMLError as e:
         mark = getattr(e, "problem_mark", None)
         line = f", řádek {mark.line + 1 + line_offset}" if mark else ""
@@ -71,6 +74,8 @@ def load_yaml(text: str, where: str, line_offset: int = 0):
             problem = ("YAML nejde přečíst — hodnota s {, [, ': ' nebo ' #' patří do uvozovek "
                        f"(scenario.md §5 „Pozor na YAML“)\n  {problem}")
         raise LoadError(f"{where}{line}: {problem}") from None
+    finally:
+        loader.dispose()
 
 
 def read_yaml(path: Path, where: str | None = None):

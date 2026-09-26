@@ -1,6 +1,9 @@
 """Doplňky API pro GUI (agencast 0.6.0, api.md): validate bez zápisu, chyby jako objekty, příznaky
 proměnných prostředí, pole běhů pro seznam, spuštění z GUI (bez callbacku, dry_run), servírování ui/ a CORS."""
 import json
+import subprocess
+import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -91,26 +94,35 @@ def test_runs_for_gui(registry_server):  # noqa: F811
     assert "callback_sent" not in {e["type"] for e in events}
     (item,) = client.get("/projects/alfa/runs").json()["runs"]
     assert item | {"started_at": None, "finished_at": None} == {
-        "run_id": run_id, "status": "succeeded", "cost_usd": item["cost_usd"], "duration_s": item["duration_s"],
-        "callback": "", "scenario": "ukazka", "started_at": None, "finished_at": None, "current_step": None,
-        "steps_total": 2}
+        "run_id": run_id, "status": "succeeded", "state": "succeeded", "cost_usd": item["cost_usd"],
+        "duration_s": item["duration_s"], "callback": "", "scenario": "ukazka", "started_at": None,
+        "finished_at": None, "current_step": None, "steps_total": 2, "fake": True, "current_nn": None,
+        "steps_done": None}
     assert item["started_at"] <= item["finished_at"]
 
     # běžící běh: current_step = poslední step_started bez step_finished
     d = a / "runs" / "20990101-000000-ukazka-abcd"
     d.mkdir()
     lines = [{"ts": "2099-01-01T00:00:00.000Z", "type": "run_started", "scenario": "ukazka", "steps_total": 2},
-             {"ts": "2099-01-01T00:00:01.000Z", "type": "step_started", "step": "napis", "kind": "ask"},
+             {"ts": "2099-01-01T00:00:01.000Z", "type": "step_started", "step": "napis", "kind": "ask", "nn": 1},
              {"ts": "2099-01-01T00:00:02.000Z", "type": "step_finished", "step": "napis", "kind": "ask",
               "status": "succeeded"},
-             {"ts": "2099-01-01T00:00:02.100Z", "type": "step_started", "step": "vystup", "kind": "output"}]
+             {"ts": "2099-01-01T00:00:02.100Z", "type": "step_started", "step": "vystup", "kind": "output", "nn": 2}]
     (d / "events.jsonl").write_text("".join(json.dumps(x) + "\n" for x in lines) + '{"ts": "2099-')  # půlka řádku
-    running = client.get("/projects/alfa/runs").json()["runs"][0]
-    assert running == {"run_id": d.name, "status": "běží nebo přerušen", "cost_usd": None, "duration_s": None,
-                       "callback": "", "scenario": "ukazka", "started_at": "2099-01-01T00:00:00.000Z",
-                       "finished_at": None, "current_step": "vystup", "steps_total": 2}
-    detail = client.get(f"/projects/alfa/runs/{d.name}").json()
-    assert detail["current_step"] == "vystup" and detail["steps"][-1]["status"] == "running"
+    # bez zámku run.lock = přerušený (proces skončil); zámek drží jiný proces = běží (nalezy-api 1)
+    interrupted = client.get("/projects/alfa/runs").json()["runs"][0]
+    assert interrupted == {"run_id": d.name, "status": "přerušen", "state": "interrupted", "cost_usd": None,
+                           "duration_s": None, "callback": "", "scenario": "ukazka",
+                           "started_at": "2099-01-01T00:00:00.000Z", "finished_at": None, "current_step": "vystup",
+                           "steps_total": 2, "fake": None, "current_nn": None, "steps_done": None}
+    with held_lock(d):
+        running = client.get("/projects/alfa/runs").json()["runs"][0]
+        assert running == interrupted | {
+            "status": "běží", "state": "running", "current_nn": 2, "steps_done": 1}
+        detail = client.get(f"/projects/alfa/runs/{d.name}").json()
+        assert detail["state"] == "running" and detail["current_step"] == "vystup"
+        assert detail["steps"][-1]["status"] == "running"
+    assert client.get(f"/projects/alfa/runs/{d.name}").json()["state"] == "interrupted"  # pád procesu zámek pustí
 
     # dry_run: jen plan.md a inputs.json, run_id hned
     r = client.post("/projects/alfa/runs", json={"scenario": "ukazka", "inputs": {"tema": "čaj"}, "dry_run": True})
@@ -121,6 +133,20 @@ def test_runs_for_gui(registry_server):  # noqa: F811
     assert bad.status_code == 422 and "dry_run" in bad.json()["details"][0]
     bad = client.post("/projects/alfa/runs", json={"scenario": "ukazka", "callback_url": "http://evil"})
     assert bad.status_code == 422 and bad.json()["details"] == ["callback_url: nezačíná https://"]
+
+
+@contextmanager
+def held_lock(run_dir: Path):
+    """Zámek běhu drží jiný proces (jako `agencast run` vedle `serve`); na konci ho zabije."""
+    code = ("import fcntl, sys, time\nf = open(sys.argv[1], 'a')\nfcntl.flock(f, fcntl.LOCK_EX)\n"
+            "print('ok', flush=True)\ntime.sleep(60)")
+    proc = subprocess.Popen([sys.executable, "-c", code, str(run_dir / "run.lock")], stdout=subprocess.PIPE, text=True)
+    try:
+        assert proc.stdout and proc.stdout.readline() == "ok\n"
+        yield
+    finally:
+        proc.kill()
+        proc.wait()
 
 
 def test_post_runs_contract_unchanged(wf, monkeypatch):
