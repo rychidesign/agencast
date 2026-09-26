@@ -1,4 +1,4 @@
-# API `agencast serve` — rodina `/projects/...` (čtení od frameworku 0.4.0, editace od 0.5.0, doplňky pro GUI od 0.6.0 a 0.7.0)
+# API `agencast serve` — rodina `/projects/...` (čtení od frameworku 0.4.0, editace od 0.5.0, doplňky pro GUI od 0.6.0, 0.7.0 a 0.8.0)
 
 Pro GUI (DESIGN „Obálky“) a kohokoli, kdo chce číst a upravovat projekty
 a číst běhy přes HTTP. Doplňuje [webhook.md](webhook.md) — `POST /runs`, `GET /runs/<id>`
@@ -38,7 +38,8 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
 | `GET /projects` | `{"projects": [{"name", "root", "available"}]}`; od 0.7.0 `reason` u `available: false`, `last_run` a `registry` ([Doplňky 0.7.0](#doplňky-podle-nálezů-gui-od-070)) |
 | `GET /projects/<p>` | popis projektu (níže) |
 | `GET /projects/<p>/scenarios/<s>` | scénář se stromem kroků (níže) |
-| `GET /projects/<p>/files/<cesta>` | soubor z `workflows/` jako text s otiskem (oddíl [Editace](#editace-od-050)) |
+| `GET /projects/<p>/files/<cesta>` | soubor z `workflows/` jako text s otiskem (oddíl [Editace](#editace-od-050)); od 0.8.0 `errors` = chyby `validate` souboru a `?etag_only=1` → jen `{"etag"}` ([Doplňky 0.8.0](#dávka-náhled-a-doplňky-podle-nálezů-gui-část-2-od-080)) |
+| `HEAD /projects/<p>/files/<cesta>` | od 0.8.0: jen otisk v hlavičce `ETag` ([Doplňky 0.8.0](#dávka-náhled-a-doplňky-podle-nálezů-gui-část-2-od-080)) |
 | `GET /projects/<p>/runs` | `{"runs": [...]}` — položky jako `agencast runs list`: čekající `{"run_id", "status": "queued"}`, pak `{"run_id", "status", "cost_usd", "duration_s", "callback", "scenario", "started_at", "finished_at", "current_step", "steps_total"}` (pole od `scenario` dál od 0.6.0, [Běhy pro GUI](#běhy-pro-gui-od-060)), nejnovější první; od 0.7.0 `state`, `fake`, `current_nn`, `steps_done`, `queue_position` a `?scenario=&limit=` ([Doplňky 0.7.0](#doplňky-podle-nálezů-gui-od-070)) |
 | `GET /projects/<p>/runs/<id>` | stav běhu + kroky + soubory (níže); čekající ve frontě `{"run_id", "status": "queued"}` (od 0.7.0 i `state`, `scenario`, `queue_position`); od 0.7.0 strom kroků `tree` |
 | `GET /projects/<p>/runs/<id>/steps/<cesta>` | jeden krok běhu: jeho události, výstup a soubory (od 0.7.0, [níže](#get-projectspruns-idstepscesta-od-070)) |
@@ -95,7 +96,9 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
 - `links` = seřazené dvojice [odkud, kam]: krok `ask`/`task` → agent,
   krok `call` → scénář, agent → skill, agent → MCP server. Od 0.7.0
   `scenario_step_agent` = trojice [scénář, id kroku, agent] (i kroky ve
-  větvích); `scenario_agent` zůstává.
+  větvích); `scenario_agent` zůstává. Od 0.8.0 `scenario_model` =
+  [scénář, alias] z kroků `image` a pole `models_used`
+  ([Doplňky 0.8.0](#dávka-náhled-a-doplňky-podle-nálezů-gui-část-2-od-080)).
 - `types` (od 0.7.0) = typy kroků hlavního seznamu v pořadí souboru
   (`null`, když soubor typ neurčuje); `last_run` (od 0.7.0) = nejnovější
   běh scénáře (tvar [níže](#doplňky-podle-nálezů-gui-od-070)), `null` bez běhů.
@@ -200,19 +203,22 @@ hodnota nahradí. Text s `{{ }}` se zapíše v dvojitých uvozovkách, víc
 
 | Metoda a cesta | Tělo (kromě `etag`) | Co udělá |
 |---|---|---|
-| `POST /projects/<p>/scenarios` | `{"name"}` | nový scénář ze šablony (`agencast new scenario`); 200 `{"name", "etag"}`, existující → 422 |
-| `POST /projects/<p>/agents` | `{"name"}` | nový agent ze šablony (`agencast new agent`); 200 `{"name", "etag"}` |
+| `POST /projects/<p>/scenarios` | `{"name", "description"?}` | nový scénář ze šablony (`agencast new scenario`); 200 `{"name", "etag"}`, existující → 422; `description` od 0.8.0 |
+| `POST /projects/<p>/agents` | `{"name", "description"?, "model"?}` | nový agent ze šablony (`agencast new agent`); 200 `{"name", "etag"}`; od 0.8.0 `description` a `model` (alias z `config.yaml`, jiný → 422) |
 | `PUT /projects/<p>/scenarios/<s>` | `{"fields": {…}}` | hlavička: jen `description`, `inputs`, `outputs`, `callable` (jiné pole → 422) |
 | `DELETE /projects/<p>/scenarios/<s>` | — | smaže scénář; když ho jiný volá přes `call` → 422 |
 | `POST /projects/<p>/scenarios/<s>/steps` | `{"after": adresa, "step": {…}}` | vloží krok (celý, jako v souboru) za krok `after`; adresa seznamu = na jeho začátek; bez `after` na začátek `steps` |
 | `PATCH /projects/<p>/scenarios/<s>/steps/<adresa>` | `{"fields": {…}}` | pole kroku (i `id`, `when`, větve `parallel` a případy `switch`) |
 | `POST /projects/<p>/scenarios/<s>/steps/<adresa>/move` | `{"to": adresa}` | přesune krok za krok `to`, nebo na začátek seznamu `to`; do vlastní větve → 422 |
 | `DELETE /projects/<p>/scenarios/<s>/steps/<adresa>` | — | smaže krok |
+| `PUT /projects/<p>/scenarios/<s>/steps/<adresa>` | `{"step": {…}}` | od 0.8.0: nahradí celý krok (umí `null`) |
+| `POST /projects/<p>/scenarios/<s>/batch` | `{"ops": [...]}` | od 0.8.0: dávka operací, jedna validace, jeden zápis ([níže](#dávka-post-scenariossbatch)) |
+| `POST /projects/<p>/scenarios/<s>/render` | `{"ops": [...]}`, `etag` nepovinný | od 0.8.0: výsledek dávky bez zápisu `{text, tree, errors}` ([níže](#náhled-post-scenariossrender)) |
 | `PUT /projects/<p>/agents/<a>` | `{"frontmatter": {…}, "body": "…"}` | frontmatter jako merge patch, tělo celé; chybějící = beze změny; nový agent potřebuje obojí |
 | `DELETE /projects/<p>/agents/<a>` | — | smaže agenta; když ho používá scénář (`ask`/`task`) → 422 |
 | `PUT /projects/<p>/skills/<n>` | `{"text"}` | celý `SKILL.md`; nový skill založí |
 | `DELETE /projects/<p>/skills/<n>` | — | smaže `SKILL.md` (a složku, je-li prázdná); když ho agent používá → 422 |
-| `PUT /projects/<p>/config` | `{"fields": {…}}` | `config.yaml`: jen `models`, `limits`, `storage`, `webhook`, `callback` a `openrouter.api_key_env` |
+| `PUT /projects/<p>/config` | `{"fields": {…}}` | `config.yaml`: jen `models`, `limits`, `storage`, `webhook`, `callback` a `openrouter.api_key_env`; od 0.8.0 i `runs_dir` a `openrouter.jev_model` ([proč ne víc](#put-config-od-080)) |
 | `GET /projects/<p>/files/<cesta>` | — | `{"path", "etag", "text", "errors"}` a rozparsovaný obsah: u `.yaml` `data`, u `.md` `frontmatter` a `body` (GUI neparsuje samo) |
 | `PUT /projects/<p>/files/<cesta>` | `{"text"}` | celý text souboru (záložní textový editor); nový soubor s `etag: null` |
 
@@ -222,7 +228,8 @@ hodnota nahradí. Text s `{{ }}` se zapíše v dvojitých uvozovkách, víc
   schéma nepovoluje).
 - Merge patch neumí zapsat hodnotu `null` (smaže klíč); krok s `null`
   (např. `default: { file: null }`) jde vložit celý přes `POST …/steps`,
-  nebo upravit jako text přes `files/`.
+  od 0.8.0 nahradit celý přes `PUT …/steps/<adresa>`, nebo upravit jako
+  text přes `files/`.
 - **`files/<cesta>`** (jiná rodina než `…/runs/<id>/files/`) pouští jen
   `agents/<jméno>.md`, `scenarios/<jméno>.yaml`, `skills/<jméno>/SKILL.md`,
   `config.yaml` a `mcp.yaml` uvnitř `workflows/` projektu; cokoli jiného
@@ -237,8 +244,10 @@ hodnota nahradí. Text s `{{ }}` se zapíše v dvojitých uvozovkách, víc
 - Veřejné API (`agencast.api`): `set_header`, `add_step`, `update_step`,
   `move_step`, `delete_step`, `delete_scenario`, `set_agent`,
   `delete_agent`, `set_skill`, `delete_skill`, `set_config`, `read_file`,
-  `write_file`, od 0.6.0 `validate_text`; výjimky `Conflict` (`.etag`),
-  `NotFound`, `ConfigErrors`. Python API vrací chyby jako texty (jako
+  `write_file`, od 0.6.0 `validate_text`, od 0.8.0 `replace_step`,
+  `batch`, `render`, `file_etag`; výjimky `Conflict` (`.etag`),
+  `NotFound`, `ConfigErrors`, od 0.8.0 `OpError` (podtřída
+  `ConfigErrors`, `.op` = index operace dávky). Python API vrací chyby jako texty (jako
   `agencast validate`); objekty z nich dělá až HTTP vrstva.
 
 ## Doplňky pro GUI (od 0.6.0)
@@ -355,12 +364,12 @@ i detail běhu mají strojové pole `state`:
 
 | `state` | Kdy | `status` (text jako v `runs list`) |
 |---|---|---|
-| `queued` | požadavek ve frontě `serve`, složka běhu ještě není | `queued` |
+| `queued` | požadavek ve frontě `serve`, složka běhu ještě není; od 0.8.0 i složka ze záznamu fronty, jejíž zámek nikdo nedrží a která nemá `run_finished` | `queued` |
 | `running` | zámek `run.lock` drží živý proces | `běží` |
 | `interrupted` | bez `run_finished` a bez drženého zámku (pád, restart `serve`, běh před 0.7.0 bez zámku) | `přerušen` (`?` u složky bez `events.jsonl` i `plan.md`) |
 | `succeeded`, `failed` | `run_finished.status` | `succeeded`, `failed (<třída> v <krok>)` |
 | `cancelled` | rezervováno — běh v1 tak nekončí | — |
-| `dry_run` | jen `plan.md` (`--dry-run`, `dry_run: true`) | `dry-run` |
+| `dry_run` | jen `plan.md` (`--dry-run`, `dry_run: true`); od 0.8.0 navíc bez `run.lock` — ostrý běh ho má dřív než `plan.md` | `dry-run` |
 
 Pozor: běh spuštěný frameworkem před 0.7.0, který ještě běží, je
 `interrupted` (zámek nedrží).
@@ -443,3 +452,148 @@ přes `call` do `<run>/scenario/<jméno>.yaml`
 `{"projects": [...], "registry": "/home/…/.config/agencast/projects.yaml"}`
 — `registry` = cesta k souboru registru (i když neexistuje, i v režimu
 jednoho projektu). Nedostupný projekt má `reason` (`chybí <root>/workflows/config.yaml`).
+
+## Dávka, náhled a doplňky podle nálezů GUI, část 2 (od 0.8.0)
+
+Podle `docs/ui/nalezy-api.md` body 10–20. Vše aditivní; dosavadní
+endpointy a jejich odpovědi se nemění.
+
+### Dávka: `POST …/scenarios/<s>/batch`
+
+```json
+{"etag": "9f2c…", "ops": [
+  {"op": "rename_step", "address": ["steps", 0], "new_id": "navrh"},
+  {"op": "add_step", "after": ["steps", 0], "step": {"id": "novy", "ask": {}}},
+  {"op": "update_step", "address": ["steps", 1], "fields": {"ask": {"agent": "copy", "prompt": "…"}}}]}
+```
+
+Všechny operace jdou po sobě nad **jednou** kopií dokumentu v paměti;
+adresa každé operace platí pro stav **po** předchozích (po smazání
+`["steps", 1]` je bývalý `["steps", 2]` na `["steps", 1]`). Pak jedna
+validace výsledku (pravidlo „nesmí přidat novou chybu“ jako u jedné
+operace) a jeden atomický zápis — nebo nic.
+
+| Operace | Pole (kromě `op`) | Jako |
+|---|---|---|
+| `set_header` | `fields` | `PUT …/scenarios/<s>` |
+| `add_step` | `step`, `after`? (bez = začátek `steps`) | `POST …/steps` |
+| `update_step` | `address`, `fields` | `PATCH …/steps/<adresa>` |
+| `replace_step` | `address`, `step` | `PUT …/steps/<adresa>` (celý krok, umí `null`) |
+| `move_step` | `address`, `to` | `POST …/steps/<adresa>/move` |
+| `delete_step` | `address` | `DELETE …/steps/<adresa>` |
+| `rename_step` | `address`, `new_id`, `rename_refs`? (výchozí `true`) | nové `id`; s `rename_refs` přepíše `steps.<staré>.` → `steps.<nové>.` ve všech výrazech a šablonách kroků scénáře — celé pole `when`, `switch.value` a hodnoty `set`, jinde jen uvnitř `{{ }}`. Komentáře a text mimo `{{ }}` zůstanou |
+| `add_branch` | `address` (krok `parallel`/`switch`), `name`, `steps`? (výchozí `[]`) | nová větev `parallel` nebo nový případ `switch` (`cases`); existující jméno → chyba operace. Prázdnou větev doplní další `add_step` s `after` = adresa větve |
+
+| Kód | Tělo |
+|---|---|
+| 200 | `{"etag", "errors"}` jako u jedné operace |
+| 409 | otisk nesedí (nic se nezapsalo) |
+| 422 operace | `{"error", "op": <index od 0>, "errors": [...]}` — operaci nešlo provést (neznámá `op`, chybějící/neznámé pole, adresa, která v tu chvíli není, větev, která už je, …); hlášky začínají `ops[<index>] <op>: ` |
+| 422 výsledek | `{"error", "errors": [...]}` bez `op` — operace prošly, ale výsledek přidal chybu projektu |
+| 404 | neznámý projekt nebo scénář |
+
+**Neúplný nový krok a prázdná větev** (nález 13): validace se nemění —
+prázdný `ask` nebo větev bez kroků jsou dál chyba. Dávka je řeší tak,
+že krok vloží a pole doplní (nebo větev přidá a naplní) v jedné dávce;
+rozpracovaný stav bez zápisu ukáže `render`.
+
+### Náhled: `POST …/scenarios/<s>/render`
+
+Tělo `{"etag"?, "ops": [...]}` (operace jako u `batch`, prázdné `ops` =
+soubor, jak je). **Nic se nezapisuje.** `etag` je nepovinný; když je
+a nesedí → 409.
+
+```json
+{"text": "version: 1\n…", "tree": [{"nn": 1, "address": ["steps", 0], "id": "navrh", …}],
+ "errors": [{"message": "…", "file": "scenarios/ig-post.yaml", "step": "novy", "field": "ask"}]}
+```
+
+- `text` = výsledný YAML se zachovanými komentáři (stejný, jaký by
+  zapsal `batch`);
+- `tree` = strom kroků výsledku, tvar `steps` z `GET …/scenarios/<s>`
+  (adresy platí pro výsledek);
+- `errors` = **všechny** chyby projektu s tímto textem (jako
+  `POST …/validate`), i nové — rozpracovaný stav smí být neplatný, 200.
+
+Chyba operace → 422 s `op` jako u `batch`. GUI tím validuje Form režim
+průběžně a převádí Form ↔ YAML i s neuloženými změnami.
+
+### Celý krok: `PUT …/scenarios/<s>/steps/<adresa>`
+
+Tělo `{"etag", "step": {…}}` — krok se nahradí celý (komentáře uvnitř
+kroku zmizí), `null` se zapíše jako `null` (`default: { file: null }`).
+Odpovědi jako u ostatních operací.
+
+### Lehké zjištění změny souboru
+
+- `HEAD /projects/<p>/files/<cesta>` → 200 bez těla s hlavičkou
+  `ETag: "<otisk>"` (otisk v uvozovkách podle RFC 9110 §8.8.3, hodnota
+  = `etag` z `GET …/files/<cesta>`); neznámý soubor nebo cesta mimo
+  povolené → 404, bez tokenu 401. S `--cors` odpovědi nesou
+  `Access-Control-Expose-Headers: ETag` (jinak ji prohlížeč skriptu
+  nepustí) a preflight povoluje `HEAD` (zdroje: RFC 9110 §8.8.3,
+  https://www.rfc-editor.org/rfc/rfc9110#section-8.8.3; MDN
+  *Access-Control-Expose-Headers*,
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Expose-Headers;
+  ověřeno 2026-09-26).
+- `GET /projects/<p>/files/<cesta>?etag_only=1` → `{"etag"}`.
+
+Soubor se nečte loaderem ani nevaliduje — jen sha256 bajtů. Push změn
+(SSE) není.
+
+### `errors` v `GET …/files/<cesta>`
+
+U scénáře, agenta a skillu = chyby `validate` toho souboru, **stejné**
+jako `errors` u položky v `GET /projects/<p>` (dřív jen chyby
+loaderu). Když soubor nejde přečíst, zůstávají chyby loaderu (s
+`line`). S neplatným `config.yaml` (projekt nejde validovat) jsou
+v `errors` chyby `config.yaml`. `config.yaml` a `mcp.yaml` beze změny
+(od 0.7.0 všechny chyby souboru).
+
+### Stav čerstvého běhu
+
+Od `202` na `POST /projects/<p>/runs` do konce běhu vrací
+`GET …/runs/<id>` i seznam jen `queued` → `running` → výsledek:
+záznam ve frontě `serve` (`<runs>/_queue/<run_id>.json`, zmizí až po
+callbacku) přebije `interrupted` i `dry_run` na `queued` (s
+`queue_position`), dokud běh nedrží zámek (`running`) nebo neskončí.
+`dry_run` = složka s `plan.md` bez `events.jsonl` **a bez `run.lock`**
+(dry-run zámek nemá, ostrý běh ho vytvoří před `plan.md` —
+[run-record.md](run-record.md)); formát záznamu se nemění. Ostrý běh,
+který spadl mezi `plan.md` a první událostí, je `interrupted`. Záznam
+fronty zůstává i po pádu `serve` — do restartu (kdy se běh nahlásí jako
+přerušený) je takový běh `queued`.
+
+### `POST …/scenarios` a `POST …/agents`
+
+Volitelné `description` (text, zapíše se v uvozovkách), u agenta
+`model` = alias z `config.yaml` (jiný → 422, výchozí první alias).
+Bez nich šablona jako dřív (`TODO`).
+
+### Použití aliasů: `links.scenario_model` a `models_used`
+
+`links.scenario_model` = seřazené dvojice [scénář, alias] z `image.model`
+kroků (i ve větvích). `models_used` = `{alias: [soubory, které ho
+používají]}` — `agents/<a>.md` (pole `model`) a `scenarios/<s>.yaml`
+(krok `image`), cesty jako v `files/` a v `errors[].file`. Klíče = všechny
+aliasy z `config.yaml` (`[]` = nepoužitý, jde smazat) a navíc aliasy, na
+které se odkazuje, ale v configu nejsou (to je zároveň chyba `validate`).
+
+```json
+"models_used": {"chytry": ["agents/copywriter.md"], "gemini-image": ["scenarios/ig-post.yaml"], "rychly": []}
+```
+
+### `PUT …/config` (od 0.8.0)
+
+Povolená pole: `models`, `limits`, `storage`, `webhook`, `callback`,
+`runs_dir`, `openrouter.api_key_env` a `openrouter.jev_model`. Zůstává
+zakázané (422):
+
+- `version` — verze formátu, mění se jen s novým formátem (DESIGN §5.6);
+- `openrouter.base_url` — kam odchází API klíč; přesměrování z GUI by
+  klíč poslalo jinam (config.md ho povoluje jen pro konformační testy).
+  Mění se v YAML režimu (`PUT …/files/config.yaml`), vědomě.
+
+`runs_dir` platí pro nové běhy a čtení běhů hned; běžící `serve` má ale
+frontu `_queue/` ve složce ze startu projektu — po změně `runs_dir`
+restartuj `serve`, jinak čekající běhy ze staré složky GUI neuvidí.

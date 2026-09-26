@@ -82,7 +82,11 @@ runs/20260925-140311-ig-post-a1b2/
   list`, `serve`) zkusí sdílený zámek bez čekání: nejde = běh žije
   (`state: running`), jde a chybí `run_finished` = běh přerušen
   (`interrupted`, [api.md](api.md)). Na Modalu obálka dosadí vlastní
-  mechanismus (jako sloty `max_parallel_runs`). Dry-run zámek nemá.
+  mechanismus (jako sloty `max_parallel_runs`). Dry-run zámek nemá —
+  od frameworku 0.8.0 se podle toho pozná: `plan.md` bez `events.jsonl`
+  a bez `run.lock` = dry-run; ostrý běh vytvoří `run.lock` před
+  `plan.md`, takže ostrý běh, který spadl před první událostí, je
+  přerušený, ne dry-run.
 - **`scenario/<jméno>.yaml`** (od frameworku 0.7.0) — při startu běhu
   (po `plan.md`) kopie spouštěného scénáře a všech scénářů volaných přes
   `call` (i vnořeně), bajt po bajtu až na maskování tajných hodnot. Detail

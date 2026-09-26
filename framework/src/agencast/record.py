@@ -260,7 +260,8 @@ def run_status(run_dir: Path) -> dict:
             "steps_done": None}
     if not (run_dir / "events.jsonl").is_file():
         m = RUN_DIR.fullmatch(run_dir.name)
-        if not live and (run_dir / "plan.md").is_file():
+        # dry-run = plan.md bez run.lock: ostrý běh bere zámek před plan.md (pořadí kontrol je proto tohle)
+        if not live and (run_dir / "plan.md").is_file() and not (run_dir / "run.lock").exists():
             info.update(status="dry-run", state="dry_run")
             if m:  # dry-run nemá events.jsonl: scénář a čas z run_id
                 info.update(scenario=m[7], started_at=f"{m[1]}-{m[2]}-{m[3]}T{m[4]}:{m[5]}:{m[6]}.000Z")

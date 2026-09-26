@@ -12,6 +12,7 @@ prázdné řádky, uvozovky). ruamel přepisuje mezery ve flow mapách
 (`{ a: 1 }` → `{a: 1}`) a zarovnání, proto nezměněné řádky zůstávají doslova
 z původního souboru (`_keep_lines`).
 """
+import inspect
 import io
 import os
 import re
@@ -31,14 +32,15 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarStri
 from . import ConfigErrors
 from .loader import LoadError, load_yaml, nested_lists
 from .mcp_client import load_mcp
-from .projects import NAME, describe_project, etag
+from .projects import NAME, _steps, describe_project, etag
 from .validate import load_config
 
 _N = NAME.pattern
 FILES = re.compile(rf"agents/{_N}\.md|scenarios/{_N}\.yaml|skills/{_N}/SKILL\.md|config\.yaml|mcp\.yaml")
 FRONTMATTER = re.compile(r"(---\n)(.*?\n)(---\n)(.*)", re.S)  # jako loader.read_frontmatter
 HEADER = ("description", "inputs", "outputs", "callable")  # name a version = jméno souboru a formát, steps = operace kroků
-CONFIG = ("models", "limits", "storage", "webhook", "callback", "openrouter")  # openrouter jen api_key_env
+CONFIG = ("models", "limits", "storage", "webhook", "callback", "openrouter", "runs_dir")
+OPENROUTER = ("api_key_env", "jev_model")  # base_url ne: jinam by odešel klíč (config.md)
 
 # ponytail: jeden zámek na všechny zápisy v procesu; ruční úprava souboru mezi čtením a os.replace se nepozná (okno ms)
 _lock = threading.Lock()
@@ -299,54 +301,179 @@ def _scenario(root, name: str, tag, change: Callable[[Any], None]) -> dict[str, 
     return _save(root, rel, tag, lambda text: yaml_edit(text or "", change, rel))
 
 
+# Operace nad dokumentem scénáře v paměti: jednotlivé endpointy i dávka (`batch`, `render`) volají tytéž.
+
+def _set_header(d, fields):
+    _only(_obj(fields, "fields"), HEADER, "hlavička scénáře")
+    merge(d, fields)
+
+
+def _add_step(d, step, after=None):
+    lst, i = resolve(d, ["steps"] if after is None else after)
+    lst.insert(0 if i is None else i + 1, _new(_obj(step, "step")))
+
+
+def _update_step(d, address, fields):
+    lst, i = _step(d, address)
+    merge(lst[i], _obj(fields, "fields"))
+
+
+def _replace_step(d, address, step):
+    lst, i = _step(d, address)
+    lst[i] = _new(_obj(step, "step"))
+
+
+def _move_step(d, address, to):
+    src, i = _step(d, address)
+    if isinstance(to, list) and [str(x) for x in to[:len(address)]] == [str(x) for x in address]:
+        if len(to) == len(address):
+            return  # za sebe sama = beze změny
+        raise ConfigErrors([f"krok {address!r} nejde přesunout do vlastní větve"])
+    dst, j = resolve(d, to)
+    anchor = None if j is None else dst[j]
+    st = src.pop(i)
+    dst.insert(0 if anchor is None else next(n for n, x in enumerate(dst) if x is anchor) + 1, st)
+    _drop_empty(d["steps"], src)
+
+
+def _delete_step(d, address):
+    lst, i = _step(d, address)
+    del lst[i]
+    _drop_empty(d["steps"], lst)
+
+
+TEMPLATE = re.compile(r"\{\{.*?\}\}", re.S)
+
+
+def _refs_renamed(node, fix: Callable[[str], str], expr: bool = False, parent=None):
+    """Přepíše `fix` výrazy v krocích na místě: celé pole `when`, `switch.value`, `set.*`, jinde jen uvnitř `{{ }}`."""
+    if isinstance(node, str):
+        return fix(node) if expr else TEMPLATE.sub(lambda m: fix(m[0]), node)
+    for k, v in list(node.items() if isinstance(node, dict) else enumerate(node) if isinstance(node, list) else []):
+        new = _refs_renamed(v, fix, isinstance(node, dict) and (k == "when" or parent == "set" or
+                                                                  (parent == "switch" and k == "value")), k)
+        if isinstance(v, str) and new != v:
+            node[k] = _new(new, v)
+    return node
+
+
+def _rename_step(d, address, new_id, rename_refs=True):
+    """Nové `id` kroku; s `rename_refs` přepíše `steps.<staré>.` → `steps.<nové>.` ve všech krocích scénáře."""
+    lst, i = _step(d, address)
+    if not isinstance(new_id, str) or not isinstance(lst[i], dict):
+        raise ConfigErrors(["new_id: má být text (id kroku)"])
+    old = lst[i].get("id")
+    lst[i]["id"] = _new(new_id, old)
+    if rename_refs is True and isinstance(old, str) and old != new_id:
+        ref = re.compile(rf"(?<![\w.])steps\.{re.escape(old)}(?=\.)")
+        _refs_renamed(d.get("steps"), lambda t: ref.sub(lambda _: f"steps.{new_id}", t))
+
+
+def _add_branch(d, address, name, steps=()):
+    """Nová větev kroku `parallel` / nový případ `switch`; `steps` smí být prázdné, doplní je další operace dávky."""
+    lst, i = _step(d, address)
+    st = lst[i] if isinstance(lst[i], dict) else {}
+    holder = st.get("parallel") if "parallel" in st else (st.get("switch") or {}).get("cases") if "switch" in st else None
+    if not isinstance(holder, dict):
+        raise ConfigErrors([f"krok {address!r}: větev jde přidat jen do parallel nebo switch (cases)"])
+    if not isinstance(name, str) or not name or any(str(k) == name for k in holder):
+        raise ConfigErrors([f"name: {name!r} — má být text a větev/případ tohoto jména ještě nesmí být"])
+    if not isinstance(steps, (list, tuple)):
+        raise ConfigErrors(["steps: má být seznam kroků"])
+    holder[name] = _new(list(steps))
+
+
+OPS: dict[str, Callable[..., None]] = {
+    "set_header": _set_header, "add_step": _add_step, "update_step": _update_step, "replace_step": _replace_step,
+    "move_step": _move_step, "delete_step": _delete_step, "rename_step": _rename_step, "add_branch": _add_branch}
+
+
+class OpError(ConfigErrors):
+    """Operace dávky číslo `op` (od 0) nešla provést; nic se nezapsalo."""
+
+    def __init__(self, op: int, errors: list[str]):
+        super().__init__(errors)
+        self.op = op
+
+
+def _apply(d, ops: Any):
+    """Operace dávky po jedné nad týmž dokumentem; adresy každé platí pro stav po předchozích."""
+    if not isinstance(ops, list):
+        raise ConfigErrors(["ops: má být seznam operací"])
+    for n, op in enumerate(ops):
+        kind = op.get("op") if isinstance(op, dict) else None
+        try:
+            if not isinstance(kind, str) or kind not in OPS:
+                raise ConfigErrors([f"op: {kind!r} neznám (povolené: {', '.join(OPS)})"])
+            assert isinstance(op, dict)
+            fn, args = OPS[kind], {k: v for k, v in op.items() if k != "op"}
+            params = list(inspect.signature(fn).parameters.values())[1:]
+            missing = [p.name for p in params if p.default is p.empty and p.name not in args]
+            unknown = [k for k in args if k not in {p.name for p in params}]
+            if missing or unknown:
+                raise ConfigErrors([f"chybí pole {', '.join(missing)}" if missing else
+                                    f"neznámé pole {', '.join(unknown)} (povolená: {', '.join(p.name for p in params)})"])
+            fn(d, **args)
+        except (ConfigErrors, NotFound) as e:
+            raise OpError(n, [f"ops[{n}] {kind}: {m}" for m in (e.errors if isinstance(e, ConfigErrors) else [str(e)])]) from None
+
+
 def set_header(root, name: str, tag, fields: Any) -> dict[str, Any]:
     """Hlavička scénáře (description, inputs, outputs, callable) jako merge patch."""
     _only(_obj(fields, "fields"), HEADER, "hlavička scénáře")
-    return _scenario(root, name, tag, lambda d: merge(d, fields))
+    return _scenario(root, name, tag, lambda d: _set_header(d, fields))
 
 
 def add_step(root, name: str, tag, after, step: Any) -> dict[str, Any]:
     """Vloží krok za krok na adrese `after`, nebo na začátek seznamu, když `after` ukazuje na seznam."""
     _obj(step, "step")
-
-    def change(d):
-        lst, i = resolve(d, after)
-        lst.insert(0 if i is None else i + 1, _new(step))
-    return _scenario(root, name, tag, change)
+    return _scenario(root, name, tag, lambda d: _add_step(d, step, after))
 
 
 def update_step(root, name: str, tag, address, fields: Any) -> dict[str, Any]:
     """Pole kroku jako merge patch (null smaže pole; i `id`, `when`, větve `parallel`)."""
     _obj(fields, "fields")
+    return _scenario(root, name, tag, lambda d: _update_step(d, address, fields))
 
-    def change(d):
-        lst, i = _step(d, address)
-        merge(lst[i], fields)
-    return _scenario(root, name, tag, change)
+
+def replace_step(root, name: str, tag, address, step: Any) -> dict[str, Any]:
+    """Celý krok nahradí `step` (na rozdíl od merge patch umí hodnotu null)."""
+    _obj(step, "step")
+    return _scenario(root, name, tag, lambda d: _replace_step(d, address, step))
 
 
 def move_step(root, name: str, tag, address, to) -> dict[str, Any]:
     """Přesune krok za krok `to`, nebo na začátek seznamu `to`."""
-    def change(d):
-        src, i = _step(d, address)
-        if isinstance(to, list) and [str(x) for x in to[:len(address)]] == [str(x) for x in address]:
-            if len(to) == len(address):
-                return  # za sebe sama = beze změny
-            raise ConfigErrors([f"krok {address!r} nejde přesunout do vlastní větve"])
-        dst, j = resolve(d, to)
-        anchor = None if j is None else dst[j]
-        st = src.pop(i)
-        dst.insert(0 if anchor is None else next(n for n, x in enumerate(dst) if x is anchor) + 1, st)
-        _drop_empty(d["steps"], src)
-    return _scenario(root, name, tag, change)
+    return _scenario(root, name, tag, lambda d: _move_step(d, address, to))
 
 
 def delete_step(root, name: str, tag, address) -> dict[str, Any]:
-    def change(d):
-        lst, i = _step(d, address)
-        del lst[i]
-        _drop_empty(d["steps"], lst)
-    return _scenario(root, name, tag, change)
+    return _scenario(root, name, tag, lambda d: _delete_step(d, address))
+
+
+def batch(root, name: str, tag, ops: Any) -> dict[str, Any]:
+    """Dávka operací nad scénářem: jedna kopie v paměti, jedna validace výsledku, jeden zápis (nebo nic).
+    Chyba operace → `OpError` (`.op` = její index); výsledek s novou chybou → `ConfigErrors`."""
+    return _scenario(root, name, tag, lambda d: _apply(d, ops))
+
+
+def render(root, name: str, tag, ops: Any) -> dict[str, Any]:
+    """Dávka bez zápisu: `{text, tree, errors}` — výsledný YAML, strom kroků (jako `GET …/scenarios/<s>`)
+    a všechny chyby projektu s tímto textem. `tag` None = otisk se nekontroluje."""
+    root = Path(root).resolve()
+    rel = f"scenarios/{name}.yaml"
+    old = _read(_path(root, rel))
+    if old is None:
+        raise NotFound(f"{rel}: soubor neexistuje")
+    if tag is not None and tag != etag(old):
+        raise Conflict(etag(old))
+    text = yaml_edit(old, lambda d: _apply(d, ops), rel)
+    try:
+        sc = load_yaml(text, rel)
+    except LoadError:
+        sc = None
+    return {"text": text, "tree": _steps(sc.get("steps") if isinstance(sc, dict) else None, []),
+            "errors": _errors_with(root, rel, text)}
 
 
 def _used(root, link: str, name: str, what: str):
@@ -399,11 +526,11 @@ def delete_skill(root, name: str, tag) -> dict[str, Any]:
 
 
 def set_config(root, tag, fields: Any) -> dict[str, Any]:
-    """config.yaml jako merge patch: models, limits, storage, webhook, callback, openrouter.api_key_env.
-    Tajemství se nezadávají — pole *_env jsou jména proměnných (schéma jiný tvar odmítne)."""
+    """config.yaml jako merge patch: models, limits, storage, webhook, callback, runs_dir, openrouter.api_key_env
+    a openrouter.jev_model. Tajemství se nezadávají — pole *_env jsou jména proměnných (schéma jiný tvar odmítne)."""
     _only(_obj(fields, "fields"), CONFIG, "config.yaml")
     if isinstance(fields.get("openrouter"), dict):
-        _only(fields["openrouter"], ("api_key_env",), "config.yaml openrouter")
+        _only(fields["openrouter"], OPENROUTER, "config.yaml openrouter")
     return _save(root, "config.yaml", tag, lambda text: yaml_edit(text or "", lambda d: merge(d, fields), "config.yaml"))
 
 
@@ -428,7 +555,27 @@ def read_file(root, rel: str) -> dict[str, Any]:
         out["errors"] = [str(e)]
     if rel in ("config.yaml", "mcp.yaml") and not out["errors"]:  # i schéma a proměnné, nejen syntaxe (0.7.0)
         (load_config if rel == "config.yaml" else load_mcp)(p.parent, out["errors"])
+    elif not out["errors"]:  # 0.8.0: chyby validate jako u souboru v GET /projects/<p>
+        out["errors"] = _file_errors(Path(root).resolve(), rel)
     return out
+
+
+def _file_errors(root: Path, rel: str) -> list[str]:
+    """`errors` scénáře, agenta nebo skillu z `describe_project`; s rozbitým config.yaml jeho chyby."""
+    try:
+        d = describe_project(root)
+    except ConfigErrors as e:
+        return e.errors
+    kind, name = rel.split("/")[:2]
+    return next((x["errors"] for x in d[kind] if x["name"] == name.removesuffix(".yaml").removesuffix(".md")), [])
+
+
+def file_etag(root, rel: str) -> str:
+    """Jen otisk souboru (`HEAD …/files/<cesta>`, `?etag_only=1`) — bez parsování a validace."""
+    text = _read(_path(Path(root).resolve(), rel))
+    if text is None:
+        raise NotFound(f"{rel}: soubor neexistuje")
+    return etag(text) or ""
 
 
 def write_file(root, rel: str, tag, text: Any) -> dict[str, Any]:

@@ -214,3 +214,22 @@ každého nálezu je na konci REVIEW.md.
   jako `null`.
 - Formáty `agent`, `scenario`, `config`, `mcp`, JSON Schema a smlouva
   `POST /runs` + callback se nemění.
+
+## version 1 — zpětně kompatibilní doplnění (framework 0.8.0)
+
+Formáty agenta, scénáře, konfigurace i záznamu běhu beze změny. API
+([api.md](api.md) „Dávka, náhled a doplňky podle nálezů GUI, část 2“),
+vše aditivní:
+
+- `POST …/scenarios/<s>/batch` (dávka operací, jedna validace, jeden
+  zápis; nové operace `replace_step`, `rename_step`, `add_branch`),
+  `POST …/scenarios/<s>/render` (náhled bez zápisu), `PUT …/steps/<adresa>`
+  (celý krok).
+- `HEAD …/files/<cesta>` a `?etag_only=1`; `errors` v `GET …/files/<cesta>`
+  = chyby `validate` souboru.
+- `description` (a u agenta `model`) v `POST …/scenarios` a `POST …/agents`.
+- `links.scenario_model` a `models_used` v `GET /projects/<p>`.
+- `PUT …/config` povoluje i `runs_dir` a `openrouter.jev_model`.
+- `state`: záznam fronty `serve` → `queued`; `dry_run` jen bez
+  `run.lock` ([run-record.md](run-record.md) — jen upřesnění, soubor
+  i pořadí zápisu jsou od 0.7.0).

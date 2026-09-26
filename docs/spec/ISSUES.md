@@ -349,3 +349,23 @@ rozhoduje koordinátor nebo uživatel.
     aditivně, protože GUI část 1 čte `scenario_agent` jako dvojice.
     Oprava loaderu: „poprvé na řádku N“ u duplicitního klíče ve
     frontmatteru `.md` teď počítá s řádkem `---`. Vše aditivní.
+46. **API podle nálezů z GUI, část 2** (zadání koordinátora 2026-09-26,
+    framework 0.8.0; `docs/ui/nalezy-api.md` body 10–20, [api.md](api.md)
+    „Dávka, náhled a doplňky…“). Dávka místo `PATCH` s `rename_refs`:
+    řeší přejmenování i smazání čteného kroku, neúplný nový krok,
+    prázdnou větev i atomičnost jedním mechanismem; jednotlivé endpointy
+    volají tytéž operace nad dokumentem v paměti. Chyba operace (adresa,
+    pole) je v dávce 422 s `op`, ne 404 — je to chyba těla požadavku.
+    `rename_refs` přepisuje jen výrazy (`when`, `switch.value`, `set`)
+    a obsah `{{ }}` regexem `steps.<id>.` s hranicí před `steps` —
+    text promptu mimo šablonu a komentáře zůstanou. `render` vrací
+    všechny chyby (jako `validate`), ne jen nové, a 200 i s chybami.
+    Stav čerstvého běhu: `dry_run` = bez `run.lock` (dry-run zámek nikdy
+    neměl) místo nové značky — nulová změna formátu a staré dry-run
+    složky se čtou dál správně; záznam fronty přebije `interrupted`
+    na `queued`. `models_used` jako cesty souborů (jako `errors[].file`),
+    klíče i nepoužité aliasy. `PUT …/config`: `runs_dir` a `jev_model`
+    povoleny, `base_url` a `version` ne (klíč / formát); `runs_dir` za
+    běhu `serve` potřebuje restart kvůli frontě. `description` nového
+    souboru se zapisuje jako JSON řetězec (platný YAML, žádné
+    escapování navíc).
