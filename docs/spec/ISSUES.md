@@ -255,3 +255,9 @@ rozhoduje koordinátor nebo uživatel.
     (DESIGN „Obálky“). Pozn.: kniha je sdílený append-only soubor, což
     D2 („nikdy jeden sdílený log“) formálně nepředpokládá; zápis je
     jeden řádek pod `flock`.
+    **Rozhodnutí (koordinátor, 2026-09-26):** obojí přijato. Kniha se
+    píše vždy, protože slouží i jako denní přehled útraty a limit zapnutý
+    během dne má počítat i dosavadní běhy. Výjimka z D2 je ohraničená:
+    jeden řádek na dokončený běh, jeden soubor na den, pod `flock`;
+    záznamy běhů zůstávají oddělené. Na Modalu knihu nahradí obálka přes
+    rozhraní `Ledger`.

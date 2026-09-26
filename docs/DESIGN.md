@@ -123,7 +123,9 @@ n8n), `embed`/`search`.
   (`parallel`) zůstávají. Návrh nesmí paralelním běhům bránit do budoucna:
   běhy si nesdílí soubory (kromě `state`, úložiště výstupů a `_dedupe` —
   klíčů vedlejších účinků, které jsou samostatné atomicky vytvářené
-  soubory, nikdy jeden sdílený log). Výchozí zůstává jeden za druhým;
+  soubory, nikdy jeden sdílený log; jediná ohraničená výjimka je denní
+  kniha útraty `_ledger/` od 0.3.1 — jeden řádek na dokončený běh pod
+  `flock`, viz ISSUES 40). Výchozí zůstává jeden za druhým;
   `agencast serve --workers N` (od 0.3.0) volitelně pouští N běhů nad
   jednou frontou — kolize `run_id` řeší nový suffix, cache `/models` se
   zapisuje atomicky, `_dedupe` je za rozhraním `DedupeStore` (ISSUES 39).
