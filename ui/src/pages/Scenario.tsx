@@ -1,10 +1,10 @@
 // §2.3–2.4 Editor scénáře: sloupec karet + panel (Form), nebo YAML přes celou šířku (§4.5).
 // Form drží rozpracovaný strom (scenarioDraft.ts), YAML rozpracovaný text (textfile.ts); na disk jde
 // obojí až tlačítkem Uložit / Ctrl+S. Form → YAML převede rozpracovaný strom na text přes `render`;
-// YAML → Form s neuloženým textem se ptá (text na strom API nepřevádí, nalezy-api.md bod 26).
+// YAML → Form převede neuložený text přes `render` bez zápisu (nalezy-api.md bod 26).
 import { ArrowLeft, CodeXml, Play, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
-import { enc, useApi } from "../api";
+import { enc, send, useApi } from "../api";
 import { stepLines } from "../components/CodeView";
 import { Modal, NameDialog, type ModalAction } from "../components/form";
 import { RunPanel } from "../components/RunPanel";
@@ -13,14 +13,14 @@ import { HeaderPanel, StepPanel } from "../components/StepPanel";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
 import { ErrorText, Loading, StatusChip, Toggle, btn } from "../components/ui";
 import {
-  blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
+  adopt, blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
 } from "../edit";
 import { t } from "../i18n";
 import { href, setQuery, useLocation } from "../router";
 import { useScenarioDraft } from "../scenarioDraft";
 import { readBy } from "../steps";
 import { draftKey, syntaxError, useLeaveGuard, useTextFile, writeDraft, type SaveState } from "../textfile";
-import type { ErrorItem, Project, StepType } from "../types";
+import type { ErrorItem, Project, Step, StepType } from "../types";
 
 /** Výběr hlavičkové karty v `?krok=` (id kroku nesmí začínat `_`, nekoliduje). */
 export const HEADER_KEY = "_hlavicka";
@@ -203,22 +203,30 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
 
   const switchMode = async (to: "form" | "yaml") => {
     if ((to === "yaml") === yaml) return;
-    if (to === "form" && syntax) return;
+    if (to === "form" && syntax) return text.dirty && setPending({ kind: "mode", to });
     if (to === "yaml" && form.dirty) {
       // rozpracovaný strom → text přes `render`; text pak drží YAML režim jako neuložený (i s otiskem verze)
       const r = await form.renderText().catch(() => undefined);
       if (!r) return setPending({ kind: "mode", to });
       writeDraft(draftKey(project, file), { etag: r.etag, value: r.text });
-      form.reloadFromDisk();
+      await form.reloadFromDisk();
       return goMode(to);
     }
-    if (to === "form" && text.dirty) return setPending({ kind: "mode", to });
+    if (to === "form" && text.dirty) {
+      const r = await send<{ tree: Step[]; errors: ErrorItem[] }>(
+        "POST", `/projects/${enc(project)}/scenarios/${enc(scenario)}/render`, { text: text.text },
+      ).catch(() => undefined);
+      if (!r) return;
+      try { await form.setRendered(adopt(r.tree), r.errors); } catch { return; }
+      text.discard();
+      return goMode(to, false);
+    }
     goMode(to);
   };
-  const goMode = (to: "form" | "yaml") => {
+  const goMode = (to: "form" | "yaml", reload = true) => {
     if (to === "form") {
       const id = stepAtLine(text.text, caretLine);
-      void form.reload();
+      if (reload) void form.reload();
       setQuery({ rezim: undefined, krok: id ?? selected });
     } else setQuery({ rezim: "yaml" });
   };
@@ -258,7 +266,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         <div className="ml-auto flex flex-wrap items-center gap-3">
           <Toggle label={t("code.mode")} value={yaml ? "yaml" : "form"} onChange={(m) => void switchMode(m)}
             options={[
-              { key: "form", label: t("code.form"), disabled: syntax ? t("code.fixYaml", { n: syntax.line ?? 0 }) : undefined },
+              { key: "form", label: t("code.form"), disabled: syntax && !text.dirty ? t("code.fixYaml", { n: syntax.line ?? 0 }) : undefined },
               { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> },
             ]} />
           <SaveStatus dirty={yaml ? text.dirty : form.dirty} errors={errCount} state={yaml ? text.state : form.state} onJump={jump} />
@@ -329,7 +337,10 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         remove: doRemove, retype, rename: doRename,
         mode: async (to, saveFirst) => {
           if (saveFirst && !(await (yaml ? text.save() : form.save()))) return;
-          if (!saveFirst) (yaml ? text.discard() : form.reloadFromDisk());
+          if (!saveFirst) {
+            if (yaml) text.discard();
+            else await form.reloadFromDisk();
+          }
           goMode(to);
         },
         overwrite: async () => {

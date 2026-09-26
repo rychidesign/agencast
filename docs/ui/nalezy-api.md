@@ -210,8 +210,8 @@ Ověřeno 2026-09-26 proti `agencast serve --fake` (framework 0.7.0 z větve). J
 GUI přešlo na `POST /projects/new`, `POST /projects`, `DELETE /projects/<p>`, `projects_root`/`writable`
 (0.9.0), dávku `…/batch`, náhled `…/render`, `HEAD …/files/<cesta>`, `description`/`model` v `POST`
 (0.8.0) — body 10–18 GUI už neobchází. Ověřeno 2026-09-26 E2E testy (`ui/e2e/`, Playwright proti
-`agencast serve --fake` z větve, framework 0.9.0). Jádro se neměnilo. Nálezy 21 a 22 platí i v 0.9.0
-(E2E test `N5b` je očekávané selhání: po restartu `serve` „chyba: internal v None“).
+`agencast serve --fake` z větve, framework 0.9.0). Jádro se neměnilo. Nálezy 21 a 22 platí i v 0.9.0;
+N5b tehdy zachytil chybu obnovy, opravenou v 0.10.0.
 
 26. **`render` bere jen operace, ne text.** Form → YAML s neuloženými změnami jde (`render` vrátí
     `text`), ale opačně ne: GUI YAML nesestavuje ani neparsuje a žádný endpoint z rozpracovaného
@@ -235,3 +235,7 @@ GUI přešlo na `POST /projects/new`, `POST /projects`, `DELETE /projects/<p>`, 
     `webhook.token_env` jen tam, kde se token opravdu čte).
     **Stav (0.10.0):** `callback.secret_env` se vyžaduje jen při callbacku; `webhook.token_env` jen v režimu
     jednoho projektu. Projekt ze šablony lze spustit s `--fake` bez `CALLBACK_SECRET`.
+
+## Část 5 (GUI nad API 0.10.0)
+
+GUI používá nová pole a endpointy; nic z API neobchází.

@@ -27,8 +27,15 @@ test.describe("bez tokenu", () => {
 
     const auth: string[] = [];
     page.on("request", (r) => r.url().includes("/projects") && auth.push(r.headers().authorization ?? ""));
-    await page.getByRole("textbox", { name: "Token" }).fill(TOKEN);
-    await page.getByRole("textbox", { name: "Token" }).press("Enter");
+    const cardCalls = await countRequests(page, (u, m) => m === "GET" &&
+      (u.endsWith(`/projects/${project.name}`) || u.endsWith(`/projects/${project.name}/spend`)), async () => {
+      await page.getByRole("textbox", { name: "Token" }).fill(TOKEN);
+      await page.getByRole("textbox", { name: "Token" }).press("Enter");
+      const card = page.getByTestId(`project-card-${project.name}`);
+      await expect(card).toContainText("1 scénář · 1 agent");
+      await expect(card).toContainText("dnes 0 USD");
+    });
+    expect(cardCalls).toBe(0);
     await expect(page.getByRole("heading", { name: "Projekty" })).toBeVisible();
     await expect(page.getByText(`Registr ${server.cfg}/projects.yaml`)).toBeVisible();
     const card = page.getByTestId(`project-card-${project.name}`);
@@ -192,7 +199,7 @@ test("N3 nedostupný a neznámý projekt, neznámá adresa", async ({ page, proj
   await expect(page.getByRole("heading", { name: "Projekty" })).toBeVisible();
 });
 
-test("N4 rozbitý config.yaml", async ({ page, project }) => {
+test("N4 rozbitý config.yaml", async ({ page, project, server }) => {
   const good = project.read("config.yaml");
   const bad = `${good}\nruns_dir: ./jinde\n`;
   project.write("config.yaml", bad);
@@ -219,4 +226,20 @@ test("N4 rozbitý config.yaml", async ({ page, project }) => {
   await page.getByRole("link", { name: "Scénáře", exact: true }).click();
   await expect(alert).toBeHidden();
   await expect(page.getByTestId("scenario-card-ukazka")).toBeVisible();
+
+  // 0.10.0 přidává řádek i ke chybě schématu config.yaml.
+  const schemaBad = good.replace(/^(\s*run_budget_usd:)\s*.*$/m, '$1 "x"');
+  const schemaLine = schemaBad.split("\n").findIndex((l) => /^\s*run_budget_usd:/.test(l)) + 1;
+  project.write("config.yaml", schemaBad);
+  const api = await server.api<{ errors: { field?: string; line?: number }[] }>("GET", `/projects/${project.name}`);
+  expect(api.status).toBe(422);
+  expect(api.body.errors).toContainEqual(expect.objectContaining({ field: "limits.run_budget_usd", line: schemaLine }));
+  await page.goto(`/#/p/${project.name}`);
+  await page.reload();
+  const schemaAlert = page.getByRole("alert").filter({ hasText: "config.yaml projektu neprošel kontrolou" });
+  await expect(schemaAlert).toBeVisible();
+  await schemaAlert.getByRole("link", { name: "Otevřít Config" }).click();
+  await expect(page.getByText(new RegExp(`řádek ${schemaLine} ·`))).toBeVisible();
+  await expect(page.getByTestId(`yaml-line-${schemaLine}`)).toBeVisible();
+  project.write("config.yaml", good);
 });

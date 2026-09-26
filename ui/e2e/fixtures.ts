@@ -80,10 +80,10 @@ export const test = base.extend<{ token: string | null; project: Project }, { se
     fs.writeFileSync(fake, FAKE);
     const port = PORT + workerInfo.parallelIndex;
     const url = `http://127.0.0.1:${port}`;
-    // Hermeticky: žádné tajné klíče z prostředí vývojáře; projekt chce jen jméno proměnné, falešný běh ji nepoužije.
+    // Hermeticky: bez hodnot z prostředí vývojáře; callback ani webhook testy nepoužívají.
     const env: NodeJS.ProcessEnv = {
       PATH: process.env.PATH, HOME: process.env.HOME, LANG: "C.UTF-8", AGENCAST_CONFIG_DIR: cfg, AGENCAST_TOKEN: TOKEN,
-      OPENROUTER_API_KEY: "e2e-falesny-klic", CALLBACK_SECRET: "e2e-falesny", WEBHOOK_TOKEN: "e2e-falesny",
+      OPENROUTER_API_KEY: "e2e-falesny-klic",
     };
     const s: Server = {
       url, port, tmp, cfg, projectsRoot, fake, env,

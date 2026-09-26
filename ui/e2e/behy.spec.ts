@@ -209,13 +209,44 @@ test("N5 přerušený běh (proces zabitý uprostřed kroku)", async ({ page, pr
 });
 
 test("N5b přerušený běh pod serve (restart serve)", async ({ page, project, server }) => {
-  test.fail(true, "[obcházeno] nálezy 21/22: API po restartu serve dopíše běh jako failed (internal v None), cíl je přerušen");
   project.write("scenarios/dlouhy.yaml", DLOUHY);
   const id = await startRun(server, project.name, "dlouhy");
   await waitRun(server, project.name, id, ["running"]);
+  const before = await server.api<{ started_at: string }>("GET", `/projects/${project.name}/runs/${id}`);
   await server.restart();
+  const after = await server.api<{ state: string; started_at: string; steps: { step: string; status: string }[] }>("GET", `/projects/${project.name}/runs/${id}`);
+  expect(after.body.state).toBe("interrupted");
+  expect(after.body.started_at).toBe(before.body.started_at);
+  expect(after.body.steps.find((s) => s.step === "pomalu")?.status).toBe("interrupted");
   await page.goto(`/#/p/${project.name}/behy/${id}`);
-  await expect(page.getByTestId("run-state")).not.toHaveText("", { timeout: 5_000 });
   await expect(page.getByTestId("run-state")).not.toContainText("v None");
   await expect(page.getByTestId("run-state")).toHaveText("přerušen");
+  await expect(card(page, "pomalu")).toHaveAttribute("aria-label", /— přerušen$/);
+  await expect(card(page, "pomalu")).not.toHaveClass(/animate-pulse/);
+});
+
+test("N25 seznam běhů načítá starší stránku kurzorem bez duplicit", async ({ page, project }) => {
+  const ids = Array.from({ length: 52 }, (_, i) => `20260926-1200${String(59 - i).padStart(2, "0")}-ukazka-${i.toString(16).padStart(4, "0")}`);
+  const item = (run_id: string) => ({
+    run_id, scenario: "ukazka", state: "succeeded", status: "succeeded", started_at: "2026-09-26T12:00:00.000Z",
+    finished_at: "2026-09-26T12:00:01.000Z", duration_s: 1, cost_usd: 0,
+  });
+  const requested: string[] = [];
+  await page.route((url) => new URL(url).pathname.endsWith(`/projects/${project.name}/runs`), async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.searchParams.has("limit")) return route.continue();
+    requested.push(url.searchParams.get("before") ?? "");
+    if (!url.searchParams.has("before"))
+      return route.fulfill({ json: { runs: ids.slice(0, 50).map(item), next_before: ids[49] } });
+    return route.fulfill({ json: { runs: ids.slice(50).map(item) } });
+  });
+  await page.goto(`/#/p/${project.name}/behy`);
+  const rows = page.locator("tbody tr");
+  await expect(rows).toHaveCount(50);
+  await page.getByRole("button", { name: "Načíst další" }).click();
+  await expect(rows).toHaveCount(52);
+  expect(requested).toEqual(["", ids[49]]);
+  const displayed = await rows.evaluateAll((els) => els.map((el) => el.getAttribute("data-testid")!.slice("run-row-".length)));
+  expect(new Set(displayed).size).toBe(52);
+  await expect(page.getByRole("button", { name: "Načíst další" })).toBeHidden();
 });

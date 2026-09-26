@@ -1,6 +1,6 @@
 // §2.6 Seznam běhů s filtry; obnovuje se každých 5 s, dokud něco běží nebo čeká (§4.8).
-// Scénář filtruje server (`?scenario=`), stav klient; stránkuje `limit` („Načíst další“).
-import { useState } from "react";
+// Scénář filtruje server (`?scenario=`), stav klient; starší stránky bere přes `before`.
+import { useEffect, useState } from "react";
 import { enc, useApi } from "../api";
 import { RUN_STATUS } from "../components/RunBadge";
 import { btn, EmptyState, ErrorText, Loading, StatusIcon } from "../components/ui";
@@ -21,12 +21,25 @@ export function RunsTab({ project }: { project: string }) {
   const base = `/projects/${enc(project)}`;
   const scenario = query.get("scenar") ?? "";
   const state = query.get("stav") ?? "";
-  const [limit, setLimit] = useState(RUNS_PAGE);
-  const qs = new URLSearchParams({ ...(scenario ? { scenario } : {}), limit: String(limit) });
-  const runs = useApi<{ runs: RunListItem[] }>(`${base}/runs?${qs}`, (d) => (d.runs.some((r) => isLive(r.state)) ? RUNS_POLL_MS : null));
+  const [before, setBefore] = useState<string>();
+  const [olderRuns, setOlderRuns] = useState<RunListItem[]>([]);
+  useEffect(() => { setBefore(undefined); setOlderRuns([]); }, [base, scenario]);
+  const qs = new URLSearchParams({ ...(scenario ? { scenario } : {}), limit: String(RUNS_PAGE) });
+  const runs = useApi<{ runs: RunListItem[]; next_before?: string }>(`${base}/runs?${qs}`, (d) => (d.runs.some((r) => isLive(r.state)) ? RUNS_POLL_MS : null));
+  const pageQs = new URLSearchParams({ ...(scenario ? { scenario } : {}), limit: String(RUNS_PAGE), ...(before ? { before } : {}) });
+  const page = useApi<{ runs: RunListItem[]; next_before?: string }>(before ? `${base}/runs?${pageQs}` : null);
+  useEffect(() => {
+    if (!before || !page.data) return;
+    setOlderRuns((old) => {
+      const seen = new Set([...(runs.data?.runs ?? []), ...old].map((r) => r.run_id));
+      return [...old, ...page.data!.runs.filter((r) => !seen.has(r.run_id))];
+    });
+  }, [before, page.data, runs.data]);
   const spend = useApi<Spend>(`${base}/spend`);
   const detail = useApi<Project>(base);
-  const all = runs.data?.runs ?? [];
+  const first = runs.data?.runs ?? [];
+  const all = [...first, ...olderRuns.filter((r) => !first.some((f) => f.run_id === r.run_id))];
+  const nextBefore = before ? page.data?.next_before : runs.data?.next_before;
   const scenarios = [...new Set([...(detail.data?.scenarios.map((s) => s.name) ?? []), ...all.map(runScenario), ...(scenario ? [scenario] : [])])]
     .filter(Boolean).sort();
   const shown = all.filter((r) => !state || r.state === state);
@@ -43,7 +56,7 @@ export function RunsTab({ project }: { project: string }) {
         )}
         <label className="inline-flex items-center gap-2 text-zinc-400">
           {t("runs.filter.scenario")}
-          <select value={scenario} onChange={(e) => (setLimit(RUNS_PAGE), setQuery({ scenar: e.target.value || undefined }))}
+          <select value={scenario} onChange={(e) => setQuery({ scenar: e.target.value || undefined })}
             className="h-8 rounded-lg bg-zinc-800 px-2 text-zinc-100">
             <option value="">{t("runs.filter.all")}</option>
             {scenarios.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -81,8 +94,8 @@ export function RunsTab({ project }: { project: string }) {
         </table>
         </div>
       )}
-      {all.length === limit && (
-        <button type="button" className={btn.secondary} onClick={() => setLimit(limit + RUNS_PAGE)}>{t("runs.more")}</button>
+      {nextBefore && (
+        <button type="button" className={btn.secondary} disabled={page.loading} onClick={() => setBefore(nextBefore)}>{t("runs.more")}</button>
       )}
     </div>
   );

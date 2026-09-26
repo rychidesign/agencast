@@ -3,22 +3,23 @@
 Tenká obálka nad HTTP API `agencast serve` (`docs/spec/api.md`), návrh `docs/ui/navrh-gui.md`.
 React 18 + Vite + TypeScript + Tailwind; nic neparsuje ani nevaliduje samo.
 
-- **Editace (část 2, od části 4 API 0.8.0):** soubor je pravda, žádný autosave. Form režim drží
+- **Editace (část 2, API 0.10.0):** soubor je pravda, žádný autosave. Form režim drží
   rozpracovaný strom kroků (`src/edit.ts`, `src/scenarioDraft.ts`), průběžně ho validuje přes
   `POST …/render` a při Uložit / Ctrl+S ho pošle jednou dávkou `POST …/batch` s otiskem `etag`
   (vše, nebo nic); YAML/Markdown režim drží text (`src/textfile.ts`) a validuje ho přes
-  `POST …/validate`. Rozpracovaný stav je v `localStorage` (`agencast.draft.*`), změnu na disku
+  `POST …/validate`; YAML → Form převádí neuložený text přes `POST …/render {text}`. Rozpracovaný stav je v `localStorage` (`agencast.draft.*`), změnu na disku
   hlídá `HEAD …/files/<cesta>` každých 5 s a při fokusu okna (konflikt → `ConflictBar`).
   Co API chybí: `docs/ui/nalezy-api.md`.
 
-- **Projekty (část 4, API 0.9.0):** „Přidat projekt“ založí nový (`POST /projects/new`) nebo přidá
+- **Projekty (část 5, API 0.10.0):** karty berou počty a dnešní útratu z `GET /projects`, bez
+  dalších dotazů na detail ani útratu každé karty. „Přidat projekt“ založí nový (`POST /projects/new`) nebo přidá
   existující (`POST /projects`), menu karty odebere z registru (`DELETE /projects/<p>`); bez
   `writable` jen příkaz pro CLI.
 
-- **Běhy (část 3, API 0.7.0):** stav jen z `state` (dotazuje se jen `queued`/`running`, `interrupted`
+- **Běhy (část 3, API 0.10.0):** stav jen z `state` (dotazuje se jen `queued`/`running`, `interrupted`
   má vlastní štítek), karty běhu ze snímku `tree`/`callees`, údaje kroků ze `steps`, panel kroku
   z `GET …/runs/<id>/steps/<cesta>` (events.jsonl se nestahuje). Karty scénářů a projektů berou
-  `types` a `last_run` z přehledu (žádné N+1), seznam běhů `?scenario=&limit=`. Co API chybí:
+  `types`, počty a `last_run` z přehledu; seznam běhů stránkuje přes `?scenario=&limit=&before=`. Co API chybí:
   `docs/ui/nalezy-api.md`, část 3.
 
 - **Vývoj:** `npm install`, pak `agencast serve --cors http://localhost:5173` a `npm run dev`
@@ -35,4 +36,4 @@ React 18 + Vite + TypeScript + Tailwind; nic neparsuje ani nevaliduje samo.
   a prohlížeč Playwrightu 1.62 (`npx playwright install chromium`).
 - Každý worker pouští vlastní `agencast serve --fake` (port od `E2E_PORT`, výchozí 18700) s `AGENCAST_CONFIG_DIR`
   v tmp; každý test si založí projekt přes `POST /projects/new` (`e2e/fixtures.ts`). Síť jen na localhost.
-- Jeden test na cestu C1–C16 a stav N1–N6 z `docs/ui/uzivatelske-cesty.md`; co ještě nejde, je `test.fail()` s důvodem.
+- Testy pokrývají cesty C1–C16 a stavy N1–N6 z `docs/ui/uzivatelske-cesty.md`.

@@ -3,7 +3,7 @@
 // 422 → chyby u karet, hlídání disku přes `HEAD files/`.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, enc, getJson, headEtag } from "./api";
-import { deepEqual, draftOf, LocalError, planErrors, planOps, renderDraft, saveDraft, type Draft, type WStep } from "./edit";
+import { deepEqual, draftOf, LocalError, renderDraft, saveDraft, type Draft, type WStep } from "./edit";
 import { t } from "./i18n";
 import { clock, draftKey, readDraft, useWatch, VALIDATE_MS, writeDraft, type Conflict, type SaveState } from "./textfile";
 import type { ErrorItem, FileDoc, Scenario } from "./types";
@@ -115,6 +115,24 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     if (state.kind !== "saving") setState({ kind: "idle" });
   };
 
+  const setRendered = async (steps: WStep[], nextErrors: ErrorItem[]) => {
+    let source = base;
+    if (!source) {
+      const s = await fetchServer();
+      source = { etag: s.sc.etag, draft: s.draft, text: s.text };
+      setLoadError(undefined);
+      adoptServer(s);
+    }
+    const next = { ...(work ?? source.draft), steps };
+    edits.current++;
+    lastKey.current = undefined;
+    setPast([]);
+    setWork(next);
+    writeDraft(key, sameDraft(next, source.draft) ? null : { etag: source.etag, base: source.draft, work: next, text: source.text });
+    setErrors(nextErrors.filter((e) => !e.file || e.file === path));
+    if (state.kind !== "saving") setState({ kind: "idle" });
+  };
+
   const undo = () => {
     const prev = past[past.length - 1];
     if (!prev) return;
@@ -141,7 +159,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
         if (alive) setErrors(r.errors.filter((e) => !e.file || e.file === path));
       } catch (e) {
         if (!alive) return;
-        if (e instanceof ApiError && e.status === 422) setErrors(planErrors(e, planOps(base.draft, work, sim)).filter((x) => !x.file || x.file === path));
+        if (e instanceof ApiError && e.status === 422) setErrors(e.errors.filter((x) => !x.file || x.file === path));
         else if (e instanceof LocalError) setErrors([{ message: t(`save.local.${e.code}`, { step: e.step ?? "" }), step: e.step }]);
         // 409 a nedostupný server: konflikt hlásí hlídání disku, spojení ServerBar
       }
@@ -184,7 +202,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
         setConflict({ etag: (cause.body.etag as string | null) ?? null });
         setState({ kind: "failed", message: t("save.conflict") });
       } else if (cause instanceof ApiError && cause.status === 422) {
-        const errs = planErrors(cause, planOps(base.draft, work, sim)).filter((x) => !x.file || x.file === path);
+        const errs = cause.errors.filter((x) => !x.file || x.file === path);
         setErrors(errs);
         setState({ kind: "failed", message: t("save.rejected", { n: errs.length }) });
       } else if (cause instanceof LocalError) {
@@ -200,11 +218,11 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
 
   return {
     path, server, loadError, base, work, dirty, errors, state, conflict, overwrite: !!rebase, canUndo: past.length > 0,
-    change, undo, save,
+    change, setRendered, undo, save,
     reload: () => load(true, true),
     reloadFromDisk: () => {
       writeDraft(key, null);
-      void load(true);
+      return load(true);
     },
     keepMine: async () => {
       const s = await fetchServer();

@@ -178,13 +178,14 @@ describe("editor scénáře", () => {
   it("chyba operace dávky (422 s op) se ukáže u karty kroku, kterého se operace týká", async () => {
     await openEditor();
     extra = (_m, u) => (u.endsWith("/batch")
-      ? [422, { error: "operace 0 dávky nejde provést", op: 0, errors: [{ message: "ops[0] update_step: adresa kroku neexistuje" }] }] : undefined);
+      ? [422, { error: "operace 0 dávky nejde provést", op: 0, errors: [{ message: "ops[0] update_step: adresa kroku neexistuje", step: "copy", field: "ask.prompt" }] }] : undefined);
     fireEvent.click(screen.getByRole("button", { name: /Krok 1: ask copy/ }));
     fireEvent.change(screen.getByRole("combobox", { name: /Prompt/ }), { target: { value: "jinak" } });
     await save();
     expect(screen.getByText(/neprošla kontrolou \(1 chyba\)/)).toBeTruthy();
     const card = screen.getByRole("button", { name: /Krok 1: ask copy/ }).parentElement!;
     expect(card.textContent).toContain("ops[0] update_step");
+    expect(screen.getByRole("complementary").textContent).toContain("ops[0] update_step");
   });
 
   it("průběžná validace ve Form režimu: render 500 ms po změně, chyba u karty ještě před Uložit", async () => {
@@ -228,7 +229,7 @@ describe("editor scénáře", () => {
 });
 
 describe("YAML režim", () => {
-  it("syntaktická chyba blokuje návrat do Form i Uložit; oprava je pustí a Uložit jde přes files/", async () => {
+  it("syntaktická chyba nechává potvrzovací dialog; oprava pustí Uložit přes files/", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     await openEditor("#/p/p/scenare/s?krok=copy&rezim=yaml");
     const area = await screen.findByRole("textbox", { name: "scenarios/s.yaml" });
@@ -237,9 +238,10 @@ describe("YAML režim", () => {
     fireEvent.change(area, { target: { value: TEXT.replace("  - id: copy", "  - id: [copy") } });
     await act(async () => void (await vi.advanceTimersByTimeAsync(600)));
     const form = screen.getByRole("radio", { name: "Form" });
-    expect(form.getAttribute("aria-disabled")).toBe("true");
-    expect(form.getAttribute("title")).toBe("Oprav YAML: řádek 5");
+    expect(form.getAttribute("aria-disabled")).toBeNull();
     fireEvent.click(form);
+    expect(screen.getByRole("dialog", { name: "Neuložené změny" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Zrušit" }));
     expect(screen.getByRole("radio", { name: /YAML/ }).getAttribute("aria-checked")).toBe("true");
     expect((screen.getByRole("button", { name: "Uložit" }) as HTMLButtonElement).disabled).toBe(true);
 

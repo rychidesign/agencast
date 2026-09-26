@@ -12,7 +12,7 @@ export const RUN_STATUS: Record<RunState, Status> = {
 export function LastRun({ run }: { run: LastRunRef | null | undefined }) {
   if (!run) return <StatusChip status="none">{t("runs.none")}</StatusChip>;
   const { state } = run;
-  const when = run.finished_at ?? runIdParts(run.run_id)?.startedAt;
+  const when = run.finished_at ?? run.started_at ?? runIdParts(run.run_id)?.startedAt;
   const text = state === "running" || state === "queued" ? t(`run.state.${state}`) : formatWhen(when);
   return (
     <span title={utcTitle(when)}>

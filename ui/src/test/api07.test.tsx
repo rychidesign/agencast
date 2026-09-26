@@ -125,7 +125,7 @@ describe("karty bez N+1", () => {
     links: { scenario_agent: [], scenario_step_agent: [], scenario_scenario: [], agent_skill: [], agent_server: [] },
     scenarios: [
       { name: "a", etag: "", description: "A", inputs: null, outputs: null, callable: false, steps_count: 2, errors: [],
-        types: ["ask", "output"], last_run: { run_id: "20260926-091502-a-3c1f", state: "failed", finished_at: "2026-09-26T09:15:20.000Z", cost_usd: 0 } },
+        types: ["ask", "output"], last_run: { run_id: "20260926-091502-a-3c1f", state: "failed", started_at: "2026-09-26T09:15:02.000Z", finished_at: "2026-09-26T09:15:20.000Z", cost_usd: 0 } },
       { name: "b", etag: "", description: "B", inputs: null, outputs: null, callable: false, steps_count: 1, errors: [],
         types: ["jev"], last_run: null },
     ],
@@ -139,13 +139,13 @@ describe("karty bez N+1", () => {
     expect(screen.getByText("chyba", { selector: ".sr-only", exact: false })).toBeTruthy();
   });
 
-  it("projekty: registr v nadpisu, důvod nedostupnosti a last_run bez dotazů na běhy", async () => {
+  it("projekty: počty, útrata i důvod nedostupnosti z registru bez dotazů na karty", async () => {
     serve((url) => {
       if (url === "/projects") return {
         registry: "/home/x/.config/agencast/projects.yaml",
         projects: [
-          { name: "p", root: "/r", available: true, last_run: { run_id: "20260926-091502-a-3c1f", state: "running", finished_at: null, cost_usd: null } },
-          { name: "q", root: "/q", available: false, reason: "chybí /q/workflows/config.yaml" },
+          { name: "p", root: "/r", available: true, counts: { scenarios: 2, agents: 3 }, spend_today_usd: 0, last_run: { run_id: "20260926-091502-a-3c1f", state: "running", started_at: "2026-09-26T09:15:02.000Z", finished_at: null, cost_usd: null } },
+          { name: "q", root: "/q", available: false, counts: { scenarios: 0, agents: 0 }, spend_today_usd: 0, reason: "chybí /q/workflows/config.yaml" },
         ],
       };
       if (url === "/projects/p") return project;
@@ -155,7 +155,7 @@ describe("karty bez N+1", () => {
     expect(screen.getByText("Registr /home/x/.config/agencast/projects.yaml")).toBeTruthy();
     expect(screen.getByText("chybí /q/workflows/config.yaml")).toBeTruthy();
     expect(screen.getByText("běží", { selector: ".sr-only", exact: false })).toBeTruthy();
-    expect(urls().sort()).toEqual(["/projects", "/projects/p", "/projects/p/spend"]);
+    expect(urls()).toEqual(["/projects"]);
   });
 });
 
@@ -165,13 +165,15 @@ describe("seznam běhů", () => {
   });
 
   it("scénář jde do ?scenario=, limit a Načíst další; fronta, falešný běh, přerušený", async () => {
-    let n = 0;
+    const requests: string[] = [];
     serve((url) => {
       if (url.startsWith("/projects/p/runs?")) {
-        const limit = Number(new URLSearchParams(url.split("?")[1]).get("limit"));
-        n = limit;
-        return { runs: Array.from({ length: limit }, (_, i) => item(i, i === 0 ? { state: "queued", status: "queued", queue_position: 2 }
-          : i === 1 ? { state: "interrupted", status: "přerušen" } : i === 2 ? { fake: true } : {})) };
+        requests.push(url);
+        const first = Array.from({ length: RUNS_PAGE }, (_, i) => item(RUNS_PAGE - i, i === 0 ? { state: "queued", status: "queued", queue_position: 2 }
+          : i === 1 ? { state: "interrupted", status: "přerušen" } : i === 2 ? { fake: true } : {}));
+        return new URLSearchParams(url.split("?")[1]).has("before")
+          ? { runs: [item(0)] }
+          : { runs: first, next_before: first.at(-1)!.run_id };
       }
       if (url === "/projects/p") return { limits: {}, scenarios: [{ name: "ig-post" }, { name: "jiny" }] };
       if (url === "/projects/p/spend") return { day: "x", total_usd: 0, runs: [] };
@@ -185,8 +187,11 @@ describe("seznam běhů", () => {
     expect(screen.getByRole("option", { name: "jiny" })).toBeTruthy();
 
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Načíst další" })));
-    expect(urls()).toContain(`/projects/p/runs?scenario=ig-post&limit=${RUNS_PAGE * 2}`);
-    expect(n).toBe(RUNS_PAGE * 2);
+    expect(requests).toEqual([
+      `/projects/p/runs?scenario=ig-post&limit=${RUNS_PAGE}`,
+      `/projects/p/runs?scenario=ig-post&limit=${RUNS_PAGE}&before=${item(1).run_id}`,
+    ]);
+    expect(screen.getAllByRole("row").length).toBe(RUNS_PAGE + 2);
 
     // stav filtruje klient
     await act(async () => {

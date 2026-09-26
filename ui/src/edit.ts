@@ -1,7 +1,7 @@
 // Rozpracovaný scénář (§4 návrhu, model ukládání): GUI drží strom kroků lokálně a při Uložit
 // ho převede na operace jedné dávky API (api.md „Dávka“, 0.8.0) s otiskem `etag`.
 // Soubor je pravda — YAML GUI nesestavuje, posílá jen pole kroků a adresy (text vrací `render`).
-import { send, type ApiError, type Saved } from "./api";
+import { send, type Saved } from "./api";
 import type { ErrorItem, IoSpec, Scenario, Step, StepType } from "./types";
 
 type Obj = Record<string, unknown>;
@@ -295,12 +295,8 @@ export function blankStep(steps: WStep[], type: StepType, keep?: Pick<WStep, "id
 
 // --- uložení (dávka API 0.8.0) ------------------------------------------------------------
 
-/** Operace dávky (api.md „Dávka“); `owners[i]` = id kroku, ke kterému patří chyba operace `i`. */
+/** Operace dávky (api.md „Dávka“). */
 export type Op = Obj & { op: string };
-export interface Plan {
-  ops: Op[];
-  owners: (string | undefined)[];
-}
 
 /**
  * Převede rozdíl `base` → `work` na operace jedné dávky. `simStart` = strom, jak je právě na disku
@@ -308,10 +304,9 @@ export interface Plan {
  * Pořadí: hlavička, přejmenování (s přepisem odkazů) a pole kroků, nové větve, vložení a přesuny v pořadí
  * cílového stromu, nakonec mazání (od konce souboru). Validuje server až výsledek celé dávky.
  */
-export function planOps(base: Draft, work: Draft, simStart: WStep[]): Plan {
+export function planOps(base: Draft, work: Draft, simStart: WStep[]): Op[] {
   const ops: Op[] = [];
-  const owners: (string | undefined)[] = [];
-  const push = (op: Op, owner?: string) => (ops.push(op), owners.push(owner));
+  const push = (op: Op) => ops.push(op);
   let sim = clone(simStart);
   const baseIds = new Set(flat(base.steps).map((s) => s.uid));
   const workIds = new Set(flat(work.steps).map((s) => s.uid));
@@ -327,7 +322,7 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Plan {
     if (!b || !inSim(w.uid)) continue;
     const address = addressOf(sim, w.uid);
     if (b.id !== w.id) {
-      push({ op: "rename_step", address, new_id: w.id, rename_refs: true }, w.id);
+      push({ op: "rename_step", address, new_id: w.id, rename_refs: true });
       sim = update(sim, w.uid, (s) => ({ ...s, id: w.id }));
     }
     const from = { ...rawFlat(b), id: w.id };
@@ -338,12 +333,12 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Plan {
     } catch (e) {
       // ponytail: kontejner s `null` by replace_step přepsal i s vnořenými kroky — zůstává jen YAML
       if (!(e instanceof LocalError) || listsOf(w).length) throw new LocalError("null", w.id);
-      push({ op: "replace_step", address, step: raw(w) }, w.id);
+      push({ op: "replace_step", address, step: raw(w) });
       sim = update(sim, w.uid, (s) => ({ ...s, type: w.type, when: w.when, fields: w.fields }));
       continue;
     }
     if (!fields) continue;
-    push({ op: "update_step", address, fields }, w.id);
+    push({ op: "update_step", address, fields });
     sim = retyped
       ? update(sim, w.uid, () => pruned(w, isNew))
       : update(sim, w.uid, (s) => ({ ...s, when: w.when, type: w.type, fields: w.fields }));
@@ -357,7 +352,7 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Plan {
     for (const [key] of listsOf(w)) {
       if (have.has(key.join("/"))) continue;
       const name = key[0] === "parallel" ? key[1] : key[2];
-      push({ op: "add_branch", address: addressOf(sim, w.uid), name, steps: [] }, w.id);
+      push({ op: "add_branch", address: addressOf(sim, w.uid), name, steps: [] });
       sim = update(sim, w.uid, (s) =>
         key[0] === "parallel" ? { ...s, branches: { ...s.branches, [name]: [] } } : { ...s, cases: { ...s.cases, [name]: [] } });
     }
@@ -373,13 +368,13 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Plan {
       const at: Anchor = i === 0 ? { list: ref } : { after: list[i - 1].uid };
       const to = anchorAddress(sim, at);
       if (!inSim(w.uid)) {
-        push({ op: "add_step", after: to, step: raw(w, isNew) }, w.id);
+        push({ op: "add_step", after: to, step: raw(w, isNew) });
         sim = insert(sim, at, pruned(w, isNew));
       } else {
         const p = locate(sim, w.uid)!;
         const prev = p.list.slice(0, p.index).filter((s) => members.has(s.uid)).pop()?.uid;
         if (p.ref.parent === ref.parent && p.ref.key.join("/") === ref.key.join("/") && prev === list[i - 1]?.uid) continue;
-        push({ op: "move_step", address: addressOf(sim, w.uid), to }, w.id);
+        push({ op: "move_step", address: addressOf(sim, w.uid), to });
         sim = move(sim, w.uid, at);
       }
     }
@@ -392,32 +387,23 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Plan {
     if (!inSim(s.uid)) continue;
     const p = locate(sim, s.uid)!;
     if (p.ref.parent !== null && !workIds.has(p.ref.parent)) continue; // smaže se s rodičem
-    push({ op: "delete_step", address: addressOf(sim, s.uid) }, undefined);
+    push({ op: "delete_step", address: addressOf(sim, s.uid) });
     sim = remove(sim, s.uid);
   }
-  return { ops, owners };
-}
-
-/** Chyby 422 dávky/náhledu: chyba operace (`op`) nemá krok — přiřadí se kroku, kterého se operace týká. */
-export function planErrors(e: ApiError, plan: Plan): ErrorItem[] {
-  const op = e.body.op;
-  if (typeof op !== "number") return e.errors;
-  const errs = e.errors.length ? e.errors : [{ message: e.message }];
-  return errs.map((x) => ({ ...x, step: x.step ?? plan.owners[op] }));
+  return ops;
 }
 
 /** Uloží rozpracovaný stav jednou dávkou `POST …/batch` — zapíše se všechno, nebo nic. */
-export async function saveDraft(path: string, etag: string, base: Draft, work: Draft, simStart: WStep[]): Promise<Saved & { plan: Plan }> {
-  const plan = planOps(base, work, simStart);
-  if (!plan.ops.length) return { etag, errors: [], plan };
-  return { ...(await send<Saved>("POST", `${path}/batch`, { etag, ops: plan.ops })), plan };
+export async function saveDraft(path: string, etag: string, base: Draft, work: Draft, simStart: WStep[]): Promise<Saved> {
+  const ops = planOps(base, work, simStart);
+  if (!ops.length) return { etag, errors: [] };
+  return send<Saved>("POST", `${path}/batch`, { etag, ops });
 }
 
 /** Náhled bez zápisu (`POST …/render`): výsledný text a všechny chyby projektu s ním. */
 export async function renderDraft(path: string, etag: string, base: Draft, work: Draft, simStart: WStep[]) {
-  const plan = planOps(base, work, simStart);
-  const r = await send<{ text: string; errors: ErrorItem[] }>("POST", `${path}/render`, { etag, ops: plan.ops });
-  return { ...r, plan };
+  const ops = planOps(base, work, simStart);
+  return send<{ text: string; tree: Step[]; errors: ErrorItem[] }>("POST", `${path}/render`, { etag, ops });
 }
 
 /** Přejmenování kroku v rozpracovaném stromu: `steps.<old>` → `steps.<new>` ve všech krocích (jako `rename_refs`). */

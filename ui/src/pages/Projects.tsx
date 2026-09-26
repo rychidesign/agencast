@@ -7,7 +7,7 @@ import { CliLine, ErrorText, Menu, Skeleton, Toggle } from "../components/ui";
 import { formatCost } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
-import type { Project, ProjectList, ProjectRef, Spend } from "../types";
+import type { ProjectList, ProjectRef } from "../types";
 import { LastRun } from "../components/RunBadge";
 
 export function ProjectsPage() {
@@ -58,17 +58,12 @@ export function ProjectsPage() {
 }
 
 function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: () => void }) {
-  const base = `/projects/${enc(project.name)}`;
-  // Počty scénářů a agentů jen z detailu; poslední běh a důvod nedostupnosti nese už `GET /projects`.
-  const detail = useApi<Project>(project.available ? base : null);
-  const spend = useApi<Spend>(project.available ? `${base}/spend` : null);
   const open = href(project.name);
   const menu = [
     { label: t("common.open"), onSelect: () => navigate(open) },
     { label: t("projects.copyPath"), onSelect: () => navigator.clipboard.writeText(project.root) },
     ...(onRemove ? [{ label: t("projects.remove"), onSelect: onRemove }] : []),
   ];
-  const p = detail.data;
   return (
     <li data-testid={`project-card-${project.name}`} className={`relative flex min-h-44 flex-col rounded-xl p-5 ${project.available ? "bg-zinc-800/60 hover:bg-zinc-800" : "border border-dashed border-zinc-600 opacity-50"}`}>
       <div className="flex items-center justify-between text-xs text-zinc-400">
@@ -83,17 +78,15 @@ function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: ()
       </h2>
       <p className="truncate font-mono text-[13px] text-zinc-400" title={project.root}>{project.root}</p>
       <div className="mt-auto pt-4 text-[13px] text-zinc-300">
-        {!project.available || detail.error ? (
-          <p className="text-zinc-300">{project.reason ?? detail.error?.message ?? t("projects.unavailable")}</p>
-        ) : !p ? (
-          <Skeleton className="h-4 w-2/3" />
+        {!project.available ? (
+          <p className="text-zinc-300">{project.reason ?? t("projects.unavailable")}</p>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>
-              {t("count.scenarios", { n: p.scenarios.length })} · {t("count.agents", { n: p.agents.length })}
+              {t("count.scenarios", { n: project.counts.scenarios })} · {t("count.agents", { n: project.counts.agents })}
             </span>
             <span className="inline-flex items-center gap-2">
-              {spend.data && <span className="font-mono">{t("spend.today", { usd: formatCost(spend.data.total_usd) })}</span>}
+              <span className="font-mono">{t("spend.today", { usd: formatCost(project.spend_today_usd) })}</span>
               <LastRun run={project.last_run} />
             </span>
           </div>
