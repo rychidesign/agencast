@@ -445,14 +445,21 @@ function MapRows<V>({ ctx, k, label, addLabel, prefix, blank, row }: {
   );
 }
 
-/** Jméno klíče (otázka, hodnota, vstup): zapíše se při opuštění pole, když je platné a volné. */
-export function KeyInput({ name, taken, onRename, label }: { name: string; taken: string[]; onRename: (to: string) => void; label?: string }) {
+/** Identifikátor ve výrazech (`inputs.tema`, `steps.x.pole`): jako Python jméno bez pomlčky. */
+export const IDENT = /^[a-z][a-z0-9_]*$/;
+
+/** Jméno klíče (otázka, hodnota, vstup; alias modelu s `pattern` kebab): zapíše se při opuštění pole,
+ *  když je platné a volné; neplatné se vrátí na původní a pravidlo je v `title` (`hint`). */
+export function KeyInput({ name, taken, onRename, label, pattern = IDENT, hint }: {
+  name: string; taken: string[]; onRename: (to: string) => void; label?: string; pattern?: RegExp; hint?: string;
+}) {
   const [value, setValue] = useState(name);
-  const bad = value !== name && (!/^[a-z][a-z0-9_]*$/.test(value) || taken.includes(value));
+  const bad = value !== name && (!pattern.test(value) || taken.includes(value));
   const commit = () => (bad || value === name ? setValue(name) : onRename(value));
   return (
     <input aria-label={label ?? t("panel.keyName")} aria-invalid={bad || undefined} value={value} onChange={(e) => setValue(e.target.value)}
       onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())}
+      title={bad ? (taken.includes(value) ? t("form.taken", { name: value }) : hint ?? t("panel.keyRule")) : undefined}
       className={`${inputCls.replace("w-full", "min-w-0 flex-1")} font-mono`} />
   );
 }

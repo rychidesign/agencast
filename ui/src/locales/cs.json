@@ -351,6 +351,8 @@
   "config.maxTokens": "max_tokens {alias}",
   "config.removeAlias": "Smazat alias {alias}",
   "config.aliasUsed": "Alias používá {agents} — smazat nejde.",
+  "config.aliasRule": "Alias: malá písmena, číslice a pomlčka, začíná písmenem (např. gpt-image). Agenti a scénáře znají jen alias.",
+  "panel.keyRule": "Jméno: malá písmena, číslice a podtržítko, začíná písmenem.",
   "config.mcpYaml": "mcp.yaml (servery, oprávnění) se mění jen jako text v YAML režimu.",
   "config.noMcp": "Projekt nemá mcp.yaml.",
   "config.formNeedsValid": "config.yaml neprošel kontrolou — oprav ho v YAML",

@@ -299,3 +299,29 @@ def test_describe_has_etags(proj):
         suffix = ".yaml" if kind == "scenarios" else ".md"
         assert x["etag"] == api.read_file(proj, f"{kind}/{x['name']}{suffix}")["etag"]
     assert Path(d["root"]) == proj.resolve()
+
+
+def test_merge_new_map_matches_sibling_style():
+    """Nový alias v `models` (GUI Config) vedle map `{ … }` se zapíše řádkově; vedle bloků blokem (0.10.3)."""
+    flow = "models:\n  chytry:       { id: a/b }\n  rychly: { id: c/d, structured_output: tool_wrapper }\nlimits:\n  run_budget_usd: 1\n"
+    out = yaml_edit(flow, lambda d: merge(d, {"models": {"gpt-image": {"id": "openai/gpt-image-2"}}}), "config.yaml")
+    assert "  chytry:       { id: a/b }\n" in out and "  gpt-image: {id: openai/gpt-image-2}\n" in out
+    assert load_yaml(out, "")["models"]["gpt-image"] == {"id": "openai/gpt-image-2"}
+    block = "models:\n  chytry:\n    id: a/b\n"
+    out = yaml_edit(block, lambda d: merge(d, {"models": {"novy": {"id": "x/y"}}}), "config.yaml")
+    assert "  novy:\n    id: x/y\n" in out
+    out = yaml_edit("limits:\n  run_budget_usd: 1\n", lambda d: merge(d, {"storage": {"type": "local"}}), "config.yaml")
+    assert "storage:\n  type: local\n" in out  # bez sourozeneckých map zůstává blok
+    # přejmenování blokového aliasu vedle řádkových: mazání jde první, nový dostane řádkový styl (i s null na konci)
+    mixed = flow.replace("limits:", "  model-1:\n    id: openai/gpt-image-2\nlimits:")
+    out = yaml_edit(mixed, lambda d: merge(d, {"models": {"gpt-image": {"id": "openai/gpt-image-2"}, "model-1": None}}), "config.yaml")
+    assert "model-1" not in out and "  gpt-image: {id: openai/gpt-image-2}\n" in out
+
+
+def test_set_config_new_alias_flow_style(proj):
+    c = api.read_file(proj, "config.yaml")
+    api.set_config(proj, c["etag"], {"models": {"gpt-image": {"id": "openai/gpt-image-2"}}})
+    text = (proj / "workflows" / "config.yaml").read_text()
+    line = next(ln for ln in text.splitlines() if ln.startswith("  gpt-image:"))
+    assert line == "  gpt-image: {id: openai/gpt-image-2}"
+    assert api.describe_project(proj)["models"]["gpt-image"] == "openai/gpt-image-2"

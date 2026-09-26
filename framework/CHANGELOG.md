@@ -5,6 +5,16 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.10.3 — 2026-09-26 (alias modelu z GUI)
+
+- GUI: alias modelu v Configu jde přejmenovat i s pomlčkou (`gpt-image`,
+  jako jméno agenta). Pole bralo jen jména výrazů bez pomlčky, takže se
+  přejmenování při opuštění pole tiše vracelo na `model-1`. Neplatné jméno
+  má teď pravidlo v nápovědě pole a pod seznamem aliasů.
+- Editace: nová mapa vedle map v řádkovém stylu `{ … }` (aliasy v
+  `config.yaml`) se zapíše stejným stylem, ne blokem; soubor tak po úpravě
+  z GUI vypadá jednotně.
+
 ## 0.10.2 — 2026-09-26 (opravy souběhu a odchodu z editoru)
 
 - Editace znovu ověří SHA-256 souboru po validaci a těsně před zápisem; změna
