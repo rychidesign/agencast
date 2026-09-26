@@ -182,5 +182,5 @@ def test_edit_api(registry_server):
     c = client.get("/projects/alfa/files/config.yaml").json()
     r = client.put("/projects/alfa/config", json={"etag": c["etag"], "fields": {"limits": {"run_budget_usd": 2}}})
     assert r.status_code == 200 and client.get("/projects/alfa").json()["limits"]["run_budget_usd"] == 2
-    assert client.put("/projects/alfa/config", json={"etag": r.json()["etag"], "fields": {"runs_dir": "/"}}).status_code == 422
+    assert client.put("/projects/alfa/config", json={"etag": r.json()["etag"], "fields": {"version": 2}}).status_code == 422
     assert client.put("/projects/alfa/nic", json={}).status_code == 404

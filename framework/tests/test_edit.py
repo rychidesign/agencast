@@ -244,7 +244,7 @@ def test_set_config_no_secrets(proj):
                                          "limits": {"run_budget_usd": 2}})
     text = (proj / "workflows" / "config.yaml").read_text()
     assert "  levny:" in text and "run_budget_usd: 2\n" in text and "# Pojistky jednoho běhu." in text
-    for bad in ({"runs_dir": "/tmp"}, {"openrouter": {"base_url": "http://127.0.0.1/x"}}):
+    for bad in ({"version": 2}, {"openrouter": {"base_url": "http://127.0.0.1/x"}}):
         with pytest.raises(ConfigErrors, match="nejde"):
             api.set_config(proj, r["etag"], bad)
     with pytest.raises(ConfigErrors) as e:  # hodnota místo jména proměnné

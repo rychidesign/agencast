@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from . import ConfigErrors, projects as _projects
-from .edit import (Conflict, NotFound, add_step, delete_agent, delete_scenario, delete_skill, delete_step, move_step,
-                   read_file, set_agent, set_config, set_header, set_skill, update_step, validate_text, write_file)
+from .edit import (Conflict, NotFound, OpError, add_step, batch, delete_agent, delete_scenario, delete_skill, delete_step,
+                   file_etag, move_step, read_file, render, replace_step, set_agent, set_config, set_header, set_skill,
+                   update_step, validate_text, write_file)
 from .engine import RUN_ID, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import LoadError, load_dotenv, read_yaml
@@ -25,7 +26,9 @@ __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "ne
            # editační operace pro GUI (edit.py, api.md „Editace“): soubor je pravda, otisk, validace před zápisem
            "Conflict", "NotFound", "set_header", "add_step", "update_step", "move_step", "delete_step",
            "delete_scenario", "set_agent", "delete_agent", "set_skill", "delete_skill", "set_config", "read_file",
-           "write_file", "validate_text"]
+           "write_file", "validate_text",
+           # 0.8.0: dávka a náhled bez zápisu, celý krok, lehký otisk souboru
+           "OpError", "batch", "render", "replace_step", "file_etag"]
 
 
 def find_root(project_root=None) -> Path:
@@ -88,18 +91,26 @@ def _runs_dir(project_root) -> Path:
     return wf.parent / (d if isinstance(d, str) else "./runs")
 
 
-def _queued(runs: Path) -> list[dict[str, Any]]:
-    """Čekající ve frontě `serve` (nejstarší první) s `queue_position` jako v `GET /runs/<id>`
-    (čekající + běžící přede mnou, včetně mě)."""
+def _queue(runs: Path) -> dict[str, dict[str, Any]]:
+    """Záznamy fronty `serve` (nejstarší první) s `queue_position` jako v `GET /runs/<id>`
+    (čekající + běžící přede mnou, včetně mě). Záznam zmizí až po callbacku."""
     entries = []
     for f in (runs / "_queue").glob("*.json"):
         try:
             entries.append(json.loads(f.read_text(encoding="utf-8")))
         except (OSError, ValueError):
             pass  # běh právě skončil (nebo se záznam zapisuje)
-    return [{"run_id": e["run_id"], "status": "queued", "state": "queued", "scenario": e.get("scenario"),
-             "queue_position": sum(x["queued_ns"] <= e["queued_ns"] for x in entries)}
-            for e in sorted(entries, key=lambda e: e["queued_ns"]) if not (runs / e["run_id"]).is_dir()]
+    return {e["run_id"]: {"run_id": e["run_id"], "status": "queued", "state": "queued", "scenario": e.get("scenario"),
+                          "queue_position": sum(x["queued_ns"] <= e["queued_ns"] for x in entries)}
+            for e in sorted(entries, key=lambda e: e["queued_ns"])}
+
+
+def _in_queue(info: dict[str, Any], queue: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """0.8.0: složka běhu ze fronty `serve`, jejíž zámek (ještě) nikdo nedrží a která neskončila, je `queued`
+    (pracovní vlákno ji právě převzalo, nebo čeká na restart serveru) — nikdy `interrupted` ani `dry_run`."""
+    if info["run_id"] in queue and info["state"] in ("interrupted", "dry_run"):
+        info.update(status="queued", state="queued", queue_position=queue[info["run_id"]]["queue_position"])
+    return info
 
 
 def runs_list(project_root=None, scenario: str | None = None, limit: int | None = None) -> list[dict]:
@@ -108,11 +119,12 @@ def runs_list(project_root=None, scenario: str | None = None, limit: int | None 
     seznam dřív, než se čtou záznamy (0.7.0)."""
     runs = _runs_dir(project_root)
     mine = re.compile(rf"\d{{8}}-\d{{6}}-{re.escape(scenario)}-[0-9a-f]{{4}}") if scenario else RUN_ID
-    queued = [q for q in _queued(runs) if mine.fullmatch(q["run_id"])]
+    queue = _queue(runs)
+    queued = [q for q in queue.values() if mine.fullmatch(q["run_id"]) and not (runs / q["run_id"]).is_dir()]
     dirs = sorted((d for d in runs.glob("*") if d.is_dir() and mine.fullmatch(d.name)), reverse=True)
     if limit is not None:
         queued, dirs = queued[:limit], dirs[:max(limit - len(queued), 0)]
-    return queued + [run_status(d) for d in dirs]
+    return queued + [_in_queue(run_status(d), queue) for d in dirs]
 
 
 def last_run(project_root, scenario: str | None = None) -> dict[str, Any] | None:
@@ -127,14 +139,14 @@ def new_project(root, name: str | None = None) -> list[Path]:
     return _projects.new_project(root, name)
 
 
-def new_agent(project_root, name: str) -> list[Path]:
-    """workflows/agents/<name>.md s aliasem modelu z config.yaml projektu; nepřepisuje."""
-    return _projects.new_agent(find_root(project_root), name)
+def new_agent(project_root, name: str, description: str | None = None, model: str | None = None) -> list[Path]:
+    """workflows/agents/<name>.md s aliasem modelu z config.yaml projektu (`model`, jinak první); nepřepisuje."""
+    return _projects.new_agent(find_root(project_root), name, description, model)
 
 
-def new_scenario(project_root, name: str) -> list[Path]:
+def new_scenario(project_root, name: str, description: str | None = None) -> list[Path]:
     """workflows/scenarios/<name>.yaml s prvním agentem projektu; nepřepisuje."""
-    return _projects.new_scenario(find_root(project_root), name)
+    return _projects.new_scenario(find_root(project_root), name, description)
 
 
 def projects() -> list[dict[str, str | bool]]:
@@ -176,10 +188,11 @@ def run_detail(project_root, run_id: str) -> dict[str, Any] | None:
     runs = _runs_dir(project_root)
     if not RUN_ID.fullmatch(run_id):
         return None
+    queue = _queue(runs)
     if (runs / run_id).is_dir():
-        body = _run_detail(runs / run_id)
+        body = _in_queue(_run_detail(runs / run_id), queue)
         return body | _projects.run_tree(find_root(project_root), runs / run_id, body["scenario"])
-    return next((q for q in _queued(runs) if q["run_id"] == run_id), None)
+    return queue.get(run_id)
 
 
 def step_detail(project_root, run_id: str, path: str) -> dict[str, Any] | None:

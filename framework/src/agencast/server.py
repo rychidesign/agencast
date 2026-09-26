@@ -318,6 +318,8 @@ class Projects:
                 case ["runs", r, "files", *rel] if rel:
                     f = api.run_file(root, r, "/".join(rel))
                     return (200, f) if f else (404, {"error": "soubor ve složce běhu neexistuje"})
+                case ["files", *rel] if rel and parse_qs(query).get("etag_only") == ["1"]:
+                    return 200, {"etag": api.file_etag(root, "/".join(rel))}
                 case ["files", *rel] if rel:
                     return 200, with_structured(root, api.read_file(root, "/".join(rel)))
                 case ["spend"]:
@@ -353,6 +355,9 @@ class Projects:
             return 409, {"error": "soubor se mezitím změnil — načti ho znovu (etag = aktuální otisk)", "etag": e.etag}
         except api.NotFound as e:
             return 404, {"error": str(e)}
+        except api.OpError as e:  # 0.8.0: dávka — index operace, která nešla provést
+            return 422, {"error": f"operace {e.op} dávky nejde provést, nic se nezapsalo", "op": e.op,
+                         "errors": structured(root, e.errors)}
         except ConfigErrors as e:
             return 422, {"error": "změna neprošla kontrolou, nic se nezapsalo", "errors": structured(root, e.errors)}
         return status, with_structured(root, out) if status == 200 else out
@@ -366,7 +371,10 @@ class Projects:
                 name = g("name")
                 if not isinstance(name, str):
                     return 422, {"error": "name: chybí jméno", "errors": []}
-                (api.new_scenario if kind == "scenarios" else api.new_agent)(root, name)
+                if kind == "scenarios":
+                    api.new_scenario(root, name, g("description"))
+                else:
+                    api.new_agent(root, name, g("description"), g("model"))
                 rel = f"{kind}/{name}.{'yaml' if kind == 'scenarios' else 'md'}"
                 return 200, {"name": name, "etag": api.read_file(root, rel)["etag"]}
             case "PUT", ["scenarios", s]:
@@ -375,6 +383,12 @@ class Projects:
                 return 200, api.delete_scenario(root, s, tag)
             case "POST", ["scenarios", s, "steps"]:
                 return 200, api.add_step(root, s, tag, g("after", ["steps"]), g("step"))
+            case "POST", ["scenarios", s, "batch"]:
+                return 200, api.batch(root, s, tag, g("ops"))
+            case "POST", ["scenarios", s, "render"]:  # bez zápisu; etag nepovinný
+                return 200, api.render(root, s, tag, g("ops", []))
+            case "PUT", ["scenarios", s, "steps", *a] if a:
+                return 200, api.replace_step(root, s, tag, ["steps", *a], g("step"))
             case "POST", ["scenarios", s, "steps", *a, "move"] if a:
                 return 200, api.move_step(root, s, tag, ["steps", *a], g("to"))
             case "PATCH", ["scenarios", s, "steps", *a] if a:
@@ -451,6 +465,22 @@ class Handler(BaseHTTPRequestHandler):
 
     do_PUT = do_PATCH = do_DELETE = do_edit
 
+    def do_HEAD(self):
+        """Jen otisk souboru z workflows/ v hlavičce `ETag` (0.8.0, `HEAD /projects/<p>/files/<cesta>`)."""
+        path = urlsplit(self.path).path
+        status, body = 404, {}
+        if re.fullmatch(r"/projects/[^/]+/files/.+", path):
+            try:
+                status, body = self.server.projects.get(self.headers.get("Authorization"), path, "etag_only=1")
+            except Exception:
+                traceback.print_exc()
+                status = 500
+        self.send_response(status)
+        if status == 200 and isinstance(body, dict):
+            self.send_header("ETag", f'"{body["etag"]}"')
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):
         u = urlsplit(self.path)
         if u.path == "/projects" or u.path.startswith("/projects/"):
@@ -479,7 +509,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.server.cors:
             return self.reply(404, {"error": "CORS je vypnuté (agencast serve --cors <origin>)"})
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
         self.send_header("Access-Control-Max-Age", "600")
         self.end_headers()
@@ -487,6 +517,7 @@ class Handler(BaseHTTPRequestHandler):
     def end_headers(self):
         if self.server.cors:
             self.send_header("Access-Control-Allow-Origin", self.server.cors)
+            self.send_header("Access-Control-Expose-Headers", "ETag")
             self.send_header("Vary", "Origin")
         super().end_headers()
 

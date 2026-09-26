@@ -5,6 +5,31 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.8.0 — 2026-09-26 (API podle nálezů z GUI, část 2)
+
+Minor: nové endpointy a pole, formáty v1 i záznam běhu beze změny.
+Zadání `docs/ui/nalezy-api.md` body 10–20, ISSUES 46.
+
+- **Dávka:** `POST …/scenarios/<s>/batch` `{etag, ops}` — operace
+  `set_header`, `add_step`, `update_step`, `replace_step`, `move_step`,
+  `delete_step`, `rename_step` (s `rename_refs`), `add_branch` po sobě
+  nad jednou kopií, jedna validace, jeden zápis; chyba operace = 422
+  s `op` (`api.batch`, `api.OpError`).
+- **Náhled:** `POST …/scenarios/<s>/render` → `{text, tree, errors}` bez
+  zápisu (`api.render`).
+- **Celý krok:** `PUT …/steps/<adresa>` (`api.replace_step`), umí `null`.
+- **Stav čerstvého běhu:** složka ze záznamu fronty `serve` bez zámku je
+  `queued`, ne `interrupted`/`dry_run`; `dry_run` jen bez `run.lock`.
+- **Soubory:** `HEAD …/files/<cesta>` (hlavička `ETag`),
+  `?etag_only=1` (`api.file_etag`); `errors` v `GET …/files/<cesta>` =
+  chyby `validate` souboru jako v `GET /projects/<p>`.
+- **Nové soubory:** `description` v `POST …/scenarios` a `…/agents`,
+  u agenta `model` (`api.new_scenario(…, description)`,
+  `api.new_agent(…, description, model)`).
+- **Projekt:** `links.scenario_model`, `models_used`.
+- **Config:** `PUT …/config` povoluje `runs_dir` a `openrouter.jev_model`.
+- CORS: preflight povoluje `HEAD`, odpovědi `Access-Control-Expose-Headers: ETag`.
+
 ## 0.7.0 — 2026-09-26 (API podle nálezů z GUI)
 
 Minor: nová pole a endpoint, formáty v1 beze změny, v záznamu běhu nové

@@ -8,6 +8,7 @@ a mění se s nimi. Nic se nepřepisuje: existující soubor = chyba `config`.
 """
 import ast
 import hashlib
+import json
 import os
 import re
 from pathlib import Path
@@ -234,26 +235,36 @@ def _workflows(root: Path):
     return wf, cfg
 
 
-def new_agent(root: Path, name: str) -> list[Path]:
-    """Minimální agent; model = první alias z config.yaml, ostatní aliasy v komentáři."""
+def _description(description) -> str | None:
+    """Popis z API do šablony jako YAML text v uvozovkách (JSON řetězec je platný YAML); None = šablonový TODO."""
+    if description is not None and not isinstance(description, str):
+        raise ConfigErrors(["description: má být text"])
+    return None if description is None else json.dumps(description, ensure_ascii=False)
+
+
+def new_agent(root: Path, name: str, description: str | None = None, model: str | None = None) -> list[Path]:
+    """Minimální agent; model = `model` (alias z config.yaml), jinak první alias, ostatní aliasy v komentáři."""
     _check_name(name, "agent")
     wf, cfg = _workflows(root)
     aliases = list(cfg["models"])
+    if model is not None and (not isinstance(model, str) or model not in aliases):
+        raise ConfigErrors([f"model: {model!r} není alias z config.yaml (jsou: {', '.join(aliases)})"])
     return _write({wf / "agents" / f"{name}.md": AGENT.format(
-        name=name, description="TODO — co agent dělá (pro lidi, modelu se neposílá)", model=aliases[0],
-        aliases=f"    # alias z config.yaml: {', '.join(aliases)}",
+        name=name, description=_description(description) or "TODO — co agent dělá (pro lidi, modelu se neposílá)",
+        model=model or aliases[0], aliases=f"    # alias z config.yaml: {', '.join(aliases)}",
         body="TODO: instrukce agenta (systémový prompt).")})
 
 
-def new_scenario(root: Path, name: str) -> list[Path]:
+def new_scenario(root: Path, name: str, description: str | None = None) -> list[Path]:
     """Minimální scénář (vstup → ask → output) s prvním agentem projektu podle abecedy."""
     _check_name(name, "scénář")
     wf, _ = _workflows(root)
+    desc = _description(description)
     agents = sorted(p.stem for p in (wf / "agents").glob("*.md"))
     if not agents:
         raise ConfigErrors([f"{wf / 'agents'}: projekt nemá agenta — nejdřív agencast new agent <jméno>"])
     return _write({wf / "scenarios" / f"{name}.yaml": SCENARIO.format(
-        name=name, description="TODO — co scénář dělá", agent=agents[0])})
+        name=name, description=desc or "TODO — co scénář dělá", agent=agents[0])})
 
 
 # --- popis projektu pro GUI (api.md) ------------------------------------------------
@@ -370,7 +381,7 @@ def describe_project(root: Path) -> dict[str, Any]:
     errs = []
     mcp = load_mcp(wf, errs)
     links = {"scenario_agent": set(), "scenario_step_agent": set(), "scenario_scenario": set(), "agent_skill": set(),
-             "agent_server": set()}
+             "agent_server": set(), "scenario_model": set()}
     scenarios = []
     for path in sorted((wf / "scenarios").glob("*.yaml")):
         info, flat = _scenario(path)
@@ -380,6 +391,9 @@ def describe_project(root: Path) -> dict[str, Any]:
         links["scenario_step_agent"] |= {(info["name"], s["id"], s["agent"]) for s in flat
                                          if isinstance(s.get("agent"), str) and isinstance(s["id"], str)}
         links["scenario_scenario"] |= {(info["name"], s["call"]) for s in flat if isinstance(s.get("call"), str)}
+        links["scenario_model"] |= {(info["name"], m) for s in flat if s["type"] == "image"
+                                    and isinstance(s["fields"]["image"], dict)
+                                    and isinstance(m := s["fields"]["image"].get("model"), str)}
     agents = []
     for path in sorted((wf / "agents").glob("*.md")):
         a_errs = []
@@ -406,9 +420,16 @@ def describe_project(root: Path) -> dict[str, Any]:
                 "tools": s.get("tools"), "scenarios": s.get("scenarios")} for n, s in mcp.items()]
     # proměnné z config.yaml (*_env) a mcp.yaml (env, bearer_token_env): jen jestli je nastavená, nikdy hodnota
     env = {n: bool(os.environ.get(n)) for n in sorted({n for _, n in env_fields(cfg)} | set(secret_names(mcp)))}
+    # 0.8.0: alias → soubory, které ho používají (agent přes model, scénář přes image.model); [] = nepoužitý
+    used: dict[str, list[str]] = {a: [] for a in cfg["models"]}
+    for a in agents:
+        if isinstance(a["model"], str):
+            used.setdefault(a["model"], []).append(f"agents/{a['name']}.md")
+    for sc, m in sorted(links["scenario_model"]):
+        used.setdefault(m, []).append(f"scenarios/{sc}.yaml")
     return {"root": str(root), "models": {a: m["id"] for a, m in cfg["models"].items()}, "limits": cfg["limits"], "env": env,
             "scenarios": scenarios, "agents": agents, "skills": skills, "mcp_servers": servers,
-            "links": {k: sorted(map(list, v)) for k, v in links.items()}, "errors": errs}
+            "links": {k: sorted(map(list, v)) for k, v in links.items()}, "models_used": used, "errors": errs}
 
 
 def _tree(path: Path) -> list[dict[str, Any]]:
