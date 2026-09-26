@@ -1,7 +1,7 @@
 // Panel kroku (§2.3): typ nahoře jako select, pole typu, dole sbalené Podmínka / Spolehlivost /
 // Podrobnosti kroku. Změny jdou do rozpracovaného stromu (edit.ts), na disk až tlačítkem Uložit.
 import { Trash2, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { flat, isObj, outputFields, visibleBefore, type Header, type WStep } from "../edit";
 import { t, tOr } from "../i18n";
 import { href } from "../router";
@@ -65,6 +65,8 @@ export interface PanelEdit {
   change: (fn: (s: WStep) => WStep, key?: string) => void;
   retype: (type: StepType) => void;
   remove: () => void;
+  /** Nové id; čtený krok se před přejmenováním ptá na přepis odkazů. */
+  rename: (id: string) => void;
 }
 
 export function StepPanel({ step, steps, header, project, scenario, errors, onClose, onSelect, edit }: {
@@ -145,11 +147,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
           )}
           <Collapsible title={t("panel.details")} value={<span className="font-mono">{step.id}</span>}>
             <div className="space-y-4">
-              <IdField step={step} steps={steps} project={project.name} scenario={scenario} errors={fieldErrors("id")}
-                onRename={(id) => {
-                  edit.change((s) => ({ ...s, id }));
-                  onSelect(id);
-                }} />
+              <IdField step={step} steps={steps} errors={fieldErrors("id")} onRename={edit.rename} />
               <dl className="space-y-3 text-sm">
                 <div><dt className="text-[13px] font-semibold text-zinc-300">{t("panel.readsFrom")}</dt>
                   <dd className="mt-1"><Chips ids={readsFrom(step)} onSelect={onSelect} /></dd></div>
@@ -177,21 +175,23 @@ const Chips = ({ ids, onSelect }: { ids: string[]; onSelect: (id: string) => voi
     </span>
   ) : <span className="text-zinc-500">{t("panel.nothing")}</span>;
 
-/** Přejmenování id: formát, jedinečnost a `refs` — krok, který někdo čte, přes formulář přejmenovat nejde. */
-function IdField({ step, steps, project, scenario, errors, onRename }: {
-  step: WStep; steps: WStep[]; project: string; scenario: string; errors: ErrorItem[]; onRename: (id: string) => void;
+/** Přejmenování id: formát a jedinečnost; odkazy čtenářů přepíše dávka (`rename_step`, `rename_refs`). */
+function IdField({ step, steps, errors, onRename }: {
+  step: WStep; steps: WStep[]; errors: ErrorItem[]; onRename: (id: string) => void;
 }) {
   const [value, setValue] = useState(step.id);
-  const readers = readBy(flat(steps), step.id);
+  useEffect(() => setValue(step.id), [step.id]);
   const problem = value === step.id ? null
     : !ID_RE.test(value) ? t("panel.idFormat")
     : flat(steps).some((s) => s.id === value) ? t("form.taken", { name: value })
-    : readers.length ? t("panel.idReaders", { readers: readers.join(", ") })
     : null;
-  const commit = () => value !== step.id && !problem && onRename(value);
+  const commit = () => {
+    if (value === step.id || problem) return;
+    onRename(value);
+    setValue(step.id); // po potvrzení přijde nové id, po zrušení zůstane staré
+  };
   return (
-    <FormField label="id" errors={[...(problem ? [problem] : []), ...errors]}
-      help={readers.length ? <a className="underline" href={href(project, "scenare", scenario, { krok: step.id, rezim: "yaml" })}>{t("panel.renameInYaml")}</a> : undefined}>
+    <FormField label="id" errors={[...(problem ? [problem] : []), ...errors]}>
       {(a) => (
         <input {...a} className={`${inputCls} font-mono`} value={value} onChange={(e) => setValue(e.target.value)}
           onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())} />

@@ -26,14 +26,8 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
   const base = `/projects/${enc(project)}`;
   const runPath = `${base}/runs/${enc(runId)}`;
   const opened = useRef(Date.now());
-  const fresh = query.get("spusteno") === "1";
-  const loaded = useApi<Run>(
-    runPath,
-    // Ostrý běh spuštěný z GUI (`?spusteno=1`): než vznikne events.jsonl, API ho krátce hlásí jako
-    // `dry_run` (nalezy-api.md, bod 15) — prvních 15 s se proto čte dál. Přerušený běh se nečte.
-    (d) => (isLive(d.state) || (fresh && d.state === "dry_run" && Date.now() - opened.current < 15_000)
-      ? pollDelay(Date.now() - opened.current) : null),
-  );
+  // Čerstvý běh je od 0.8.0 hned `queued` → `running` (nalezy-api.md bod 15); přerušený se nečte.
+  const loaded = useApi<Run>(runPath, (d) => (isLive(d.state) ? pollDelay(Date.now() - opened.current) : null));
   const run = loaded.data;
   const inputs = useApi<string>(run?.files?.includes("inputs.json") ? `${runPath}/files/inputs.json` : null, undefined, getText);
 

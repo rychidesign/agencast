@@ -1,7 +1,7 @@
 // Rozpracovaný scénář (§4 návrhu, model ukládání): GUI drží strom kroků lokálně a při Uložit
-// ho převede na editační operace API (api.md „Editace“) v pořadí, každou s otiskem `etag`.
-// Soubor je pravda — YAML GUI nesestavuje, posílá jen pole kroků a adresy.
-import { send, type Saved } from "./api";
+// ho převede na operace jedné dávky API (api.md „Dávka“, 0.8.0) s otiskem `etag`.
+// Soubor je pravda — YAML GUI nesestavuje, posílá jen pole kroků a adresy (text vrací `render`).
+import { send, type ApiError, type Saved } from "./api";
 import type { ErrorItem, IoSpec, Scenario, Step, StepType } from "./types";
 
 type Obj = Record<string, unknown>;
@@ -103,7 +103,7 @@ function pruned(s: WStep, keep: (s: WStep) => boolean): WStep {
   return c;
 }
 
-/** Hodnota `null` merge patch zapsat neumí (smaže klíč, api.md) — takový krok jde upravit jen v YAML. */
+/** Hodnota `null` merge patch zapsat neumí (smaže klíč, api.md) — takový krok jde celý přes `replace_step`. */
 export const hasNull = (v: unknown): boolean =>
   v === null || (Array.isArray(v) ? v.some(hasNull) : isObj(v) && Object.values(v).some(hasNull));
 
@@ -293,141 +293,148 @@ export function blankStep(steps: WStep[], type: StepType, keep?: Pick<WStep, "id
   return withDerived(s);
 }
 
-// --- uložení -------------------------------------------------------------------------------
+// --- uložení (dávka API 0.8.0) ------------------------------------------------------------
 
-/** Selhání uprostřed řady operací: `done` operací je na disku (s otiskem `etag`), další už ne. */
-export class SaveError extends Error {
-  constructor(readonly cause: unknown, readonly etag: string | null, readonly done: number) {
-    super(cause instanceof Error ? cause.message : String(cause));
-  }
+/** Operace dávky (api.md „Dávka“); `owners[i]` = id kroku, ke kterému patří chyba operace `i`. */
+export type Op = Obj & { op: string };
+export interface Plan {
+  ops: Op[];
+  owners: (string | undefined)[];
 }
 
 /**
- * Převede rozdíl `base` → `work` na operace API a pošle je po jedné s otiskem.
- * `sim` = strom, jak je právě na disku (obvykle `base`; po „Ponechat moje“ čerstvě načtený),
- * z něj se počítají adresy. Pořadí: hlavička, změněná pole, nové větve, vložení a přesuny
- * v pořadí cílového stromu, nakonec mazání (od konce souboru, ať čtenáři zmizí dřív než čtený).
+ * Převede rozdíl `base` → `work` na operace jedné dávky. `simStart` = strom, jak je právě na disku
+ * (obvykle `base`; po „Ponechat moje“ čerstvě načtený), adresy každé operace platí pro stav po předchozích.
+ * Pořadí: hlavička, přejmenování (s přepisem odkazů) a pole kroků, nové větve, vložení a přesuny v pořadí
+ * cílového stromu, nakonec mazání (od konce souboru). Validuje server až výsledek celé dávky.
  */
-export async function saveDraft(path: string, etag: string, base: Draft, work: Draft, simStart: WStep[]): Promise<Saved> {
-  let tag: string | null = etag;
-  let errors: ErrorItem[] = [];
-  let done = 0;
+export function planOps(base: Draft, work: Draft, simStart: WStep[]): Plan {
+  const ops: Op[] = [];
+  const owners: (string | undefined)[] = [];
+  const push = (op: Op, owner?: string) => (ops.push(op), owners.push(owner));
   let sim = clone(simStart);
   const baseIds = new Set(flat(base.steps).map((s) => s.uid));
   const workIds = new Set(flat(work.steps).map((s) => s.uid));
   const inSim = (uid: string) => !!findStep(sim, uid);
   const isNew = (s: WStep) => !baseIds.has(s.uid) && !inSim(s.uid);
-  const call = async (method: string, sub: string, body: Obj) => {
-    try {
-      const r = await send<Saved>(method, path + sub, { ...body, etag: tag });
-      tag = r.etag;
-      errors = r.errors;
-      done++;
-    } catch (e) {
-      throw new SaveError(e, tag, done);
-    }
-  };
-  const local = (fn: () => void) => {
-    try {
-      fn();
-    } catch (e) {
-      throw new SaveError(e, tag, done);
-    }
-  };
 
   const hp = mergePatch(rawHeader(base.header), rawHeader(work.header));
-  if (hp) await call("PUT", "", { fields: hp });
+  if (hp) push({ op: "set_header", fields: hp });
 
-  // 1) pole existujících kroků (i id, when, změna typu)
+  // 1) přejmenování a pole existujících kroků (i when, změna typu); `null` → celý krok (replace_step)
   for (const w of flat(work.steps)) {
     const b = findStep(base.steps, w.uid);
-    const cur = findStep(sim, w.uid);
-    if (!b || !cur) continue;
-    let fields: Obj | undefined;
+    if (!b || !inSim(w.uid)) continue;
+    const address = addressOf(sim, w.uid);
+    if (b.id !== w.id) {
+      push({ op: "rename_step", address, new_id: w.id, rename_refs: true }, w.id);
+      sim = update(sim, w.uid, (s) => ({ ...s, id: w.id }));
+    }
+    const from = { ...rawFlat(b), id: w.id };
     const retyped = b.type !== w.type;
-    local(() => (fields = retyped ? mergePatch(rawFlat(b), raw(w, isNew)) : mergePatch(rawFlat(b), rawFlat(w))));
+    let fields: Obj | undefined;
+    try {
+      fields = retyped ? mergePatch(from, raw(w, isNew)) : mergePatch(from, rawFlat(w));
+    } catch (e) {
+      // ponytail: kontejner s `null` by replace_step přepsal i s vnořenými kroky — zůstává jen YAML
+      if (!(e instanceof LocalError) || listsOf(w).length) throw new LocalError("null", w.id);
+      push({ op: "replace_step", address, step: raw(w) }, w.id);
+      sim = update(sim, w.uid, (s) => ({ ...s, type: w.type, when: w.when, fields: w.fields }));
+      continue;
+    }
     if (!fields) continue;
-    await call("PATCH", `/steps/${urlOf(addressOf(sim, w.uid))}`, { fields });
+    push({ op: "update_step", address, fields }, w.id);
     sim = retyped
       ? update(sim, w.uid, () => pruned(w, isNew))
-      : update(sim, w.uid, (s) => ({ ...s, id: w.id, when: w.when, type: w.type, fields: w.fields }));
+      : update(sim, w.uid, (s) => ({ ...s, when: w.when, type: w.type, fields: w.fields }));
   }
 
-  // 2) nové větve a případy u kontejnerů, které na disku jsou
+  // 2) nové větve a případy u kontejnerů, které na disku jsou (kroky do nich doplní krok 3)
   for (const w of flat(work.steps)) {
     const cur = findStep(sim, w.uid);
     if (!cur || !listsOf(w).length) continue;
     const have = new Set(listsOf(cur).map(([k]) => k.join("/")));
-    for (const [key, list] of listsOf(w)) {
+    for (const [key] of listsOf(w)) {
       if (have.has(key.join("/"))) continue;
-      const first = list[0];
-      if (!first || !isNew(first)) {
-        local(() => {
-          throw new LocalError("emptyBranch", w.id);
-        });
-        continue;
-      }
-      const branch = [raw(first, isNew)];
-      const fields = key[0] === "parallel" ? { parallel: { [key[1]]: branch } } : { switch: { cases: { [key[2]]: branch } } };
-      await call("PATCH", `/steps/${urlOf(addressOf(sim, w.uid))}`, { fields });
-      sim = update(sim, w.uid, (s) => {
-        const c = { ...s };
-        if (key[0] === "parallel") c.branches = { ...s.branches, [key[1]]: [pruned(first, isNew)] };
-        else c.cases = { ...s.cases, [key[2]]: [pruned(first, isNew)] };
-        return c;
-      });
+      const name = key[0] === "parallel" ? key[1] : key[2];
+      push({ op: "add_branch", address: addressOf(sim, w.uid), name, steps: [] }, w.id);
+      sim = update(sim, w.uid, (s) =>
+        key[0] === "parallel" ? { ...s, branches: { ...s.branches, [name]: [] } } : { ...s, cases: { ...s.cases, [name]: [] } });
     }
   }
 
   // 3) vložení a přesuny: každý seznam cílového stromu odshora, krok po kroku na své místo.
   // Kroky, které v seznamu nezůstanou (odejdou jinam nebo se smažou), se přeskakují — jinak by
   // se kvůli nim přesouvalo všechno pod nimi (i `output`, který musí zůstat poslední).
-  const place = async (list: WStep[], ref: ListRef) => {
+  const place = (list: WStep[], ref: ListRef) => {
     const members = new Set(list.map((s) => s.uid));
     for (let i = 0; i < list.length; i++) {
       const w = list[i];
       const at: Anchor = i === 0 ? { list: ref } : { after: list[i - 1].uid };
-      let to: (string | number)[] = [];
-      local(() => (to = anchorAddress(sim, at)));
+      const to = anchorAddress(sim, at);
       if (!inSim(w.uid)) {
-        await call("POST", "/steps", { after: to, step: raw(w, isNew) });
+        push({ op: "add_step", after: to, step: raw(w, isNew) }, w.id);
         sim = insert(sim, at, pruned(w, isNew));
       } else {
         const p = locate(sim, w.uid)!;
         const prev = p.list.slice(0, p.index).filter((s) => members.has(s.uid)).pop()?.uid;
         if (p.ref.parent === ref.parent && p.ref.key.join("/") === ref.key.join("/") && prev === list[i - 1]?.uid) continue;
-        await call("POST", `/steps/${urlOf(addressOf(sim, w.uid))}/move`, { to });
+        push({ op: "move_step", address: addressOf(sim, w.uid), to }, w.id);
         sim = move(sim, w.uid, at);
       }
     }
-    for (const s of list) for (const [key, l] of listsOf(s)) await place(l, { parent: s.uid, key });
+    for (const s of list) for (const [key, l] of listsOf(s)) place(l, { parent: s.uid, key });
   };
-  await place(work.steps, { parent: null, key: [] });
+  place(work.steps, { parent: null, key: [] });
 
   // 4) mazání: nejvyšší smazané kroky (s nimi i vnořené), od konce souboru
-  const gone = flat(sim).filter((s) => !workIds.has(s.uid)).reverse();
-  for (const s of gone) {
+  for (const s of flat(sim).filter((x) => !workIds.has(x.uid)).reverse()) {
     if (!inSim(s.uid)) continue;
     const p = locate(sim, s.uid)!;
     if (p.ref.parent !== null && !workIds.has(p.ref.parent)) continue; // smaže se s rodičem
-    await call("DELETE", `/steps/${urlOf(addressOf(sim, s.uid))}`, {});
+    push({ op: "delete_step", address: addressOf(sim, s.uid) }, undefined);
     sim = remove(sim, s.uid);
   }
-  return { etag: tag, errors };
+  return { ops, owners };
 }
 
-/** Po částečném uložení / znovunačtení: kroky, které už jsou na disku, převezmou `uid` = id z disku. */
-export function rekey(work: WStep[], fresh: WStep[]): WStep[] {
-  const ids = new Set(flat(fresh).map((s) => s.uid));
+/** Chyby 422 dávky/náhledu: chyba operace (`op`) nemá krok — přiřadí se kroku, kterého se operace týká. */
+export function planErrors(e: ApiError, plan: Plan): ErrorItem[] {
+  const op = e.body.op;
+  if (typeof op !== "number") return e.errors;
+  const errs = e.errors.length ? e.errors : [{ message: e.message }];
+  return errs.map((x) => ({ ...x, step: x.step ?? plan.owners[op] }));
+}
+
+/** Uloží rozpracovaný stav jednou dávkou `POST …/batch` — zapíše se všechno, nebo nic. */
+export async function saveDraft(path: string, etag: string, base: Draft, work: Draft, simStart: WStep[]): Promise<Saved & { plan: Plan }> {
+  const plan = planOps(base, work, simStart);
+  if (!plan.ops.length) return { etag, errors: [], plan };
+  return { ...(await send<Saved>("POST", `${path}/batch`, { etag, ops: plan.ops })), plan };
+}
+
+/** Náhled bez zápisu (`POST …/render`): výsledný text a všechny chyby projektu s ním. */
+export async function renderDraft(path: string, etag: string, base: Draft, work: Draft, simStart: WStep[]) {
+  const plan = planOps(base, work, simStart);
+  const r = await send<{ text: string; errors: ErrorItem[] }>("POST", `${path}/render`, { etag, ops: plan.ops });
+  return { ...r, plan };
+}
+
+/** Přejmenování kroku v rozpracovaném stromu: `steps.<old>` → `steps.<new>` ve všech krocích (jako `rename_refs`). */
+export function renameStep(steps: WStep[], uid: string, to: string): WStep[] {
+  const from = findStep(steps, uid)?.id;
+  if (!from) return steps;
+  const re = new RegExp(`\\bsteps\\.${from}\\b`, "g");
+  const sub = <T,>(v: T): T => JSON.parse(JSON.stringify(v).replace(re, `steps.${to}`));
   const walk = (l: WStep[]): WStep[] =>
     l.map((s) => {
-      const c: WStep = { ...s, uid: ids.has(s.uid) ? s.uid : ids.has(s.id) ? s.id : s.uid };
+      const c = withDerived({ ...s, id: s.uid === uid ? to : s.id, when: sub(s.when), fields: sub(s.fields) });
       if (s.branches) c.branches = mapValues(s.branches, walk);
       if (s.cases) c.cases = mapValues(s.cases, walk);
       if (s.default) c.default = walk(s.default);
       return c;
     });
-  return walk(work);
+  return walk(steps);
 }
 
 /** Kroky, které smí krok `uid` číst: nad ním ve stejném seznamu a nad každým jeho kontejnerem (i s vnitřkem). */
