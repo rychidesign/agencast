@@ -5,6 +5,7 @@ from agencast import api
 from agencast.cli import main
 from agencast.fake import Fake
 from agencast.record import count
+from conftest import add_image_model, scenario
 
 GOLDEN = str(Path(__file__).parent / "golden" / "ukazka-call.yaml")
 
@@ -71,3 +72,14 @@ def test_api_for_wrappers(wf):
     listed = {s["run_id"]: s for s in api.runs_list(wf.parent)}
     assert listed[r.run_id] == api.run_status(r.rec.dir) and listed[r.run_id]["status"] == "succeeded"
     assert listed[plan.dir.name]["status"] == "dry-run"
+
+
+def test_fake_cli_runs_images_api(wf, capsys):
+    add_image_model(wf)
+    p = scenario(wf, 'version: 1\nname: NAME\ndescription: Fake Images API\n'
+                      'steps: [{ id: foto, image: { model: gpt-image, prompt: "Káva", aspect_ratio: "1:1" } }]')
+    assert main(["--project", str(wf.parent), "run", p.stem, "--fake"]) == 0
+    out = capsys.readouterr().out
+    assert "úspěch" in out and "0,0400 USD" in out
+    run_id = out.split("běh ", 1)[1].split(":", 1)[0]
+    assert (wf.parent / "runs" / run_id / "steps/01-foto/image.png").is_file()

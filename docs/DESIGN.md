@@ -441,6 +441,7 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
 - Model bez obrazového výstupu s `modalities: ["image"]` → HTTP 404
   `No endpoints found that support the requested output modalities`
   (třída `config`, zachytí `validate` proti `/models`).
+- `models.<alias>.api` vybírá pro `image` chat completions (výchozí, dosavadní chování) nebo dedikované Images API; volitelná `quality` platí jen pro Images API.
 
 ### 5.8 MCP servery, nástroje a skilly (spike (d), `mcp` SDK 2.2)
 - Klient = oficiální `mcp` SDK (zamknout `2.2.*`); stdio, Streamable HTTP

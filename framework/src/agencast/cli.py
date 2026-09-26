@@ -31,7 +31,8 @@ def _fail_config(errors: list[str]) -> int:
 
 def _fake(arg: str | None, config_models: dict):
     script = read_yaml(Path(arg), arg) if arg else None
-    return Fake(script, [m["id"] for m in config_models.values()])
+    return Fake(script, [m["id"] for m in config_models.values() if m.get("api", "chat") == "chat"],
+                [m["id"] for m in config_models.values() if m.get("api", "chat") == "images"])
 
 
 def _root(a) -> Path:
@@ -39,7 +40,7 @@ def _root(a) -> Path:
 
 
 def _project(a, *, offline=False):
-    """Ověří scénář; s --fake se modely ověřují proti falešnému /models."""
+    """Ověří scénář; s --fake se modely ověřují proti falešným katalogům."""
     arg = getattr(a, "fake", None)
     fake = _fake(arg, {}) if arg is not None else None  # modely doplní api.load z config.yaml
     p = api.load(a.scenario, project_root=a.project, fake=fake, offline=offline)

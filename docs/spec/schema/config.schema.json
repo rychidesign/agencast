@@ -55,6 +55,12 @@
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$"
           },
+          "api": {
+            "enum": ["chat", "images"]
+          },
+          "quality": {
+            "enum": ["auto", "low", "medium", "high"]
+          },
           "max_tokens": {
             "type": "integer",
             "minimum": 1
@@ -66,7 +72,13 @@
               "prompt"
             ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {"required": ["quality"]},
+            "then": {"required": ["api"], "properties": {"api": {"const": "images"}}}
+          }
+        ]
       }
     },
     "runs_dir": {

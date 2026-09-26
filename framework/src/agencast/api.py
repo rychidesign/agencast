@@ -53,15 +53,17 @@ def find_root(project_root=None) -> Path:
 def load(scenario_path, *, project_root=None, fake: Fake | None = None, offline: bool = False) -> Project:
     """Ověřený scénář. `scenario_path` = jméno (ig-post → workflows/scenarios/ig-post.yaml v kořeni
     projektu) nebo cesta k .yaml. Načte `.env` z kořene projektu a z aktuální složky. S `fake` se
-    modely ověřují proti jeho falešnému /models (bez modelů dostane aliasy z config.yaml)."""
+    modely ověřují proti jeho falešným katalogům (bez modelů dostane aliasy z config.yaml)."""
     s = str(scenario_path)
     if not s.endswith((".yaml", ".yml")) and "/" not in s:
         s = str(find_root(project_root) / "workflows" / "scenarios" / f"{s}.yaml")
     wf = Path(s).resolve().parent.parent
     load_dotenv(wf.parent / ".env")
     load_dotenv(Path.cwd() / ".env")
-    if fake is not None and not fake.models:
-        fake.models = [m["id"] for m in require_config(wf)["models"].values()]
+    if fake is not None and not fake.models and not fake.image_models:
+        models = require_config(wf)["models"]
+        fake.models = [m["id"] for m in models.values() if m.get("api", "chat") == "chat"]
+        fake.image_models = [m["id"] for m in models.values() if m.get("api", "chat") == "images"]
     return validate(s, transport=fake.transport() if fake else None, check_models=not offline)
 
 

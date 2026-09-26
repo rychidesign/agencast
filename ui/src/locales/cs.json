@@ -351,6 +351,8 @@
   "config.addAlias": "alias",
   "config.alias": "Alias",
   "config.modelId": "Id modelu {alias}",
+  "config.api": "API {alias}",
+  "config.quality": "quality {alias}",
   "config.structured": "structured_output {alias}",
   "config.maxTokens": "max_tokens {alias}",
   "config.removeAlias": "Smazat alias {alias}",

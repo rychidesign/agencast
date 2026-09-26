@@ -10,7 +10,7 @@ from .expressions import ExprError, infer, kind, parse, template_type, tkind
 from .loader import (LoadError, load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors,
                      schema_errors, seconds, step_kind, version_error)
 from .mcp_client import api_name, load_mcp, secret_names
-from .providers import DEFAULT_BASE_URL, list_models, shape_type
+from .providers import DEFAULT_BASE_URL, list_image_models, list_models, shape_type
 
 NOOUT = "bez výstupu"  # typ kroku parallel/switch/fail/output
 DEFAULT_TIMEOUT = {"ask": "2m", "task": "15m", "jev": "30s", "image": "3m"}  # scenario.md §3 (návrh)
@@ -283,7 +283,20 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
             models = list_models(config["openrouter"]["base_url"], wf.parent / config["runs_dir"], transport)
         except AgencastError as e:
             raise ConfigErrors([f"{e.cls}: {e.message}"]) from None
-        errs += check_models_list(config, chk.model_needs, models)
+        models_by_id = {m["id"] for m in models}
+        needs_images = any(
+            (config["models"][alias].get("api", "chat") == "images" and "image" in need)
+            or (config["models"][alias].get("api", "chat") == "chat"
+                and config["models"][alias]["id"] not in models_by_id)
+            for alias, need in chk.model_needs.items())
+        image_models = []
+        if needs_images:
+            try:
+                image_models = list_image_models(config["openrouter"]["base_url"],
+                                                 wf.parent / config["runs_dir"], transport)
+            except AgencastError as e:
+                raise ConfigErrors([f"{e.cls}: {e.message}"]) from None
+        errs += check_models_list(config, chk.model_needs, models, image_models)
     if errs:
         raise ConfigErrors(errs)
     return chk.project(path)
@@ -307,22 +320,41 @@ def _read_scenario(path: Path, errs: list) -> dict | None:
     return sc if len(errs) == n else None
 
 
-def check_models_list(config: dict, needs: dict, models: list) -> list[str]:
-    """Aliasy proti GET /models: id existuje, obrázek umí výstup obrázku, schema umí
-    structured_outputs nebo tools (scenario.md §7, §5.5, §5.7)."""
-    by_id, errs = {m["id"]: m for m in models}, []
+def check_models_list(config: dict, needs: dict, models: list, image_models: list = ()) -> list[str]:
+    """Aliasy proti GET /models nebo /images/models (scenario.md §7, §5.5, §5.7)."""
+    by_id, image_by_id, errs = {m["id"]: m for m in models}, {m["id"]: m for m in image_models}, []
     for alias, need in sorted(needs.items()):
-        mid = config["models"][alias]["id"]
+        model, mid = config["models"][alias], config["models"][alias]["id"]
+        images_api = model.get("api", "chat") == "images"
+        if images_api and "image" in need:
+            m = image_by_id.get(mid)
+            if not m:
+                errs.append(f"config.yaml: models.{alias}.id '{mid}' není v GET /images/models")
+            else:
+                if "image" not in m["output_modalities"]:
+                    errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí výstup obrázku")
+                supported = m["supported_parameters"].get("aspect_ratio") or {}
+                values = supported.get("values") if isinstance(supported, dict) else None
+                for ratio in (n.split(":", 1)[1] for n in need if n.startswith("aspect_ratio:")):
+                    if values is not None and ratio not in values:
+                        errs.append(f"config.yaml: model '{mid}' (alias {alias}) nepodporuje aspect_ratio {ratio}")
+        chat_need = need - {"image"} - {n for n in need if n.startswith("aspect_ratio:")} if images_api else need
+        if not chat_need:
+            continue
         m = by_id.get(mid)
         if not m:
+            if not images_api and "image" in need and mid in image_by_id:
+                errs.append(f"config.yaml: model '{mid}' (alias {alias}) je jen v Images API — "
+                            f"nastav models.{alias}.api: images")
+                continue
             errs.append(f"config.yaml: models.{alias}.id '{mid}' není v GET /models — překlep? "
                         "(např. claude-haiku-4.5, ne -4-5)")
             continue
-        if "image" in need and "image" not in m["output_modalities"]:
+        if "image" in chat_need and "image" not in m["output_modalities"]:
             errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí výstup obrázku")
-        if "tools" in need and "tools" not in m["supported_parameters"]:
+        if "tools" in chat_need and "tools" not in m["supported_parameters"]:
             errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí tools — agent s ním nemůže běžet v kroku task")
-        if "schema" in need and not {"structured_outputs", "tools"} & set(m["supported_parameters"]):
+        if "schema" in chat_need and not {"structured_outputs", "tools"} & set(m["supported_parameters"]):
             errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí structured_outputs ani tools — "
                         "krok se schema by nešel vynutit")
     return errs
@@ -591,6 +623,8 @@ class _Checker:
                                              f"(aliasy: {', '.join(self.config['models'])})")
         else:
             self.need(im["model"], "image")
+            if im.get("aspect_ratio"):
+                self.need(im["model"], f"aspect_ratio:{im['aspect_ratio']}")
         self.template(info, "image.prompt", im["prompt"], res)
         return {"file": "file"}
 

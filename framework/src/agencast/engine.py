@@ -30,8 +30,8 @@ from . import ConfigErrors, AgencastError, __version__
 from .expressions import ExprError, FileRef, evaluate, kind, path_step, render, to_json, to_text
 from .loader import nested_lists
 from .mcp_client import Pool, _leaves, secret_names  # 3a
-from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
-                        http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
+from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, images_body, image_size, json_schema,
+                        http_error, parse_chat, parse_image, parse_images, parse_jev, prompt_level_suffix)
 from .record import (SUM_DIGITS, Record, count, cz, cz_usd, now_iso, plan_md,
                      report_html, scrub, summary_md)
 from .task import dedupe_skip, hold_run_lock, local_dedupe, local_ledger, local_slots, run_task  # 3a
@@ -41,9 +41,9 @@ RETRY_BASE_S = 2.0           # prodleva 2 s, 4 s, 8 s… (scenario.md §3 retry)
 CALLBACK_DELAYS = (5, 30)    # 3 pokusy (run-record.md callback_sent, návrh)
 SLOT_POLL_S = 0.5            # jak často zkusit volný slot max_parallel_runs; testy ji stáhnou
 # Čtecí timeout jednoho HTTP volání poskytovatele (ISSUES 34): min(zbývající čas kroku, strop); vypršení = transient.
-CALL_TIMEOUT_S = {"chat": 120, "jev": 30}  # chat = ask, tah task, image
+CALL_TIMEOUT_S = {"chat": 120, "jev": 30, "images": 180}  # chat = ask, tah task a image; images = Images API
 STEP_DEADLINE = contextvars.ContextVar("step_deadline", default=None)  # lhůta kroku (čas smyčky) z with_deadline
-IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg"}
 
 
 @dataclass
@@ -366,7 +366,7 @@ class Run:
             STEP_DEADLINE.reset(token)
 
     async def call_api(self, info, ctx, scopes, path, build, parse, event_type, on_value=None, image=False,
-                       record=scrub):  # 3a: record = úprava těla pro záznam (obrázky z nástrojů)
+                       record=scrub, timeout_key="chat"):  # 3a: record = úprava těla pro záznam (obrázky z nástrojů)
         sid, retries, attempt, last = info.id, info.data.get("retry", 2), 0, None
         while True:
             attempt += 1
@@ -378,7 +378,7 @@ class Run:
             n = self.calls[sid] = self.calls.get(sid, 0) + 1
             req = self.rec.write(f"{info.folder}/calls/{n:02d}.request.json", record(body))
             t, deadline = time.monotonic(), STEP_DEADLINE.get()
-            cap = CALL_TIMEOUT_S["jev" if event_type == "jev_call" else "chat"]
+            cap = CALL_TIMEOUT_S["jev" if event_type == "jev_call" else timeout_key]
             timeout_s = round(min(cap, deadline - asyncio.get_running_loop().time()) if deadline else cap, 3)
             status, rbody, headers = await self.client.post(path, body, sid, timeout_s)
             dur = round(time.monotonic() - t, 3)
@@ -499,7 +499,11 @@ class Run:
         m = self.p.config["models"][alias]
         prompt = self.text(im["prompt"], "image.prompt")
         self.rec.write(f"{info.folder}/prompt.md", "# Prompt obrázku\n\n" + prompt)
-        body = image_body(m["id"], prompt, ratio)
+        images_api = m.get("api", "chat") == "images"
+        body = (images_body(m["id"], prompt, ratio, m.get("quality")) if images_api
+                else image_body(m["id"], prompt, ratio))
+        parse = parse_images if images_api else parse_image
+        endpoint = "/images" if images_api else "/chat/completions"
 
         def on_value(v):
             data, media = v
@@ -520,9 +524,9 @@ class Run:
         t0 = time.monotonic()
         try:
             return await self.with_deadline(info, ctx, info.data.get("timeout", DEFAULT_TIMEOUT["image"]), self.call_api(
-                info, ctx, self.leaf_budgets(info, ctx, image=True), "/chat/completions",
+                info, ctx, self.leaf_budgets(info, ctx, image=True), endpoint,
                 lambda a, l: (body, {"alias": alias, "model": m["id"], "structured_output": None}),
-                parse_image, "model_call", on_value, image=True))
+                parse, "model_call", on_value, image=True, timeout_key="images" if images_api else "chat"))
         finally:
             self.image_duration += time.monotonic() - t0
 
