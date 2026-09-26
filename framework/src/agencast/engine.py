@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 import traceback
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -29,7 +29,7 @@ import httpx
 from . import ConfigErrors, AgencastError, __version__
 from .expressions import ExprError, FileRef, evaluate, kind, path_step, render, to_json, to_text
 from .loader import nested_lists
-from .mcp_client import Pool, secret_names  # 3a
+from .mcp_client import Pool, _leaves, secret_names  # 3a
 from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, image_size, json_schema,
                         http_error, parse_chat, parse_image, parse_jev, prompt_level_suffix)
 from .record import (SUM_DIGITS, Record, count, cz, cz_usd, now_iso, plan_md,
@@ -207,8 +207,7 @@ class Run:
         self.warnings += [f"tajná hodnota {n} byla v záznamu nahrazena textem <tajné: {n}>" for n in sorted(self.rec.masked)]
         self.publish_report()  # 3b: před run_finished, aby varování o nahrání bylo i v něm
         self.rec.event("run_finished", status=self.status, error=self.error, warnings=self.warnings,
-                       duration_s=self.duration, usage={"input_tokens": None, "output_tokens": None,
-                                                        "cost_usd": round(self.cost, SUM_DIGITS)} | self.tokens(),
+                       duration_s=self.duration, usage=self.tokens() | {"cost_usd": round(self.cost, SUM_DIGITS)},
                        image_cost_usd=round(self.image_cost, SUM_DIGITS), image_duration_s=round(self.image_duration, 3))
         body = {"run_id": self.run_id, "scenario": sc["name"], "request_key": self.request_key,
                 "status": self.status, "outputs": self.outputs if self.status == "succeeded" else None,
@@ -659,13 +658,6 @@ class Run:
                     await asyncio.sleep(CALLBACK_DELAYS[attempt - 1])
         self.rec.event("callback_failed", url=url, attempts=3, error=error)
         return False
-
-
-def _leaves(eg: BaseExceptionGroup) -> list:
-    out = []
-    for e in eg.exceptions:
-        out += _leaves(e) if isinstance(e, BaseExceptionGroup) else [e]
-    return out
 
 
 def dry_run(p: Project, inputs: dict) -> Record:

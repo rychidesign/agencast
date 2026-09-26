@@ -20,7 +20,7 @@ from . import ConfigErrors, __version__, api, projects as _projects
 from .loader import LoadError, load_dotenv, read_frontmatter, read_yaml, version_error
 from .fake import Fake
 from .record import count, cz, cz_usd
-from .validate import load_config, resolve_inputs
+from .validate import require_config, resolve_inputs
 
 
 def _fail_config(errors: list[str]) -> int:
@@ -97,11 +97,7 @@ def _config(a) -> tuple[Path, dict]:
     wf = _root(a) / "workflows"
     load_dotenv(wf.parent / ".env")
     load_dotenv(Path.cwd() / ".env")
-    errs = []
-    cfg = load_config(wf, errs)
-    if errs:
-        raise ConfigErrors(errs)
-    return wf, cfg
+    return wf, require_config(wf)
 
 
 def cmd_runs(a) -> int:

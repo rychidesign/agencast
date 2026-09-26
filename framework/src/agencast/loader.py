@@ -238,23 +238,20 @@ def schema_errors(kind: str, data, where: str, ref: str | None = None, skip=(), 
             line_data = YAML(typ="rt").load(source)
         except Exception:
             pass  # syntaxi už zkontroloval PyYAML; bez pozic zůstane původní hláška
+    def at(p) -> str:
+        line = _yaml_line(line_data, p) if line_data is not None else None
+        return f"{where}, řádek {line}: " if line else f"{where}: "
+
     for e in sorted(_validator(kind, ref).iter_errors(data), key=lambda e: list(map(str, e.absolute_path))):
         p = tuple(e.absolute_path)
         if any(p[:len(s)] == s and len(p) > len(s) for s in skip):
             continue
         if e.validator == "additionalProperties" and isinstance(e.instance, dict):
             known = e.schema.get("properties", {})
-            extra = [k for k in e.instance if k not in known]
-            if extra:
-                for key in extra:
-                    field = path_str(p + (key,))
-                    line = _yaml_line(line_data, p + (key,)) if line_data is not None else None
-                    prefix = f"{where}, řádek {line}: " if line else f"{where}: "
-                    out.append(f"{prefix}{field}: neznámé pole '{key}' (překlep?)")
+            if extra := [k for k in e.instance if k not in known]:
+                out += [f"{at(p + (key,))}{path_str(p + (key,))}: neznámé pole '{key}' (překlep?)" for key in extra]
                 continue
-        line = _yaml_line(line_data, p) if line_data is not None else None
-        prefix = f"{where}, řádek {line}: " if line else f"{where}: "
-        out.append(f"{prefix}{path_str(p) + ': ' if p else ''}{describe_error(e)}")
+        out.append(f"{at(p)}{path_str(p) + ': ' if p else ''}{describe_error(e)}")
     return out
 
 

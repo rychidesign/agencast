@@ -283,13 +283,3 @@ export function ValueView({ value }: { value: unknown }) {
     </dl>
   );
 }
-
-/** Štítek nad polem ke čtení (§5: 12–13 px semibold). */
-export function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <div className="text-[13px] font-semibold text-zinc-300">{label}</div>
-      <div className="rounded-lg bg-zinc-900 px-3 py-2 ring-1 ring-zinc-700">{children}</div>
-    </div>
-  );
-}

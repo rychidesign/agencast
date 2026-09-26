@@ -2,19 +2,23 @@ import re
 import shutil
 import sys
 import textwrap
+import threading
 from pathlib import Path
 
+import httpx
 import pytest
 import yaml
 
-from agencast import engine
+from agencast import api, engine
 from agencast.engine import run_scenario
 from agencast.fake import Fake
+from agencast.server import Projects, Server
 from agencast.validate import resolve_inputs, validate
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / "workflows"
 FAKE_MCP = Path(__file__).resolve().parent / "fake_mcp_server.py"
+TOKEN, SECRET = "token-webhooku-123", "podpis-callbacku-456"  # webhook a server v režimu registru
 
 # Testovací config: aliasy (models) se berou ze skutečného workflows/config.yaml — golden_config().
 CONFIG = """\
@@ -88,10 +92,6 @@ def scenario(wf: Path, text: str, name: str = "test") -> Path:
     return p
 
 
-def fake_for(p, script=None) -> Fake:
-    return Fake(script, [m["id"] for m in p.config["models"].values()])
-
-
 def run(path: Path, inputs=None, script=None, **kw):
     """validate + běh s falešným poskytovatelem; vrací (Run, Fake)."""
     fake = Fake(script, model_ids(path.parents[1]))
@@ -110,3 +110,25 @@ def registry(tmp_path, monkeypatch) -> Path:
     d = tmp_path / "agencast-config"
     monkeypatch.setenv("AGENCAST_CONFIG_DIR", str(d))
     return d / "projects.yaml"
+
+
+def serve(hook=None, projects=None):
+    srv = Server(hook, "127.0.0.1", 0, projects)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, httpx.Client(base_url=f"http://127.0.0.1:{srv.server_address[1]}",
+                             headers={"Authorization": f"Bearer {TOKEN}"}, timeout=10)
+
+
+@pytest.fixture
+def registry_server(tmp_path, monkeypatch):
+    monkeypatch.setenv("CALLBACK_SECRET", SECRET)
+    a, b = tmp_path / "alfa", tmp_path / "beta"
+    api.new_project(a)
+    api.new_project(b)
+    projects = Projects(token=TOKEN, fake=lambda: Fake(None))
+    projects.start()
+    srv, client = serve(projects=projects)
+    yield projects, client, a, b
+    client.close()
+    srv.shutdown()
+    srv.server_close()

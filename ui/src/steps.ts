@@ -67,6 +67,3 @@ export const readsFrom = (step: Step) => [...new Set(step.refs.map(refStep))];
 
 /** Které kroky čtou výstup kroku `id` (čipy „Výstup čtou“). */
 export const readBy = (all: Step[], id: string) => all.filter((s) => s.refs.some((r) => refStep(r) === id)).map((s) => s.id);
-
-/** Pole společná všem typům (spec scenario §3), ostatní klíče `fields` jsou tělo typu. */
-export const RELIABILITY = ["timeout", "budget_usd", "retry", "on_error", "default"] as const;

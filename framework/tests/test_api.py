@@ -1,39 +1,15 @@
 """Čtecí API `serve` (api.md): režim registru s AGENCAST_TOKEN a jeden projekt; falešný poskytovatel."""
-import threading
 from pathlib import Path
 
-import httpx
-import pytest
-from test_webhook import SECRET, TOKEN, Receiver, finished
+from conftest import SECRET, TOKEN, serve
+from test_webhook import Receiver, finished
 
 from agencast import api
 from agencast.cli import main
 from agencast.fake import Fake
 from agencast.projects import default_name
-from agencast.server import Projects, Server, Webhook
+from agencast.server import Projects, Webhook
 from agencast.task import local_ledger
-
-
-def serve(hook=None, projects=None):
-    srv = Server(hook, "127.0.0.1", 0, projects)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return srv, httpx.Client(base_url=f"http://127.0.0.1:{srv.server_address[1]}",
-                             headers={"Authorization": f"Bearer {TOKEN}"}, timeout=10)
-
-
-@pytest.fixture
-def registry_server(tmp_path, monkeypatch):
-    monkeypatch.setenv("CALLBACK_SECRET", SECRET)
-    a, b = tmp_path / "alfa", tmp_path / "beta"
-    api.new_project(a)
-    api.new_project(b)
-    projects = Projects(token=TOKEN, fake=lambda: Fake(None))
-    projects.start()
-    srv, client = serve(projects=projects)
-    yield projects, client, a, b
-    client.close()
-    srv.shutdown()
-    srv.server_close()
 
 
 def test_registry_mode_read_api(registry_server):

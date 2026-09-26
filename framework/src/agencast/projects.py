@@ -18,9 +18,9 @@ import yaml
 
 from . import ConfigErrors
 from .expressions import ExprError, parse, template_parts
-from .loader import LoadError, nested_lists, read_frontmatter, read_yaml, step_kind
+from .loader import LoadError, load_yaml, nested_lists, read_frontmatter, read_yaml, step_kind
 from .mcp_client import load_mcp, secret_names
-from .validate import _strings, env_fields, load_agent, load_config, load_skill, validate
+from .validate import _strings, env_fields, load_agent, load_skill, require_config, validate
 
 NAME = re.compile(r"[a-z][a-z0-9-]*")  # jako name agenta a scénáře ve schématech
 
@@ -288,11 +288,7 @@ def new_project(root, name: str | None = None) -> list[Path]:
 
 def _workflows(root: Path):
     wf = root / "workflows"
-    errs = []
-    cfg = load_config(wf, errs)
-    if errs or cfg is None:
-        raise ConfigErrors(errs)
-    return wf, cfg
+    return wf, require_config(wf)
 
 
 def _description(description) -> str | None:
@@ -492,12 +488,17 @@ def describe_project(root: Path) -> dict[str, Any]:
             "links": {k: sorted(map(list, v)) for k, v in links.items()}, "models_used": used, "errors": errs}
 
 
-def _tree(path: Path) -> list[dict[str, Any]]:
+def text_tree(text: str, where: str) -> list[dict[str, Any]]:
+    """Strom kroků z YAML textu scénáře; nečitelný YAML = prázdný strom (chyby hlásí validate)."""
     try:
-        sc = read_yaml(path, path.name)
+        sc = load_yaml(text, where)
     except LoadError:
         return []
     return _steps(sc.get("steps") if isinstance(sc, dict) else None, [])
+
+
+def _tree(path: Path) -> list[dict[str, Any]]:
+    return text_tree(path.read_text(encoding="utf-8"), path.name)
 
 
 def run_tree(root: Path, run_dir: Path, scenario: str | None) -> dict[str, Any]:

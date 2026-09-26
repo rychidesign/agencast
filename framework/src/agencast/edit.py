@@ -32,7 +32,7 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarStri
 from . import ConfigErrors
 from .loader import LoadError, load_yaml, nested_lists
 from .mcp_client import load_mcp
-from .projects import NAME, _steps, describe_project, etag
+from .projects import NAME, describe_project, etag, text_tree
 from .validate import load_config
 
 _N = NAME.pattern
@@ -499,12 +499,7 @@ def render(root, name: str, tag, ops: Any) -> dict[str, Any]:
     if tag is not None and tag != etag(old):
         raise Conflict(etag(old))
     text = yaml_edit(old, lambda d: _apply(d, ops), rel)
-    try:
-        sc = load_yaml(text, rel)
-    except LoadError:
-        sc = None
-    return {"text": text, "tree": _steps(sc.get("steps") if isinstance(sc, dict) else None, []),
-            "errors": _errors_with(root, rel, text)}
+    return {"text": text, "tree": text_tree(text, rel), "errors": _errors_with(root, rel, text)}
 
 
 def render_text(root, name: str, text: Any) -> dict[str, Any]:
@@ -513,12 +508,7 @@ def render_text(root, name: str, text: Any) -> dict[str, Any]:
     _path(root, rel)
     if not isinstance(text, str):
         raise ConfigErrors(["text: má být text"])
-    try:
-        sc = load_yaml(text, rel)
-    except LoadError:
-        sc = None
-    return {"tree": _steps(sc.get("steps") if isinstance(sc, dict) else None, []),
-            "errors": _errors_with(root, rel, text)}
+    return {"tree": text_tree(text, rel), "errors": _errors_with(root, rel, text)}
 
 
 def _used(root, link: str, name: str, what: str):

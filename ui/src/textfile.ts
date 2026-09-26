@@ -261,8 +261,6 @@ export function useTextFile(project: string, path: string | null, saveUrl?: stri
   return { ...f, text: f.value ?? "", setText: f.setValue };
 }
 
-export type TextFile = ReturnType<typeof useTextFile>;
-
 /** Řádkový rozdíl (LCS) pro „Zobrazit rozdíl“ (§4.6); soubory scénářů mají stovky řádků. */
 export function lineDiff(a: string, b: string): { op: " " | "-" | "+"; text: string }[] {
   const x = a.replace(/\n$/, "").split("\n");

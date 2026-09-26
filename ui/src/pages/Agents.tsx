@@ -42,8 +42,8 @@ export function MasterDetail({ project, tab, items, selected, onNew, children }:
   );
 }
 
-/** Stav uložení s `aria-live` (Uloženo ✓ / Neuloženo / chyba). */
-export function SaveNote({ dirty, state, errors = 0 }: { dirty: boolean; state: SaveState; errors?: number }) {
+/** Stav uložení s `aria-live` (Uloženo ✓ / Neuloženo / chyba); s `onJump` je počet chyb tlačítko na první chybu. */
+export function SaveNote({ dirty, state, errors = 0, onJump }: { dirty: boolean; state: SaveState; errors?: number; onJump?: () => void }) {
   const text =
     state.kind === "saving" ? t("save.saving")
     : state.kind === "failed" ? state.message
@@ -54,7 +54,9 @@ export function SaveNote({ dirty, state, errors = 0 }: { dirty: boolean; state: 
   return (
     <span className="inline-flex items-center gap-2 text-sm" aria-live="polite">
       <span data-testid="save-status" className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
-      {errors > 0 && <StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip>}
+      {errors > 0 && (onJump
+        ? <button type="button" onClick={onJump} className="hover:underline"><StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip></button>
+        : <StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip>)}
     </span>
   );
 }
@@ -414,13 +416,3 @@ export function SkillsTab({ project, selected, onChanged }: { project: Project; 
     </>
   );
 }
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-[7rem_1fr] items-baseline gap-4 text-sm">
-      <div className="text-[13px] font-semibold text-zinc-400">{label}</div>
-      <div>{children}</div>
-    </div>
-  );
-}
-export { Row };
