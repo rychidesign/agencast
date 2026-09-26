@@ -31,9 +31,9 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import ConfigErrors, AgencastError, api
 from .engine import RUN_ID, RUN_ID_TRIES, new_run_id
-from .projects import default_name, error_fields, registry_path
-from .record import INTERRUPTED_BY_RESTART
-from .validate import Project, load_config, resolve_inputs
+from .projects import NAME, default_name, error_fields, registry_path
+from .record import INTERRUPTED_BY_RESTART, _events
+from .validate import Project, require_config, resolve_inputs
 
 FIELDS = ("scenario", "inputs", "callback_url", "request_key")
 CALLBACK_PREFIXES = ("https://", "http://127.0.0.1:", "http://127.0.0.1/")  # 127.0.0.1 jen pro testy (ISSUES)
@@ -50,11 +50,7 @@ class Webhook:
     def __init__(self, workflows: Path, *, fake=None, callback_transport=None, workers: int = 1,
                  token: str | None = None):
         """`token` = token serveru v režimu registru; jinak se bere z `webhook.token_env` projektu."""
-        errs = []
-        c = load_config(workflows, errs)
-        if errs or c is None:
-            raise ConfigErrors(errs)
-        self.config = c
+        self.config = c = require_config(workflows)
         need = ([] if token else [c["webhook"]["token_env"]]) + (
             [] if fake else [c["openrouter"]["api_key_env"]])
         if missing := [n for n in need if not os.environ.get(n)]:
@@ -204,17 +200,10 @@ class Webhook:
                   run_id=entry["run_id"], callback_transport=self.callback_transport)
         run_dir = self.runs / entry["run_id"]
         if run_dir.exists():
-            event_file = run_dir / "events.jsonl"
             try:
-                lines = event_file.read_text(encoding="utf-8").splitlines()
+                events = list(_events(run_dir))
             except OSError:
-                lines = []
-            events = []
-            for line in lines:
-                try:
-                    events.append(json.loads(line))
-                except ValueError:
-                    continue
+                events = []
             if any(e.get("type") == "run_started" for e in events) and not any(
                     e.get("type") == "run_finished" for e in events):
                 step = next((e.get("step") for e in reversed(events) if e.get("type") == "step_started"), None)
@@ -306,7 +295,7 @@ class Projects:
         if unknown := set(body) - {"name", "root"}:
             return 422, {"error": f"neznámé pole: {', '.join(sorted(unknown))}"}
         name = body.get("name")
-        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9-]*", name):
+        if not isinstance(name, str) or not NAME.fullmatch(name):
             return 422, {"error": "name: má být malá písmena, číslice a pomlčka, začíná písmenem"}
         if "root" in body and (not isinstance(body["root"], str) or not body["root"]):
             return 422, {"error": "root: má být neprázdná cesta"}
@@ -344,7 +333,7 @@ class Projects:
         value, name = body.get("root"), body.get("name")
         if not isinstance(value, str) or not value:
             return 422, {"error": "root: chybí neprázdná cesta"}
-        if name is not None and (not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9-]*", name)):
+        if name is not None and (not isinstance(name, str) or not NAME.fullmatch(name)):
             return 422, {"error": "name: má být malé písmeno následované malými písmeny, číslicemi nebo pomlčkou"}
         try:
             root = api.normalize_project_root(value, api.projects_root())

@@ -13,6 +13,7 @@ dict = objekt se známými klíči; `[t]` = seznam prvků typu t.
 import ast
 import json
 import math
+import operator
 import re
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -24,6 +25,8 @@ LITERALS = {"true": True, "false": False, "null": None}
 ROOTS = ("inputs", "steps")
 FUNCS = ("len", "min", "max", "round", "str", "int", "float", "join")
 _ARITH = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/", ast.Mod: "%"}
+_OPS = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv, "%": operator.mod,
+        "<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge}
 _CMP = {ast.Eq: "==", ast.NotEq: "!=", ast.Lt: "<", ast.LtE: "<=", ast.Gt: ">", ast.GtE: ">=",
         ast.In: "in", ast.NotIn: "not in"}
 _INT_RE = re.compile(r"[+-]?[0-9]+")
@@ -442,9 +445,7 @@ class _Eval(_Walk):
                 self.at(r, arith_rule, sym, kind(a), kind(b))
                 if sym in ("/", "%") and b == 0:
                     raise self.err("dělení nulou", r)
-                v = {"+": lambda: a + b, "-": lambda: a - b, "*": lambda: a * b,
-                     "/": lambda: a / b, "%": lambda: a % b}[sym]()
-                return self.at(n, _check_result, v)
+                return self.at(n, _check_result, _OPS[sym](a, b))
             case ast.Compare(left=l, ops=ops, comparators=rs):
                 a = self.ev(l)
                 for op, rn in zip(ops, rs):
@@ -481,14 +482,7 @@ class _Eval(_Walk):
                 return a == b and kind(a) == kind(b)
             case "!=":
                 return not (a == b and kind(a) == kind(b))
-            case "<":
-                return a < b
-            case "<=":
-                return a <= b
-            case ">":
-                return a > b
-            case ">=":
-                return a >= b
+        return _OPS[op](a, b)
 
 
 def evaluate(expr: str, ctx: dict, tree=None):

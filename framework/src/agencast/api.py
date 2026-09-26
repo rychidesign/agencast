@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from . import ConfigErrors, projects as _projects
+# Registr projektů beze změny z projects.py (projects.md): new_project, projects = [{name, root, available}],
+# projects_root (výchozí ~/workspace), normalize_project_root (rozbalí ~, odmítne .., relativní pod base).
+from .projects import (ProjectConflict, list_projects as projects, new_project, normalize_root as normalize_project_root,
+                       projects_root, registry_writable, remove as remove_project)
 from .edit import (Conflict, NotFound, OpError, add_step, batch, delete_agent, delete_scenario, delete_skill, delete_step,
                    file_etag, move_step, read_file, render, replace_step, set_agent, set_config, set_header, set_skill,
                    render_text as _render_text, update_step, validate_text, write_file)
@@ -17,7 +21,7 @@ from .fake import Fake
 from .loader import LoadError, load_dotenv, read_yaml
 from .record import Record, run_detail as _run_detail, run_status, step_detail as _step_detail
 from .task import local_ledger
-from .validate import Project, load_config, resolve_inputs, validate
+from .validate import Project, require_config, resolve_inputs, validate
 
 __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
            "new_scenario", "projects", "projects_root", "normalize_project_root", "registry_writable",
@@ -57,11 +61,7 @@ def load(scenario_path, *, project_root=None, fake: Fake | None = None, offline:
     load_dotenv(wf.parent / ".env")
     load_dotenv(Path.cwd() / ".env")
     if fake is not None and not fake.models:
-        errs = []
-        cfg = load_config(wf, errs)
-        if errs:
-            raise ConfigErrors(errs)
-        fake.models = [m["id"] for m in cfg["models"].values()]
+        fake.models = [m["id"] for m in require_config(wf)["models"].values()]
     return validate(s, transport=fake.transport() if fake else None, check_models=not offline)
 
 
@@ -137,12 +137,6 @@ def last_run(project_root, scenario: str | None = None) -> dict[str, Any] | None
     return {k: r[0].get(k) for k in ("run_id", "state", "started_at", "finished_at", "cost_usd")} if r else None
 
 
-def new_project(root, name: str | None = None) -> list[Path]:
-    """Kostra projektu v `root` (odmítne existující workflows/), zapsaná do registru pod `name`
-    (výchozí jméno složky); vrací vytvořené soubory."""
-    return _projects.new_project(root, name)
-
-
 def new_agent(project_root, name: str, description: str | None = None, model: str | None = None) -> list[Path]:
     """workflows/agents/<name>.md s aliasem modelu z config.yaml projektu (`model`, jinak první); nepřepisuje."""
     return _projects.new_agent(find_root(project_root), name, description, model)
@@ -153,36 +147,9 @@ def new_scenario(project_root, name: str, description: str | None = None) -> lis
     return _projects.new_scenario(find_root(project_root), name, description)
 
 
-def projects() -> list[dict[str, str | bool]]:
-    """Registr projektů: `[{name, root, available}]` (projects.md)."""
-    return _projects.list_projects()
-
-
-def projects_root() -> Path:
-    """Výchozí kořen projektů z registru (`~/workspace`, není-li nastavený)."""
-    return _projects.projects_root()
-
-
-def normalize_project_root(path: str | Path, base: Path | None = None) -> Path:
-    """Normalizuje cestu z API: rozbalí `~`, odmítne `..`, relativní drží pod `base`."""
-    return _projects.normalize_root(path, base)
-
-
-def registry_writable() -> bool:
-    """Zda proces může zapsat registr projektů."""
-    return _projects.registry_writable()
-
-
-ProjectConflict = _projects.ProjectConflict
-
-
 def add_project(path, name: str | None = None) -> str:
     """Zapíše projekt (kořen s workflows/) do registru; vrací jeho jméno."""
     return _projects.add(find_root(path), name)
-
-
-def remove_project(name: str):
-    _projects.remove(name)
 
 
 def ensure_project(root) -> str | None:

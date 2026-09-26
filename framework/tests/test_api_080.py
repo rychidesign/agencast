@@ -6,10 +6,9 @@ import time
 
 import httpx
 import pytest
-from test_api import registry_server  # noqa: F401 — fixture
+from conftest import TOKEN
 from test_edit import VETVE, ids
 from test_gui_api import held_lock
-from test_webhook import TOKEN
 
 from agencast import ConfigErrors, api, server
 from agencast.fake import Fake
@@ -219,7 +218,7 @@ def test_fresh_run_state(proj, monkeypatch):
     assert api.run_detail(proj, dry.name)["state"] == "dry_run"  # type: ignore[index]
 
 
-def test_http_batch_render_head(registry_server):  # noqa: F811
+def test_http_batch_render_head(registry_server):
     _, client, a, _ = registry_server
     assert api.write_file(a, "scenarios/prejmenuj.yaml", None, PREJMENUJ)["errors"] == []
     tag = client.get("/projects/alfa/scenarios/prejmenuj").json()["etag"]
@@ -276,7 +275,7 @@ def test_http_batch_render_head(registry_server):  # noqa: F811
                                  if s["name"] == "prejmenuj")
 
 
-def test_http_fresh_run_is_never_dry_run(registry_server):  # noqa: F811
+def test_http_fresh_run_is_never_dry_run(registry_server):
     """15 přes HTTP: od 202 do konce běhu jen queued/running/succeeded."""
     _, client, _, _ = registry_server
     run_id = client.post("/projects/alfa/runs", json={"scenario": "ukazka"}).json()["run_id"]

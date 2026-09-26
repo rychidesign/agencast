@@ -10,14 +10,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
 import pytest
-from conftest import model_ids, scenario
+from conftest import SECRET, TOKEN, model_ids, scenario
 
 from agencast.fake import Fake
 from agencast import api
 from agencast.server import Server, Webhook
-
-TOKEN, SECRET = "token-webhooku-123", "podpis-callbacku-456"
-
 
 class Receiver:
     """Lokální přijímač callbacku; `status` = co odpoví."""

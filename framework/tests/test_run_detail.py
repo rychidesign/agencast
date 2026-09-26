@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 from conftest import run
-from test_api import registry_server  # noqa: F401 — fixture
 
 from agencast import api, engine
 from agencast.loader import LoadError, read_frontmatter, read_yaml
@@ -97,7 +96,7 @@ def test_step_details_from_events(tmp_path):
     assert step_detail(d, "out")["output"] is None  # soubor chybí → null, ne chyba
 
 
-def test_runs_list_fields_filter_limit_and_last_run(registry_server):  # noqa: F811
+def test_runs_list_fields_filter_limit_and_last_run(registry_server):
     projects, client, a, b = registry_server
     runs = a / "runs"
     done = {"ts": "2026-09-26T10:00:05.000Z", "type": "run_finished", "status": "failed", "duration_s": 5,
@@ -153,7 +152,7 @@ def test_runs_list_fields_filter_limit_and_last_run(registry_server):  # noqa: F
     assert beta["reason"] == f"chybí {b / 'workflows' / 'config.yaml'}"
 
 
-def test_broken_config_errors_and_runs_still_readable(registry_server):  # noqa: F811
+def test_broken_config_errors_and_runs_still_readable(registry_server):
     _, client, a, _ = registry_server
     cfg = a / "workflows" / "config.yaml"
     text = cfg.read_text()

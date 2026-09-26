@@ -118,6 +118,15 @@ def load_config(workflows: Path, errs: list) -> dict | None:
     return c
 
 
+def require_config(workflows: Path) -> dict:
+    """`load_config`, chyby → ConfigErrors."""
+    errs = []
+    c = load_config(workflows, errs)
+    if errs:
+        raise ConfigErrors(errs)
+    return c
+
+
 # --- agenti a skilly ------------------------------------------------------------
 
 def in_subdir(wf: Path, d: str, fname: str) -> str:
@@ -472,14 +481,8 @@ class _Checker:
             if "when" in st:
                 self.expr_type(info, "when", st["when"], res, want="boolean")
             out = NOOUT
-            if k in ("ask", "task"):
+            if k in ("ask", "task", "jev", "image", "call"):
                 out = getattr(self, k)(info, res)
-            elif k == "jev":
-                out = self.jev(info, res)
-            elif k == "image":
-                out = self.image(info, res)
-            elif k == "call":
-                out = self.call(info, res)
             elif k == "set":
                 out = {n: self.expr_type(info, f"set.{n}", v, res) if isinstance(v, str) else kind(v)
                        for n, v in st["set"].items()}

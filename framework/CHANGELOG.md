@@ -5,6 +5,25 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.10.1 — 2026-09-26 (úklid podle ponytail auditu, bez změny chování)
+
+Patch: úklid podle ponytail auditu, bez změny chování; formáty v1, záznam
+běhu a HTTP smlouvy se nemění. Audit: `docs/audit-ponytail-2026-09-26.md`.
+
+- Zdvojené pomocné funkce na jednom místě: `validate.require_config`
+  (config nebo `ConfigErrors`, dřív 4 kopie v api, cli, projects, server),
+  `projects.text_tree` (strom kroků z textu, dřív 3 kopie v edit a
+  projects), `record._events` i při obnově fronty v `server`,
+  `mcp_client._leaves` i v `engine`, `projects.NAME` i v `server`.
+- `api` re-exportuje funkce registru z `projects` místo obalů, které jen
+  předávaly argumenty (`projects`, `new_project`, `projects_root`,
+  `normalize_project_root`, `registry_writable`, `remove_project`).
+- Výrazy počítají aritmetiku a `< <= > >=` přes `operator`; `validate`
+  volá kontroly kroků jedním `getattr`; kratší `schema_errors`.
+- Testy: společný `registry_server`, `serve`, `TOKEN` a `SECRET`
+  v `conftest.py` (bez křížových importů a `noqa`), smazán nepoužitý
+  `fake_for`.
+
 ## 0.10.0 — 2026-09-26 (doplňky API podle nálezů GUI 21–28)
 
 Minor: pouze aditivní HTTP API a oprava obnovy běhů; formáty v1, smlouva

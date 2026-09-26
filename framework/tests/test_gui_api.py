@@ -7,8 +7,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from test_api import registry_server, serve  # noqa: F401 — fixture
-from test_webhook import SECRET, TOKEN, finished
+from conftest import SECRET, TOKEN, serve
+from test_webhook import finished
 
 from agencast import api, server
 from agencast.fake import Fake
@@ -40,7 +40,7 @@ def test_error_fields(msg, fields):
     assert error_fields(msg, ROOT) == {"message": msg, **fields}
 
 
-def test_validate_without_write_and_structured_errors(registry_server):  # noqa: F811
+def test_validate_without_write_and_structured_errors(registry_server):
     _, client, a, _ = registry_server
     assert client.post("/projects/alfa/validate").json() == {"errors": []}
     path = a / "workflows" / "scenarios" / "ukazka.yaml"
@@ -68,7 +68,7 @@ def test_validate_without_write_and_structured_errors(registry_server):  # noqa:
     assert f["errors"][0]["line"] == 4 and "duplicitní klíč" in f["errors"][0]["message"]
 
 
-def test_env_flags_never_values(registry_server, monkeypatch):  # noqa: F811
+def test_env_flags_never_values(registry_server, monkeypatch):
     _, client, a, _ = registry_server
     (a / "workflows" / "mcp.yaml").write_text(
         "version: 1\nservers:\n  web:\n    description: Web\n    url: https://mcp.example.com\n"
@@ -82,7 +82,7 @@ def test_env_flags_never_values(registry_server, monkeypatch):  # noqa: F811
     assert "sk-or-tajna-hodnota" not in r.text and SECRET not in r.text
 
 
-def test_config_schema_errors_have_key_lines(registry_server):  # noqa: F811
+def test_config_schema_errors_have_key_lines(registry_server):
     _, client, a, _ = registry_server
     path = a / "workflows" / "config.yaml"
     lines = path.read_text().splitlines()
@@ -123,7 +123,7 @@ def test_fake_template_project_runs_without_callback_secret(tmp_path, monkeypatc
         srv.server_close()
 
 
-def test_runs_for_gui(registry_server):  # noqa: F811
+def test_runs_for_gui(registry_server):
     projects, client, a, _ = registry_server
     # běh z GUI bez callback_url: proběhne, callback se neposílá, v záznamu callback_url: null
     r = client.post("/projects/alfa/runs", json={"scenario": "ukazka"})
@@ -203,7 +203,7 @@ def test_post_runs_contract_unchanged(wf, monkeypatch):
     assert s == 422 and "neznámé pole 'dry_run'" in body["details"][0]
 
 
-def test_serves_gui_without_token_and_cors(registry_server, tmp_path, monkeypatch):  # noqa: F811
+def test_serves_gui_without_token_and_cors(registry_server, tmp_path, monkeypatch):
     projects, client, _, _ = registry_server
     ui = tmp_path / "ui"
     monkeypatch.setattr(server, "UI", ui)
