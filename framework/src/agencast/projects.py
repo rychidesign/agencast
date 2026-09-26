@@ -1,19 +1,24 @@
-"""Registr projektů a nový projekt, agent a scénář ze šablon (`agencast projects`, `new`; projects.md).
+"""Registr projektů, nový projekt/agent/scénář ze šablon a popis projektu pro GUI
+(`agencast projects`, `new`, `GET /projects/...`; projects.md, api.md).
 
 Registr = `<AGENCAST_CONFIG_DIR, výchozí ~/.config/agencast>/projects.yaml`,
 `projects: [{name, root}]`, bez tajemství; projekty se neskenují.
 Šablony jsou tady jako řetězce, ne kopie z workflows/ — ty jsou zlaté testy
 a mění se s nimi. Nic se nepřepisuje: existující soubor = chyba `config`.
 """
+import ast
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 from . import ConfigErrors
-from .loader import LoadError, read_yaml
-from .validate import load_config
+from .expressions import ExprError, parse, template_parts
+from .loader import LoadError, nested_lists, read_frontmatter, read_yaml, step_kind
+from .mcp_client import load_mcp
+from .validate import _strings, load_agent, load_config, load_skill, validate
 
 NAME = re.compile(r"[a-z][a-z0-9-]*")  # jako name agenta a scénáře ve schématech
 
@@ -143,8 +148,12 @@ def list_projects() -> list[dict[str, str | bool]]:
             for x in _read()]
 
 
+def default_name(root: Path) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", root.name.lower()).strip("-")
+
+
 def _checked_name(root: Path, name: str | None, items: list[dict[str, str]]) -> str:
-    name = name or re.sub(r"[^a-z0-9]+", "-", root.name.lower()).strip("-")
+    name = name or default_name(root)
     other = next((x for x in items if x["name"] == name), None)
     if not NAME.fullmatch(name) or other:
         why = f"už v registru je ({other['root']})" if other else "není malá písmena, číslice a pomlčka od písmene"
@@ -231,3 +240,128 @@ def new_scenario(root: Path, name: str) -> list[Path]:
         raise ConfigErrors([f"{wf / 'agents'}: projekt nemá agenta — nejdřív agencast new agent <jméno>"])
     return _write({wf / "scenarios" / f"{name}.yaml": SCENARIO.format(
         name=name, description="TODO — co scénář dělá", agent=agents[0])})
+
+
+# --- popis projektu pro GUI (api.md) ------------------------------------------------
+# Z YAML přes loader, chyby z validate (check_models=False) — i rozbitý soubor jde zobrazit.
+
+def _refs(own: dict[str, Any]) -> list[str]:
+    """Odkazy `steps.<id>.<pole>` ve výrazech a šablonách kroku (bez vnořených kroků)."""
+    out = set()
+    for path, text in _strings(own):
+        if "{{" in text:
+            try:
+                srcs = [e for _, _, e in template_parts(text)]
+            except ExprError:
+                continue
+        elif path in (("when",), ("switch", "value")) or (len(path) == 2 and path[0] == "set"):
+            srcs = [text]
+        else:
+            continue
+        for src in srcs:
+            try:
+                tree = parse(src)
+            except ExprError:
+                continue
+            out |= {f"steps.{n.value.attr}.{n.attr}" for n in ast.walk(tree) if isinstance(n, ast.Attribute)
+                    and isinstance(n.value, ast.Attribute) and isinstance(n.value.value, ast.Name)
+                    and n.value.value.id == "steps"}
+    return sorted(out)
+
+
+def _steps(steps, flat: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Strom kroků pro karty; `nn` = pořadí v souboru hloubkově (jako složky běhu). `flat` = všechny kroky."""
+    out = []
+    for st in steps if isinstance(steps, list) else []:
+        if not isinstance(st, dict):
+            continue
+        k = step_kind(st)
+        own = {key: v for key, v in st.items() if key not in ("id", "when", "parallel")}
+        if k == "switch" and isinstance(st["switch"], dict):
+            own["switch"] = {key: v for key, v in st["switch"].items() if key not in ("cases", "default")}
+        item: dict[str, Any] = {"nn": len(flat) + 1, "id": st.get("id"), "type": k, "when": st.get("when"), "fields": own,
+                "refs": _refs({**own, **({"when": st["when"]} if "when" in st else {})})}
+        if k in ("ask", "task", "call") and isinstance(st[k], dict):
+            item["call" if k == "call" else "agent"] = st[k].get("scenario" if k == "call" else "agent")
+        flat.append(item)
+        for p, lst in nested_lists(st):
+            sub = _steps(lst, flat)
+            if p[0] == "parallel":
+                item.setdefault("branches", {})[p[1]] = sub
+            elif p[1] == "cases":
+                item.setdefault("cases", {})[p[2]] = sub
+            else:
+                item["default"] = sub
+        if k == "switch":
+            item.setdefault("cases", {})
+            item.setdefault("default", [])
+        out.append(item)
+    return out
+
+
+def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """(popis scénáře se stromem kroků a chybami validate, všechny kroky)."""
+    info: dict[str, Any] = {"name": path.stem, "description": None, "inputs": {}, "outputs": {}, "callable": False}
+    try:
+        sc = read_yaml(path, path.name)
+    except LoadError as e:
+        return {**info, "steps_count": 0, "errors": [str(e)], "steps": []}, []
+    sc = sc if isinstance(sc, dict) else {}
+    flat: list[dict[str, Any]] = []
+    tree = _steps(sc.get("steps"), flat)
+    try:
+        validate(path, check_models=False)
+        errors = []
+    except ConfigErrors as e:
+        errors = e.errors
+    info.update({k: sc.get(k) or info[k] for k in ("description", "inputs", "outputs")},
+                callable=sc.get("callable") is True, steps_count=len(flat), errors=errors, steps=tree)
+    return info, flat
+
+
+def describe_scenario(root: Path, name: str) -> dict[str, Any] | None:
+    """Scénář pro karty kroků; None = neexistuje."""
+    path = root / "workflows" / "scenarios" / f"{name}.yaml"
+    return _scenario(path)[0] if NAME.fullmatch(name) and path.is_file() else None
+
+
+def describe_project(root: Path) -> dict[str, Any]:
+    """Scénáře, agenti, skilly, MCP servery (bez tajemství), aliasy, limity a vazby mezi nimi."""
+    wf, cfg = _workflows(root)
+    errs = []
+    mcp = load_mcp(wf, errs)
+    links = {"scenario_agent": set(), "scenario_scenario": set(), "agent_skill": set(), "agent_server": set()}
+    scenarios = []
+    for path in sorted((wf / "scenarios").glob("*.yaml")):
+        info, flat = _scenario(path)
+        del info["steps"]
+        scenarios.append(info)
+        links["scenario_agent"] |= {(info["name"], s["agent"]) for s in flat if isinstance(s.get("agent"), str)}
+        links["scenario_scenario"] |= {(info["name"], s["call"]) for s in flat if isinstance(s.get("call"), str)}
+    agents = []
+    for path in sorted((wf / "agents").glob("*.md")):
+        a_errs = []
+        try:
+            fm = read_frontmatter(path, f"agents/{path.name}")[0]
+        except LoadError as e:
+            fm, a_errs = {}, [str(e)]
+        fm = fm if isinstance(fm, dict) else {}
+        if not a_errs:
+            load_agent(wf, path.stem, cfg, a_errs, mcp=mcp)
+        model = fm.get("model")
+        agents.append({"name": path.stem, "description": fm.get("description"), "model": model,
+                       "model_id": cfg["models"].get(model, {}).get("id") if isinstance(model, str) else None,
+                       "skills": fm.get("skills") or [], "mcp": fm.get("mcp") or [], "tools": fm.get("tools") or {},
+                       "errors": a_errs})
+        links["agent_skill"] |= {(path.stem, x) for x in agents[-1]["skills"] if isinstance(x, str)}
+        links["agent_server"] |= {(path.stem, x) for x in agents[-1]["mcp"] if isinstance(x, str)}
+    skills = []
+    for path in sorted((wf / "skills").glob("*/SKILL.md")):
+        s_errs = []
+        s = load_skill(wf, path.parent.name, s_errs, "skills")
+        skills.append({"name": path.parent.name, "description": s[1] if s else None, "errors": s_errs})
+    servers = [{"name": n, "type": "stdio" if "command" in s else "http", "agents": s["agents"],
+                "tools": s.get("tools"), "scenarios": s.get("scenarios")} for n, s in mcp.items()]
+    return {"root": str(root), "models": {a: m["id"] for a, m in cfg["models"].items()}, "limits": cfg["limits"],
+            "scenarios": scenarios, "agents": agents, "skills": skills, "mcp_servers": servers,
+            "links": {k: sorted(map(list, v)) for k, v in links.items()}, "errors": errs}

@@ -272,3 +272,17 @@ rozhoduje koordinátor nebo uživatel.
     `workflows/config.yaml` = `available: false`, položka zůstává.
     `new project|agent|scenario` zakládá soubory ze šablon ve frameworku
     a nic nepřepisuje. Formáty v1 beze změny.
+42. **Čtecí API `serve` pro GUI** (rozhodli uživatel a koordinátor
+    2026-09-26, framework 0.4.0; [api.md](api.md)). GUI (`ui/`, DESIGN
+    „Obálky“) mluví s jádrem jen přes HTTP. Rodina `/projects/...` je
+    aditivní: `POST /runs`, `GET /runs/<id>` a callbacky se nemění (n8n).
+    `serve` v projektu nebo s `--project` = jeden projekt s jeho
+    `webhook.token_env`; mimo projekt = režim registru s jedním tokenem
+    serveru `AGENCAST_TOKEN` (varianta A koordinátora: per-projektové
+    tokeny by v jednom procesu kolidovaly jmény proměnných). V registru se
+    tajemství berou z prostředí serveru (a `.env` v cwd), jména proměnných
+    z `config.yaml` projektu. Popis projektu a scénáře čte loaderem a
+    `validate` (`check_models=False`), ne vlastním parserem; chyby jsou
+    v poli `errors`, rozbitý soubor se zobrazí, co jde. `files/` pouští jen
+    soubory uvnitř složky běhu (jinak 404), `spend` jen ostrou knihu.
+    Neznámý projekt/scénář/běh → 404 s JSON chybou.

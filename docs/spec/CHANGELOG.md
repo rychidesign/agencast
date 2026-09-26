@@ -148,3 +148,14 @@ každého nálezu je na konci REVIEW.md.
   záznamy ji nemají; čtenář neznámé události smí ignorovat.
 - [webhook.md](webhook.md): čekání na slot a třídy `timeout`/`budget`
   u běhu, který nezačal. Tvar požadavku, odpovědí ani callbacku se nemění.
+
+## version 1 — beze změny formátu (framework 0.4.0)
+
+- Nové [projects.md](projects.md): registr projektů
+  `~/.config/agencast/projects.yaml` a šablony `agencast new` (ISSUES 41).
+- Nové [api.md](api.md): čtecí API `serve` (`/projects/...`), režim
+  registru s `AGENCAST_TOKEN`, `POST /projects/<p>/runs` (ISSUES 42).
+  [webhook.md](webhook.md) na něj odkazuje; `POST /runs`, `GET /runs/<id>`
+  a callback se nemění.
+- Formáty `agent`, `scenario`, `config`, `mcp`, záznam běhu ani JSON Schema
+  se nemění.

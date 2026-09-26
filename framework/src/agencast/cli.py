@@ -3,7 +3,7 @@
     agencast validate <scénář> [--offline]
     agencast run <scénář> -i klíč=hodnota [--dry-run] [--fake [SKRIPT]] [--callback-url URL]
     agencast runs list | show <run_id>
-    agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]]
+    agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]]   (mimo projekt: režim registru)
     agencast migrate <soubor>
     agencast new project <cesta> [--name N] | agent <jméno> | scenario <jméno>
     agencast projects list | add <cesta> [--name N] | rm <jméno>
@@ -12,10 +12,11 @@
 s workflows/ od aktuální složky nahoru, nebo --project <cesta> (u každého příkazu).
 """
 import argparse
+import os
 import sys
 from pathlib import Path
 
-from . import ConfigErrors, __version__, api
+from . import ConfigErrors, __version__, api, projects as _projects
 from .loader import LoadError, load_dotenv, read_frontmatter, read_yaml, version_error
 from .fake import Fake
 from .record import count, cz, cz_usd
@@ -134,21 +135,46 @@ def cmd_runs(a) -> int:
 
 
 def cmd_serve(a) -> int:
-    from .server import Server, Webhook
+    """V projektu nebo s --project jeden projekt (jako do 0.3.x); mimo projekt režim registru (api.md)."""
+    from .server import Projects, Server, Webhook
     try:
-        wf, cfg = _config(a)
         if a.workers < 1:
             raise ConfigErrors([f"--workers má být aspoň 1, je {a.workers}"])
-        hook = Webhook(wf, fake=_fake(a.fake, cfg["models"]) if a.fake is not None else None, workers=a.workers)
-        srv = Server(hook, a.host, a.port)
+        try:
+            _root(a)
+            registry = False
+        except ConfigErrors:
+            if a.project:
+                raise
+            registry = True
+        if registry:
+            load_dotenv(Path.cwd() / ".env")
+            if not (token := os.environ.get("AGENCAST_TOKEN")):
+                raise ConfigErrors(["chybí proměnná prostředí AGENCAST_TOKEN — mimo projekt běží serve v režimu "
+                                    "registru a tohle je token serveru (.env v aktuální složce nebo prostředí); "
+                                    "jeden projekt: --project <cesta>"])
+            hook, projects = None, Projects(token=token, workers=a.workers,
+                                            fake=(lambda: _fake(a.fake, {})) if a.fake is not None else None)
+        else:
+            wf, cfg = _config(a)
+            hook = Webhook(wf, fake=_fake(a.fake, cfg["models"]) if a.fake is not None else None, workers=a.workers)
+            projects = Projects(hook)
+        srv = Server(hook, a.host, a.port, projects)
+        if not hook:
+            projects.start()
     except (ConfigErrors, LoadError) as e:
         return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
     except OSError as e:
         return _fail_config([f"server nejde spustit na {a.host}:{a.port}: {e.strerror}"])
-    hook.start()
-    print(f"agencast serve: http://{a.host}:{srv.server_address[1]} — POST /runs, GET /runs/<run_id> · "
-          f"workerů {hook.workers} · ve frontě {count(hook.q.qsize(), 'běh', 'běhy', 'běhů')} · záznamy {hook.runs}" + (" · falešný poskytovatel" if hook.fake else ""),
-          flush=True)
+    url = f"agencast serve: http://{a.host}:{srv.server_address[1]}"
+    fake = " · falešný poskytovatel" if a.fake is not None else ""
+    if hook:
+        hook.start()
+        print(f"{url} — POST /runs, GET /runs/<run_id>, GET /projects/… · workerů {hook.workers} · "
+              f"ve frontě {count(hook.q.qsize(), 'běh', 'běhy', 'běhů')} · záznamy {hook.runs}{fake}", flush=True)
+    else:
+        print(f"{url} — režim registru ({_projects.registry_path()}): GET /projects/…, "
+              f"POST /projects/<projekt>/runs · workerů na projekt {a.workers}{fake}", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -232,7 +258,8 @@ def main(argv=None) -> int:
     rss = rs.add_subparsers(dest="runs_cmd", required=True)
     rss.add_parser("list", parents=[common], help="seznam běhů")
     rss.add_parser("show", parents=[common], help="summary.md běhu").add_argument("run_id")
-    s = sub.add_parser("serve", parents=[common], help="webhook server: POST /runs, GET /runs/<run_id>")
+    s = sub.add_parser("serve", parents=[common], help="webhook server a čtecí API: POST /runs, GET /runs/<run_id>, "
+                                                       "/projects/…; mimo projekt režim registru (AGENCAST_TOKEN)")
     s.add_argument("--host", default="127.0.0.1", help="výchozí 127.0.0.1")
     s.add_argument("--port", type=int, default=8080, help="výchozí 8080")
     s.add_argument("--workers", type=int, default=1, metavar="N",

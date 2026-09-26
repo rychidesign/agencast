@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import shutil
 import sys
@@ -78,6 +79,7 @@ def new_run_id(name: str) -> str:
 
 
 RUN_ID_TRIES = 5
+RUN_ID = re.compile(r"\d{8}-\d{6}-[a-z0-9-]+-[0-9a-f]{4}")
 
 
 def new_record(runs_dir: Path, name: str, secret_vals: dict) -> Record:

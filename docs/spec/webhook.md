@@ -6,6 +6,11 @@ přijde hned; výsledek později na `callback_url` (D2). Podoba callbacku:
 
 Značení: **návrh** = DESIGN.md to neřeší, navržené výchozí chování.
 
+Čtení projektů a běhů přes HTTP (`GET /projects/...`) a spuštění běhu
+v konkrétním projektu (`POST /projects/<p>/runs`, jinak totéž co
+`POST /runs`) popisuje [api.md](api.md) (od frameworku 0.4.0). Tahle
+smlouva se tím nemění.
+
 ## Požadavek
 
 ```http

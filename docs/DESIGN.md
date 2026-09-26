@@ -229,6 +229,25 @@ jsou **tenké obálky nad `agencast.api`** (`load`, `run`, `dry_run`,
   minuty a web endpoint Modalu má limit 150 s (D5), takže nástroj nesmí
   čekat na konec běhu v jednom volání.
 
+**GUI — rozhodnuto 2026-09-26 (uživatel + koordinátor):**
+
+- GUI je samostatná obálka `ui/` v tomto repu (React). Servíruje ji
+  `agencast serve`; Skynet Soul ji jen vloží do záložky (iframe).
+- GUI mluví s jádrem **jen přes HTTP API `serve`** (`/projects/...`,
+  [spec/api.md](spec/api.md)) — žádný přímý přístup k souborům ani vlastní
+  parser formátů.
+- Scénář je svislý seznam karet kroků (strom podle `parallel`/`switch`),
+  žádný canvas; GUI je zároveň prohlížeč běhů (stav kroků, cena, soubory
+  běhu, denní útrata).
+- **Soubor je pravda:** scénáře a agenti zůstávají YAML/Markdown ve
+  `workflows/`; GUI je jen čte (editační operace přijdou později a budou
+  zapisovat do stejných souborů).
+- Projekty se **neskenují**, vede se registr
+  `~/.config/agencast/projects.yaml` ([spec/projects.md](spec/projects.md));
+  `agencast serve` mimo projekt obsluhuje všechny projekty z registru
+  s tokenem serveru `AGENCAST_TOKEN`, v projektu nebo s `--project` jeden
+  projekt jako dosud (n8n, Modal). ISSUES 41, 42.
+
 ---
 
 ## 4. Struktura repozitáře

@@ -1,6 +1,6 @@
 # framework — AgenCast, jádro `agencast` (multiagent-workflows)
 
-Verze 0.3.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
+Verze 0.4.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
 v `docs/DESIGN.md`. Balík i příkaz se jmenují `agencast` (do 0.2.5
 `maw`); jméno příkazu je v `pyproject.toml` (`[project.scripts]`).
 
@@ -64,7 +64,14 @@ POST /runs            Authorization: Bearer $WEBHOOK_TOKEN
 → 200 {"run_id": "<původní>", "queue_position": null}   request_key už byl použit
 → 401 / 422 {"error": "…", "details": [...]}   nic nevzniká, callback nepřijde
 GET /runs/<run_id>    stav: queued (+ queue_position) / running / tělo callbacku + callback_failed
+GET /projects, /projects/<p>[/scenarios/<s>|/runs[/<id>[/files/<cesta>]]|/spend?day=]   čtecí API (docs/spec/api.md)
+POST /projects/<p>/runs   totéž co POST /runs v projektu <p>
 ```
+
+- V projektu nebo s `--project` jeden projekt (token `webhook.token_env`);
+  **mimo projekt režim registru**: všechny projekty z registru, token
+  serveru `AGENCAST_TOKEN`, tajemství z prostředí serveru a `.env` v cwd,
+  `/runs` jen přes `/projects/<p>/runs`.
 
 - Start potřebuje proměnné `webhook.token_env`, `callback.secret_env`
   a (bez `--fake`) klíč OpenRouteru; jinak skončí chybou `config`.
@@ -107,10 +114,10 @@ skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
 | `providers.py` | OpenRouter chat / Jev / obrázek, třídy chyb, kaskáda |
 | `fake.py` | falešný poskytovatel (`httpx.MockTransport`) |
 | `record.py` | záznam běhu, summary.md, plan.md, report.html |
-| `server.py` | webhook server, fronta, request_key |
+| `server.py` | webhook server, fronta, request_key, čtecí API `/projects/...` |
 | `mcp_client.py` | `mcp.yaml`, MCP servery běhu (SDK `mcp` 2.2), normalizace schémat nástrojů |
 | `task.py` | krok `task` (smyčka model ↔ nástroje, `load_skill`), `dedupe_key` |
-| `projects.py` | registr projektů, šablony pro `agencast new` |
+| `projects.py` | registr projektů, šablony pro `agencast new`, popis projektu a scénáře pro GUI |
 | `api.py` | veřejné API pro obálky (CLI, `serve`, později Modal a MCP): `load`, `run`, `dry_run`, `runs_list`, `run_status`, `new_*` |
 | `cli.py` | příkaz `agencast` |
 

@@ -3,9 +3,10 @@
 Vrstvy: loader (čtení souborů), validate (statické kontroly), expressions
 (výrazy a šablony), engine (běh scénáře), providers (OpenRouter + falešný),
 record (záznam běhu, report.html), mcp_client (MCP servery), task (krok task,
-dedupe_key), server (webhook), api (veřejné API pro obálky), cli.
+dedupe_key), projects (registr projektů, šablony, popis pro GUI), server
+(webhook a čtecí API), api (veřejné API pro obálky), cli.
 """
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 # Verze formátů, které framework umí číst (DESIGN §5.9 bod 6).
 FORMAT_VERSIONS = (1,)

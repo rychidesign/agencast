@@ -10,6 +10,10 @@ A **project** is any folder containing `workflows/` with `config.yaml`,
 walking up from the current directory, or takes `--project <root>`; a scenario
 is given by name (`ig-post`) or as an absolute path to its `.yaml`.
 
+New project with a sample agent and scenario: `agencast new project <dir>`
+(also `new agent|scenario <name>`); known projects: `agencast projects list`
+(registry `~/.config/agencast/projects.yaml`, filled by `new`, `validate`, `run`).
+
 Command: `agencast` (on this host `~/.local/bin/agencast`). If missing, use
 `uv run --project ~/workspace/multiagent-workflows/framework agencast`.
 

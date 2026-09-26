@@ -5,6 +5,30 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.4.0 — 2026-09-26 (agencast new, registr projektů, čtecí API serve)
+
+Minor: nové příkazy a endpointy, formáty v1 beze změny (R8).
+
+- **`agencast new project <cesta> [--name N]`** — kostra projektu:
+  `workflows/config.yaml` (OpenRouter, aliasy `chytry`/`rychly`/
+  `gemini-image`, `storage.type: local`), agent `pisatel`, scénář `ukazka`
+  (projdou `validate --offline` i `--fake`), `.env.example`, `.gitignore`.
+  **`new agent|scenario <jméno>`** přidá minimální soubor. Nic nepřepisuje.
+  API `new_project`, `new_agent`, `new_scenario` (vrací vytvořené cesty).
+- **Registr projektů** `~/.config/agencast/projects.yaml`
+  (`AGENCAST_CONFIG_DIR`): `agencast projects list|add|rm`; plní ho
+  `new project` a úspěšný `validate`/`run` (hláška jednou na stderr).
+  API `projects()` (s `available`), `add_project`, `remove_project`.
+- **`serve` mimo projekt = režim registru** s tokenem `AGENCAST_TOKEN`,
+  tajemství z prostředí serveru; v projektu nebo s `--project` beze změny.
+- **Čtecí API** (docs/spec/api.md): `GET /projects`, `/projects/<p>`
+  (scénáře, agenti, skilly, MCP servery bez tajemství, aliasy, limity,
+  vazby), `/scenarios/<s>` (strom kroků pro karty s `refs`), `/runs`,
+  `/runs/<id>` (kroky se stavem, cenou a časem), `/runs/<id>/files/<cesta>`
+  (jen uvnitř složky běhu), `/spend?day=`; `POST /projects/<p>/runs`.
+  API `describe_project`, `describe_scenario`, `run_detail`, `run_file`,
+  `spend`; `Ledger.rows`.
+
 ## 0.3.1 — 2026-09-26 (strop souběžných běhů, denní limit útraty)
 
 Patch: dva volitelné klíče, bez nich se chování nemění (R8).

@@ -4,16 +4,19 @@ Jen tenké funkce nad validate, engine a record — logika sem nepatří, patř�
 do jádra a má hermetický test. Tajné klíče jen z prostředí (a `.env`).
 """
 from pathlib import Path
+from typing import Any
 
 from . import ConfigErrors, projects as _projects
-from .engine import Run, dry_run as _dry_run, run_scenario
+from .engine import RUN_ID, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import load_dotenv
-from .record import Record, run_status
+from .record import Record, run_detail as _run_detail, run_status
+from .task import local_ledger
 from .validate import Project, load_config, resolve_inputs, validate
 
 __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
-           "new_scenario", "projects", "add_project", "remove_project", "Project", "Run", "Fake"]
+           "new_scenario", "projects", "add_project", "remove_project", "ensure_project", "describe_project", "describe_scenario", "run_detail", "run_file",
+           "spend", "Project", "Run", "Fake"]
 
 
 def find_root(project_root=None) -> Path:
@@ -64,15 +67,19 @@ def dry_run(project: Project, inputs: dict) -> Record:
     return _dry_run(project, resolve_inputs(project.scenario, inputs))
 
 
-def runs_list(project_root=None) -> list[dict]:
-    """Běhy projektu, nejnovější první: nejdřív čekající ve frontě `serve` (`status: queued`),
-    pak záznamy běhů (`run_status`)."""
+def _runs_dir(project_root) -> Path:
     wf = find_root(project_root) / "workflows"
     errs = []
     cfg = load_config(wf, errs)
-    if errs:
+    if errs or cfg is None:
         raise ConfigErrors(errs)
-    runs = wf.parent / cfg["runs_dir"]
+    return wf.parent / cfg["runs_dir"]
+
+
+def runs_list(project_root=None) -> list[dict]:
+    """Běhy projektu, nejnovější první: nejdřív čekající ve frontě `serve` (`status: queued`),
+    pak záznamy běhů (`run_status`)."""
+    runs = _runs_dir(project_root)
     queued = sorted(f.stem for f in (runs / "_queue").glob("*.json") if not (runs / f.stem).is_dir())
     dirs = sorted((d for d in runs.glob("*") if d.is_dir() and not d.name.startswith("_")), reverse=True)
     return [{"run_id": r, "status": "queued"} for r in queued] + [run_status(d) for d in dirs]
@@ -111,3 +118,36 @@ def remove_project(name: str):
 def ensure_project(root) -> str | None:
     """Po úspěšném validate/run: projekt mimo registr do něj přidá; vrací hlášku pro stderr (nebo None)."""
     return _projects.ensure(Path(root).resolve())
+
+
+def describe_project(project_root) -> dict[str, Any]:
+    """Projekt pro GUI: scénáře, agenti, skilly, MCP servery, aliasy, limity, vazby (api.md)."""
+    return _projects.describe_project(find_root(project_root))
+
+
+def describe_scenario(project_root, name: str) -> dict[str, Any] | None:
+    """Strom kroků scénáře pro karty (api.md); None = scénář neexistuje."""
+    return _projects.describe_scenario(find_root(project_root), name)
+
+
+def run_detail(project_root, run_id: str) -> dict[str, Any] | None:
+    """Stav běhu a jeho kroky; čekající ve frontě `serve` jen `status: queued`; None = neexistuje."""
+    runs = _runs_dir(project_root)
+    if not RUN_ID.fullmatch(run_id):
+        return None
+    if (runs / run_id).is_dir():
+        return _run_detail(runs / run_id)
+    return {"run_id": run_id, "status": "queued"} if (runs / "_queue" / f"{run_id}.json").is_file() else None
+
+
+def run_file(project_root, run_id: str, rel: str) -> Path | None:
+    """Soubor uvnitř složky běhu; mimo ni (path traversal, symlink ven) nebo neexistuje → None."""
+    d = (_runs_dir(project_root) / run_id).resolve()
+    p = (d / rel).resolve()
+    return p if RUN_ID.fullmatch(run_id) and p.is_relative_to(d) and p.is_file() else None
+
+
+def spend(project_root, day: str) -> dict[str, Any]:
+    """Denní kniha útraty (ostré běhy, den UTC): `{day, total_usd, runs: [{run_id, cost_usd, finished_at}]}`."""
+    rows = local_ledger(_runs_dir(project_root), False).rows(day)
+    return {"day": day, "total_usd": round(sum(r["cost_usd"] for r in rows), 10), "runs": rows}

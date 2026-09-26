@@ -7,6 +7,7 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from .expressions import FileRef, to_json
 from .loader import nested_lists
@@ -253,6 +254,29 @@ def run_status(run_dir: Path) -> dict:
         elif e["type"] == "callback_failed":
             info["callback"] = "callback nedoručen"
     return info
+
+
+def run_detail(run_dir: Path) -> dict[str, Any]:
+    """`run_status` + kroky se stavem, časem a cenou z events.jsonl + soubory běhu (GET /projects/<p>/runs/<id>)."""
+    steps: dict[str, dict[str, Any]] = {}
+    ev = run_dir / "events.jsonl"
+    for line in ev.read_text(encoding="utf-8").splitlines() if ev.is_file() else []:
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue  # řádek, který běh právě zapisuje
+        if e["type"] not in ("step_started", "step_skipped", "step_finished"):
+            continue
+        st = steps.setdefault(e["step"], {"step": e["step"], "kind": e.get("kind")})
+        if e["type"] == "step_started":
+            st.update(status="running", branch=e.get("branch"), started_at=e["ts"])
+        elif e["type"] == "step_skipped":
+            st.update(status="skipped", reason_code=e.get("reason_code"), reason=e.get("reason"))
+        else:
+            st.update(status=e["status"], finished_at=e["ts"], duration_s=e.get("duration_s"),
+                      cost_usd=e.get("cost_usd"))
+    files = sorted(p.relative_to(run_dir).as_posix() for p in run_dir.rglob("*") if p.is_file())
+    return {**run_status(run_dir), "steps": list(steps.values()), "files": files}
 
 
 # --- report.html (3b) ---------------------------------------------------------------

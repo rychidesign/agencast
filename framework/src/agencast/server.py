@@ -1,5 +1,7 @@
 """Webhook server (webhook.md, D2): `POST /runs` hned odpoví 202 + run_id, výsledek
-přijde později na `callback_url`. `GET /runs/<run_id>` vrací stav.
+přijde později na `callback_url`. `GET /runs/<run_id>` vrací stav. Rodina
+`/projects/...` (api.md, od 0.4.0) čte projekty pro GUI — jeden projekt, nebo
+registr (projects.md) s tokenem serveru `AGENCAST_TOKEN`.
 
 Stdlib `ThreadingHTTPServer`: požadavky obsluhují vlákna, běhy `workers`
 pracovních vláken nad jednou frontou (výchozí 1 → jeden běh po druhém; víc →
@@ -12,6 +14,7 @@ přežijí restart serveru:
 import hashlib
 import hmac
 import json
+import mimetypes
 import os
 import queue
 import re
@@ -19,31 +22,39 @@ import sys
 import threading
 import time
 import traceback
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import ConfigErrors, AgencastError, api
-from .engine import RUN_ID_TRIES, new_run_id
+from .engine import RUN_ID, RUN_ID_TRIES, new_run_id
+from .projects import default_name
 from .validate import Project, load_config, resolve_inputs
 
 FIELDS = ("scenario", "inputs", "callback_url", "request_key")
 CALLBACK_PREFIXES = ("https://", "http://127.0.0.1:", "http://127.0.0.1/")  # 127.0.0.1 jen pro testy (ISSUES)
 MAX_BODY = 1_000_000
-RUN_ID = re.compile(r"\d{8}-\d{6}-[a-z0-9-]+-[0-9a-f]{4}")
+UNAUTHORIZED = {"error": "chybí nebo nesedí token (hlavička Authorization: Bearer …)"}
 
 
 class Webhook:
     """Přijetí požadavku, fronta a pracovní vlákno; HTTP je jen tenká vrstva `Handler`."""
 
-    def __init__(self, workflows: Path, *, fake=None, callback_transport=None, workers: int = 1):
+    def __init__(self, workflows: Path, *, fake=None, callback_transport=None, workers: int = 1,
+                 token: str | None = None):
+        """`token` = token serveru v režimu registru; jinak se bere z `webhook.token_env` projektu."""
         errs = []
-        self.config = c = load_config(workflows, errs)
-        if errs:
+        c = load_config(workflows, errs)
+        if errs or c is None:
             raise ConfigErrors(errs)
-        need = [c["webhook"]["token_env"], c["callback"]["secret_env"]] + ([] if fake else [c["openrouter"]["api_key_env"]])
+        self.config = c
+        need = ([] if token else [c["webhook"]["token_env"]]) + [c["callback"]["secret_env"]] + (
+            [] if fake else [c["openrouter"]["api_key_env"]])
         if missing := [n for n in need if not os.environ.get(n)]:
             raise ConfigErrors([f"chybí proměnná prostředí {n} (.env nebo prostředí)" for n in missing])
-        self.token = os.environ[c["webhook"]["token_env"]]
+        self.token = token or os.environ[c["webhook"]["token_env"]]
         self.wf, self.fake, self.callback_transport, self.workers = workflows, fake, callback_transport, workers
         self.runs = workflows.parent / c["runs_dir"]
         self.qdir = self.runs / "_queue"
@@ -78,7 +89,7 @@ class Webhook:
     def accept(self, auth: str | None, raw: bytes) -> tuple[int, dict]:
         """(status, tělo): 401/422 bez run_id a bez callbacku, 202 nový běh, 200 opakovaný request_key."""
         if not self.authorized(auth):
-            return 401, {"error": "chybí nebo nesedí token (hlavička Authorization: Bearer …)"}
+            return 401, UNAUTHORIZED
         try:
             body = json.loads(raw)
         except ValueError:
@@ -135,7 +146,7 @@ class Webhook:
     # --- GET /runs/<run_id> ---------------------------------------------------------------
     def status(self, auth: str | None, run_id: str) -> tuple[int, dict]:
         if not self.authorized(auth):
-            return 401, {"error": "chybí nebo nesedí token (hlavička Authorization: Bearer …)"}
+            return 401, UNAUTHORIZED
         d = self.runs / run_id
         if not RUN_ID.fullmatch(run_id):
             return 404, {"error": f"běh {run_id} neexistuje"}
@@ -186,24 +197,140 @@ class Webhook:
         return Project(path, self.wf, sc, self.config, {}, {})
 
 
+class Projects:
+    """Rodina `/projects/...` (api.md). Jeden projekt = `hook` a jeho token; registr = `token` serveru,
+    registr se čte při každém požadavku a Webhook projektu vznikne při startu nebo prvním POST."""
+
+    def __init__(self, hook: Webhook | None = None, *, token: str | None = None, fake=None, workers: int = 1,
+                 callback_transport=None):
+        """`fake` = v režimu registru funkce, která vrátí nový Fake pro každý projekt."""
+        self.hook, self.token, self.fake, self.workers = hook, token, fake, workers
+        self.callback_transport = callback_transport
+        self.hooks: dict[Path, Webhook] = {hook.wf.parent.resolve(): hook} if hook else {}
+        self.lock = threading.Lock()
+
+    def start(self):
+        """Režim registru: Webhooky dostupných projektů hned (obnova fronty po restartu); chyba jen do logu."""
+        for p in api.projects():
+            if p["available"]:
+                try:
+                    self.webhook(Path(str(p["root"])))
+                except ConfigErrors as e:
+                    print(f"projekt {p['name']}: POST /projects/{p['name']}/runs zatím nepůjde:\n  "
+                          + "\n  ".join(e.errors), file=sys.stderr)
+
+    def webhook(self, root: Path) -> Webhook:
+        with self.lock:
+            if root not in self.hooks:
+                h = Webhook(root / "workflows", fake=self.fake() if self.fake else None, workers=self.workers,
+                            token=self.token, callback_transport=self.callback_transport)
+                h.start()
+                self.hooks[root] = h
+            return self.hooks[root]
+
+    def authorized(self, auth: str | None) -> bool:
+        if self.hook:
+            return self.hook.authorized(auth)
+        return hmac.compare_digest((auth or "").encode(), f"Bearer {self.token}".encode())
+
+    def listing(self) -> list[dict[str, str | bool]]:
+        if not self.hook:
+            return api.projects()
+        root = self.hook.wf.parent.resolve()
+        try:
+            name = next((x["name"] for x in api.projects() if Path(str(x["root"])) == root), default_name(root))
+        except ConfigErrors:  # rozbitý registr jeden projekt nezastaví
+            name = default_name(root)
+        return [{"name": name, "root": str(root), "available": True}]
+
+    def project(self, name: str) -> tuple[Path | None, dict[str, Any]]:
+        """(kořen, None) nebo (None, tělo 404)."""
+        p = next((x for x in self.listing() if x["name"] == name), None)
+        if p is None:
+            return None, {"error": f"projekt '{name}' neexistuje (GET /projects)"}
+        if not p["available"]:
+            return None, {"error": f"projekt '{name}' je nedostupný — chybí {p['root']}/workflows/config.yaml"}
+        return Path(str(p["root"])), {}
+
+    def get(self, auth: str | None, path: str, query: str) -> tuple[int, dict[str, Any] | Path]:
+        if not self.authorized(auth):
+            return 401, UNAUTHORIZED
+        parts = [unquote(x) for x in path.strip("/").split("/")][1:]
+        if not parts:
+            return 200, {"projects": self.listing()}
+        root, err = self.project(parts[0])
+        if root is None:
+            return 404, err
+        try:
+            match parts[1:]:
+                case []:
+                    return 200, {"name": parts[0], **api.describe_project(root)}
+                case ["scenarios", s]:
+                    body = api.describe_scenario(root, s)
+                    return (200, body) if body else (404, {"error": f"scénář '{s}' v projektu '{parts[0]}' neexistuje"})
+                case ["runs"]:
+                    return 200, {"runs": api.runs_list(root)}
+                case ["runs", r]:
+                    body = api.run_detail(root, r)
+                    return (200, body) if body else (404, {"error": f"běh {r} neexistuje"})
+                case ["runs", r, "files", *rel] if rel:
+                    f = api.run_file(root, r, "/".join(rel))
+                    return (200, f) if f else (404, {"error": "soubor ve složce běhu neexistuje"})
+                case ["spend"]:
+                    day = parse_qs(query).get("day", [f"{datetime.now(timezone.utc):%Y-%m-%d}"])[0]
+                    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+                        return 422, {"error": f"day má tvar RRRR-MM-DD, je '{day}'", "details": []}
+                    return 200, api.spend(root, day)
+        except ConfigErrors as e:
+            return 422, {"error": f"projekt '{parts[0]}' neprošel kontrolou", "details": e.errors}
+        return 404, {"error": f"neznámá adresa {path} (api.md)"}
+
+    def post_run(self, auth: str | None, name: str, raw: bytes) -> tuple[int, dict[str, Any]]:
+        if not self.authorized(auth):
+            return 401, UNAUTHORIZED
+        root, err = self.project(name)
+        if root is None:
+            return 404, err
+        try:
+            hook = self.webhook(root)
+        except ConfigErrors as e:
+            return 422, {"error": f"projekt '{name}' nejde spustit", "details": e.errors}
+        return hook.accept(auth, raw)
+
+
 class Handler(BaseHTTPRequestHandler):
     server: "Server"
 
     def do_POST(self):
-        if self.path != "/runs":
-            return self.reply(404, {"error": "neznámá adresa — běh se spouští přes POST /runs"})
+        path = urlsplit(self.path).path
+        m = re.fullmatch(r"/projects/([^/]+)/runs", path)
+        if path != "/runs" and not m:
+            return self.reply(404, {"error": "neznámá adresa — běh se spouští přes POST /runs "
+                                             "nebo POST /projects/<projekt>/runs"})
+        hook = self.server.hook
+        if not m and not hook:
+            return self.reply(404, {"error": "server běží v režimu registru — běh se spouští přes "
+                                             "POST /projects/<projekt>/runs"})
         try:
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             n = -1
         if not 0 <= n <= MAX_BODY:
             return self.reply(422, {"error": f"tělo má {n} B, nejvýš {MAX_BODY} B", "details": []})
-        self.safe(self.server.hook.accept, self.headers.get("Authorization"), self.rfile.read(n))
+        auth, raw = self.headers.get("Authorization"), self.rfile.read(n)
+        if m:
+            return self.safe(self.server.projects.post_run, auth, unquote(m.group(1)), raw)
+        assert hook
+        self.safe(hook.accept, auth, raw)
 
     def do_GET(self):
+        u = urlsplit(self.path)
+        if u.path == "/projects" or u.path.startswith("/projects/"):
+            return self.safe(self.server.projects.get, self.headers.get("Authorization"), u.path, u.query)
         m = re.fullmatch(r"/runs/([^/?]+)", self.path)
-        if not m:
-            return self.reply(404, {"error": "neznámá adresa — stav běhu je na GET /runs/<run_id>"})
+        if not m or not self.server.hook:
+            return self.reply(404, {"error": "neznámá adresa — stav běhu je na GET /runs/<run_id> "
+                                             "nebo GET /projects/<projekt>/runs/<run_id>"})
         self.safe(self.server.hook.status, self.headers.get("Authorization"), m.group(1))
 
     def safe(self, fn, *args):
@@ -214,10 +341,14 @@ class Handler(BaseHTTPRequestHandler):
             status, body = 500, {"error": f"chyba serveru: {type(e).__name__}: {e}"}
         self.reply(status, body)
 
-    def reply(self, status: int, body: dict):
-        data = json.dumps(body, ensure_ascii=False).encode()
+    def reply(self, status: int, body: dict[str, Any] | Path):
+        if isinstance(body, Path):  # soubor ze složky běhu (api.run_file ho ověřil)
+            data, ctype = body.read_bytes(), mimetypes.guess_type(body.name)[0] or "application/octet-stream"
+            ctype += "; charset=utf-8" if ctype.startswith("text/") else ""
+        else:
+            data, ctype = json.dumps(body, ensure_ascii=False).encode(), "application/json; charset=utf-8"
         self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -226,6 +357,8 @@ class Handler(BaseHTTPRequestHandler):
 class Server(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, hook: Webhook, host: str, port: int):
+    def __init__(self, hook: Webhook | None, host: str, port: int, projects: Projects | None = None):
+        """`hook` = jeden projekt (POST /runs, GET /runs/<id>); None = režim registru s `projects`."""
         self.hook = hook
+        self.projects = projects or Projects(hook)
         super().__init__((host, port), Handler)

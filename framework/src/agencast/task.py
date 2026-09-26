@@ -14,6 +14,7 @@ import json
 import os
 import threading
 import time
+from typing import Any
 
 from . import AgencastError
 from .mcp_client import Pool, api_name, arg_errors, provider_schema
@@ -114,18 +115,21 @@ class SlotStore:
 class Ledger:
     """Denní kniha útraty (DESIGN „Obálky“): lokálně `<složka>/<YYYY-MM-DD>.jsonl` (UTC), řádek
     `{run_id, cost_usd, finished_at}` na dokončený běh, append pod `flock`. Na Modalu sem obálka
-    dosadí vlastní úložiště se stejnými dvěma metodami."""
+    dosadí vlastní úložiště se stejnými metodami (`rows` čte GET /projects/<p>/spend)."""
 
     def __init__(self, directory):
         self.dir = directory
 
     def total(self, day: str) -> float:
+        return sum(r["cost_usd"] for r in self.rows(day))
+
+    def rows(self, day: str) -> list[dict[str, Any]]:
         path = self.dir / f"{day}.jsonl"
         if not path.is_file():
-            return 0.0
+            return []
         with open(path, encoding="utf-8") as f:
             fcntl.flock(f, fcntl.LOCK_SH)
-            return sum(json.loads(line)["cost_usd"] for line in f if line.strip())
+            return [json.loads(line) for line in f if line.strip()]
 
     def add(self, day: str, row: dict):
         self.dir.mkdir(parents=True, exist_ok=True)
