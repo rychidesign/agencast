@@ -12,6 +12,7 @@ webhook `agencast serve`), tutoriály v [`docs/tutorials/`](docs/tutorials/).
 
 ```
 framework/    jádro (CLI, engine, adaptéry, webhook)
+ui/           GUI (React) nad HTTP API agencast serve
 workflows/    vrstva uživatele: agents/, scenarios/, skills/, config
 docs/         návrh, specifikace formátů, changelog
 spikes/       časově omezené experimenty s REPORT.md
@@ -20,3 +21,5 @@ skills/       skilly pro kódovací agenty (agencast-run, agencast-create)
 
 Skilly [`skills/`](skills/README.md) naučí Claude Code, Codex a OMP
 AgenCast spouštět a psát; na hostu je nainstaluje `skills/install.sh`.
+
+GUI v [`ui/`](ui/README.md) je tenká obálka nad HTTP API `agencast serve`, který ho po `npm run build` podává na `/`.
