@@ -5,6 +5,11 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.16.0 (nevydáno)
+
+- Tokeny: Základní barvy, písma a rádiusy V3 jsou zavedené; Inter Variable
+  a JetBrains Mono se bundlují lokálně.
+
 ## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
 
 - `GET /projects` už nespadne (500), když některý zapsaný kořen nemá

@@ -310,6 +310,8 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 
 ## 5. Vizuální principy (Tailwind) — podle screenshotu Buzz
 
+**Tokeny (V3).** Závazné názvy a hodnoty barev, písem a rádiusů jsou v [plánu redesignu, §1](redesign-plan.md#1-tokeny-kontrakt-pro-vsechny).
+
 - **Žebřík ploch podle Buzz:** stránka nejtmavší, pilulka kroku o stupeň světlejší, panel o další stupeň světlejší, vstupy uvnitř panelu zpět o stupeň tmavší s 1px linkou. Tailwind: stránka `bg-zinc-900` (nebo pozadí dashboardu), karta `bg-zinc-800/60`, hover `bg-zinc-800`, vybraná `bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900`, panel `bg-zinc-800 rounded-2xl`, vstupy `bg-zinc-900 ring-1 ring-zinc-700`, větev/případ uvnitř kontejneru `bg-zinc-900/60`.
 - **Žádný akcent.** UI je celé šedé jako Buzz. Barva zůstává jen stavům běhu (úspěch `emerald-400`, chyba `rose-400`, běží `sky-400` s pulzem, vypnout při `prefers-reduced-motion`, zrušeno/varování `amber-400`, přeskočeno `zinc-400` s čárkovaným prstencem) a chybám validace (`rose-400`). Výběr, fokus (`ring-zinc-300`) a odkazy (podtržení) jsou šedobílé.
 - **Tvary, tři poloměry:** listová karta kroku `rounded-full` (56–64 px, číslo v kruhu 36 px), kontejnerové karty a panel `rounded-2xl`, vstupy a tlačítka `rounded-lg`; malé (+) kruh 28 px s `ring-1 ring-zinc-600`.
