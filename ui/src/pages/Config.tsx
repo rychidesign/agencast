@@ -1,10 +1,10 @@
 // §2.8 Config: formulář pro models, limits, storage, webhook, callback a openrouter.api_key_env
 // (`PUT …/config`, merge patch); YAML režim = config.yaml a mcp.yaml jako text (`files/`).
 // Proměnné prostředí jen ✓/✗, nikdy hodnota.
-import { CodeXml, Trash2 } from "lucide-react";
+import { CodeXml, Plus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { enc } from "../api";
-import { AddPill, FormField, inputCls, Modal } from "../components/form";
+import { FormField, inputCls, Modal } from "../components/form";
 import { YamlEditor } from "../components/YamlEditor";
 import { btn, ErrorList, ErrorText, Loading, StatusBadge, Toggle } from "../components/ui";
 import { KeyInput } from "../components/StepPanel";
@@ -33,14 +33,14 @@ function EnvVar({ name, env }: { name: unknown; env?: Record<string, boolean> })
   if (set === undefined) return <span className="text-[13px] text-fg-muted">{t("config.envUnknown")}</span>;
   return (
     <StatusBadge status={set ? "succeeded" : "failed"}>
-      <span className="text-[13px] text-fg-muted">{set ? t("config.envSet") : t("config.envMissing")}</span>
+      <span className={`text-[13px] ${set ? "text-success" : "text-error"}`}>{set ? t("config.envSet") : t("config.envMissing")}</span>
     </StatusBadge>
   );
 }
 
 const Section = ({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) => (
-  <section className="space-y-3 border-t border-line pt-5 first-of-type:border-t-0 first-of-type:pt-0">
-    <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">{title}</h3>{action}</div>
+  <section className="min-w-0 space-y-4">
+    <div className="flex items-center justify-between gap-3"><h3 className="text-base font-semibold">{title}</h3>{action}</div>
     {children}
   </section>
 );
@@ -95,16 +95,16 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
       }
     }}>
       {header({
-        // G5: cesta projektu jen tady (a na kartě v Projektech)
-        description: project && <span className="font-mono text-[13px] text-fg-muted" title={project.root}>{project.root}</span>,
         actions: <button type="button" className={btn.primary} disabled={!canSave} onClick={() => void save()} title="Ctrl+S">{t("common.save")}</button>,
-        children: <>
-          <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
-            options={[{ key: "form", label: t("code.form"), disabled: syntax ? t("code.fixYaml", { n: syntax.line! }) : !project ? t("config.formNeedsValid") : undefined },
-              { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> }]} />
-          <SaveNote dirty={dirty} state={state} errors={errors.length} />
-        </>,
       })}
+      <div className="space-y-7 rounded-2xl bg-surface p-6" data-testid="config-editor-card">
+      {project && <p className="break-all font-mono text-[13px] text-fg-muted" title={project.root}>{project.root}</p>}
+      <div className="flex flex-wrap items-center gap-4">
+        <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
+          options={[{ key: "form", label: t("code.form"), disabled: syntax ? t("code.fixYaml", { n: syntax.line! }) : !project ? t("config.formNeedsValid") : undefined },
+            { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> }]} />
+        <SaveNote dirty={dirty} state={state} errors={errors.length} />
+      </div>
       {mode === "form" ? (
         <>
           {formUi.bar}
@@ -126,6 +126,7 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
           {formUi.modal}{configUi.modal}{mcpUi.modal}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -172,32 +173,40 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
   };
   const known = ["models", "limits", "storage", "webhook", "callback", "openrouter"];
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <ErrorList errors={errors.filter((e) => !e.field || !known.some((k) => e.field!.startsWith(k)))} />
+      <div className="grid gap-6 lg:grid-cols-2">
       <Section title={t("config.connection")}>
         <p className="text-xs text-fg-muted">{t("config.secretsHelp")}</p>
         {envField(t("config.keyFrom"), "openrouter", "api_key_env")}
-        <p className="text-sm text-fg-muted">{t("config.jevModel")} <span className="font-mono">{String(jev ?? "jev-1.13")}</span> · {t("config.yamlOnly")}</p>
       </Section>
-      <Section title={t("config.models")} action={<AddPill label={t("config.addAlias")} onClick={() => {
+      <Section title={t("config.jevModel")}>
+        <div className="space-y-2 rounded-xl bg-nested p-4">
+          <p className="font-mono text-[13px] text-fg">{String(jev ?? "jev-1.13")}</p>
+          <p className="text-xs text-fg-muted">{t("config.yamlOnly")}</p>
+        </div>
+      </Section>
+      </div>
+      <Section title={t("config.models")} action={<button type="button" className={btn.secondary} aria-label={`+ ${t("config.addAlias")}`} onClick={() => {
         let n = 1;
         while (`model-${n}` in models) n++;
         put("models", { ...models, [`model-${n}`]: { id: "" } });
-      }} />}>
-        <ul className="space-y-4">
+      }}><Plus className="size-4" aria-hidden />{t("config.addAliasButton")}</button>}>
+        <ul className="space-y-2">
           {Object.entries(models).map(([alias, m]) => {
             const users = usage(alias);
             const setM = (k: string, v: unknown) => put("models", { ...models, [alias]: clean(m, k, v) });
             return (
-              <li key={alias} className="space-y-1">
-                {/* úzký obsah (tablet): řádek se zalomí, pole ID drží nejmenší šířku */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex w-40 shrink-0">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
+              <li key={alias} className="space-y-4 rounded-xl bg-nested p-4">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(120px,1fr)_minmax(220px,2fr)_minmax(100px,0.7fr)_minmax(110px,0.7fr)]">
+                  <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">{t("config.alias")}</span><div className="flex min-h-11 min-w-0 items-center">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
                     : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
-                      onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}</div>
-                  <div className="min-w-56 flex-1"><input aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
+                      onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}</div></div>
+                  <div className="min-w-0 space-y-1"><label className="block text-[13px] font-medium text-fg-secondary" htmlFor={`model-${alias}`}>{t("config.modelId", { alias: "" }).trim()}</label><input id={`model-${alias}`} aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
                     value={String(m.id ?? "")} onChange={(e) => setM("id", e.target.value)} /></div>
-                  <div className="w-28"><select aria-label={t("config.api", { alias })} className={inputCls} value={String(m.api ?? "chat")}
+                  <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">max_tokens</span><input aria-label={t("config.maxTokens", { alias })} type="number" min={1} className={`${inputCls} font-mono`} placeholder="max_tokens"
+                    value={typeof m.max_tokens === "number" ? m.max_tokens : ""} onChange={(e) => setM("max_tokens", e.target.value === "" ? undefined : Number(e.target.value))} /></div>
+                  <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">API</span><select aria-label={t("config.api", { alias })} className={inputCls} value={String(m.api ?? "chat")}
                     onChange={(e) => {
                       const next = clean(m, "api", e.target.value);
                       put("models", { ...models, [alias]: e.target.value === "images" ? next : clean(next, "quality", undefined) });
@@ -205,7 +214,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
                     <option value="chat">chat</option>
                     <option value="images">images</option>
                   </select></div>
-                  {m.api === "images" && <div className="w-28"><select aria-label={t("config.quality", { alias })} className={inputCls} value={String(m.quality ?? "")}
+                  {m.api === "images" && <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">quality</span><select aria-label={t("config.quality", { alias })} className={inputCls} value={String(m.quality ?? "")}
                     onChange={(e) => setM("quality", e.target.value || undefined)}>
                     <option value="">{t("panel.default")}</option>
                     <option value="auto">auto</option>
@@ -213,23 +222,24 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
                     <option value="medium">medium</option>
                     <option value="high">high</option>
                   </select></div>}
-                  <div className="w-56"><select aria-label={t("config.structured", { alias })} className={inputCls} value={String(m.structured_output ?? "")}
+                  <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">structured_output</span><select aria-label={t("config.structured", { alias })} className={inputCls} value={String(m.structured_output ?? "")}
                     onChange={(e) => setM("structured_output", e.target.value)}>
                     <option value="">native_schema ({t("panel.default")})</option>
                     <option value="native_schema">native_schema</option>
                     <option value="tool_wrapper">tool_wrapper</option>
                     <option value="prompt">prompt</option>
                   </select></div>
-                  <div className="w-32"><input aria-label={t("config.maxTokens", { alias })} type="number" min={1} className={`${inputCls} font-mono`} placeholder="max_tokens"
-                    value={typeof m.max_tokens === "number" ? m.max_tokens : ""} onChange={(e) => setM("max_tokens", e.target.value === "" ? undefined : Number(e.target.value))} /></div>
-                  <button type="button" className={btn.icon} disabled={users.length > 0}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="font-mono text-xs text-fg-muted">{users.length ? t("config.usedByAgents", { agents: users.join(", ") }) : t("config.unused")}</p>
+                  <button type="button" className={btn.danger} disabled={users.length > 0}
                     aria-label={t("config.removeAlias", { alias })}
+                    aria-description={users.length ? t("config.aliasUsed", { agents: users.join(", ") }) : undefined}
                     title={users.length ? t("config.aliasUsed", { agents: users.join(", ") }) : t("config.removeAlias", { alias })}
                     onClick={() => put("models", Object.fromEntries(Object.entries(models).filter(([k]) => k !== alias)))}>
-                    <Trash2 className="size-4" aria-hidden />
+                    <Trash2 className="size-4" aria-hidden />{t("config.removeAliasShort")}
                   </button>
                 </div>
-                <p className="px-3 text-xs text-fg-muted">{users.length ? t("config.usedByAgents", { agents: users.join(", ") }) : t("config.unused")}</p>
                 {fe(`models.${alias}`).map((e, i) => <p key={i} className="font-mono text-xs text-error">{e.message}</p>)}
               </li>
             );
@@ -237,6 +247,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
         </ul>
         <p className="text-xs text-fg-muted">{t("config.aliasRule")}</p>
       </Section>
+      <div className="grid gap-8 lg:grid-cols-2">
       <Section title={t("config.storage")}>
         <FormField label="type" errors={fe("storage.type")}>
           {(a) => (
@@ -246,7 +257,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
             </select>
           )}
         </FormField>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {(STORAGE[stype] ?? []).map((k) => (
             <FormField key={k} label={k} errors={fe(`storage.${stype}.${k}`)} help={k.endsWith("_env") ? <EnvVar name={sconf[k]} env={env} /> : undefined}>
               {(a) => <input {...a} className={`${inputCls} font-mono`} value={String(sconf[k] ?? "")}
@@ -255,8 +266,14 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
           ))}
         </div>
       </Section>
+      <Section title={t("config.webhook")}>
+        {envField("webhook.token_env", "webhook", "token_env")}
+        {envField("callback.secret_env", "callback", "secret_env")}
+      </Section>
+      </div>
+      <div className="grid gap-8 lg:grid-cols-2">
       <Section title={t("config.limits")}>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {LIMITS.map(([k, kind]) => (
             <FormField key={k} label={k} errors={fe(`limits.${k}`)} required={k === "run_budget_usd" || k === "run_timeout"}>
               {(a) => kind === "time" ? (
@@ -270,33 +287,28 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
           ))}
         </div>
       </Section>
-      <Section title={t("config.webhook")}>
-        <div className="grid grid-cols-2 gap-3">
-          {envField("webhook.token_env", "webhook", "token_env")}
-          {envField("callback.secret_env", "callback", "secret_env")}
-        </div>
-      </Section>
       <Section title={t("config.env")}>
-        <ul className="space-y-1 text-sm">
-          {Object.keys(env ?? {}).map((k) => <li key={k} className="flex gap-3"><span className="font-mono">{k}</span><EnvVar name={k} env={env} /></li>)}
+        <ul className="rounded-xl bg-nested p-2 text-sm">
+          {Object.keys(env ?? {}).map((k) => <li key={k} className="flex min-h-10 flex-wrap items-center justify-between gap-3 rounded-lg px-2 hover:bg-surface-active"><span className="break-all font-mono text-[13px]">{k}</span><EnvVar name={k} env={env} /></li>)}
         </ul>
       </Section>
+      </div>
       <Section title={t("config.mcp")}>
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {project?.mcp_servers.map((s) => (
-            <li key={s.name} className="text-sm">
-              <span className="font-mono">{s.name}</span>
-              <span className="text-fg-muted">
-                {" "}{s.type}
-                {s.agents && ` · ${t("config.mcpAgents")}: ${s.agents.join(", ")}`}
-                {s.scenarios && ` · ${t("config.mcpScenarios")}: ${s.scenarios.join(", ")}`}
-                {s.tools && ` · ${t("config.mcpTools")}: ${s.tools.join(", ")}`}
-              </span>
+            <li key={s.name} className="space-y-3 rounded-xl bg-nested p-4">
+              <div className="flex items-center justify-between gap-3"><span className="text-[15px] font-semibold">{s.name}</span><span className="rounded-full bg-surface px-2 py-1 font-mono text-[11px] text-fg-secondary">{t("config.readOnly")}</span></div>
+              <div className="grid gap-3 font-mono text-xs text-fg-muted sm:grid-cols-3">
+                <p>{t("config.transport")}<br /><span className="text-fg-secondary">{s.type}</span></p>
+                <p>{t("config.mcpAgents")}<br /><span className="text-fg-secondary">{s.agents?.join(", ") || "–"}</span></p>
+                <p>{t("config.mcpTools")}<br /><span className="text-fg-secondary">{s.tools?.join(", ") || "–"}</span></p>
+              </div>
+              {s.scenarios?.length ? <p className="font-mono text-xs text-fg-muted">{t("config.mcpScenarios")}: {s.scenarios.join(", ")}</p> : null}
+              <p className="border-t border-line pt-3 text-xs text-fg-muted">{t("config.mcpYaml")}</p>
             </li>
           ))}
           {!project?.mcp_servers.length && <li className="text-sm text-fg-muted">{t("config.noMcp")}</li>}
         </ul>
-        {!!project?.mcp_servers.length && <p className="text-xs text-fg-muted">{t("config.mcpYaml")}</p>}
       </Section>
     </div>
   );

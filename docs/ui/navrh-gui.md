@@ -270,44 +270,47 @@ leží ve vodorovném posuvu. Běžící řádek se obnovuje (viz 4.8). Prázdn�
 
 ```
 Agenti  ✗ 1 chyba                                       [+ Nový agent] [Uložit]  ⋯
-[Form | <> Markdown]   Uloženo ✓
  copywriter          │ copywriter
- photographer        │ popis *    [Copywriter pro IG značky THTD                     ]
- publisher  ✗ 1 chyba│ model *    [chytry — anthropic/claude-haiku-4.5 ▾]
-                     │ skilly     [thtd-hlas ×] [+ přidat skill ▾]
-                     │ MCP servery ☑ instagram: ☑ create_media ☑ publish_media
-                     │             ☐ filesystem (vlastník nepovolil)
-                     │ Limity     max_turns [6]   budget_usd * [0,20]   timeout [5m]
-                     │ Instrukce (system prompt) *
-                     │ [Jsi copywriter značky THTD …                                   ]
-                     │ Používá: ig-post (copy) · ig-text (napis)
+ photographer        │ ┌ karta: [Form | <> Markdown]  Uloženo ✓ ──────────────────┐
+ publisher  ✗ 1 chyba│ │ Popis *   [Copywriter pro IG značky THTD              ] │
+                     │ │ Model *   [chytry — anthropic/claude-haiku-4.5 ▾]       │
+                     │ │ Skilly    ☑ thtd-hlas                       SKILL.md  │
+                     │ │           ☐ pruzkum                         SKILL.md  │
+                     │ │ MCP       ☑ instagram · ☑ create_media                │
+                     │ │           ☐ filesystem (vlastník nepovolil)            │
+                     │ │ Limity    max_turns [6] budget_usd [0,20] timeout [5m]│
+                     │ │ Instrukce [Markdown textarea, nejméně 12 řádků]        │
+                     │ │ Používá   [ig-post / copy ↗] [ig-text / napis ↗]       │
+                     │ └──────────────────────────────────────────────────────────┘
 ```
 Jedna hlavička sekce (§1.1): „+ Nový agent“, Uložit a ⋯ „Akce pro copywriter“ (Přejmenovat, Smazat).
-Druhý řádek Form | Markdown a stav uložení. Seznam agentů je vlevo (od 1100 px, jinak nad editorem), jméno
-vybraného agenta je nad formulářem jen jako nadpis (`h2`, mono), bez cesty souboru a bez druhého Uložit.
+Druhý řádek Form | Markdown a stav uložení leží v kartě editoru (`bg-surface`, radius 16, padding 24).
+Seznam agentů je vlevo (200 px od 1100 px, jinak nad editorem), položky mají 48 px, ikonu a aktivní ring;
+jméno vybraného agenta je nad kartou jen jako nadpis (`h2`, mono), bez cesty souboru a bez druhého Uložit.
 Jméno = název souboru, jen ke čtení (přejmenování = samostatná akce s kontrolou odkazů). MCP nabízí jen
 servery, kde je agent v `agents` v mcp.yaml; ostatní ztlumené s důvodem. `max_turns` je podmíněně povinné:
-při zaškrtnutém serveru dostane hvězdičku a nápověda pod polem to řekne; rámované zvýraznění ani info box
-není (G11).
+při zaškrtnutém serveru dostane hvězdičku a nápověda pod polem to řekne. Skilly se vybírají checkboxy;
+pořadí v souboru se při vypnutí a zapnutí ostatních položek zachová. Instrukce mají patičku „Podporuje Markdown“.
 
 ### 2.8 Config
 
 ```
 Config                                                                      [Uložit]  ⋯
-~/thtd
-[Form | <> YAML]   Uloženo ✓
- Připojení     klíč z proměnné [OPENROUTER_API_KEY]  ✓ nastavena na serveru
-               Jev model jev-1.13 · mění se v YAML režimu
- ───────────────────────────────────────────────────────────────────────────── + alias
- Modely        [chytry] [anthropic/claude-haiku-4.5] [chat ▾] [native_schema ▾] [max_tokens] 🗑
-               používá copywriter
- ─────────────────────────────────────────────────────────────────────────────
- Úložiště · Limity · Webhook a callback · Proměnné · MCP servery
+┌ karta: ~/thtd · [Form | <> YAML] Uloženo ✓ ─────────────────────────────┐
+│ Připojení [OPENROUTER_API_KEY] ✓  │ Jev model [jev-1.13] jen ke čtení │
+│ Modely                                        [+ Přidat alias]           │
+│ ┌ chytry · anthropic/claude-haiku-4.5 · max_tokens · API ───────────┐ │
+│ │ používá copywriter                         [Smazat alias disabled] │ │
+│ └─────────────────────────────────────────────────────────────────────┘ │
+│ Úložiště                            │ Webhook a callback              │
+│ Limity                              │ Proměnné (stavové řádky)         │
+│ MCP servery: vnořená karta, čip Pouze čtení                          │
+└───────────────────────────────────────────────────────────────────────┘
 ```
-Hlavička sekce: popis = cesta projektu, jediné Uložit, druhý řádek jediný přepínač Form | YAML a stav
-uložení (YAML režim ukazuje `config.yaml` a pod ním `mcp.yaml`). Sekce = nadpis + pole oddělené hairline,
-bez karet a technických štítků. Pole `_env` ukazují jen jméno proměnné; hodnota se nikde nezobrazí ani
-needituje. Pod každým aliasem je meta „používá copywriter“ / „nepoužívá se“; používaný alias nejde smazat.
+Hlavička sekce má jediné Uložit; cesta projektu a jediný přepínač Form | YAML se stavem jsou na začátku
+karty (YAML režim ukazuje `config.yaml` a pod ním `mcp.yaml`). Dvojice sekcí tvoří dva sloupce, modely
+jsou přes celou šířku jako vnořené karty. Pole `_env` ukazují jen jméno proměnné; hodnota se nikde
+nezobrazí ani needituje. Pod každým aliasem je meta „používá copywriter“ / „nepoužívá se“; používaný alias nejde smazat.
 Na úzké obrazovce se řádek aliasu zalomí (pole ID drží nejmenší šířku). MCP servery jsou jen ke čtení
 („mění se jen v YAML režimu“), bez mcp.yaml věta „Projekt nemá mcp.yaml.“.
 

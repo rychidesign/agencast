@@ -400,5 +400,11 @@
   "editor.runs": "Běhy tohoto scénáře",
   "spend.label": "Dnes utraceno",
   "edit.nothingToUndo": "Není co vrátit",
-  "server.unreachable": "Server neodpovídá, nic se nezapsalo."
+  "server.unreachable": "Server neodpovídá, nic se nezapsalo.",
+  "agent.toolsCount": "nástrojů",
+  "agent.markdownHelp": "Podporuje Markdown",
+  "config.removeAliasShort": "Smazat alias",
+  "config.addAliasButton": "Přidat alias",
+  "config.readOnly": "Pouze čtení",
+  "config.transport": "Transport"
 }
