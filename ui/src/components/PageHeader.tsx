@@ -54,7 +54,7 @@ export function PageHeader({ title, description, meta, actions, menu, menuLabel,
             <h1 className="min-w-0 text-xl font-semibold break-words">{title}</h1>
             {meta}
           </div>
-          {description && <div className="mt-1 truncate text-sm text-fg-secondary">{description}</div>}
+          {description && <div className="mt-1 truncate text-sm text-fg-secondary" title={typeof description === "string" ? description : undefined}>{description}</div>}
         </div>
         {(actions || menu?.length) && (
           <div className="flex flex-wrap items-center gap-2">

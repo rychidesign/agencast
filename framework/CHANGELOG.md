@@ -9,6 +9,13 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
 
 Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny.
 
+- QA (vlna D): ztlumené karty (nedošlo, přeskočeno, nedostupný projekt) mají čárkovaný obrys
+  místo průhlednosti (kontrast ≥ 4,5:1, axe bez vážných nálezů); menu ⋯ karty leží nad dalšími
+  kartami a menu hlavičky nad panelem; karta scénáře má stav dole a popis na 3 řádky; konfliktní
+  pruh editoru je v přilepené hlavičce; neexistující projekt, scénář a běh bez ovládání navíc;
+  dialog drží fokus i po odmítnutém smazání; ⋯ zavře Tab; výpadek serveru hlásí SaveNote česky;
+  tmavé nativní selecty (`color-scheme: dark`), kurzor ruky na klikacích prvcích, viditelný fokus
+  na (+); „Načíst znovu“ na Projektech v ⋯; duplicitní chyby projektu jen jednou.
 - Tokeny: barvy, písma a rádiusy V3 v `ui/src/index.css`; Inter Variable a
   JetBrains Mono se bundlují lokálně (bez CDN). V `ui/src` nezůstaly třídy
   `zinc-*` ani napevno zapsané barvy (výjimka: bílé pozadí iframe reportu).

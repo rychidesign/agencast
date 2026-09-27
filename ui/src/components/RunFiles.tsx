@@ -70,7 +70,7 @@ function TreeNode({ tree, prefix, current }: { tree: Tree; prefix: string; curre
           </li>
         ) : (
           <li key={name}>
-            <button type="button" onClick={() => setQuery({ soubor: path })} aria-current={current === path ? "true" : undefined}
+            <button type="button" onClick={() => setQuery({ soubor: path })} title={path} aria-current={current === path ? "true" : undefined}
               className={`w-full truncate rounded-control px-2 py-0.5 text-left font-mono text-[13px] ${current === path ? "bg-surface text-fg" : "text-fg-secondary hover:bg-surface-hover"}`}>
               {name}
             </button>

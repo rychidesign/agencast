@@ -93,7 +93,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
 
   return (
     <PanelShell id="step-panel-title" eyebrow={`${t("panel.step", { n: step.nn })} · ${type ?? "?"}`}
-      title={<span className="font-mono">{step.id}</span>} onClose={onClose}
+      title={<span className="font-mono" title={step.id}>{step.id}</span>} onClose={onClose}
       actions={
         <button type="button" onClick={edit.remove} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
           className={`${btn.icon} text-error hover:bg-error/10 hover:text-error`}>

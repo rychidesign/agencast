@@ -251,7 +251,7 @@ export function Collapsible({ title, value, children }: { title: string; value: 
         className="flex h-12 w-full items-center gap-3 text-left text-[15px] text-fg"
       >
         <span className="flex-1 font-medium">{title}</span>
-        <span className="max-w-[55%] truncate font-mono text-[13px] text-fg-muted">{value}</span>
+        <span className="max-w-[55%] truncate font-mono text-[13px] text-fg-muted" title={typeof value === "string" ? value : undefined}>{value}</span>
         <ChevronRight className={`size-4 text-fg-muted transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
       </button>
       {open && <div id={id} className="pb-4">{children}</div>}

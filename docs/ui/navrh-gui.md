@@ -102,10 +102,10 @@ Registr ~/.config/agencast/projects.yaml
 │ ✓ před 12 min  dnes 0,42│  │ bez běhů      dnes 0 USD│  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
 └────────────────────────┘  └────────────────────────┘
 ```
-Hlavička: titul, popis = cesta registru (mono), akce Načíst znovu a „+ Přidat projekt“ (bez práva zápisu
-registru otevře okno s CLI příkazem). Karta: jméno + ⋯, cesta mono, „N scénářů · N agentů“, pod čarou čip
+Hlavička: titul, popis = cesta registru (mono), „+ Přidat projekt“ (bez práva zápisu registru otevře okno
+s CLI příkazem) a ⋯ s „Načíst znovu“ jako v sekcích projektu. Karta: jméno + ⋯, cesta mono, „N scénářů · N agentů“, pod čarou čip
 posledního běhu a dnešní útrata. Dostupný projekt nemá štítek (G6); nedostupný má štítek „nedostupný“,
-důvod, čárkovaný okraj a 50 % opacity. Celá karta je odkaz. ⋯: Otevřít, Kopírovat cestu, Odebrat z registru
+důvod a čárkovaný okraj bez plochy (bez průhlednosti: text by měl kontrast pod 4,5:1). Celá karta je odkaz. ⋯: Otevřít, Kopírovat cestu, Odebrat z registru
 (poslední, nebezpečná). Čárkovaná karta „Přidat projekt“ jen u prázdného seznamu (G8).
 
 ### 2.2 Přehled projektu (karty scénářů)
@@ -122,7 +122,7 @@ Scénáře  ✗ 2 chyby                                                  [+ Nov�
 ```
 - Titulek = jméno scénáře; `description` je podtitul, pokud existuje. Karta má plný `surface`, hover `surface-hover`, rádius `card` a padding 20 px.
 - Řetězec ikon = typy kroků v pořadí souboru, nejvýš 5, pak čip „+N“; `parallel`/`switch` jednou svou ikonou, vnitřek se nerozepisuje.
-- Nahoře je řetězec ikon typů v kolečkách `nested` 28 px, čip posledního běhu s časem a menu ⋯; chyby validace mají přednost („✗ 2 chyby“). Meta řádek má jen „N kroků · agenti“ a případný štítek „volatelný“ na `nested`. Počty vstupů a výstupů, název `.yaml` ani druhý čas se neukazují.
+- Nahoře je řetězec ikon typů v kolečkách `nested` 28 px a menu ⋯. Dole meta řádek „N kroků · agenti“, případný štítek „volatelný“ na `nested` a vpravo čip posledního běhu s časem (jako na kartě projektu); chyby validace mají přednost („✗ 2 chyby“). Popis má nejvýš 3 řádky, celý je v `title`. Počty vstupů a výstupů, název `.yaml` ani druhý čas se neukazují.
 - ⋯: Otevřít, Běhy tohoto scénáře, Kopírovat příkaz spuštění, Validovat; později Duplikovat, Smazat.
 - Tlačítko „+ Nový scénář“ je v hlavičce sekce (G8); čárkovaná karta otevírá stejný dialog jen v prázdném seznamu.
 - „Chyby validace“ v hlavičce = součet `errors` všech souborů; klik otevře seznam s odkazy na soubor a krok.
@@ -198,7 +198,7 @@ Pilulka má `surface`, při hoveru `surface-hover`, při výběru `ring-2 ring-a
 └───────────────────────────────────────────────────┘
 ```
 - **PanelShell** (redesign V3): eyebrow 11 px verzálky `fg-muted` „KROK n · TYP“ (zároveň přístupné jméno panelu), titul 18 semibold = id kroku (mono), vpravo koš (`btn.icon`, červený) a zavřít (`btn.icon`, i Esc). Typ kroku je první pole formuláře (select), ne titul. Pole bez rámovaných info boxů, jedna nápověda 12 px pod polem (G11). Řádky map (otázky Jev, hodnoty `set`, vstupy/výstupy hlavičky) jsou oddělené hairline: klíč (`KeyInput`, mono) + odebrat (`Trash2`), pod tím pole; „+ Přidat …“ jako pilulka u štítku.
-- **Hlavička scénáře** (`HeaderPanel`, eyebrow „HLAVIČKA“): popis, Vstupy a Výstupy jako řádky (jméno inline, typ, u vstupu povinný / výchozí hodnota, popis, odebrat) a přepínač „Volatelný“ s vysvětlením pod ním.
+- **Hlavička scénáře** (`HeaderPanel`, eyebrow „HLAVIČKA“, titul = jméno scénáře mono jako u panelu Spustit): popis, Vstupy a Výstupy jako řádky (jméno inline, typ, u vstupu povinný / výchozí hodnota, popis, odebrat) a přepínač „Volatelný“ s vysvětlením pod ním.
 - Jako v Buzz: pole typu nahoře, společné věci dole ve třech sbalených řádcích (hodnota vpravo šedě, hairline mezi nimi). Řádek se rozbalí na místě (akordeon, chevron se otočí), aby zůstal kontext panelu.
 - **Podmínka:** sbalený řádek ukazuje `vždy`, nebo zkrácený výraz (`steps.kontrola.on_brand < 0.7`); rozbalený = `ExprInput` + nápověda „Když vyjde nepravda, krok se přeskočí; kdo čte jeho výstup, potřebuje default.“ U `output` řádek není.
 - **Spolehlivost:** timeout, budget_usd, retry, on_error, default; jen pro typy z tabulky §3 spec.
@@ -329,10 +329,10 @@ Stejná hlavička jako Agent, bez přepínače režimu (skill je vždy celý SKI
 
 | Komponenta | Obsah | Stavy |
 |---|---|---|
-| `StepCard` | dvouřádková pilulka: eyebrow `TYP · id` + hodnota tučně (tabulka v §2.3); číslo v kruhu 36 px; vpravo `když` / v běhu čas + cena; chyba pod kartou | výchozí, hover, vybraná (ring s mezerou), s chybou, sbalená; v běhu stavová ikona místo čísla, nedošlo (40 % opacity) |
+| `StepCard` | dvouřádková pilulka: eyebrow `TYP · id` + hodnota tučně (tabulka v §2.3); číslo v kruhu 36 px; vpravo `když` / v běhu čas + cena; chyba pod kartou | výchozí, hover, vybraná (ring s mezerou), s chybou, sbalená; v běhu stavová ikona místo čísla, nedošlo a přeskočeno ztlumené čárkovaným obrysem bez plochy a tlumeným textem (ne průhledností, kvůli kontrastu) |
 | `DeleteButton` | červený kulatý 28 px vně pilulky | hover / focus-within / trvale na dotyku |
-| `ScenarioCard` | `IconChain` (max 5 + „+N“), čip posledního běhu s časem vpravo nahoře (chyby validace mají přednost), ⋯, titul = jméno, podtitul = description, meta „N kroků · agenti“ + štítek „volatelný“ | výchozí, hover, s chybami validace |
-| `ProjectCard` | jméno + ⋯, cesta mono, počty, pod čarou čip posledního běhu + dnešní útrata | dostupný bez štítku; nedostupný 50 % + čárkovaný okraj + štítek a důvod |
+| `ScenarioCard` | `IconChain` (max 5 + „+N“) a ⋯ nahoře, čip posledního běhu s časem vpravo dole (chyby validace mají přednost), titul = jméno, podtitul = description, meta „N kroků · agenti“ + štítek „volatelný“ | výchozí, hover, s chybami validace |
+| `ProjectCard` | jméno + ⋯, cesta mono, počty, pod čarou čip posledního běhu + dnešní útrata | dostupný bez štítku; nedostupný čárkovaný okraj bez plochy + štítek a důvod |
 | `PageHeader` | H1 + `meta` + popis, vpravo nejvýš dvě tlačítka a ⋯ (`menu`, `menuLabel`), nad titulem `back`, druhý řádek `children` | přilepená (`sticky`, výška v `--page-header-h`) v editoru a detailu běhu |
 | `AddCard` | čárkovaná karta s +; scénář → dialog Nový scénář (čtecí fáze: CLI příkaz s kopírováním); projekt → CLI příkaz s kopírováním | |
 | `IconChain` | ikona typu v kolečku 28 px `bg-nested text-type`, šipka → mezi nimi, pořadí souboru | |
@@ -352,7 +352,7 @@ Stejná hlavička jako Agent, bez přepínače režimu (skill je vždy celý SKI
 | `CostChip`, `DurationChip` | `0,0015 USD` (čárka, ≥ 4 místa, nula = `0`, `USD` za číslem s pevnou mezerou), `17,5 s` / `1 min 12 s`; mono | u obrázků „z toho obrázky …“ v hlavičce |
 | `ExprInput`, `TemplateInput` | mono pole; našeptávač `inputs.` a `steps.<id>.<pole>` jen pro kroky nad a ve stejné větvi; nabídka proměnných tlačítkem u pole | chyba s hláškou a stříškou `^` ze serveru |
 | `ValidationError` | text pod polem + červená tečka u karty + počet v hlavičce „Neuloženo · 2 chyby“ (klik = skok na první) | |
-| `ConflictBar` | sticky pruh nad kartami | viz 4.6 |
+| `ConflictBar` | v editoru scénáře poslední řádek přilepené hlavičky (panel vedle sloupce se řadí pod něj), u agenta a Configu sticky pruh nad formulářem | viz 4.6 |
 | `EmptyState` | jedna věta, volitelně `CliLine` s příkazem v bloku `bg-nested` | projekt bez scénářů, bez běhů, běh ve frontě, nedostupný projekt |
 | `Skeleton`, `Loading` | pulzující bloky `bg-surface`; žádné spinnery mimo tlačítka | načítání seznamů a karet |
 | `ServerBar` → sidebar | „Server agencast neodpovídá (localhost:8787), zkouším znovu…“ dole v sidebaru (`role="alert"`); 401 = obrazovka Token serveru; 422 config = blok pod hlavičkou projektu s odkazem na Config | |

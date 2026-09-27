@@ -27,7 +27,7 @@ function MasterDetail({ project, tab, items, current, children }: {
             <li key={it.name}>
               <a href={href(project.name, tab, it.name)} aria-current={it.name === current ? "page" : undefined}
                 className={`flex items-center justify-between gap-2 rounded-control px-3 py-2 text-sm pointer-coarse:py-3 ${it.name === current ? "bg-surface text-fg" : "text-fg-secondary hover:bg-surface-hover hover:text-fg"}`}>
-                <span className="truncate font-mono">{it.name}</span>
+                <span className="truncate font-mono" title={it.name}>{it.name}</span>
                 {it.errors.length > 0 && <span className="shrink-0 text-xs text-error">✗ {t("validation.count", { n: it.errors.length })}</span>}
               </a>
             </li>
@@ -231,7 +231,7 @@ function AgentEditor({ project, name, header, newButton, onChanged }: {
         onSave={() => void save()} onRename={requestRename} onDelete={() => setDeleting(true)} />
       <MasterDetail project={project} tab="agenti" items={project.agents} current={name}>
       <div className="space-y-5">
-      <h2 className="truncate font-mono text-lg font-semibold">{name}</h2>
+      <h2 className="truncate font-mono text-lg font-semibold" title={name}>{name}</h2>
       {ui.bar}
       {renamedFiles.length > 1 && <p role="status" className="text-sm text-fg-muted">{t("rename.changed", { files: renamedFiles.join(", ") })}</p>}
       {active.loadError && <ErrorText error={active.loadError} />}
@@ -451,7 +451,7 @@ function SkillEditor({ project, name, header, newButton, onChanged }: {
         canSave={text.dirty && !text.conflict && !text.validating && !syntax} onSave={() => void save()} onDelete={() => setDeleting(true)} />
       <MasterDetail project={project} tab="skilly" items={project.skills} current={name}>
       <div className="space-y-5">
-      <h2 className="truncate font-mono text-lg font-semibold">{name}</h2>
+      <h2 className="truncate font-mono text-lg font-semibold" title={name}>{name}</h2>
       {ui.bar}
       {text.loadError && <ErrorText error={text.loadError} />}
       {text.doc ? <YamlEditor text={text.text} onChange={text.setText} file={path} errors={text.errors} /> : !text.loadError && <Loading rows={5} />}

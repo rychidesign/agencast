@@ -125,11 +125,12 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
             {step.type ?? "?"} · <span className="font-mono normal-case tracking-normal">{step.id}</span>
             {errors.length > 0 && <span className="size-1.5 rounded-full bg-error" aria-hidden />}
           </span>
-          <span className={`block truncate text-sm ${value && !dim ? "font-semibold text-fg" : "font-normal text-fg-muted"}`}>
+          <span className={`block truncate text-sm ${value && !dim ? "font-semibold text-fg" : "font-normal text-fg-muted"}`} title={value || undefined}>
             {value || t("step.value.empty")}
           </span>
         </span>
-        {right && <span className="max-w-[40%] shrink-0 truncate text-[13px] text-fg-muted">{right}</span>}
+        {right && <span className="max-w-[40%] shrink-0 truncate text-[13px] text-fg-muted"
+          title={!ctx.run && step.when ? t("step.when", { expr: step.when }) : undefined}>{right}</span>}
       </button>
       {edit && <CardControls step={step} edit={edit} above={above} />}
       {warn && (
@@ -355,7 +356,7 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[11px] tracking-wider text-fg-secondary uppercase">{t("step.header")}</span>
-        <span className="block truncate text-sm font-semibold text-fg">{value}</span>
+        <span className="block truncate text-sm font-semibold text-fg" title={value}>{value}</span>
       </span>
     </button>
   );

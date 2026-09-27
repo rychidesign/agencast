@@ -27,6 +27,10 @@
 }
 
 @layer base {
+  /* tmavé nativní prvky: rozbalený seznam selectu, posuvníky, checkboxy (jinak světlý seznam se světlým textem) */
+  :root {
+    color-scheme: dark;
+  }
   body {
     @apply bg-canvas text-fg font-sans antialiased;
   }

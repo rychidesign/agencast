@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { enc, useApi } from "../api";
 import { inputCls } from "../components/form";
 import { RUN_STATUS } from "../components/RunBadge";
-import { btn, EmptyState, ErrorText, Loading, StatusBadge, StatusIcon } from "../components/ui";
+import { btn, EmptyState, ErrorText, Skeleton, StatusBadge, StatusIcon } from "../components/ui";
 import {
   failReason, formatCost, formatDuration, formatWhen, isLive, runScenario, runStartedAt, utcTitle,
 } from "../format";
@@ -74,7 +74,7 @@ export function RunsTab({ project }: { project: string }) {
         )}
       </div>
       {runs.error && runs.error.status !== 0 && <ErrorText error={runs.error} />}
-      {runs.loading && !runs.data && <Loading rows={5} />}
+      {runs.loading && !runs.data && <div role="status" aria-label={t("common.loading")}><Skeleton className="h-[220px] rounded-card" /></div>}
       {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scénář>"}`} />}
       {shown.length > 0 && (
         <div className="overflow-x-auto rounded-card bg-surface" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>

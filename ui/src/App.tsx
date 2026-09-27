@@ -47,7 +47,7 @@ export function TokenScreen({ bad }: { bad: boolean }) {
         <div className="space-y-1.5">
           <label htmlFor="token" className="text-[13px] font-medium text-fg-secondary">{t("token.label")}</label>
           <input
-            id="token" type="password" autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)}
+            id="token" type="password" autoComplete="off" autoFocus value={value} onChange={(e) => setValue(e.target.value)}
             aria-describedby="token-help"
             className="h-9 w-full rounded-control bg-nested px-3 font-mono text-[13px] ring-1 ring-line focus:ring-accent focus:outline-none pointer-coarse:h-11"
           />
