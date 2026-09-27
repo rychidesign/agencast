@@ -1,5 +1,5 @@
 // §2.1 Seznam projektů (karty); přidání a odebrání projektu z registru (api.md 0.9.0).
-import { CircleSlash, FolderPlus, Plus, RefreshCw } from "lucide-react";
+import { CircleSlash, FolderPlus, Plus } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { FormField, inputCls, Modal, submitOnEnter } from "../components/form";
@@ -22,14 +22,12 @@ export function ProjectsPage() {
     <>
       <PageHeader title={t("projects.title")}
         description={list.data && <span className="font-mono text-[13px] text-fg-muted">{t("projects.registry", { path: list.data.registry })}</span>}
-        actions={<>
-          <button type="button" className={btn.icon} onClick={reload} aria-label={t("common.reload")} title={t("common.reload")}>
-            <RefreshCw className="size-4" aria-hidden />
-          </button>
+        actions={
           <button type="button" className={btn.primary} onClick={() => setAdding(true)} disabled={!list.data}>
             <Plus className="size-4" aria-hidden />{t("projects.add")}
-          </button>
-        </>} />
+          </button>}
+        // jako v sekcích projektu: „Načíst znovu“ v ⋯, ne samostatná ikona
+        menu={[{ label: t("common.reload"), onSelect: reload }]} />
       {list.error && list.error.status !== 0 && <ErrorText error={list.error} />}
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
         {list.loading && !list.data && [0, 1].map((i) => <li key={i}><Skeleton className="h-44 rounded-card" /></li>)}
@@ -68,7 +66,7 @@ function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: ()
   ];
   return (
     <li data-testid={`project-card-${project.name}`}
-      className={`relative flex min-h-44 flex-col rounded-card p-5 ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line opacity-50"}`}>
+      className={`relative flex min-h-44 flex-col rounded-card p-5 ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line"}`}>
       <div className="flex items-start justify-between gap-2">
         <h2 className="min-w-0 pt-1 text-lg font-semibold break-words">
           <a href={open} className="after:absolute after:inset-0 after:rounded-card">{project.name}</a>

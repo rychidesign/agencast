@@ -37,7 +37,9 @@ export function errorsByStep(errors: ErrorItem[]): Map<string, ErrorItem[]> {
 /** Posune vybranou kartu do pohledu (klik na čip „čte z“ skočí na kartu). */
 export function useScrollToCard(key: string | undefined) {
   useEffect(() => {
-    if (key) document.querySelector(`[data-step-card="${CSS.escape(key)}"]`)?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    if (key) document.querySelector(`[data-step-card="${CSS.escape(key)}"]`)?.scrollIntoView?.({
+      block: "nearest", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth",
+    });
   }, [key]);
 }
 
@@ -56,7 +58,8 @@ export function closeOnEsc(selected: string | undefined) {
 export function PanelSlot({ children }: { children: ReactNode }) {
   return (
     // Vedle sloupce až od 1280 px (sidebar 232 + sloupec + panel 400); užší = přes sloupec dole, vždy se zavíracím křížkem.
-    <div className="fixed inset-x-4 bottom-4 z-20 max-h-[70vh] overflow-auto rounded-panel shadow-2xl lg:left-[calc(232px+1rem)] xl:sticky xl:top-[calc(var(--page-header-h,5rem)+1rem)] xl:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] xl:w-[400px] xl:shrink-0 xl:self-start xl:shadow-none">
+    // List (z-40) leží nad přilepenou hlavičkou (z-30); panel vedle sloupce (z-20) pod ní, aby ho menu ⋯ z hlavičky překrylo.
+    <div className="fixed inset-x-4 bottom-4 z-40 max-h-[70vh] overflow-auto rounded-panel shadow-2xl lg:left-[calc(232px+1rem)] xl:sticky xl:top-[calc(var(--page-header-h,5rem)+1rem)] xl:z-20 xl:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] xl:w-[400px] xl:shrink-0 xl:self-start xl:shadow-none">
       {children}
     </div>
   );
@@ -287,9 +290,12 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
       { label: t("common.delete"), onSelect: () => setDeleting(true), danger: true },
     ] : []),
   ];
+  // neexistující scénář: jen titul a chyba, žádné Uložit, přepínač ani „Uloženo ✓“
+  const missing = form.loadError?.status === 404;
   return (
     <div onKeyDown={onKey}>
-      <PageHeader sticky
+      {missing ? <PageHeader back={<BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink>}
+        title={<span className="font-mono">{scenario}</span>} /> : <PageHeader sticky
         back={<><BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink><Trail project={project} trail={trail} /></>}
         title={<span className="font-mono">{scenario}</span>}
         description={work?.header.description}
@@ -308,17 +314,17 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
             { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> },
           ]} />
         <SaveNote dirty={yaml ? text.dirty : form.dirty} errors={errCount} state={yaml ? text.state : form.state} onJump={jump} />
-      </PageHeader>
+        {conflict && (
+          <ConflictBar inHeader conflict={conflict} onDiff={() => void showDiff()}
+            onReload={yaml ? text.reloadFromDisk : form.reloadFromDisk}
+            onKeep={() => void (yaml ? text.keepMine() : form.keepMine())} />
+        )}
+      </PageHeader>}
       <p className="sr-only" aria-live="polite" data-testid="announce">{announce}</p>
       {renamedFiles.length > 1 && <p role="status" className="pb-2 text-sm text-fg-muted">
         {t("rename.changed", { files: renamedFiles.join(", ") })}
       </p>}
       <div>
-        {conflict && (
-          <ConflictBar conflict={conflict} onDiff={() => void showDiff()}
-            onReload={yaml ? text.reloadFromDisk : form.reloadFromDisk}
-            onKeep={() => void (yaml ? text.keepMine() : form.keepMine())} />
-        )}
         {form.loadError && form.loadError.status !== 0 && <ErrorText error={form.loadError} />}
         {!work && !form.loadError && <div className="mx-auto max-w-[640px] pt-6"><Loading rows={4} pill /></div>}
         {yaml && (
@@ -343,7 +349,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
             )}
             {!running && selected === HEADER_KEY && (
               <PanelSlot>
-                <HeaderPanel header={work.header} errors={fileErrors.filter((e) => !e.step)} onClose={() => setQuery({ krok: undefined })}
+                <HeaderPanel name={scenario} header={work.header} errors={fileErrors.filter((e) => !e.step)} onClose={() => setQuery({ krok: undefined })}
                   change={(fn, key) => form.change((d: Draft) => ({ ...d, header: fn(d.header) }), key && `h:${key}`)} />
               </PanelSlot>
             )}

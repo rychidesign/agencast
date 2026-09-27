@@ -1,5 +1,6 @@
 // Tenký fetch nad HTTP API `agencast serve`: token, stav spojení, chyby jako typy.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { t } from "./i18n";
 import type { ErrorItem } from "./types";
 
 const TOKEN_KEY = "agencast.token";
@@ -65,9 +66,10 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (init.body) headers["Content-Type"] = "application/json";
     res = await fetch(API_BASE + path, { ...init, headers });
-  } catch (e) {
+  } catch {
     setConn({ offline: true });
-    throw new ApiError(0, e instanceof Error ? e.message : String(e));
+    // hláška prohlížeče („Failed to fetch“) je anglicky a nic neříká; ukazuje ji SaveNote
+    throw new ApiError(0, t("server.unreachable"));
   }
   setConn({ offline: false });
   if (res.status === 401) setConn({ auth: "bad" });

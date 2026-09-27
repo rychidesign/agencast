@@ -192,7 +192,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
               <li key={alias} className="space-y-1">
                 {/* úzký obsah (tablet): řádek se zalomí, pole ID drží nejmenší šířku */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="w-40 shrink-0">{users.length ? <span className="px-3 font-mono text-sm">{alias}</span>
+                  <div className="flex w-40 shrink-0">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
                     : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
                       onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}</div>
                   <div className="min-w-56 flex-1"><input aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"

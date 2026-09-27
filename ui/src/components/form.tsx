@@ -288,12 +288,16 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
     (root.current?.querySelector<HTMLElement>("[data-autofocus]") ?? root.current?.querySelector<HTMLElement>("button"))?.focus();
     return () => prev?.focus?.();
   }, []);
+  // fokusované tlačítko zmizelo (např. „Smazat“ po odmítnutí z API) → fokus zpět do dialogu, jinak nefunguje Esc ani Tab
+  useEffect(() => {
+    if (!root.current?.contains(document.activeElement)) root.current?.querySelector<HTMLElement>("button")?.focus();
+  });
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.stopPropagation();
       onCancel();
     } else if (e.key === "Tab") {
-      const all = [...(root.current?.querySelectorAll<HTMLElement>("button, input, textarea, select") ?? [])];
+      const all = [...(root.current?.querySelectorAll<HTMLElement>(":is(button, input, textarea, select):not(:disabled), a[href]") ?? [])];
       const i = all.indexOf(document.activeElement as HTMLElement);
       const j = e.shiftKey ? (i <= 0 ? all.length - 1 : i - 1) : (i + 1) % all.length;
       e.preventDefault();
@@ -342,6 +346,7 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
   const problem = !name ? null : !pattern.test(name) ? t("form.slug") : taken.includes(name) ? t("form.taken", { name }) : null;
   const submit = async () => {
     if (!name || problem || busy) return;
+    if (initialName && name === initialName) return onCancel(); // přejmenování na totéž jméno nic nedělá
     setBusy(true);
     try {
       await onSubmit(name, desc, model);

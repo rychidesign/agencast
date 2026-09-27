@@ -88,7 +88,7 @@ test("C6 spuštění běhu s formulářem vstupů (dry-run, ostrý, živý)", as
   const a = await startRun(server, project.name, "dlouhy");
   const b = await startRun(server, project.name, "dlouhy");
   await page.goto(`/#/p/${project.name}/behy`);
-  await expect(page.getByTestId(`run-row-${a}`)).toContainText(/běží · krok 1\/2 pomalu/);
+  await expect(page.getByTestId(`run-row-${a}`)).toContainText(/krok 1\/2 · pomalu/);
   await expect(page.getByTestId(`run-row-${a}`)).toContainText("falešný běh");
   await expect(page.getByTestId(`run-row-${a}`).getByText("běží", { exact: true })).toBeAttached();
   await expect(page.getByTestId(`run-row-${b}`)).toContainText("ve frontě (2.)");
@@ -163,7 +163,7 @@ test("C8 chybný běh", async ({ page, project, server }) => {
   await expect(card(page, "stop")).toHaveAttribute("aria-label", /— chyba$/);
   await expect(card(page, "stop")).toContainText("Zastaveno naschvál");
   await expect(card(page, "vystup")).toHaveAttribute("aria-label", /— nedošlo$/);
-  await expect(card(page, "vystup").locator("xpath=..")).toHaveCSS("opacity", "0.4");
+  await expect(card(page, "vystup")).toHaveCSS("border-top-style", "dashed"); // ztlumená (bez průhlednosti kvůli kontrastu)
   await card(page, "vynech").click();
   await expect(page.getByRole("complementary")).toContainText("použit default");
   await card(page, "stop").click();

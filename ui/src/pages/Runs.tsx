@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { enc, useApi } from "../api";
 import { inputCls } from "../components/form";
 import { RUN_STATUS } from "../components/RunBadge";
-import { btn, EmptyState, ErrorText, Loading, StatusBadge, StatusIcon } from "../components/ui";
+import { btn, EmptyState, ErrorText, Skeleton, StatusBadge, StatusIcon } from "../components/ui";
 import {
   failReason, formatCost, formatDuration, formatWhen, isLive, runScenario, runStartedAt, utcTitle,
 } from "../format";
@@ -74,7 +74,7 @@ export function RunsTab({ project }: { project: string }) {
         )}
       </div>
       {runs.error && runs.error.status !== 0 && <ErrorText error={runs.error} />}
-      {runs.loading && !runs.data && <Loading rows={5} />}
+      {runs.loading && !runs.data && <div role="status" aria-label={t("common.loading")}><Skeleton className="h-[220px] rounded-card" /></div>}
       {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scénář>"}`} />}
       {shown.length > 0 && (
         <div className="overflow-x-auto rounded-card bg-surface" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
@@ -118,9 +118,9 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
       <td className="pr-4 font-mono text-[13px]">
         <a href={href(project, "behy", r.run_id)} className="after:absolute after:inset-0">{runScenario(r) || r.run_id}</a>
       </td>
-      <td className="pr-4 text-fg-secondary" title={utcTitle(when)}>{what}</td>
-      <td className="pr-4 text-right font-mono text-[13px]">{r.duration_s != null ? formatDuration(r.duration_s) : ""}</td>
-      <td className="pr-4 text-right font-mono text-[13px]">{r.cost_usd != null ? formatCost(r.cost_usd) : ""}</td>
+      <td className="pr-4 whitespace-nowrap text-fg-secondary" title={utcTitle(when)}>{what}</td>
+      <td className="pr-4 text-right font-mono text-[13px] whitespace-nowrap">{r.duration_s != null ? formatDuration(r.duration_s) : ""}</td>
+      <td className="pr-4 text-right font-mono text-[13px] whitespace-nowrap">{r.cost_usd != null ? formatCost(r.cost_usd) : ""}</td>
       <td className="pr-4 text-fg-muted">{note}</td>
     </tr>
   );

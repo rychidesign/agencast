@@ -34,7 +34,7 @@ export function CodeView({ text, file, errors = [], focus }: {
   }, [focus]);
   return (
     <div>
-      <div ref={ref} className="overflow-auto rounded-[var(--radius-card)] bg-nested p-4 font-mono text-[13px] leading-5 ring-1 ring-line" tabIndex={0}
+      <div ref={ref} className="overflow-auto rounded-[var(--radius-card)] bg-nested p-4 font-mono text-[13px] leading-5 ring-1 ring-line focus-visible:ring-2 focus-visible:ring-accent" tabIndex={0}
         role="region" aria-label={file}>
         <table className="border-collapse">
           <tbody>

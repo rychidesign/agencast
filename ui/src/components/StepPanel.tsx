@@ -93,7 +93,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
 
   return (
     <PanelShell id="step-panel-title" eyebrow={`${t("panel.step", { n: step.nn })} · ${type ?? "?"}`}
-      title={<span className="font-mono">{step.id}</span>} onClose={onClose}
+      title={<span className="font-mono" title={step.id}>{step.id}</span>} onClose={onClose}
       actions={
         <button type="button" onClick={edit.remove} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
           className={`${btn.icon} text-error hover:bg-error/10 hover:text-error`}>
@@ -475,8 +475,9 @@ export function KeyInput({ name, taken, onRename, label, pattern = IDENT, hint }
 
 const IO_TYPES = ["string", "number", "integer", "boolean", "list", "object", "file"];
 
-export function HeaderPanel({ header, errors, onClose, change }: {
-  header: Header; errors: ErrorItem[]; onClose: () => void; change: (fn: (h: Header) => Header, key?: string) => void;
+export function HeaderPanel({ name, header, errors, onClose, change }: {
+  /** Jméno scénáře jako titul (jako panel Spustit), eyebrow „HLAVIČKA“ se neopakuje. */
+  name: string; header: Header; errors: ErrorItem[]; onClose: () => void; change: (fn: (h: Header) => Header, key?: string) => void;
 }) {
   const fe = (p: string) => errors.filter((e) => e.field === p || e.field?.startsWith(`${p}.`));
   const io = (which: "inputs" | "outputs") => {
@@ -544,7 +545,7 @@ export function HeaderPanel({ header, errors, onClose, change }: {
     );
   };
   return (
-    <PanelShell id="step-panel-title" eyebrow={t("panel.header")} title={t("step.header")} onClose={onClose}>
+    <PanelShell id="step-panel-title" eyebrow={t("panel.header")} title={<span className="font-mono">{name}</span>} onClose={onClose}>
       <div className="space-y-5">
         <ErrorList errors={errors.filter((e) => !e.field || !/^(description|inputs|outputs|callable)/.test(e.field))} />
         <FormField label={t("agent.description")} help={t("help.description")} errors={fe("description")} required>

@@ -27,8 +27,20 @@
 }
 
 @layer base {
+  /* tmavé nativní prvky: rozbalený seznam selectu, posuvníky, checkboxy (jinak světlý seznam se světlým textem) */
+  :root {
+    color-scheme: dark;
+  }
   body {
     @apply bg-canvas text-fg font-sans antialiased;
+  }
+  /* Tailwind 4 vrací tlačítkům výchozí kurzor; klikací prvky mají ruku, neaktivní ne */
+  button:not(:disabled, [aria-disabled="true"]), [role="button"], summary, select:not(:disabled),
+  input:is([type="checkbox"], [type="radio"]):not(:disabled), label:has(> input:is([type="checkbox"], [type="radio"])) {
+    cursor: pointer;
+  }
+  input:is([type="checkbox"], [type="radio"]) {
+    accent-color: var(--color-accent);
   }
   :focus-visible {
     @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas;

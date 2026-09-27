@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { enc, useApi } from "../api";
 import { PageHeader } from "../components/PageHeader";
-import { ErrorList, ErrorText, Loading, StatusChip, type MenuItem } from "../components/ui";
+import { btn, ErrorList, ErrorText, Loading, Skeleton, StatusChip, type MenuItem } from "../components/ui";
 import { t } from "../i18n";
 import { href, type Tab } from "../router";
 import type { ErrorItem, Project } from "../types";
@@ -12,10 +12,12 @@ import { RunsTab } from "./Runs";
 import { ScenariosTab } from "./Scenarios";
 
 /** Všechny chyby validace projektu (projekt + soubory). */
-export const allErrors = (p: Project): ErrorItem[] => [
-  ...p.errors,
-  ...[...p.scenarios, ...p.agents, ...p.skills].flatMap((x) => x.errors),
-];
+export const allErrors = (p: Project): ErrorItem[] => {
+  // chyba souboru přichází i v `p.errors` (nevalidní agent) → každou jednou
+  const all = [...p.errors, ...[...p.scenarios, ...p.agents, ...p.skills].flatMap((x) => x.errors)];
+  const key = (e: ErrorItem) => JSON.stringify([e.file, e.step, e.field, e.line, e.message]);
+  return all.filter((e, i) => all.findIndex((f) => key(f) === key(e)) === i);
+};
 
 /** Odkaz z chyby na soubor a krok (`file` = cesta ve `workflows/`). */
 export function errorHref(project: string, e: ErrorItem): string | undefined {
@@ -38,16 +40,27 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
   const reload = () => (detail.reload(), setGen(gen + 1));
   const p = detail.data;
   const errors = p ? allErrors(p) : [];
+  // neexistující / nedostupný projekt: bez názvu sekce, s cestou zpět (jako 404 adresy)
+  if (detail.error?.status === 404)
+    return (
+      <>
+        <PageHeader title={project} actions={<a className={btn.secondary} href="#/">{t("projects.title")}</a>} />
+        <ErrorText error={detail.error} />
+      </>
+    );
   const header: SectionHeader = (x = {}) => (
     <>
       <PageHeader title={t(`project.tab.${tab}`)} description={x.description} actions={x.actions} menuLabel={x.menuLabel}
-        menu={[{ label: t("common.reload"), onSelect: reload }, ...(x.menu ?? [])]}
+        // než se projekt načte, kreslí hlavičku stránka a po načtení ji převezme záložka (nový uzel) → otevřené ⋯
+        // by se samo zavřelo; během načítání proto ⋯ není (Běhy hlavičku nepředávají, mají ho vždy)
+        menu={p || detail.error || tab === "behy" ? [{ label: t("common.reload"), onSelect: reload }, ...(x.menu ?? [])] : undefined}
         meta={errors.length > 0 && (
-          <details className="relative text-sm">
+          <details className="relative text-sm" onKeyDown={(e) => e.key === "Escape" && (e.currentTarget.open = false)}
+            onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && (e.currentTarget.open = false)}>
             <summary className="cursor-pointer list-none rounded-full [&::-webkit-details-marker]:hidden">
               <StatusChip status="failed">{t("validation.count", { n: errors.length })}</StatusChip>
             </summary>
-            <div className="absolute z-20 mt-2 w-[36rem] max-w-[calc(100vw-2rem)] rounded-card bg-surface p-4 ring-1 ring-line">
+            <div tabIndex={-1} className="absolute z-20 mt-2 w-[36rem] max-w-[calc(100vw-2rem)] rounded-card bg-surface p-4 ring-1 ring-line focus:outline-none">
               <ErrorList errors={errors} hrefFor={(e) => errorHref(project, e)} />
             </div>
           </details>
@@ -74,7 +87,12 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
       {tab === "config" && (p || detail.error) && <ConfigTab name={project} project={p} header={header} onChanged={detail.reload} />}
       {tab === "behy" && <RunsTab project={project} />}
       {!p ? (
-        tab !== "behy" && !detail.error && <Loading rows={4} />
+        tab !== "behy" && !detail.error && (tab === "scenare"
+          // stejná mřížka a výška jako karty scénářů, ať se stránka po načtení nepohne
+          ? <div role="status" aria-label={t("common.loading")} className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
+              {[0, 1, 2].map((i) => <Skeleton key={i} className="h-52 rounded-card" />)}
+            </div>
+          : <Loading rows={4} />)
       ) : (
         <>
           {tab === "scenare" && <ScenariosTab project={p} header={header} onChanged={detail.reload} />}

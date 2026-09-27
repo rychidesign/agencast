@@ -59,7 +59,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
   };
 
   return (
-    <PanelShell id="run-panel-title" eyebrow={t("runForm.eyebrow")} title={scenario} onClose={onClose}>
+    <PanelShell id="run-panel-title" eyebrow={t("runForm.eyebrow")} title={<span className="font-mono">{scenario}</span>} onClose={onClose}>
       <form className="space-y-5" onSubmit={(e) => (e.preventDefault(), submit())}>
         {!Object.keys(specs).length && <p className="text-sm text-fg-muted">{t("runForm.noInputs")}</p>}
         {Object.entries(specs).map(([name, s]) => (

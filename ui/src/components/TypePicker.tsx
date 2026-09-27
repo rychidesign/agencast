@@ -60,7 +60,7 @@ export function TypePicker({ onPick, onClose, paste }: {
   return (
     <div ref={ref} role="listbox" tabIndex={-1} aria-label={t("picker.label")} onKeyDown={onKey}
       aria-activedescendant={items[active] ? `${id}-${items[active]}` : undefined}
-      className={`absolute top-1/2 z-30 w-60 -translate-y-1/2 rounded-card bg-surface p-1 text-fg ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
+      className={`absolute top-1/2 z-30 w-72 -translate-y-1/2 rounded-card bg-surface p-1 text-fg ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
       {filter && <div className="px-3 py-1 font-mono text-xs text-fg-muted" aria-live="polite">{t("picker.filter", { filter })}</div>}
       {items.map((k, i) => {
         const g = k === "paste" ? -2 : PICKER_GROUPS.findIndex((gr) => gr.includes(k));
@@ -103,7 +103,7 @@ export function AddButton({ label, onPick, paste, always = false, testid }: {
     <div className="relative inline-flex">
       <button ref={btnRef} type="button" aria-label={label} title={label} aria-haspopup="listbox" aria-expanded={open} data-testid={testid}
         onClick={() => setOpen(!open)}
-        className={`grid size-7 place-items-center rounded-full bg-nested text-fg-secondary ring-1 ring-line hover:bg-surface-hover hover:text-fg focus-visible:outline-none pointer-coarse:size-11 ${paste ? "ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
+        className={`grid size-7 place-items-center rounded-full bg-nested text-fg-secondary ring-1 ring-line hover:bg-surface-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-accent pointer-coarse:size-11 ${paste ? "ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
         <Plus className="size-4" aria-hidden />
       </button>
       {open && <TypePicker paste={paste} onClose={close} onPick={(p) => (setOpen(false), onPick(p))} />}

@@ -168,6 +168,10 @@ export function Menu({ items, label }: { items: MenuItem[]; label: string }) {
     if (e.key === "Escape") {
       setOpen(false);
       root.current?.querySelector<HTMLElement>("button")?.focus();
+    } else if (e.key === "Tab" && open) {
+      // Tab menu zavře a pokračuje od tlačítka ⋯ (vzor menu podle WAI-ARIA), položky v pořadí Tab nejsou
+      setOpen(false);
+      root.current?.querySelector<HTMLElement>("button")?.focus();
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       all[(i + (e.key === "ArrowDown" ? 1 : all.length - 1)) % all.length]?.focus();
@@ -185,7 +189,7 @@ export function Menu({ items, label }: { items: MenuItem[]; label: string }) {
         <div id={id} role="menu" className="absolute right-0 z-20 mt-1 w-60 rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
           {items.map((it) => (
             <button
-              key={it.label} type="button" role="menuitem" disabled={!!it.disabled} aria-disabled={!!it.disabled || undefined} title={it.disabled}
+              key={it.label} type="button" role="menuitem" tabIndex={-1} disabled={!!it.disabled} aria-disabled={!!it.disabled || undefined} title={it.disabled}
               className={`flex h-9 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-sm hover:bg-surface-hover focus:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11 ${it.danger ? "text-error" : "text-fg"}`}
               onClick={(e) => (e.stopPropagation(), setOpen(false), it.onSelect())}
             >
@@ -247,7 +251,7 @@ export function Collapsible({ title, value, children }: { title: string; value: 
         className="flex h-12 w-full items-center gap-3 text-left text-[15px] text-fg"
       >
         <span className="flex-1 font-medium">{title}</span>
-        <span className="max-w-[55%] truncate font-mono text-[13px] text-fg-muted">{value}</span>
+        <span className="max-w-[55%] truncate font-mono text-[13px] text-fg-muted" title={typeof value === "string" ? value : undefined}>{value}</span>
         <ChevronRight className={`size-4 text-fg-muted transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
       </button>
       {open && <div id={id} className="pb-4">{children}</div>}
