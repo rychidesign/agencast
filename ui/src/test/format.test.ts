@@ -1,19 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { formatCost, formatDuration, formatWhen, runIdParts } from "../format";
+import { formatCost, formatDuration, formatElapsed, formatSpend, formatWhen, runIdParts } from "../format";
 import { format, t } from "../i18n";
 import { href, parseHash } from "../router";
 
-describe("cena jako v CLI (record.py cz_usd)", () => {
+describe("cena: čtyři desetinná místa (fidelity §8)", () => {
   it.each([
-    [0, "0"],
+    [0, "0,0000"],
     [0.0404, "0,0404"],
-    [0.0015, "0,0015"],
+    [0.0812, "0,0812"],
     [1, "1,0000"],
-    [0.000004482, "0,000004482"],
+    [0.000013128, "0,0000"],
     [0.30000000000000004, "0,3000"],
     [12.5, "12,5000"],
     [null, "–"],
   ])("%s → %s", (usd, text) => expect(formatCost(usd)).toBe(text));
+  it.each([
+    [0, "0,00"],
+    [1.2, "1,20"],
+    [0.032425, "0,03"],
+    [0.0032, "0,0032"],
+  ])("útrata %s → %s", (usd, text) => expect(formatSpend(usd)).toBe(text));
 });
 
 describe("čas", () => {
@@ -22,6 +28,12 @@ describe("čas", () => {
     expect(formatDuration(0.004)).toBe("0,0 s");
     expect(formatDuration(72)).toBe("1 min 12 s");
     expect(formatDuration(3900)).toBe("1 h 5 min");
+  });
+  it("od startu běžícího běhu", () => {
+    const start = "2026-09-26T12:00:00Z";
+    expect(formatElapsed(start, Date.parse(start) + 42_000)).toBe("00:42");
+    expect(formatElapsed(start, Date.parse(start) + 725_000)).toBe("12:05");
+    expect(formatElapsed(null)).toBe("–");
   });
   it("kdy", () => {
     const now = new Date(2026, 8, 26, 12, 0);

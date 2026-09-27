@@ -55,7 +55,7 @@ describe("seznam běhů", () => {
     saveToken("t");
     const runCalls = () => fetch.mock.calls.filter(([u]) => String(u).includes("/runs?")).length;
 
-    await act(async () => render(<RunsTab project="thtd" />));
+    await act(async () => render(<RunsTab project="thtd" header={(x) => x?.meta} />));
     expect(runCalls()).toBe(1);
     expect(screen.getByText("krok 4/8 · foto_prompt")).toBeTruthy();
 
@@ -65,7 +65,7 @@ describe("seznam běhů", () => {
     runs = [done];
     await act(async () => void (await vi.advanceTimersByTimeAsync(RUNS_POLL_MS)));
     expect(runCalls()).toBe(3);
-    expect(screen.getByText("0,0021")).toBeTruthy();
+    expect(screen.getByText("0,0021 USD")).toBeTruthy();
 
     // Nic neběží → další dotaz už nepřijde.
     await act(async () => void (await vi.advanceTimersByTimeAsync(RUNS_POLL_MS * 3)));

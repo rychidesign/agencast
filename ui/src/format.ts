@@ -2,13 +2,14 @@
 import { nf, t } from "./i18n";
 import type { RunListItem, RunState } from "./types";
 
-/** Cena: desetinná čárka, aspoň 4 místa, víc jen kvůli uloženým číslicím (max 10), nula = `0`. */
+/** Cena běhu a kroku (fidelity §8): vždy čtyři desetinná místa s čárkou, `0,0000`, `0,0812`. */
 export function formatCost(usd: number | null | undefined): string {
   if (usd == null) return "–";
-  if (!usd) return "0";
-  const [whole, frac] = usd.toFixed(10).split(".");
-  return `${whole},${frac.replace(/0+$/, "").padEnd(4, "0")}`;
+  return usd.toFixed(4).replace(".", ",");
 }
+
+/** Útrata za den na kartě projektu: dvě místa, drobné nenulové částky pod 0,01 čtyři (`1,20`, `0,0032`). */
+export const formatSpend = (usd: number) => (usd && usd < 0.01 ? formatCost(usd) : usd.toFixed(2).replace(".", ","));
 
 /** Limit nebo rozpočet z configu (ne cena běhu): dvě desetinná místa. */
 export const formatMoney = (usd: number) =>
@@ -24,6 +25,13 @@ export function formatDuration(s: number | null | undefined): string {
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Doba od startu běžícího běhu `00:42`, `12:05` (fidelity §8, sloupec TRVÁNÍ). */
+export function formatElapsed(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return "–";
+  const s = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
+  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+}
 const clock = (d: Date) => `${d.getHours()}:${pad(d.getMinutes())}`;
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 

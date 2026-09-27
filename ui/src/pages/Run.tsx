@@ -1,4 +1,5 @@
-// §2.5 Detail běhu: karty se stavem, časem a cenou; záložky Kroky · Souhrn · Report · Soubory; živý běh (§4.8).
+// §2.5 Detail běhu (fidelity §8: titul mono 32 + ↗, run_id pod ním, VSTUPY jako karta): karty se stavem, časem a cenou; záložky Kroky · Souhrn · Report · Soubory; živý běh (§4.8).
+import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { enc, getText, useApi } from "../api";
 import { Markdown } from "../components/Markdown";
@@ -7,7 +8,7 @@ import { FilesTab, ReportTab } from "../components/RunFiles";
 import { RunStepPanel } from "../components/RunStepPanel";
 import { onColumnKey, StepList, type ListCtx } from "../components/StepCards";
 import { BackLink, PageHeader } from "../components/PageHeader";
-import { EmptyState, ErrorText, Loading, StatusChip, TabLinks } from "../components/ui";
+import { btn, EmptyState, ErrorText, Loading, StatusChip, TabLinks } from "../components/ui";
 import { failReason, formatCost, formatDuration, isLive, runScenario } from "../format";
 import { t } from "../i18n";
 import { href, setQuery, useLocation } from "../router";
@@ -81,40 +82,50 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
     <div onKeyDown={closeOnEsc(selected)}>
       <PageHeader sticky
         back={<BackLink href={href(project, "behy")}>{t("project.tab.behy")}</BackLink>}
-        title={<>
-          {run && <a href={href(project, "scenare", runScenario(run))} className="font-mono hover:underline">{runScenario(run)}</a>}
-          <span className="ml-3 font-mono text-[13px] font-normal text-fg-muted">{runId}</span>
-        </>}
-        meta={<>
-          {run && state && (
+        title={run && (
+          <a href={href(project, "scenare", runScenario(run))} className="inline-flex items-center gap-3 font-mono hover:underline">
+            {runScenario(run)}<ArrowUpRight className="size-6 shrink-0" aria-hidden />
+          </a>
+        )}
+        detail={runId}
+        actions={run && <>
+          {state && (
             <span data-testid="run-state">
               <StatusChip status={RUN_STATUS[state]}>
                 {state === "failed" ? t("run.failedIn", { reason: failReason(run.status) }) : t(`run.state.${state}`)}
               </StatusChip>
             </span>
           )}
-          {run?.fake && <span className="rounded-full bg-nested px-2 py-0.5 text-xs text-fg-secondary">{t("run.fake")}</span>}
-        </>}
-        actions={run && (
-          <span className="font-mono text-[13px] text-fg-secondary">
-            {run.duration_s != null && <span data-testid="run-duration">{formatDuration(run.duration_s)}</span>}
-            {run.cost_usd != null && <> · <span data-testid="run-cost">{formatCost(run.cost_usd)} USD</span></>}
-          </span>
+          {run.fake && <span className="rounded-full bg-nested px-3 py-1.5 font-mono text-xs text-fg-secondary">{t("run.fake")}</span>}
+          {(run.duration_s != null || run.cost_usd != null) && (
+            <span className="font-mono text-xs whitespace-nowrap text-fg-secondary">
+              {run.duration_s != null && <span data-testid="run-duration">{formatDuration(run.duration_s)}</span>}
+              {run.duration_s != null && run.cost_usd != null && " · "}
+              {run.cost_usd != null && <span data-testid="run-cost">{formatCost(run.cost_usd)} USD</span>}
+            </span>
+          )}
+          <a className={btn.secondary} href={href(project, "scenare", runScenario(run))}>
+            <ExternalLink className="size-4" aria-hidden />{t("run.openScenario")}
+          </a>
+        </>}>
+        {inputEntries.length > 0 && (
+          <p className="flex min-h-12 w-full items-center gap-3 truncate rounded-card bg-nested px-4 py-2 font-mono text-[13px]"
+            title={inputEntries.map(([k, v]) => `${k} = ${show(v)}`).join("\n")}>
+            <span className="text-[11px] tracking-[0.08em] text-fg-muted uppercase">{t("run.inputs")}</span>
+            <span className="truncate">{inputEntries.map(([k, v]) => `${k} = „${show(v)}“`).join(" · ")}</span>
+          </p>
         )}
-        description={inputEntries.length > 0 && (
-          <span title={inputEntries.map(([k, v]) => `${k} = ${show(v)}`).join("\n")}>
-            <span className="mr-2 text-[11px] tracking-wide text-fg-muted uppercase">{t("run.inputs")}</span>
-            {inputEntries.map(([k, v], i) => (
-              <span key={k} className="font-mono text-[13px] text-fg">{i > 0 && " · "}{k} = „{show(v)}“</span>
-            ))}
-          </span>
-        )}>
-        {!loaded.error && <TabLinks label={t("run.tabs")} active={tab}
-          tabs={RUN_TABS.map((k) => ({ key: k, label: t(`run.tab.${k}`), href: href(project, "behy", runId, { zalozka: k === "kroky" ? undefined : k }) }))} />}
-        {live && (
-          <label className="ml-auto inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> {t("run.follow")}
-          </label>
+        {!loaded.error && (
+          // záložky podtržené přes celou šířku, „sledovat běh“ vpravo na stejné čáře (návrh V3 / RunTabs)
+          <div className="flex w-full flex-wrap items-center gap-x-4 border-b border-line [&>nav]:border-b-0">
+            <TabLinks label={t("run.tabs")} active={tab}
+              tabs={RUN_TABS.map((k) => ({ key: k, label: t(`run.tab.${k}`), href: href(project, "behy", runId, { zalozka: k === "kroky" ? undefined : k }) }))} />
+            {live && (
+              <label className="ml-auto inline-flex items-center gap-2 text-sm text-fg-secondary">
+                <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> {t("run.follow")}
+              </label>
+            )}
+          </div>
         )}
         {state === "interrupted" && <p className="w-full text-sm text-warning">{t("run.interruptedHint")}</p>}
         <p className="sr-only" aria-live="polite">{running ? t("run.stepRunning", { step: running }) : ""}</p>

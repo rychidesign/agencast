@@ -31,7 +31,7 @@ export function errorHref(project: string, e: ErrorItem): string | undefined {
 
 /** Hlavička sekce (G1): záložka do ní doplní akce, ⋯ a druhý řádek; „Načíst znovu“ je v ⋯ vždy první. */
 export type SectionHeader = (x?: {
-  description?: ReactNode; actions?: ReactNode; menu?: MenuItem[]; menuLabel?: string; children?: ReactNode;
+  description?: ReactNode; meta?: ReactNode; actions?: ReactNode; menu?: MenuItem[]; menuLabel?: string; children?: ReactNode;
 }) => ReactNode;
 
 export function ProjectPage({ project, tab, item }: { project: string; tab: Tab; item?: string }) {
@@ -54,7 +54,7 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
         // než se projekt načte, kreslí hlavičku stránka a po načtení ji převezme záložka (nový uzel) → otevřené ⋯
         // by se samo zavřelo; během načítání proto ⋯ není (Běhy hlavičku nepředávají, mají ho vždy)
         menu={p || detail.error || tab === "behy" ? [{ label: t("common.reload"), onSelect: reload }, ...(x.menu ?? [])] : undefined}
-        meta={errors.length > 0 && (
+        meta={<>{x.meta}{errors.length > 0 && (
           <details className="relative text-sm" onKeyDown={(e) => e.key === "Escape" && (e.currentTarget.open = false)}
             onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && (e.currentTarget.open = false)}>
             <summary className="cursor-pointer list-none rounded-full [&::-webkit-details-marker]:hidden">
@@ -64,7 +64,7 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
               <ErrorList errors={errors} hrefFor={(e) => errorHref(project, e)} />
             </div>
           </details>
-        )}>
+        )}</>}>
         {x.children}
       </PageHeader>
       {detail.error?.status === 422 && (
@@ -80,12 +80,12 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
     </>
   );
   // Hlavičku kreslí záložka, jakmile má data (kvůli Uložit a přepínači); do té doby ji kreslí stránka.
-  const tabOwnsHeader = tab === "config" ? !!(p || detail.error) : tab !== "behy" && !!p;
+  const tabOwnsHeader = tab === "config" ? !!(p || detail.error) : tab === "behy" || !!p;
   return (
     <div key={gen}>
       {!tabOwnsHeader && header()}
       {tab === "config" && (p || detail.error) && <ConfigTab name={project} project={p} header={header} onChanged={detail.reload} />}
-      {tab === "behy" && <RunsTab project={project} />}
+      {tab === "behy" && <RunsTab project={project} header={header} />}
       {!p ? (
         tab !== "behy" && !detail.error && (tab === "scenare"
           // stejná mřížka a výška jako karty scénářů, ať se stránka po načtení nepohne
