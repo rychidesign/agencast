@@ -5,8 +5,9 @@ import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn } from "./ui";
 
+const selectArrow = `[&:is(select)]:appearance-none [&:is(select)]:bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%238194AD'%20stroke-width='1.5'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E")] [&:is(select)]:bg-no-repeat [&:is(select)]:bg-[position:right_12px_center] [&:is(select)]:pr-9`;
 export const inputCls =
-  "w-full rounded-lg bg-zinc-900 px-3 py-2 text-sm pointer-coarse:text-base ring-1 ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:opacity-50 aria-invalid:ring-rose-400";
+  `w-full min-h-9 rounded-[var(--radius-control)] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-line focus:outline-none focus:ring-2 focus:ring-accent aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:text-base ${selectArrow}`;
 const mono = "font-mono text-[13px]";
 
 /** Pole se štítkem nad sebou (§6): `aria-describedby` na nápovědu i chybu. */
@@ -19,17 +20,17 @@ export function FormField({ label, help, errors = [], required, children, action
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-[13px] font-semibold text-zinc-300">
-          {label}{required && <span className="text-zinc-500"> *</span>}
+        <label htmlFor={id} className="text-[13px] font-semibold text-fg-secondary">
+          {label}{required && <span className="text-fg-muted"> *</span>}
         </label>
         {action}
       </div>
       {children({ id, "aria-describedby": described, "aria-invalid": errors.length > 0 || undefined })}
-      {help && <p id={`${id}-help`} className="text-xs text-zinc-400">{help}</p>}
+      {help && <p id={`${id}-help`} className="text-xs text-fg-muted">{help}</p>}
       {errors.length > 0 && (
         <div id={`${id}-err`} className="space-y-1">
           {errors.map((e, i) => (
-            <p key={i} className="font-mono text-xs whitespace-pre-wrap text-rose-400">{typeof e === "string" ? e : e.message}</p>
+            <p key={i} className="font-mono text-xs whitespace-pre-wrap text-error">{typeof e === "string" ? e : e.message}</p>
           ))}
         </div>
       )}
@@ -39,7 +40,7 @@ export function FormField({ label, help, errors = [], required, children, action
 
 /** Drobná pilulka „+ Přidat …“ vpravo od štítku sekce (§3 Button). */
 export const AddPill = ({ label, onClick }: { label: string; onClick: () => void }) => (
-  <button type="button" onClick={onClick} className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs text-zinc-200 hover:bg-zinc-700">
+  <button type="button" onClick={onClick} className="rounded-full bg-nested px-2.5 py-0.5 text-xs text-fg-secondary hover:bg-surface-hover pointer-coarse:min-h-11">
     + {label}
   </button>
 );
@@ -178,7 +179,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
         ? <textarea {...props} className={`${inputCls} ${mono} pr-12`} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
         : <input {...props} className={`${inputCls} ${mono} pr-12`} />}
       <button
-        type="button" className={`grid size-8 place-items-center rounded-lg pointer-coarse:size-11 absolute right-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${multiline ? "top-1" : "top-1/2 -translate-y-1/2"} ${variablesOpen ? "bg-zinc-800 text-violet-300" : "text-violet-400 hover:bg-zinc-800 hover:text-violet-300"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
+        type="button" className={`absolute right-1 grid size-8 place-items-center rounded-[var(--radius-control)] text-variable pointer-coarse:size-11 ${multiline ? "top-1" : "top-1/2 -translate-y-1/2"} ${variablesOpen ? "bg-surface" : "hover:bg-surface"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
         aria-label={t("form.variables.insert")} title={candidates.length ? t("form.variables.insert") : t("form.variables.none")}
         aria-haspopup="menu" aria-expanded={variablesOpen} aria-controls={menuId} disabled={!candidates.length}
         onClick={() => (setVariableActive(0), setVariablesOpen((isOpen) => !isOpen))}
@@ -197,11 +198,11 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
         <Braces className="size-4" aria-hidden />
       </button>
       {open && (
-        <ul id={listId} role="listbox" className="absolute left-0 z-30 mt-1 w-full rounded-xl bg-zinc-800 p-1 ring-1 ring-zinc-700">
+        <ul id={listId} role="listbox" className="absolute left-0 z-30 mt-1 w-full rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
           {matches.map((c, i) => (
             <li key={c} id={`${listId}-${i}`} role="option" aria-selected={i === active}
               onMouseDown={(e) => (e.preventDefault(), accept(c))}
-              className={`flex h-8 cursor-pointer items-center rounded-lg px-3 ${mono} ${i === active ? "bg-zinc-700" : ""}`}>
+              className={`flex h-8 cursor-pointer items-center rounded-[var(--radius-control)] px-3 text-variable ${mono} ${i === active ? "bg-surface-hover" : "hover:bg-surface-hover"}`}>
               {c}
             </li>
           ))}
@@ -209,15 +210,15 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
       )}
       {variablesOpen && (
         <div ref={menu} id={menuId} role="menu" onKeyDown={onVariableMenuKey}
-          className="absolute right-0 top-full z-40 mt-1 max-h-72 w-64 overflow-y-auto rounded-xl bg-zinc-800 p-1 ring-1 ring-zinc-700">
+          className="absolute right-0 top-full z-40 mt-1 max-h-72 w-64 overflow-y-auto rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
           {variableGroups.map((group) => (
             <div key={group.label} role="group" aria-label={group.label}>
-              <div className="px-3 pt-2 pb-1 text-xs text-zinc-400">{group.label}</div>
+              <div className="px-3 pt-2 pb-1 text-xs text-fg-muted">{group.label}</div>
               {group.items.map((candidate) => {
                 const i = candidates.indexOf(candidate);
                 return (
                   <button key={candidate} type="button" role="menuitem" tabIndex={-1}
-                    className={`flex min-h-9 w-full items-center rounded-lg px-3 text-left ${mono} ${i === variableActive ? "bg-zinc-700" : "hover:bg-zinc-700"} pointer-coarse:min-h-11`}
+                    className={`flex min-h-9 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-variable ${mono} ${i === variableActive ? "bg-surface-hover" : "hover:bg-surface-hover"} pointer-coarse:min-h-11`}
                     onFocus={() => setVariableActive(i)} onClick={() => insertVariable(candidate)}>
                     {candidate}
                   </button>
@@ -300,15 +301,15 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
     }
   };
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-zinc-950/70 p-4" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-canvas/70 p-4" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
       <div ref={root} role="dialog" aria-modal="true" aria-labelledby={id} onKeyDown={onKey}
-        className="w-full max-w-lg space-y-4 rounded-2xl bg-zinc-800 p-6">
+        className="w-full max-w-lg space-y-4 rounded-[var(--radius-panel)] bg-surface p-6">
         <h2 id={id} className="text-lg font-semibold">{title}</h2>
-        {children && <div className="space-y-3 text-sm text-zinc-300">{children}</div>}
+        {children && <div className="space-y-3 text-sm text-fg-secondary">{children}</div>}
         <div className="flex flex-wrap justify-end gap-2">
           {actions.map((a) => (
             <button key={a.label} type="button" onClick={a.onSelect}
-              className={a.danger ? `${btn.secondary} text-rose-400` : a.primary ? btn.primary : btn.secondary}>
+              className={a.danger ? btn.danger : a.primary ? btn.primary : btn.secondary}>
               {a.label}
             </button>
           ))}
@@ -370,7 +371,7 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
             )}
           </FormField>
         )}
-        {error && <p role="alert" className="font-mono text-xs whitespace-pre-wrap text-rose-400">{error}</p>}
+        {error && <p role="alert" className="font-mono text-xs whitespace-pre-wrap text-error">{error}</p>}
       </form>
     </Modal>
   );
@@ -383,7 +384,7 @@ export function ValueInput({ type, value, onChange, a11y }: {
 }) {
   switch (type) {
     case "boolean":
-      return <input {...a11y} type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} className="size-4" />;
+      return <label htmlFor={a11y.id} className="inline-flex size-9 items-center justify-center pointer-coarse:size-11"><input {...a11y} type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-accent" /></label>;
     case "number":
     case "integer":
       return (

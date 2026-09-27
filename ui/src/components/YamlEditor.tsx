@@ -1,5 +1,5 @@
-// `YamlEditor` (§3, §4.5): textarea nad zvýrazněným textem (dva odstíny), čísla řádků, chybné
-// řádky s rose značkou, seznam chyb s odkazem na řádek. `ConflictBar` a rozdíl (§4.6).
+// `YamlEditor` (§3, §4.5): textarea nad zvýrazněným textem, čísla řádků,
+// chybné řádky a seznam chyb s odkazem na řádek. `ConflictBar` a rozdíl (§4.6).
 import { useEffect, useRef, useState } from "react";
 import { t } from "../i18n";
 import { lineDiff, type Conflict } from "../textfile";
@@ -46,12 +46,12 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
   };
   return (
     <div>
-      <div ref={box} className="max-h-[calc(100vh-14rem)] overflow-auto rounded-xl bg-zinc-800/60 font-mono text-sm leading-6 ring-1 ring-zinc-700 focus-within:ring-zinc-400">
+      <div ref={box} className="max-h-[calc(100vh-14rem)] overflow-auto rounded-[var(--radius-card)] bg-nested font-mono text-[13px] leading-6 ring-1 ring-line focus-within:ring-accent">
         <div className="flex min-w-max">
-          <div aria-hidden className="py-4 pr-3 pl-4 text-right text-zinc-500 select-none">
+          <div aria-hidden className="py-4 pr-3 pl-4 text-right text-fg-muted select-none">
             {lines.map((_, i) => (
               <div key={i} data-testid={bad.has(i + 1) ? `yaml-line-${i + 1}` : undefined}
-                className={bad.has(i + 1) ? "-ml-4 border-l-2 border-rose-400 pl-[14px] text-rose-400" : ""}>{i + 1}</div>
+                className={bad.has(i + 1) ? "-ml-4 border-l-2 border-error bg-error/10 pl-[14px] text-error" : flash && i + 1 >= flash[0] && i + 1 <= flash[1] ? "-ml-4 border-l-2 border-accent bg-surface-hover pl-[14px]" : ""}>{i + 1}</div>
             ))}
           </div>
           <div className="relative flex-1 py-4 pr-4">
@@ -59,19 +59,19 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
               {lines.map((l, i) => {
                 const n = i + 1;
                 const hi = flash && n >= flash[0] && n <= flash[1];
-                return <div key={i} className={bad.has(n) ? "bg-rose-500/5" : hi ? "bg-zinc-700/50 transition-colors" : ""}><Line text={l || " "} /></div>;
+                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-hover transition-colors" : ""}><Line text={l || " "} /></div>;
               })}
             </pre>
             <textarea
               ref={area} value={text} readOnly={readOnly} wrap="off" spellCheck={false} aria-label={label ?? file}
               aria-describedby="yaml-hint yaml-errors" aria-invalid={errors.length > 0 || undefined}
               onChange={(e) => onChange(e.target.value)} onSelect={caret} onKeyUp={caret} onClick={caret}
-              className="absolute inset-0 resize-none overflow-hidden bg-transparent py-4 pr-4 whitespace-pre text-transparent caret-zinc-100 outline-none selection:bg-zinc-600/60"
+              className="absolute inset-0 resize-none overflow-hidden bg-transparent py-4 pr-4 whitespace-pre text-transparent caret-fg outline-none selection:bg-accent/30"
             />
           </div>
         </div>
       </div>
-      <p id="yaml-hint" className="mt-2 text-xs text-zinc-400">{t(readOnly ? "code.hint" : "code.editHint", { file: `workflows/${file}` })}</p>
+      <p id="yaml-hint" className="mt-2 text-xs text-fg-muted">{t(readOnly ? "code.hint" : "code.editHint", { file: `workflows/${file}` })}</p>
       <div id="yaml-errors" className="mt-3">
         <ul className="space-y-2">
           {errors.map((e, i) => (
@@ -94,8 +94,8 @@ export function ConflictBar({ conflict, onDiff, onReload, onKeep }: {
   conflict: Conflict; onDiff: () => void; onReload: () => void; onKeep: () => void;
 }) {
   return (
-    <div role="alert" data-testid="conflict-bar" className="sticky top-[4.5rem] z-10 mx-auto mb-4 flex max-w-4xl flex-wrap items-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm ring-1 ring-amber-400/40">
-      <span className="flex-1 text-amber-400">{t(conflict.stale ? "conflict.stale" : "conflict.changed")}</span>
+    <div role="alert" data-testid="conflict-bar" className="sticky top-[4.5rem] z-10 mx-auto mb-4 flex max-w-4xl flex-wrap items-center gap-2 rounded-[var(--radius-card)] bg-surface px-4 py-3 text-sm ring-1 ring-warning/60">
+      <span className="flex-1 text-warning">{t(conflict.stale ? "conflict.stale" : "conflict.changed")}</span>
       <button type="button" className={btn.secondary} onClick={onDiff}>{t("conflict.diff")}</button>
       <button type="button" className={btn.secondary} onClick={onReload}>{t("conflict.reload")}</button>
       <button type="button" className={btn.secondary} onClick={onKeep}>{t("conflict.keep")}</button>
@@ -110,10 +110,10 @@ export function DiffModal({ title, before, after, onClose, note }: { title: stri
   return (
     <Modal title={title} onCancel={onClose} actions={[]} cancelLabel={t("common.close")}>
       {note && <p>{note}</p>}
-      <pre className="max-h-[60vh] overflow-auto rounded-lg bg-zinc-900 p-3 font-mono text-[13px] leading-5">
-        {diff.every((d) => d.op === " ") && <span className="text-zinc-400">{t("conflict.same")}</span>}
+      <pre className="max-h-[60vh] overflow-auto rounded-[var(--radius-control)] bg-nested p-3 font-mono text-[13px] leading-5">
+        {diff.every((d) => d.op === " ") && <span className="text-fg-muted">{t("conflict.same")}</span>}
         {diff.map((d, i) => near(i) && (
-          <div key={i} className={d.op === "+" ? "bg-emerald-500/10 text-emerald-300" : d.op === "-" ? "bg-rose-500/10 text-rose-300" : "text-zinc-400"}>
+          <div key={i} className={d.op === "+" ? "bg-success/10 text-success" : d.op === "-" ? "bg-error/10 text-error" : "text-fg-muted"}>
             {d.op} {d.text}
           </div>
         ))}
