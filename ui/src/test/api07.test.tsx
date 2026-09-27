@@ -251,6 +251,6 @@ describe("rozbitý config", () => {
 
     location.hash = "#/p/p/behy";
     await act(async () => render(<App />));
-    expect(await screen.findByText(RUN_ID)).toBeTruthy();
+    expect(await screen.findByTestId(`run-row-${RUN_ID}`)).toBeTruthy(); // run_id jen v `title` řádku (G9)
   });
 });

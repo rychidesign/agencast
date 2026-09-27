@@ -9,6 +9,20 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
 
 - Tokeny: Základní barvy, písma a rádiusy V3 jsou zavedené; Inter Variable
   a JetBrains Mono se bundlují lokálně.
+- Shell: GUI má levý sidebar (značka, „← Projekty“, jméno projektu, navigace
+  Scénáře · Agenti · Běhy · Skilly · Config, dole dnešní útrata s pruhem);
+  pod 1024 px se sbalí do horní lišty. Výpadek serveru hlásí dole v sidebaru
+  místo pruhu nahoře.
+- Shell: Jednotná hlavička stránek (`PageHeader`): titul, popis, nejvýš dvě
+  tlačítka a menu ⋯ „Další akce“. V editoru scénáře jsou Vrátit zpět,
+  Kopírovat příkaz spuštění, Běhy tohoto scénáře, Přejmenovat a Smazat v ⋯.
+- Shell: Projekt má v hlavičce název sekce a čip chyb; cesta, limity a útrata
+  z ní zmizely (útrata je v sidebaru). Karta projektu bez štítku „dostupný“,
+  přidání projektu je tlačítko v hlavičce (čárkovaná karta jen u prázdného
+  seznamu).
+- Shell: Seznam běhů bez sloupce run_id (je v `title` řádku a v detailu) a
+  bez řádku útraty; stav je ikona + text. Detail běhu: „← Běhy“, vstupy na
+  jeden řádek, „Běh skončil: …“ jen pro čtečku.
 
 ## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
 

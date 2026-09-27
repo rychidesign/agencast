@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 import { enc, useApi } from "../api";
 import { RUN_STATUS } from "../components/RunBadge";
-import { btn, EmptyState, ErrorText, Loading, StatusIcon } from "../components/ui";
+import { btn, EmptyState, ErrorText, Loading, StatusBadge, StatusIcon } from "../components/ui";
 import {
-  failReason, formatCost, formatDuration, formatMoney, formatWhen, isLive, runScenario, runStartedAt, utcTitle,
+  failReason, formatCost, formatDuration, formatWhen, isLive, runScenario, runStartedAt, utcTitle,
 } from "../format";
 import { t } from "../i18n";
 import { href, setQuery, useLocation } from "../router";
-import type { Project, RunListItem, RunState, Spend } from "../types";
+import type { Project, RunListItem, RunState } from "../types";
 
 export const RUNS_POLL_MS = 5000;
 export const RUNS_PAGE = 50;
+
+const selectCls = "h-9 rounded-control bg-nested px-2 text-fg ring-1 ring-line pointer-coarse:h-11";
 
 const FILTERS: RunState[] = ["running", "queued", "interrupted", "succeeded", "failed", "dry_run"];
 
@@ -35,7 +37,6 @@ export function RunsTab({ project }: { project: string }) {
       return [...old, ...page.data!.runs.filter((r) => !seen.has(r.run_id))];
     });
   }, [before, page.data, runs.data]);
-  const spend = useApi<Spend>(`${base}/spend`);
   const detail = useApi<Project>(base);
   const first = runs.data?.runs ?? [];
   const all = [...first, ...olderRuns.filter((r) => !first.some((f) => f.run_id === r.run_id))];
@@ -45,27 +46,21 @@ export function RunsTab({ project }: { project: string }) {
   const shown = all.filter((r) => !state || r.state === state);
   const nRunning = all.filter((r) => r.state === "running").length;
   const nQueued = all.filter((r) => r.state === "queued").length;
-  const daily = Number(detail.data?.limits.daily_budget_usd) || 0;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        {spend.data && (
-          <span className="font-mono">
-            {t("spend.today", { usd: formatCost(spend.data.total_usd) })}{daily > 0 && ` / ${formatMoney(daily)} USD`}
-          </span>
-        )}
-        <label className="inline-flex items-center gap-2 text-zinc-400">
+        <label className="inline-flex items-center gap-2 text-fg-secondary">
           {t("runs.filter.scenario")}
           <select value={scenario} onChange={(e) => setQuery({ scenar: e.target.value || undefined })}
-            className="h-8 rounded-lg bg-zinc-800 px-2 text-zinc-100">
+            className={selectCls}>
             <option value="">{t("runs.filter.all")}</option>
             {scenarios.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
-        <label className="inline-flex items-center gap-2 text-zinc-400">
+        <label className="inline-flex items-center gap-2 text-fg-secondary">
           {t("runs.filter.state")}
           <select value={state} onChange={(e) => setQuery({ stav: e.target.value || undefined })}
-            className="h-8 rounded-lg bg-zinc-800 px-2 text-zinc-100">
+            className={selectCls}>
             <option value="">{t("runs.filter.all")}</option>
             {FILTERS.map((f) => <option key={f} value={f}>{t(`run.state.${f}`)}</option>)}
           </select>
@@ -81,11 +76,11 @@ export function RunsTab({ project }: { project: string }) {
       {runs.loading && !runs.data && <Loading rows={5} />}
       {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scénář>"}`} />}
       {shown.length > 0 && (
-        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
+        <div className="overflow-x-auto rounded-card bg-surface" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
         <table className="w-full min-w-[40rem] text-sm">
           <caption className="sr-only">{t("project.tab.behy")}</caption>
           <thead className="sr-only">
-            <tr><th>{t("runs.col.state")}</th><th>run_id</th><th>{t("runs.col.scenario")}</th><th>{t("runs.col.when")}</th>
+            <tr><th>{t("runs.col.state")}</th><th>{t("runs.col.scenario")}</th><th>{t("runs.col.when")}</th>
               <th>{t("runs.col.duration")}</th><th>{t("runs.col.cost")}</th><th>{t("runs.col.note")}</th></tr>
           </thead>
           <tbody>
@@ -118,16 +113,15 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
     r.callback ?? "",
   ].filter(Boolean).join(" · ");
   return (
-    <tr data-testid={`run-row-${r.run_id}`} className="relative hover:bg-zinc-800/60">
-      <td className="w-8 py-2 pl-3"><StatusIcon status={RUN_STATUS[state]} label={t(`run.state.${state}`)} /></td>
-      <td className="py-2 pr-4 font-mono text-[13px]">
-        <a href={href(project, "behy", r.run_id)} className="after:absolute after:inset-0">{r.run_id}</a>
+    <tr data-testid={`run-row-${r.run_id}`} title={r.run_id} className="relative border-t border-line first:border-t-0 hover:bg-surface-hover">
+      <td className="w-32 py-2.5 pl-4 whitespace-nowrap"><StatusBadge status={RUN_STATUS[state]}>{t(`run.state.${state}`)}</StatusBadge></td>
+      <td className="pr-4 font-mono text-[13px]">
+        <a href={href(project, "behy", r.run_id)} className="after:absolute after:inset-0">{runScenario(r) || r.run_id}</a>
       </td>
-      <td className="pr-4 font-mono text-[13px] text-zinc-300">{runScenario(r)}</td>
-      <td className="pr-4 text-zinc-300" title={utcTitle(when)}>{what}</td>
+      <td className="pr-4 text-fg-secondary" title={utcTitle(when)}>{what}</td>
       <td className="pr-4 text-right font-mono text-[13px]">{r.duration_s != null ? formatDuration(r.duration_s) : ""}</td>
       <td className="pr-4 text-right font-mono text-[13px]">{r.cost_usd != null ? formatCost(r.cost_usd) : ""}</td>
-      <td className="pr-3 text-zinc-400">{note}</td>
+      <td className="pr-4 text-fg-muted">{note}</td>
     </tr>
   );
 }
