@@ -119,7 +119,8 @@ describe("editor scénáře", () => {
       ? [200, { name: "t", etag: "e1", changed: ["scenarios/t.yaml", "scenarios/caller.yaml"], errors: [] }]
       : undefined);
     await openEditor();
-    fireEvent.click(screen.getByRole("button", { name: "Přejmenovat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Další akce" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Přejmenovat" }));
     const dialog = screen.getByRole("dialog", { name: "Přejmenovat scénář „s“?" });
     fireEvent.change(within(dialog).getByRole("textbox", { name: /Jméno/ }), { target: { value: "t" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Přejmenovat" }));
@@ -155,7 +156,8 @@ describe("editor scénáře", () => {
     const copy = screen.getByRole("button", { name: /Krok 1: ask copy/ });
     fireEvent.keyDown(copy, { key: "ArrowDown", altKey: true });
     expect(screen.getByRole("button", { name: /Krok 2: ask copy/ })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Vrátit zpět" }));
+    fireEvent.click(screen.getByRole("button", { name: "Další akce" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Vrátit zpět (Ctrl+Z)" }));
     expect(screen.getByRole("button", { name: /Krok 1: ask copy/ })).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("button", { name: /ask ask_1/ }), { key: "Delete" });
     expect(screen.queryByRole("button", { name: /ask ask_1/ })).toBeNull();

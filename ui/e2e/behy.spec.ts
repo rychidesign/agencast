@@ -140,7 +140,7 @@ test("C7 čtení výsledku a ceny", async ({ page, project, server }) => {
   const sc = page.getByTestId("scenario-card-ukazka");
   await expect(sc).toContainText("úspěch");
   await expect(sc).toContainText("právě teď");
-  await expect(page.getByText("dnes 0 USD").first()).toBeVisible();
+  await expect(page.getByTestId("spend-today")).toHaveText(/^0,00( \/ [\d,]+)? USD$/); // útrata v sidebaru (G5)
 
   await page.getByRole("link", { name: "Běhy", exact: true }).click();
   const req = page.waitForRequest((r) => r.url().includes("/runs?scenario=ukazka&limit=50"));

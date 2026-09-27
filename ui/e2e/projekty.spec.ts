@@ -39,7 +39,7 @@ test.describe("bez tokenu", () => {
     await expect(page.getByRole("heading", { name: "Projekty" })).toBeVisible();
     await expect(page.getByText(`Registr ${server.cfg}/projects.yaml`)).toBeVisible();
     const card = page.getByTestId(`project-card-${project.name}`);
-    await expect(card).toContainText("dostupný");
+    await expect(card).not.toContainText("dostupný"); // G6: dostupný projekt bez štítku
     await expect(card).toContainText("1 scénář · 1 agent");
     await expect(card).toContainText("dnes 0 USD");
     await expect(card).toContainText("bez běhů");
@@ -67,8 +67,9 @@ test("C2 založení projektu z GUI", async ({ page, project, server }) => {
   await dialog.getByRole("button", { name: "Vytvořit" }).click();
 
   await expect(page).toHaveURL(new RegExp(`#/p/${name}$`));
-  await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
-  await expect(page.getByText(`${server.projectsRoot}/${name}`)).toBeVisible();
+  // G5: jméno projektu v sidebaru, hlavička = sekce, cesta projektu jen na kartě a v Config
+  await expect(page.getByRole("heading", { name: "Scénáře", level: 1 })).toBeVisible();
+  await expect(page.getByText(name, { exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Části projektu" })).toBeVisible();
   const sc = page.getByTestId("scenario-card-ukazka");
   await expect(sc).toContainText("Napíše krátký text na zadané téma");
@@ -82,8 +83,8 @@ test("C2 založení projektu z GUI", async ({ page, project, server }) => {
   expect(readYaml<Registry>(path.join(server.cfg, "projects.yaml")).projects).toContainEqual({ name, root });
 
   await page.goto("/");
-  await expect(page.getByTestId(`project-card-${name}`)).toContainText("dostupný");
-  await expect(page.getByTestId(`project-card-${project.name}`)).toContainText("dostupný");
+  await expect(page.getByTestId(`project-card-${name}`)).toBeVisible();
+  await expect(page.getByTestId(`project-card-${project.name}`)).toBeVisible();
 
   // kolize cesty → chyba API v dialogu, nic nevzniklo
   await page.getByRole("button", { name: "Přidat projekt" }).click();
@@ -111,7 +112,6 @@ test("C13 přidání existujícího projektu", async ({ page, project, server })
   await dialog.getByRole("button", { name: "Přidat", exact: true }).click();
   await expect(dialog).toBeHidden();
   const card = page.getByTestId(`project-card-${project.name}-cizi`);
-  await expect(card).toContainText("dostupný");
   await expect(card).toContainText("1 scénář · 1 agent");
   expect(readYaml<Registry>(path.join(server.cfg, "projects.yaml")).projects).toContainEqual({ name: `${project.name}-cizi`, root: cizi });
   expect(files()).toEqual(before);
@@ -164,7 +164,7 @@ test("C14 odebrání projektu z registru", async ({ page, project, server }) => 
 
 test("N2 špatný token a změna tokenu na serveru", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}`);
-  await expect(page.getByRole("heading", { name: project.name, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scénáře", level: 1 })).toBeVisible();
   // server „restartovaný s jiným tokenem“: každý požadavek API vrací 401
   await page.route(/\/projects/, (r) => r.fulfill({ status: 401, contentType: "application/json", body: '{"error": "chybí nebo nesedí token"}' }));
   await page.getByRole("button", { name: "Načíst znovu" }).click();
@@ -173,7 +173,7 @@ test("N2 špatný token a změna tokenu na serveru", async ({ page, project }) =
   await page.unroute(/\/projects/);
   await page.getByRole("textbox", { name: "Token" }).fill(TOKEN);
   await page.getByRole("button", { name: "Uložit" }).click();
-  await expect(page.getByRole("heading", { name: project.name, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scénáře", level: 1 })).toBeVisible();
 });
 
 test("N3 nedostupný a neznámý projekt, neznámá adresa", async ({ page, project, server }) => {

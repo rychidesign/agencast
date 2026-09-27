@@ -40,15 +40,15 @@ agencast serve --fake $TMP/fake.yaml --port 8787   # mimo projekt = režim regis
 Cíl: dostat se bez terminálu k projektům. Stav: prázdné localStorage.
 1. Otevřít `/` → `h1 "Token serveru"`, `textbox "Token"` (type=password), nápověda „V režimu registru proměnná AGENCAST_TOKEN…“, `button "Uložit"` disabled; žádný fetch na `/projects`.
 2. Napsat `spatny`, Enter → `role=alert "Token serveru nesedí — server vrátil 401."`, formulář zůstává, token není v URL.
-3. Napsat `test-token`, Enter → `h1 "Projekty"`, řádek „Registr …/cfg/projects.yaml“, karta `demo` s textem „dostupný“, „1 scénář · 1 agent“, „dnes 0 USD“, „bez běhů“.
+3. Napsat `test-token`, Enter → `h1 "Projekty"`, popis „Registr …/cfg/projects.yaml“, karta `demo` **bez** štítku „dostupný“ (G6), s „1 scénář · 1 agent“, „dnes 0 USD“, „bez běhů“.
 Playwright: `localStorage.agencast.token === "test-token"`; `Authorization: Bearer` v požadavku (route intercept).
 
 ### C2 Založení projektu z GUI **[nehotové — dnes karta „Přidat projekt“ jen s CLI `agencast projects add <cesta>` a tlačítkem „Kopírovat příkaz“]**
 Cíl: nový projekt bez terminálu. Stav: registr jen `demo`. Cíl podle chystaného `POST /projects/new`.
-1. `#/` → klik „Přidat projekt“ → dialog (`role=dialog`) „Nový projekt“: `textbox "Jméno"` (slug, chyba „Jen malá písmena, číslice a pomlčka.“ / „„demo“ už existuje.“), `textbox "Cesta"`, `button "Vytvořit"`.
-2. `muj-web` + `$TMP/muj-web`, Vytvořit → `#/p/muj-web`, hlavička „muj-web“, cesta mono, záložky, karta scénáře „Napíše krátký text na zadané téma“ s „2 kroky · pisatel · 1 vstup · 1 výstup“ a „ukazka.yaml“.
+1. `#/` → klik „Přidat projekt“ (tlačítko v hlavičce; čárkovaná karta jen u prázdného seznamu) → dialog (`role=dialog`) „Nový projekt“: `textbox "Jméno"` (slug, chyba „Jen malá písmena, číslice a pomlčka.“ / „„demo“ už existuje.“), `textbox "Cesta"`, `button "Vytvořit"`.
+2. `muj-web` + `$TMP/muj-web`, Vytvořit → `#/p/muj-web`, `h1 "Scénáře"`, jméno „muj-web“ a `nav "Části projektu"` v sidebaru (cesta projektu na stránce není, G5), karta scénáře „Napíše krátký text na zadané téma“ s „2 kroky · pisatel · 1 vstup · 1 výstup“ a „ukazka.yaml“.
 3. Disk: `muj-web/workflows/config.yaml`, `agents/pisatel.md`, `scenarios/ukazka.yaml`, `.env.example`, `.gitignore`; `cfg/projects.yaml` má `name: muj-web, root: …`.
-4. Zpět `#/` → dvě karty, obě „dostupný“. Kolize jména/cesty → chyba API v dialogu (`role=alert`), nic nevzniklo.
+4. Zpět `#/` → dvě karty. Kolize jména/cesty → chyba API v dialogu (`role=alert`), nic nevzniklo.
 
 ### C3 Nový agent **[hotovo; dialog nemá popis ani model, ač API 0.8.0 umí — šablona zapíše `description: TODO`]**
 Cíl: agent s vlastními instrukcemi. Stav: `demo`.
@@ -88,11 +88,11 @@ Cíl: spustit scénář a vidět, že běží. Stav: `ukazka` + fixture `dlouhy.
 
 ### C7 Čtení výsledku a ceny **[hotovo]**
 Cíl: pochopit, co běh vyrobil a kolik stál. Stav: dokončený běh `ukazka` (C6).
-1. Detail: `h1` = odkaz `ukazka` + `run_id`, `run-state` „úspěch“, `run-duration` `\d+,\d s`, `run-cost` `/^(0|\d+,\d{4,}) USD$/` (čárka, USD za číslem), řádek „Vstupy tema = „nová káva““, `nav "Části běhu"` = Kroky · Souhrn · Report · Soubory.
+1. Detail: nad titulem „← Běhy“, `h1` = odkaz `ukazka` + malé mono `run_id`, `run-state` „úspěch“, `run-duration` `\d+,\d s`, `run-cost` `/^(0|\d+,\d{4,}) USD$/` (čárka, USD za číslem), řádek „Vstupy tema = „nová káva““, `nav "Části běhu"` = Kroky · Souhrn · Report · Soubory.
 2. Karty: „Krok 1: ask napis — úspěch“ s hodnotou `chytry → anthropic/claude-haiku-4.5` a vpravo čas + cena; „Krok 2: output vystup — úspěch“ s hodnotou. Klik na `napis` → panel „KROK 1 · napis“, `tablist` s `tab "Prompt"`, „Odpověď“, „Výstup“, „Volání“, „Soubory“; Volání: „pokus 1“, `alias → model`, „N + M tokenů“; Výstup = JSON `{"text": "Dvě věty."}`; `GET …/runs/<id>/steps/napis`.
 3. `tab "Souhrn"` → Markdown se sekcí „Celkem“; `tab "Report"` → `iframe[sandbox]` (title „Report běhu“); `tab "Soubory"` → `nav "Soubory"` se stromem, klik `summary.md` → text, `?soubor=`.
-4. Zpět `#/p/demo`: karta `ukazka` má čip „úspěch · právě teď“ (ikona + text), patička „právě teď“; hlavička projektu „dnes 0 / 5,00 USD“ (fake ledger je zvlášť — v testu proto vždy 0; cíl s ostrým během netestovatelný).
-5. Seznam běhů: filtr `combobox "scénář:"` = ukazka → jen její řádky (`?scenario=ukazka&limit=50`), `combobox "stav:"` = úspěch; sloupce trvání/cena mono; „Načíst další“ jen při 50+.
+4. Zpět `#/p/demo`: karta `ukazka` má čip „úspěch · právě teď“ (ikona + text), patička „právě teď“; sidebar „Dnes utraceno“ `spend-today` „0,00 USD“ (+ „/ limit“, je-li denní limit; fake ledger je zvlášť — v testu proto vždy 0; cíl s ostrým během netestovatelný).
+5. Seznam běhů (bez sloupce run_id a bez útraty, G9; stav = ikona + text, run_id v `title` řádku): filtr `combobox "scénář:"` = ukazka → jen její řádky (`?scenario=ukazka&limit=50`), `combobox "stav:"` = úspěch; sloupce trvání/cena mono; „Načíst další“ jen při 50+.
 
 ### C8 Chybný běh (fail) **[hotovo]**
 Cíl: poznat, kde a proč běh skončil. Stav: fixture `chyba.yaml`: `napis → stop (fail: "Zastaveno naschvál") → vystup`.
@@ -111,7 +111,7 @@ Cíl: neztratit ani svou, ani cizí změnu. Stav: editor `ukazka`, karta `napis`
 
 ### C10 Přesun a smazání kroku s ochranou odkazů **[hotovo; smazání čteného kroku + úprava čtenářů jde dnes jako dvě operace, dávka 0.8.0 se nepoužívá → 422, pokud druhá operace nestihne]**
 Cíl: přeskládat scénář a nerozbít odkazy. Stav: `clanek` z C4 (`napis, jev_1, vystup`).
-1. Fokus karty `jev_1` (klik), `Alt+↑` → `aria-label` „Krok 1: jev jev_1“, `napis` je „Krok 2“; `button "Vrátit zpět"` (Ctrl+Z) vrátí; menu `"Akce pro jev_1"` má `menuitem` „Posunout nahoru (Alt+↑)“, „Posunout dolů (Alt+↓)“, „Vyjmout (Ctrl+X)“, „Vložit krok nad“, „Vložit krok pod“, „Smazat (Delete)“.
+1. Fokus karty `jev_1` (klik), `Alt+↑` → `aria-label` „Krok 1: jev jev_1“, `napis` je „Krok 2“; menu ⋯ „Další akce“ v hlavičce → `menuitem "Vrátit zpět (Ctrl+Z)"` (nebo Ctrl+Z) vrátí; menu `"Akce pro jev_1"` má `menuitem` „Posunout nahoru (Alt+↑)“, „Posunout dolů (Alt+↓)“, „Vyjmout (Ctrl+X)“, „Vložit krok nad“, „Vložit krok pod“, „Smazat (Delete)“.
 2. `Ctrl+X` na `jev_1` → `aria-live` „Krok jev_1 vyjmut — vlož ho tlačítkem + na novém místě.“, karta 50 % s „— vyjmuto“, všechna (+) trvale vidět; klik + nad `napis` → první `option` „Vložit „jev_1“ sem“ → Enter → „Krok jev_1 vložen.“, pořadí `[jev_1, napis, vystup]`; validace u karty `jev_1` hlásí `steps.napis` níže (po Uložit 422 „krok 'napis' … níže/neexistuje“) → Ctrl+Z.
 3. Delete na `napis` (čte ho `jev_1` i `vystup`) → dialog „Smazat krok „napis“?“ s textem „Krok „napis“ čtou jev_1, vystup. Uložení projde, jen když jejich odkazy upravíš nebo je smažeš taky.“ → „Smazat i tak“ → `aria-live` „Krok napis smazán. Vrátit zpět: Ctrl+Z.“; Uložit → 422 s hláškou u `vystup`, disk beze změny. Cíl (dávka): úprava čtenářů + smazání v jedné dávce, zapíše se vše nebo nic.
 4. Delete na `jev_1` (nikdo nečte) → hned pryč, bez dialogu; Uložit → `DELETE …/steps/1` → disk má `[napis, vystup]`. Smazání kontejneru s kroky → dialog „Smaže i N kroků uvnitř.“ Karta `output` nemá Posunout/Vyjmout/Vložit pod; `Krok Hlavička` koš nemá.
@@ -133,7 +133,7 @@ Cíl: přejmenovat `napis` na `text_clanku` a nic nerozbít. Stav: `ukazka` (`vy
 ### C13 Přidání existujícího projektu **[nehotové — čeká na `POST /projects`; dnes CLI řádek s kopírováním]**
 Stav: složka `$TMP/cizi` vytvořená `agencast new project` **bez** registru (`AGENCAST_CONFIG_DIR` jiný při vytvoření), pak smazaná z registru.
 1. `#/` → „Přidat projekt“ → dialog s přepínačem „Založit nový“ / „Přidat existující“ (nebo druhé tlačítko) → `textbox "Cesta"` = `$TMP/cizi`, jméno předvyplněné `cizi` → Vytvořit/Přidat.
-2. → karta `cizi` „dostupný“ s počty; `cfg/projects.yaml` má druhou položku; na disku `cizi/` beze změny (žádné nové soubory). Cesta bez `workflows/config.yaml` → chyba v dialogu `role=alert` (text API), nic nezapsáno. Stejná cesta podruhé → chyba kolize s nápovědou `--name`.
+2. → karta `cizi` s počty; `cfg/projects.yaml` má druhou položku; na disku `cizi/` beze změny (žádné nové soubory). Cesta bez `workflows/config.yaml` → chyba v dialogu `role=alert` (text API), nic nezapsáno. Stejná cesta podruhé → chyba kolize s nápovědou `--name`.
 
 ### C14 Odebrání projektu z registru **[nehotové — čeká na `DELETE /projects/<p>`; menu má jen „Otevřít“, „Kopírovat cestu“]**
 1. `#/` → `button "Akce pro cizi"` → `menuitem "Odebrat z registru"` → dialog „Odebrat „cizi“ z registru?“ s větou, že soubory zůstanou → potvrdit.
@@ -141,7 +141,7 @@ Stav: složka `$TMP/cizi` vytvořená `agencast new project` **bez** registru (`
 
 ### C15 Klávesnicová cesta bez myši **[hotovo; koš a ⋯ jsou `opacity-0` do fokusu — Playwright je vidí, čtenář jen přes Tab]**
 Cíl: celý C4 jen klávesami. Stav: `demo`.
-1. `#/` Tab → odkaz `demo` (Enter) → Tab přes `nav "Části projektu"` → „Nový scénář“ Enter → dialog (fokus v „Jméno“, Tab uvnitř cyklí, Esc zavře) → jméno, Enter = Vytvořit.
+1. `#/` Tab → odkaz `demo` (Enter) → `h1 "Scénáře"` → Tab přes `nav "Části projektu"` v sidebaru → „Nový scénář“ Enter → dialog (fokus v „Jméno“, Tab uvnitř cyklí, Esc zavře) → jméno, Enter = Vytvořit.
 2. V editoru: Tab na `[data-step-card=""]`, `↓` → `napis` (`document.activeElement` = karta), Enter → panel (`?krok=napis`), fokus v panelu; Esc → panel pryč, fokus zpět na kartě `napis`.
 3. Tab z karty → `"Akce pro napis"` → koš `"Smazat krok napis"` → (+) `"Vložit krok sem"` (fokus ho zviditelní); Enter na + → `listbox` má fokus, psaní filtruje (`aria-live` „filtr: j“), Enter vybere, Esc vrátí fokus na +.
 4. `Delete` na kartě = smazání s dialogem (fokus na první tlačítko), `Alt+↓` posun, `Ctrl+X` vyjmout, `Ctrl+Z` zpět, `Ctrl+S` uložit (ne uvnitř textarea u Ctrl+Z); menu ⋯: Enter otevře, `↓` cyklí `menuitem`, Esc vrátí fokus na tlačítko.
@@ -170,7 +170,7 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 
 ### C19 Přejmenování scénáře a agenta
 
-1. V editoru scénáře klikni na „Přejmenovat“, v editoru agenta na menu ⋯
+1. V editoru scénáře otevři menu ⋯ „Další akce“ → „Přejmenovat“; v editoru agenta menu ⋯
    (`button "Akce pro <agent>"`) → „Přejmenovat“. Dialog předvyplní
    současný slug, odmítne neplatný či obsazený název; při neuloženém draftu
    se nejdřív nabídne jeho uložení nebo zahození.
@@ -184,11 +184,27 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
    E2E: `editor.spec.ts` „C19“ ověří přejmenování `ukazka` → `uvod`,
    odkaz z dalšího scénáře přes `call`, obsah souborů a novou URL.
 
+### C20 Shell: sidebar, hlavičky a lišta pod 1024 px (redesign V3, 0.16.0)
+
+1. `#/` → sidebar jen se značkou (`link "agencast"`), bez „Dnes utraceno“ a bez „server dostupný“;
+   „Přidat projekt“ je jediné tlačítko (v hlavičce), dokud seznam není prázdný.
+2. Karta `demo` → `nav "Části projektu"` = Scénáře · Agenti · Běhy · Skilly · Config, aktivní
+   `aria-current="page"` (právě jedna); dole „Dnes utraceno“ a `spend-today` „0,00 USD“ (s limitem
+   „0,00 / 5,00 USD“ a pruhem). Klik na Běhy → `#/p/demo/behy`, `h1 "Běhy"`. Editor scénáře zvýrazní
+   Scénáře, detail běhu Běhy. „← Projekty“ vede zpět.
+3. Editor `ukazka`: `h1 "ukazka"`, tlačítka „Spustit“ a „Uložit“ (disabled bez změn), žádné viditelné
+   „Přejmenovat“; `button "Další akce"` → `menuitem` Vrátit zpět (Ctrl+Z) · Kopírovat příkaz spuštění ·
+   Běhy tohoto scénáře · Přejmenovat · Smazat; „Běhy tohoto scénáře“ → `#/p/demo/behy?scenar=ukazka`
+   s předvybraným filtrem.
+4. Viewport 900 px: navigace je vodorovně v jedné řadě nad `h1`, položky ≥ 44 px, „Dnes utraceno“
+   skryté, `scrollWidth ≤ 900`.
+   E2E: `redesign-shell.spec.ts` R1–R3.
+
 ## Negativní a okrajové stavy
 
-- **N1 Server neodpovídá** — Stav: `page.route("**/projects*", r => r.abort())` nebo zastavený `serve`. Očekávání: sticky `server-bar` `role=alert` „Server agencast neodpovídá (127.0.0.1:8787), zkouším znovu…“, obsah zůstává (poslední data), žádná chybová hláška navíc; po obnovení routy do 5 s pruh zmizí sám. V editoru s rozpracovanou změnou zůstává „Neuloženo“ a draft v `localStorage` (`agencast.draft.*`). **[hotovo]**
+- **N1 Server neodpovídá** — Stav: `page.route("**/projects*", r => r.abort())` nebo zastavený `serve`. Očekávání: `server-bar` `role=alert` dole v sidebaru (pod 1024 px v horní liště) „Server agencast neodpovídá (127.0.0.1:8787), zkouším znovu…“, obsah zůstává (poslední data), žádná chybová hláška navíc; po obnovení routy do 5 s pruh zmizí sám. V editoru s rozpracovanou změnou zůstává „Neuloženo“ a draft v `localStorage` (`agencast.draft.*`). **[hotovo]**
 - **N2 Špatný token** — viz C1 krok 2; navíc: platný token → server restartován s jiným `AGENCAST_TOKEN` → první 401 vrátí obrazovku tokenu s alertem, token v localStorage se přepíše až novým zadáním. **[hotovo]**
-- **N3 Nedostupný projekt** — Stav: registr obsahuje `stary` s `root` bez `workflows/config.yaml`. `#/` → karta „nedostupný“ (opacity 50 %, čárkovaný rámeček) s důvodem „chybí …/workflows/config.yaml“ z `reason`, menu jen Otevřít/Kopírovat cestu, žádný GET detailu; `#/p/stary` → `role=alert` s textem 404 API. Neznámé jméno `#/p/neni` → totéž; `#/x` → „Tahle adresa v GUI neexistuje.“ + odkaz „Projekty“. **[hotovo]**
+- **N3 Nedostupný projekt** — Stav: registr obsahuje `stary` s `root` bez `workflows/config.yaml`. `#/` → karta „nedostupný“ (opacity 50 %, čárkovaný rámeček) s důvodem „chybí …/workflows/config.yaml“ z `reason`, menu jen Otevřít/Kopírovat cestu, žádný GET detailu; `#/p/stary` → `role=alert` s textem 404 API. Neznámé jméno `#/p/neni` → totéž; `#/x` → v shellu se značkou „Tahle adresa v GUI neexistuje.“ + odkaz „Projekty“. **[hotovo]**
 - **N4 Rozbitý config** — Stav: v `demo/workflows/config.yaml` duplicitní klíč `runs_dir` (nebo `limits.run_budget_usd: "x"`). `#/p/demo` → `role=alert` „config.yaml projektu neprošel kontrolou: …“ + seznam + odkaz „Otevřít Config“; záložka Config rovnou v YAML (Form zakázán s „config.yaml neprošel kontrolou — oprav ho v YAML“), chyba „řádek 20 · …“ se značkou u syntaxe; chyba schématu jen s textem (nález 23, **[obcházeno]**); záložka Běhy funguje; oprava v YAML + Uložit → alert zmizí, Scénáře se načtou. **[hotovo]**
 - **N5 Přerušený běh** — (a) CLI `agencast --project $TMP/demo run dlouhy --fake $TMP/fake.yaml` a `kill -9` uprostřed `sleep` → detail „přerušen“ (amber), věta „Běh skončil bez záznamu o konci (proces spadl nebo byl zabit); GUI se na něj už nedotazuje.“, karta `pomalu` „— přerušen“ (nepulzuje), žádný další GET do 6 s; seznam „přerušen · falešný běh“. (b) Běh spuštěný ze `serve`, `serve` zabit a znovu spuštěn → API ho dopíše jako `failed (internal v None)`, GUI ukáže „chyba: internal v None“ (nálezy 21/22, **[obcházeno]** — očekávaný text ohlásit jako známou vadu). **[hotovo]**
 - **N6 Odchod s neuloženými změnami** — `beforeunload` dialog při reloadu (Playwright `page.on("dialog")`), po přijetí je draft stále v localStorage a po návratu „Neuloženo“ + text (C5 var.). Navigace hash odkazem (zpět na Scénáře) **neptá se** — návrh §4.4 to chce; **[obcházeno]**.

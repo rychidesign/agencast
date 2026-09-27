@@ -2,7 +2,7 @@
 // Form drží rozpracovaný strom (scenarioDraft.ts), YAML rozpracovaný text (textfile.ts); na disk jde
 // obojí až tlačítkem Uložit / Ctrl+S. Form → YAML převede rozpracovaný strom na text přes `render`;
 // YAML → Form převede neuložený text přes `render` bez zápisu (nalezy-api.md bod 26).
-import { ArrowLeft, CodeXml, Play, Trash2, Undo2 } from "lucide-react";
+import { CodeXml, Play } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { stepLines } from "../components/CodeView";
@@ -11,6 +11,7 @@ import { RunPanel } from "../components/RunPanel";
 import { Connector, HeaderCard, onColumnKey, StepList, uidOf, type EditCtx, type ListCtx } from "../components/StepCards";
 import { HeaderPanel, StepPanel } from "../components/StepPanel";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
+import { BackLink, PageHeader, type HeaderMenuItem } from "../components/PageHeader";
 import { ErrorText, Loading, Toggle, btn } from "../components/ui";
 import {
   adopt, blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
@@ -22,6 +23,7 @@ import { readBy } from "../steps";
 import { draftKey, syntaxError, useLeaveGuard, useTextFile, writeDraft } from "../textfile";
 import type { ErrorItem, Project, Step, StepType } from "../types";
 import { DeleteDialog, deleteFile, SaveNote } from "./Agents";
+import { runCommand } from "./Scenarios";
 
 /** Výběr hlavičkové karty v `?krok=` (id kroku nesmí začínat `_`, nekoliduje). */
 export const HEADER_KEY = "_hlavicka";
@@ -53,7 +55,7 @@ export function closeOnEsc(selected: string | undefined) {
 
 export function PanelSlot({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed inset-x-4 bottom-4 z-20 max-h-[70vh] overflow-auto rounded-2xl shadow-2xl min-[1100px]:sticky min-[1100px]:top-20 min-[1100px]:max-h-[calc(100vh-6rem)] min-[1100px]:w-[400px] min-[1100px]:shrink-0 min-[1100px]:self-start min-[1100px]:shadow-none">
+    <div className="fixed inset-x-4 bottom-4 z-20 max-h-[70vh] overflow-auto rounded-2xl shadow-2xl min-[1100px]:sticky min-[1100px]:top-[calc(var(--page-header-h,5rem)+1rem)] min-[1100px]:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] min-[1100px]:w-[400px] min-[1100px]:shrink-0 min-[1100px]:self-start min-[1100px]:shadow-none">
       {children}
     </div>
   );
@@ -273,44 +275,44 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   };
 
   const p = proj.data;
+  const summary = p?.scenarios.find((s) => s.name === scenario);
+  const menu: HeaderMenuItem[] = [
+    ...(!yaml ? [{ label: `${t("edit.undo")} (Ctrl+Z)`, onSelect: form.undo, disabled: !form.canUndo }] : []),
+    ...(p && summary ? [{ label: t("scenarios.copyRun"), onSelect: () => void navigator.clipboard.writeText(runCommand(p.root, summary)) }] : []),
+    { label: t("editor.runs"), onSelect: () => navigate(href(project, "behy", undefined, { scenar: scenario })) },
+    // bez otisku souboru (ještě se načítá) přejmenovat ani smazat nejde
+    ...(fileEtag ? [
+      { label: t("rename.button"), onSelect: requestRename },
+      { label: t("common.delete"), onSelect: () => setDeleting(true), danger: true },
+    ] : []),
+  ];
   return (
-    <main className="min-h-screen" onKeyDown={onKey}>
-      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-5 gap-y-2 bg-zinc-900/95 px-4 py-4 sm:px-8">
-        <a href={href(project, "scenare")} className="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-100">
-          <ArrowLeft className="size-4" aria-hidden /> {t("editor.back", { project })}
-        </a>
-        <Trail project={project} trail={trail} />
-        <h1 className="font-mono text-lg font-semibold">{scenario}</h1>
-        {work && <span className="min-w-0 truncate text-sm text-zinc-300">{work.header.description}</span>}
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          <Toggle label={t("code.mode")} value={yaml ? "yaml" : "form"} onChange={(m) => void switchMode(m)}
-            options={[
-              { key: "form", label: t("code.form"), disabled: syntax && !text.dirty ? t("code.fixYaml", { n: syntax.line ?? 0 }) : undefined },
-              { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> },
-            ]} />
-          <SaveNote dirty={yaml ? text.dirty : form.dirty} errors={errCount} state={yaml ? text.state : form.state} onJump={jump} />
-          <button type="button" className={btn.secondary} onClick={requestRename} disabled={!fileEtag}>{t("rename.button")}</button>
-          <button type="button" className={btn.secondary} onClick={() => setDeleting(true)} disabled={!fileEtag}>
-            <Trash2 className="size-4" aria-hidden />{t("common.delete")}
-          </button>
-          {!yaml && (
-            <button type="button" className={btn.secondary} onClick={form.undo} disabled={!form.canUndo} title="Ctrl+Z">
-              <Undo2 className="size-4" aria-hidden />{t("edit.undo")}
-            </button>
-          )}
+    <div onKeyDown={onKey}>
+      <PageHeader sticky
+        back={<><BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink><Trail project={project} trail={trail} /></>}
+        title={<span className="font-mono">{scenario}</span>}
+        description={work?.header.description}
+        actions={<>
           <button type="button" className={btn.secondary} onClick={() => (setRunning(true), setQuery({ krok: undefined }))} disabled={!p || !work}>
             <Play className="size-4" aria-hidden />{t("runForm.open")}
           </button>
           <button type="button" className={btn.primary} onClick={() => void save()} disabled={!canSave} title="Ctrl+S">
             {t("common.save")}
           </button>
-        </div>
-      </header>
-      <p className="sr-only" aria-live="polite">{announce}</p>
-      {renamedFiles.length > 1 && <p role="status" className="px-4 pt-2 text-sm text-zinc-400 sm:px-8">
+        </>}
+        menu={menu}>
+        <Toggle label={t("code.mode")} value={yaml ? "yaml" : "form"} onChange={(m) => void switchMode(m)}
+          options={[
+            { key: "form", label: t("code.form"), disabled: syntax && !text.dirty ? t("code.fixYaml", { n: syntax.line ?? 0 }) : undefined },
+            { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> },
+          ]} />
+        <SaveNote dirty={yaml ? text.dirty : form.dirty} errors={errCount} state={yaml ? text.state : form.state} onJump={jump} />
+      </PageHeader>
+      <p className="sr-only" aria-live="polite" data-testid="announce">{announce}</p>
+      {renamedFiles.length > 1 && <p role="status" className="pb-2 text-sm text-fg-muted">
         {t("rename.changed", { files: renamedFiles.join(", ") })}
       </p>}
-      <div className="px-4 pb-16 sm:px-8">
+      <div>
         {conflict && (
           <ConflictBar conflict={conflict} onDiff={() => void showDiff()}
             onReload={yaml ? text.reloadFromDisk : form.reloadFromDisk}
@@ -393,7 +395,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
           proj.reload();
           navigate(href(project, "scenare"));
         }} />}
-    </main>
+    </div>
   );
 }
 
@@ -403,10 +405,10 @@ export function Trail({ project, trail }: { project: string; trail: string }) {
   const crumbs = trail ? trail.split(",").map((c) => c.split(":") as [string, string]) : [];
   if (!crumbs.length) return null;
   return (
-    <nav aria-label={t("editor.trail")} className="-mr-3 font-mono text-sm text-zinc-400">
+    <nav aria-label={t("editor.trail")} className="font-mono text-sm text-fg-muted">
       {crumbs.map(([sc, step], i) => (
         <span key={i}>
-          <a className="hover:text-zinc-100 hover:underline" href={href(project, "scenare", sc, { krok: step, z: trail.split(",").slice(0, i).join(",") })}>{sc}</a>
+          <a className="hover:text-fg hover:underline" href={href(project, "scenare", sc, { krok: step, z: trail.split(",").slice(0, i).join(",") })}>{sc}</a>
           {" › "}{step}{" › "}
         </span>
       ))}

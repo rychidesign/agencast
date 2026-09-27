@@ -14,8 +14,8 @@ Vizuální reference: screenshot obrazovky Create workflow z Buzz, který uživa
 ## 1. Informační architektura
 
 ```
-Projekty  (#/)                                   celá obrazovka, seznam z registru
-└ Projekt (#/p/thtd)                             hlavička projektu + záložky
+Projekty  (#/)                                   seznam z registru, sidebar jen se značkou
+└ Projekt (#/p/thtd)                             sidebar: ← Projekty, jméno, navigace, útrata
    ├ Scénáře (výchozí)   seznam → Editor scénáře (#/p/thtd/scenare/ig-post?krok=kontrola)
    ├ Agenti              seznam vlevo + formulář (#/p/thtd/agenti/copywriter)
    ├ Config              jeden formulář: config.yaml + sekce MCP servery (mcp.yaml)
@@ -28,23 +28,70 @@ Projekty  (#/)                                   celá obrazovka, seznam z regis
 - Vybraný krok je v URL (`?krok=`), aby šel poslat odkaz. Hash routing kvůli iframe v Skynet Soul; iframe posílá `postMessage` s aktuální cestou pro deep link z dashboardu.
 - Čtecí verze (podle DESIGN) = stejné obrazovky bez +, bez Uložit, panel jen ke čtení. Editor je nadmnožina, nic se nepřekresluje.
 
+### 1.1 Rozložení (shell, redesign V3 0.16.0)
+
+```
+┌ sidebar 232 px ───┐┌ hlavní oblast (canvas, obsah max. 1200 px) ──────────────────────────────┐
+│ ◈ agencast        ││ ← Scénáře                                                                │
+│ ← Projekty        ││ ig-post  ✗ 2 chyby                             [▷ Spustit] [Uložit]  ⋯   │
+│ ───────────────── ││ Návrh IG příspěvku ke schválení                                          │
+│ thtd              ││ [Form | <> YAML]   Neuloženo                                             │
+│ ▣ Scénáře         ││                                                                          │
+│   Agenti          ││   … obsah stránky (karty, panel, tabulka)                                │
+│   Běhy            ││                                                                          │
+│   Skilly          ││                                                                          │
+│   Config          ││                                                                          │
+│                   ││                                                                          │
+│ Dnes utraceno     ││                                                                          │
+│ 1,20 / 5,00 USD   ││                                                                          │
+│ ▬▬▬───────        ││                                                                          │
+└───────────────────┘└──────────────────────────────────────────────────────────────────────────┘
+```
+- `Shell` (`ui/src/components/Shell.tsx`): sidebar `bg-sidebar` s hairline vpravo, hlavní oblast `bg-canvas`,
+  obsah max. 1200 px. Token screen je bez shellu.
+- **Sidebar** nese kontext projektu (G5): značka (odkaz na Projekty), „← Projekty“, jméno projektu, navigace
+  Scénáře · Agenti · Běhy · Skilly · Config (`nav` „Části projektu“, aktivní položka `aria-current="page"`;
+  editor scénáře patří pod Scénáře, detail běhu pod Běhy) a dole „Dnes utraceno 1,20 / 5,00 USD“ s pruhem
+  (zelený, po překročení denního limitu červený; bez limitu jen částka). Na stránce Projekty jen značka.
+  Řádek „server dostupný“ není (G6); při výpadku se dole objeví „Server agencast neodpovídá (…), zkouším
+  znovu…“ (`role="alert"`, `data-testid="server-bar"`).
+- **Pod 1024 px** se sidebar sbalí do horní lišty: značka + jméno projektu, pod nimi navigace vodorovně
+  s přetečením; „← Projekty“ a útrata skryté. Položky navigace mají 44 px.
+- **Hlavička stránky** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4): nad titulem volitelně
+  odkaz zpět; H1 + `meta` (čip chyb, stav běhu) + jednořádkový popis; vpravo nejvýš primární + jedno
+  sekundární tlačítko a menu ⋯ „Další akce“ se zbytkem (nebezpečné položky poslední); druhý řádek pro
+  přepínač režimu a stav uložení nebo záložky. V editoru a detailu běhu je hlavička přilepená a svou výšku
+  hlásí v `--page-header-h` (podle ní se přilepí panel).
+- Hlavičky podle stránky:
+  - **Projekt:** titul = sekce („Scénáře“, „Agenti“, …), `meta` = čip „N chyb“ s rozbalovacím seznamem
+    (odkazy na soubor a krok), ikona Načíst znovu. Bez cesty projektu, limitů a útraty. Blok chyby
+    configu (422) zůstává pod hlavičkou.
+  - **Editor scénáře:** „← Scénáře“ (+ drobečky přes `call`), titul = jméno scénáře mono, popis = `description`,
+    akce Spustit a Uložit (Ctrl+S); ⋯: Vrátit zpět (Ctrl+Z), Kopírovat příkaz spuštění, Běhy tohoto
+    scénáře, Přejmenovat, Smazat. Druhý řádek: Form | YAML + stav uložení s čipem chyb.
+  - **Detail běhu:** viz 2.5.
+
 ## 2. Obrazovky
 
 ### 2.1 Seznam projektů (karty)
 
 ```
-Projekty                                                                                        ⟳
+Projekty                                                                          ⟳  [+ Přidat projekt]
 Registr ~/.config/agencast/projects.yaml
-┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐  ┌────────────────────────┐  ┌────────────────────────┐  ┌────────────────────────┐
-                        │ ● dostupný          ⋯  │  │ ● dostupný          ⋯  │  │ ○ nedostupný        ⋯  │
-          +             │ thtd                   │  │ ukazka                 │  │ stary-projekt          │
-   agencast projects    │ ~/thtd                 │  │ ~/ukazka               │  │ /mnt/disk/stary        │
-   add <cesta> [kopír.] │                        │  │                        │  │ chybí workflows/       │
-                        │ 3 scénáře · 4 agenti   │  │ 1 scénář · 1 agent     │  │ config.yaml            │
-└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │ dnes 0,42 USD ✓ 12 min │  │ dnes 0        bez běhů │  │                        │
-                        └────────────────────────┘  └────────────────────────┘  └────────────────────────┘
+┌────────────────────────┐  ┌────────────────────────┐  ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
+│ thtd                ⋯  │  │ ukazka              ⋯  │    stary-projekt       ⋯
+│ ~/thtd                 │  │ ~/ukazka               │  │ /mnt/disk/stary        │
+│                        │  │                        │    ⊘ nedostupný
+│ 3 scénáře · 4 agenti   │  │ 1 scénář · 1 agent     │  │ chybí workflows/       │
+│ ────────────────────── │  │ ────────────────────── │    config.yaml
+│ ✓ před 12 min  dnes 0,42│  │ bez běhů      dnes 0 USD│  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
+└────────────────────────┘  └────────────────────────┘
 ```
-Karta: dostupnost + ⋯ nahoře, jméno jako titulek, cesta mono, patička počty vlevo a dnešní útrata + poslední běh vpravo (`GET /projects`, čísla z `GET /projects/<p>` a `spend`, skeleton do té doby). Nedostupný projekt: 50 % opacity, čárkovaný prstenec, důvod místo patičky. Karta + ukazuje CLI příkaz s tlačítkem kopírovat (registr nemá zápis přes API); až bude, nahradí ho formulář jméno + cesta. ⋯: Otevřít, Kopírovat cestu.
+Hlavička: titul, popis = cesta registru (mono), akce Načíst znovu a „+ Přidat projekt“ (bez práva zápisu
+registru otevře okno s CLI příkazem). Karta: jméno + ⋯, cesta mono, „N scénářů · N agentů“, pod čarou čip
+posledního běhu a dnešní útrata. Dostupný projekt nemá štítek (G6); nedostupný má štítek „nedostupný“,
+důvod, čárkovaný okraj a 50 % opacity. Celá karta je odkaz. ⋯: Otevřít, Kopírovat cestu, Odebrat z registru
+(poslední, nebezpečná). Čárkovaná karta „Přidat projekt“ jen u prázdného seznamu (G8).
 
 ### 2.2 Přehled projektu (karty scénářů)
 
@@ -167,8 +214,10 @@ Pravidlo pro začátečníka: **vedle sebe = zároveň, pod sebou = jedna z mož
 ### 2.5 Prohlížeč běhu na kartách (detail běhu)
 
 ```
-← thtd / Běhy   ig-post · 20260925-141502-ig-post-9f3c      ✗ chyba: fail v kroku stop_obrazek    4,4 s · 0,0016 USD
-Vstupy  tema = „nová káva“              Kroky · Souhrn · Report · Soubory                   ☐ sledovat běh
+← Běhy
+ig-post 20260925-141502-ig-post-9f3c  ✗ chyba: fail v kroku stop_obrazek  falešný běh      4,4 s · 0,0016 USD
+VSTUPY tema = „nová káva“ · pomer = „1:1“
+Kroky · Souhrn · Report · Soubory                                                         ☐ sledovat běh
 │ ✓ ① copy            ask · chytry → claude-haiku-4.5      3,7 s   0,0015 │ ┌ KROK 2 · kontrola · jev ✓ 0,3 s ────┐
 │ ✓ ② kontrola        jev · on_brand = 0,91                 0,3 s   0,00002│ │ Odpověď · Vstup · Volání (1) · Soubory│
 │ ○ ③ stop            fail · přeskočeno: when … → false                   │ │ on_brand   0,91  ▮▮▮▮▮▮▮▮▮▯          │
@@ -178,21 +227,25 @@ Vstupy  tema = „nová káva“              Kroky · Souhrn · Report · Soubo
 │ · ⑦ foto            image · nedošlo                                     │ └──────────────────────────────────────┘
 │ · ⑧ out             output · nedošlo                                    │
 ```
-Stejné karty jako v editoru: v kolečku je stavová ikona místo čísla, vpravo mono trvání · cena s tabulárními číslicemi. Přeskočené a nedošlé kroky jsou ztlumené na 40 %, běžící ikona pulzuje jen při povoleném pohybu. Panel podle typu: `ask`/`task` Prompt (prompt.md), Odpověď, Výstup (output.json), Volání (pokusy, tahy, tokeny, `finish_reason`, úroveň kaskády), u `task` navíc Nástroje (`tool_call`, nepovolené a neplatné argumenty zvýrazněné); `image` náhled + prompt; `jev` odpovědi s pravděpodobnostmi; `call` se rozbalí přímo v kartě na vnořené karty (`navrh/copy`); `set` hodnoty; `output` hodnoty + URL nahraných souborů. Přeskočený krok: důvod a „použit default“. Varování (`continued: true`) = `text-warning` trojúhelník + text pod kartou. Záložky: Souhrn = vykreslený summary.md, Report = report.html v sandboxovaném iframe, Soubory = strom z `files` s prohlížečem textu/JSON/PNG.
+Hlavička (G10): titul = scénář (odkaz do editoru) + malé mono run_id, vedle stav a „falešný běh“, vpravo trvání · cena; popis = vstupy na jeden řádek (celé v `title`). „Sledovat běh“ jen dokud běh žije; hláška „Běh skončil: …“ jen pro čtečku (`role="status"`), nápověda přerušeného běhu viditelná. Stejné karty jako v editoru: v kolečku je stavová ikona místo čísla, vpravo mono trvání · cena s tabulárními číslicemi. Přeskočené a nedošlé kroky jsou ztlumené na 40 %, běžící ikona pulzuje jen při povoleném pohybu. Panel podle typu: `ask`/`task` Prompt (prompt.md), Odpověď, Výstup (output.json), Volání (pokusy, tahy, tokeny, `finish_reason`, úroveň kaskády), u `task` navíc Nástroje (`tool_call`, nepovolené a neplatné argumenty zvýrazněné); `image` náhled + prompt; `jev` odpovědi s pravděpodobnostmi; `call` se rozbalí přímo v kartě na vnořené karty (`navrh/copy`); `set` hodnoty; `output` hodnoty + URL nahraných souborů. Přeskočený krok: důvod a „použit default“. Varování (`continued: true`) = `text-warning` trojúhelník + text pod kartou. Záložky: Souhrn = vykreslený summary.md, Report = report.html v sandboxovaném iframe, Soubory = strom z `files` s prohlížečem textu/JSON/PNG.
 
 **Panel kroku v běhu** (redesign V3): stejný PanelShell (eyebrow „KROK n · typ“, titul = cesta kroku mono). Řádek stavu: `StatusBadge` + trvání + cena + „3 tahy · 2 volání nástrojů“ (mono, `fg-muted`); pod ním text přeskočení / varování / chyby. Záložky jsou podtržené (`role="tablist"`, aktivní `border-accent`); „Volání (n)“ nese počet. Prompt, Výstup a Odpověď jsou blok kódu `bg-nested` mono 13/20; odpovědi Jev = klíč mono, hodnota tabular, pruh 0–1 (`bg-nested` / `accent`); volání a nástroje jako řádky `bg-nested` s rádiusem control, chybové `bg-error/10` s červeným textem; obrázek se zaoblením; seznam souborů jako mono odkazy do záložky Soubory; prázdná záložka „Nic k zobrazení.“ Záložka **Soubory** v detailu běhu: strom vlevo (vybraný soubor `bg-surface`), prohlížeč vpravo (blok kódu, obrázek; report beze změny v sandboxovaném iframe).
 
 ### 2.6 Seznam běhů
 
 ```
-Běhy      dnes 0,42 / 5,00 USD        scénář: vše ▾   stav: vše ▾                     ● 1 běží · 2 ve frontě
- ● 20260926-091502-ig-post-3c1f   ig-post   běží · krok 4/8 foto_prompt   0:07        0,0021
- ◌ 20260926-091540-ig-post-9a0e   ig-post   ve frontě (2.)
- ✓ 20260925-140311-ig-post-a1b2   ig-post   včera 14:03     17,5 s     0,0693     callback ✓
- ✗ 20260925-141502-ig-post-9f3c   ig-post   včera 14:15     4,4 s      0,0016     fail: stop_obrazek · callback nedoručen
- ✓ 20260925-120000-ukazka-0f0f    ukazka    včera 12:00     2,1 s      0          falešný běh
+Běhy                                                                                      ⟳
+scénář: vše ▾   stav: vše ▾                                                ◌ 1 běží · 2 ve frontě
+ ◌ běží       ig-post   běží · krok 4/8 foto_prompt   0:07        0,0021
+ ◌ ve frontě  ig-post   ve frontě (2.)
+ ✓ úspěch     ig-post   včera 14:03     17,5 s     0,0693     callback ✓
+ ✗ chyba      ig-post   včera 14:15     4,4 s      0,0016     fail: stop_obrazek · callback nedoručen
+ ✓ úspěch     ukazka    včera 12:00     2,1 s      0          falešný běh
 ```
-Sloupce ze `runs` (id, stav, cena, trvání, callback); scénář a čas z `run_id`. Běžící řádek se obnovuje (viz 4.8).
+Bez sloupce run_id (je v detailu a v `title` řádku) a bez řádku útraty (je v sidebaru), G9. Stav = ikona +
+text. Řádek je odkaz na detail. Sloupce ze `runs` (stav, cena, trvání, callback); scénář a čas z `run_id`.
+Běžící řádek se obnovuje (viz 4.8). Prázdný seznam: „Žádné běhy.“ s CLI řádkem; starší stránky tlačítkem
+„Načíst další“.
 
 ### 2.7 Agent
 

@@ -27,10 +27,8 @@
   "count.outputs": "{n, plural, one {# výstup} few {# výstupy} other {# výstupů}}",
   "spend.today": "dnes {usd} USD",
   "projects.title": "Projekty",
-  "projects.subtitle": "Projekty z registru agencast na tomto serveru.",
   "projects.registry": "Registr {path}",
   "projects.add": "Přidat projekt",
-  "projects.available": "dostupný",
   "projects.unavailable": "nedostupný",
   "projects.copyPath": "Kopírovat cestu",
   "project.tabs": "Části projektu",
@@ -39,7 +37,6 @@
   "project.tab.config": "Config",
   "project.tab.skilly": "Skilly",
   "project.tab.behy": "Běhy",
-  "project.limits": "limity {usd} USD · {time}",
   "validation.count": "{n, plural, one {# chyba} few {# chyby} other {# chyb}}",
   "scenarios.new": "Nový scénář",
   "scenarios.empty": "Projekt zatím nemá žádný scénář.",
@@ -156,8 +153,6 @@
   "field.retry": "retry",
   "field.on_error": "on_error",
   "field.default": "default",
-  "editor.back": "{project} / Scénáře",
-  "run.back": "{project} / Běhy",
   "run.inputs": "Vstupy",
   "run.tabs": "Části běhu",
   "run.tab.kroky": "Kroky",
@@ -400,5 +395,8 @@
   "panel.callableLabel": "Volatelný",
   "config.connection": "Připojení",
   "config.unused": "nepoužívá se",
-  "config.webhook": "Webhook a callback"
+  "config.webhook": "Webhook a callback",
+  "common.moreActions": "Další akce",
+  "editor.runs": "Běhy tohoto scénáře",
+  "spend.label": "Dnes utraceno"
 }

@@ -11,7 +11,7 @@ const card = (page: Page, id: string) => page.locator(`[data-step-card="${id}"]`
 /** Obal karty (karta + ovládání + chyby pod ní). */
 const cardBox = (page: Page, id: string) => card(page, id).locator("xpath=..");
 const saveStatus = (page: Page) => page.getByTestId("save-status");
-const live = (page: Page) => page.locator("main > p[aria-live]");
+const live = (page: Page) => page.getByTestId("announce");
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 
 const CLANEK = `version: 1
@@ -163,7 +163,7 @@ test("C4 nový scénář se dvěma kroky a output", async ({ page, project }) =>
   const comments = (t: string) => t.split("\n").filter((l) => l.trim().startsWith("#"));
   expect(comments(project.read("scenarios/clanek.yaml"))).toEqual(comments(template));
 
-  await page.getByRole("link", { name: `${project.name} / Scénáře` }).click();
+  await page.getByRole("main").getByRole("link", { name: "Scénáře", exact: true }).click();
   const sc = page.getByTestId("scenario-card-clanek");
   await expect(sc).toContainText("3 kroky · pisatel");
   await expect(sc).not.toContainText("clanek.yaml");
@@ -311,7 +311,8 @@ test("C10 přesun a smazání kroku s ochranou odkazů", async ({ page, project 
   await card(page, "jev_1").press("Alt+ArrowUp");
   await expect(card(page, "jev_1")).toHaveAttribute("aria-label", "Krok 1: jev jev_1");
   await expect(card(page, "napis")).toHaveAttribute("aria-label", "Krok 2: ask napis");
-  await page.getByRole("button", { name: "Vrátit zpět" }).click();
+  await page.getByRole("button", { name: "Další akce" }).click();
+  await page.getByRole("menuitem", { name: "Vrátit zpět (Ctrl+Z)" }).click();
   await expect(card(page, "napis")).toHaveAttribute("aria-label", "Krok 1: ask napis");
   await page.getByRole("button", { name: "Akce pro jev_1" }).click();
   await expect(page.getByRole("menuitem")).toHaveText([
@@ -527,7 +528,7 @@ test("C15 klávesnicová cesta bez myši", async ({ page, project }) => {
   await page.goto("/");
   await tabTo(page, page.getByRole("link", { name: project.name, exact: true }));
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: project.name, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Scénáře", level: 1 })).toBeVisible();
   await tabTo(page, page.getByRole("button", { name: "Nový scénář" }));
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Nový scénář" });
@@ -631,11 +632,11 @@ test("N6 odchod s neuloženými změnami", async ({ page, project }) => {
   // odkaz na jinou stránku GUI se ptá; odmítnutí = zůstat
   page.removeAllListeners("dialog");
   page.once("dialog", (d) => (kinds.push(d.type()), void d.dismiss()));
-  await page.getByRole("link", { name: `${project.name} / Scénáře` }).click();
+  await page.getByRole("main").getByRole("link", { name: "Scénáře", exact: true }).click();
   await expect(page).toHaveURL(/scenare\/ukazka/);
   expect(kinds.at(-1)).toBe("confirm");
   page.once("dialog", (d) => void d.accept());
-  await page.getByRole("link", { name: `${project.name} / Scénáře` }).click();
+  await page.getByRole("main").getByRole("link", { name: "Scénáře", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#/p/${project.name}/scenare$`));
 
   await expect(page.getByRole("button", { name: "Nový scénář" })).toBeVisible();
@@ -721,7 +722,8 @@ steps:
       text: "{{ steps.spust.text }}"
 `);
   await page.goto(`/#/p/${project.name}/scenare/ukazka`);
-  await page.getByRole("button", { name: "Přejmenovat" }).click();
+  await page.getByRole("button", { name: "Další akce" }).click();
+  await page.getByRole("menuitem", { name: "Přejmenovat" }).click();
   const dialog = page.getByRole("dialog", { name: "Přejmenovat scénář „ukazka“?" });
   await expect(dialog.getByRole("textbox", { name: "Jméno" })).toHaveValue("ukazka");
   await dialog.getByRole("textbox", { name: "Jméno" }).fill("uvod");

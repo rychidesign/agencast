@@ -1,9 +1,10 @@
 // §2.1 Seznam projektů (karty); přidání a odebrání projektu z registru (api.md 0.9.0).
-import { Plus, RefreshCw } from "lucide-react";
+import { CircleSlash, FolderPlus, Plus, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { FormField, inputCls, Modal, submitOnEnter } from "../components/form";
-import { CliLine, ErrorText, Menu, Skeleton, Toggle } from "../components/ui";
+import { PageHeader, type HeaderMenuItem } from "../components/PageHeader";
+import { btn, CliLine, ErrorText, Menu, Skeleton, Toggle } from "../components/ui";
 import { formatCost } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
@@ -18,31 +19,32 @@ export function ProjectsPage() {
   const reload = () => (list.reload(), setGen(gen + 1));
   const writable = !!list.data?.writable;
   return (
-    <main className="mx-auto max-w-6xl p-4 sm:p-8">
-      <header className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">{t("projects.title")}</h1>
-          <p className="text-sm text-zinc-400">{t("projects.subtitle")}</p>
-          {list.data && <p className="font-mono text-[13px] text-zinc-400">{t("projects.registry", { path: list.data.registry })}</p>}
-        </div>
-        <button type="button" className="grid size-8 place-items-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-          onClick={reload} aria-label={t("common.reload")} title={t("common.reload")}>
-          <RefreshCw className="size-4" aria-hidden />
-        </button>
-      </header>
+    <>
+      <PageHeader title={t("projects.title")}
+        description={list.data && <span className="font-mono text-[13px] text-fg-muted">{t("projects.registry", { path: list.data.registry })}</span>}
+        actions={<>
+          <button type="button" className={btn.icon} onClick={reload} aria-label={t("common.reload")} title={t("common.reload")}>
+            <RefreshCw className="size-4" aria-hidden />
+          </button>
+          <button type="button" className={btn.primary} onClick={() => setAdding(true)} disabled={!list.data}>
+            <Plus className="size-4" aria-hidden />{t("projects.add")}
+          </button>
+        </>} />
       {list.error && list.error.status !== 0 && <ErrorText error={list.error} />}
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
-        <li>
-          <button type="button" onClick={() => setAdding(true)}
-            className="flex min-h-44 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-600 p-5 text-zinc-300 hover:bg-zinc-800/40 hover:text-zinc-100">
-            <Plus className="size-6" aria-hidden />
-            <span className="text-sm">{t("projects.add")}</span>
-          </button>
-        </li>
-        {list.loading && !list.data && [0, 1].map((i) => <li key={i}><Skeleton className="h-44 rounded-xl" /></li>)}
+        {list.loading && !list.data && [0, 1].map((i) => <li key={i}><Skeleton className="h-44 rounded-card" /></li>)}
         {list.data?.projects.map((p) => (
           <ProjectCard key={`${p.name}-${gen}`} project={p} onRemove={writable ? () => setRemoving(p) : undefined} />
         ))}
+        {list.data && !list.data.projects.length && (
+          <li className="col-span-full">
+            <button type="button" onClick={() => setAdding(true)}
+              className="flex min-h-44 w-full flex-col items-center justify-center gap-3 rounded-card border border-dashed border-line p-5 text-fg-secondary hover:bg-surface-hover hover:text-fg">
+              <FolderPlus className="size-6" aria-hidden />
+              <span className="text-sm">{t("projects.add")}</span>
+            </button>
+          </li>
+        )}
       </ul>
       {adding && list.data && (
         <AddProjectDialog list={list.data} onCancel={() => setAdding(false)}
@@ -53,42 +55,42 @@ export function ProjectsPage() {
           }} />
       )}
       {removing && <RemoveProjectDialog project={removing} onCancel={() => setRemoving(undefined)} onDone={() => (setRemoving(undefined), reload())} />}
-    </main>
+    </>
   );
 }
 
 function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: () => void }) {
   const open = href(project.name);
-  const menu = [
+  const menu: HeaderMenuItem[] = [
     { label: t("common.open"), onSelect: () => navigate(open) },
     { label: t("projects.copyPath"), onSelect: () => navigator.clipboard.writeText(project.root) },
-    ...(onRemove ? [{ label: t("projects.remove"), onSelect: onRemove }] : []),
+    ...(onRemove ? [{ label: t("projects.remove"), onSelect: onRemove, danger: true }] : []),
   ];
   return (
-    <li data-testid={`project-card-${project.name}`} className={`relative flex min-h-44 flex-col rounded-xl p-5 ${project.available ? "bg-zinc-800/60 hover:bg-zinc-800" : "border border-dashed border-zinc-600 opacity-50"}`}>
-      <div className="flex items-center justify-between text-xs text-zinc-400">
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden className={`size-2 rounded-full ${project.available ? "bg-emerald-400" : "ring-1 ring-zinc-400"}`} />
-          {project.available ? t("projects.available") : t("projects.unavailable")}
-        </span>
-        <div className="relative z-10"><Menu items={menu} label={t("common.menuFor", { name: project.name })} /></div>
+    <li data-testid={`project-card-${project.name}`}
+      className={`relative flex min-h-44 flex-col rounded-card p-5 ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line opacity-50"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="min-w-0 pt-1 text-lg font-semibold break-words">
+          <a href={open} className="after:absolute after:inset-0 after:rounded-card">{project.name}</a>
+        </h2>
+        <div className="relative z-10 -mt-1 -mr-2"><Menu items={menu} label={t("common.menuFor", { name: project.name })} /></div>
       </div>
-      <h2 className="mt-2 text-lg font-semibold">
-        <a href={open} className="after:absolute after:inset-0 after:rounded-xl">{project.name}</a>
-      </h2>
-      <p className="truncate font-mono text-[13px] text-zinc-400" title={project.root}>{project.root}</p>
-      <div className="mt-auto pt-4 text-[13px] text-zinc-300">
+      <p className="truncate font-mono text-[13px] text-fg-muted" title={project.root}>{project.root}</p>
+      <div className="mt-auto pt-4 text-[13px] text-fg-secondary">
         {!project.available ? (
-          <p className="text-zinc-300">{project.reason ?? t("projects.unavailable")}</p>
+          <p className="space-y-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-nested px-2 py-0.5 text-xs">
+              <CircleSlash className="size-3.5" aria-hidden />{t("projects.unavailable")}
+            </span>
+            <span className="block">{project.reason ?? t("projects.unavailable")}</span>
+          </p>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              {t("count.scenarios", { n: project.counts.scenarios })} · {t("count.agents", { n: project.counts.agents })}
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <span className="font-mono">{t("spend.today", { usd: formatCost(project.spend_today_usd) })}</span>
+          <div className="space-y-3">
+            <p>{t("count.scenarios", { n: project.counts.scenarios })} · {t("count.agents", { n: project.counts.agents })}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
               <LastRun run={project.last_run} />
-            </span>
+              <span className="font-mono">{t("spend.today", { usd: formatCost(project.spend_today_usd) })}</span>
+            </div>
           </div>
         )}
       </div>
@@ -150,7 +152,7 @@ function AddProjectDialog({ list, onCancel, onDone }: {
         </FormField>
         {mode === "new" && pathField()}
         {error && (
-          <div role="alert" className="space-y-1 font-mono text-xs whitespace-pre-wrap text-rose-400">
+          <div role="alert" className="space-y-1 font-mono text-xs whitespace-pre-wrap text-error">
             <p>{error.message}</p>
             {error.details.map((d) => <p key={d}>{d}</p>)}
           </div>
