@@ -24,14 +24,14 @@ export function IconChain({ types, max = 5 }: { types: (StepType | null)[]; max?
     <ol className="flex items-center gap-1.5" aria-label={t("scenario.chain", { types: types.join(", ") })}>
       {shown.map((type, i) => (
         <li key={i} className="flex items-center gap-1.5">
-          {i > 0 && <span className="text-zinc-500" aria-hidden>→</span>}
-          <span className="grid size-8 place-items-center rounded-lg bg-blue-500 text-white" title={type ?? "?"}>
+          {i > 0 && <span className="text-fg-muted" aria-hidden>→</span>}
+          <span className="grid size-7 place-items-center rounded-full bg-nested text-type" title={type ?? "?"}>
             <TypeIcon type={type} />
           </span>
         </li>
       ))}
       {rest > 0 && (
-        <li className="rounded-full bg-zinc-900 px-2 text-xs text-zinc-300">+{rest}</li>
+        <li className="rounded-full bg-nested px-2 py-1 text-xs text-fg-secondary">+{rest}</li>
       )}
     </ol>
   );

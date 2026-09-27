@@ -17,6 +17,8 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
   Smazat v menu ⋯; přepínač režimu a stav uložení jsou v druhém řádku.
   Config ukazuje cestu projektu, jeden přepínač a sekce bez karet; alias má
   meta „používá …“ / „nepoužívá se“.
+- Karty: Kroky, konektory, nabídka typů a karty scénářů používají tokeny V3;
+  přehled scénářů ukazuje jméno, popis a jediný čas v čipu posledního běhu.
 
 ## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
 

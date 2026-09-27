@@ -49,23 +49,20 @@ Karta: dostupnost + ⋯ nahoře, jméno jako titulek, cesta mono, patička počt
 ### 2.2 Přehled projektu (karty scénářů)
 
 ```
-← Projekty   thtd   ~/thtd            dnes 0,42 / 5,00 USD ▮▮▯▯▯    limity 1,00 USD · 1 h                   ⟳
-Scénáře · Agenti · Config · Skilly · Běhy
-┌ ─ ─ ─ ─ ─ ─ ─ ─ ┐  ┌──────────────────────────────────────┐  ┌──────────────────────────────────────┐
-                      │ [ask]→[jev]→[fail]→[ask]→[jev] +3     │  │ [task]→[output]                       │
-        +             │                          ✓ 12 min  ⋯  │  │                         ✗ 2 chyby  ⋯  │
-   Nový scénář        │ Návrh IG příspěvku ke schválení       │  │ Publikace schváleného příspěvku       │
-                      │ 8 kroků · copywriter, photographer    │  │ 3 kroky · publisher · volatelný       │
-                      │ · 1 vstup · 3 výstupy                 │  │                                       │
-└ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │ ig-post.yaml            včera 14:03   │  │ ig-publish.yaml            bez běhů   │
-                      └──────────────────────────────────────┘  └──────────────────────────────────────┘
+                                                    [+ Nový scénář]
+┌───────────────────────────────────┐  ┌───────────────────────────────────┐
+│ ○ask → ○jev → ○fail → ○ask → +3  ⋯ │  │ ○task → ○output             ✗ 2 chyby│
+│ ✓ před 12 min                     │  │                                ⋯  │
+│ ig-post                           │  │ ig-publish                        │
+│ Návrh IG příspěvku ke schválení    │  │ Publikace schváleného příspěvku    │
+│ 8 kroků · copywriter, photographer │  │ 3 kroky · publisher · volatelný    │
+└───────────────────────────────────┘  └───────────────────────────────────┘
 ```
-- Titulek = `description` scénáře (povinná věta pro člověka, autor ji píše sám; generovat větu z kroků nebudeme, u `jev` a `switch` by lhala).
+- Titulek = jméno scénáře; `description` je podtitul, pokud existuje. Karta má plný `surface`, hover `surface-hover`, rádius `card` a padding 20 px.
 - Řetězec ikon = typy kroků v pořadí souboru, nejvýš 5, pak čip „+N“; `parallel`/`switch` jednou svou ikonou, vnitřek se nerozepisuje.
-- **Místo přepínače** stavový čip posledního běhu (✓ před 12 min · ✗ chyba · ◌ běží · bez běhů); chyby validace mají přednost („✗ 2 chyby“). `callable` je textový štítek „volatelný“ v meta řádku, ne přepínač: mění soubor a chrání schvalování (DESIGN §5.2), patří do formuláře hlavičky v editoru s vysvětlením.
-- Patička: soubor mono vlevo, čas posledního běhu vpravo (datum vytvoření jako v Buzz nemá pro scénář hodnotu; API zatím mtime nedává).
+- Nahoře je řetězec ikon typů v kolečkách `nested` 28 px, čip posledního běhu s časem a menu ⋯; chyby validace mají přednost („✗ 2 chyby“). Meta řádek má jen „N kroků · agenti“ a případný štítek „volatelný“ na `nested`. Počty vstupů a výstupů, název `.yaml` ani druhý čas se neukazují.
 - ⋯: Otevřít, Běhy tohoto scénáře, Kopírovat příkaz spuštění, Validovat; později Duplikovat, Smazat.
-- Karta + otevře dialog „Nový scénář“ (jméno jako slug s kontrolou, popis); ve čtecí fázi ukáže `agencast new scenario <jméno>` s kopírováním.
+- Tlačítko „+ Nový scénář“ je nad mřížkou vpravo; čárkovaná karta otevírá stejný dialog jen v prázdném seznamu. Po integraci se tlačítko přesune do hlavičky stránky.
 - „Chyby validace“ v hlavičce = součet `errors` všech souborů; klik otevře seznam s odkazy na soubor a krok.
 
 ### 2.3 Editor scénáře (karty + panel)
@@ -96,7 +93,7 @@ Scénáře · Agenti · Config · Skilly · Běhy
       (    caption, hashtags, image                                            )
                                     (+)
 ```
-Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod ním hodnota tučně na jeden řádek s výpustkou. Vpravo v pilulce jen `když …` (šedě, mono), v prohlížeči běhu čas + cena. Hlavičková karta má místo čísla ikonu v zaobleném čtverci jako trigger v Buzz. Nový krok dostane id `<typ>_<n>` jako Buzz `step_2`; jeho pilulka má jen eyebrow `ASK · ask_2` a druhý řádek šedý zástupný text „doplň v panelu“, dokud nemá hodnotu. Hodnota podle typu:
+Pilulka má `surface`, při hoveru `surface-hover`, při výběru `ring-2 ring-accent` bez offsetu. V kolečku `nested` 36 px je mono pořadové číslo; řádek `TYP · id` nese ikonu typu 16 px `type`, id mono `fg-secondary` a případně chybovou tečku. Pod ním je hodnota 14 px semibold `fg`, prázdný krok má „doplň v panelu“ normal `fg-muted`. Vpravo je `když …` mono `fg-muted`; v běhu trvání · cena. Nový krok dostane id `<typ>_<n>`. Hodnota podle typu:
 
 | Typ | Hodnota |
 |---|---|
@@ -110,7 +107,7 @@ Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod 
 | switch | `podle steps.kontrola.druh: produkt, akce, jinak` (kontejner) |
 | output | jména výstupů |
 
-**Konektor:** šipka ↓ mezi kartami se při hoveru nebo fokusu promění v (+) 28 px; trvale viditelné (+) je jen na konci každého seznamu (hlavní i každá větev). Menu ⋯ karty má navíc „Vložit krok nad / pod“ jako klávesovou cestu. Kontejnerové karty (`parallel`, `switch`) z 2.4 nejsou pilulky, ale zaoblené obdélníky (16 px), uvnitř nich zase pilulky. V prohlížeči běhu (2.5) stavová ikona nahradí číslo v kruhu a pravá strana pilulky nese čas a cenu.
+**Konektor:** šipka ↓ `fg-muted` mezi kartami se při hoveru nebo fokusu promění v (+) 28 px na `nested` s `ring-line`; vyjmutý krok drží (+) viditelné s `ring-accent`. Trvale viditelné (+) je i na konci každého seznamu, v hlavním seznamu vedle „+ output“. Menu ⋯ má „Vložit krok nad / pod“. Kontejnerové karty (`parallel`, `switch`, `call`) mají obal a hlavní kartu s rádiusem `card`. V běhu stavová ikona nahradí číslo; běžící ikona pulzuje jen při povoleném pohybu, přeskočené a nedošlé kroky mají opacity 40 %.
 
 **Koš vně pilulky:** červený kulatý 28 px vpravo vně, zobrazí se při hoveru a při `focus-within`. Klávesnice: Tab z fokusované karty přejde na koš (je další zastávkou v pořadí, při fokusu se ukáže), nebo klávesa Delete na kartě; `aria-label="Smazat krok kontrola"`. Na dotykovém vstupu (`pointer: coarse`) je koš viditelný trvale ztlumeně. Ochrana mazání z §4.3 platí beze změny. Hlavičková karta koš nemá.
 
@@ -165,7 +162,7 @@ Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod 
 │      │  +                                                              │
 │ ⑫ navrh           call → ig-text  (otevřít ↗) · 1 vstup                │
 ```
-Pravidlo pro začátečníka: **vedle sebe = zároveň, pod sebou = jedna z možností.** Větve a případy jsou o odstín světlejší plocha bez rámečku, každá s vlastním +. Prázdný `default: []` se ukáže jako „jinak: nic“. Sbalení karty (šipka u čísla) schová vnitřek a ukáže jen počet kroků.
+Pravidlo pro začátečníka: **vedle sebe = zároveň, pod sebou = jedna z možností.** Větve a případy mají `nested` bez rámečku, rádius `card`, mono štítek a vlastní +. Prázdný `default: []` se ukáže jako „jinak: nic“. Sbalení karty (šipka vlevo u čísla) schová vnitřek a ukáže jen počet kroků.
 
 ### 2.5 Prohlížeč běhu na kartách (detail běhu)
 
@@ -181,7 +178,7 @@ Vstupy  tema = „nová káva“              Kroky · Souhrn · Report · Soubo
 │ · ⑦ foto            image · nedošlo                                     │ └──────────────────────────────────────┘
 │ · ⑧ out             output · nedošlo                                    │
 ```
-Stejné karty jako v editoru, navíc stav vlevo, čas a cena vpravo. Panel podle typu: `ask`/`task` Prompt (prompt.md), Odpověď, Výstup (output.json), Volání (pokusy, tahy, tokeny, `finish_reason`, úroveň kaskády), u `task` navíc Nástroje (`tool_call`, nepovolené a neplatné argumenty zvýrazněné); `image` náhled + prompt; `jev` odpovědi s pravděpodobnostmi; `call` se rozbalí přímo v kartě na vnořené karty (`navrh/copy`); `set` hodnoty; `output` hodnoty + URL nahraných souborů. Přeskočený krok: důvod a „použit default“. Varování (`continued: true`) = žlutý trojúhelník + text. Záložky: Souhrn = vykreslený summary.md, Report = report.html v sandboxovaném iframe, Soubory = strom z `files` s prohlížečem textu/JSON/PNG.
+Stejné karty jako v editoru: v kolečku je stavová ikona místo čísla, vpravo mono trvání · cena s tabulárními číslicemi. Přeskočené a nedošlé kroky jsou ztlumené na 40 %, běžící ikona pulzuje jen při povoleném pohybu. Panel podle typu: `ask`/`task` Prompt (prompt.md), Odpověď, Výstup (output.json), Volání (pokusy, tahy, tokeny, `finish_reason`, úroveň kaskády), u `task` navíc Nástroje (`tool_call`, nepovolené a neplatné argumenty zvýrazněné); `image` náhled + prompt; `jev` odpovědi s pravděpodobnostmi; `call` se rozbalí přímo v kartě na vnořené karty (`navrh/copy`); `set` hodnoty; `output` hodnoty + URL nahraných souborů. Přeskočený krok: důvod a „použit default“. Varování (`continued: true`) = `text-warning` trojúhelník + text pod kartou. Záložky: Souhrn = vykreslený summary.md, Report = report.html v sandboxovaném iframe, Soubory = strom z `files` s prohlížečem textu/JSON/PNG.
 
 **Panel kroku v běhu** (redesign V3): stejný PanelShell (eyebrow „KROK n · typ“, titul = cesta kroku mono). Řádek stavu: `StatusBadge` + trvání + cena + „3 tahy · 2 volání nástrojů“ (mono, `fg-muted`); pod ním text přeskočení / varování / chyby. Záložky jsou podtržené (`role="tablist"`, aktivní `border-accent`); „Volání (n)“ nese počet. Prompt, Výstup a Odpověď jsou blok kódu `bg-nested` mono 13/20; odpovědi Jev = klíč mono, hodnota tabular, pruh 0–1 (`bg-nested` / `accent`); volání a nástroje jako řádky `bg-nested` s rádiusem control, chybové `bg-error/10` s červeným textem; obrázek se zaoblením; seznam souborů jako mono odkazy do záložky Soubory; prázdná záložka „Nic k zobrazení.“ Záložka **Soubory** v detailu běhu: strom vlevo (vybraný soubor `bg-surface`), prohlížeč vpravo (blok kódu, obrázek; report beze změny v sandboxovaném iframe).
 
@@ -317,21 +314,21 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 
 ## 5. Vizuální principy (Tailwind) — podle screenshotu Buzz
 
-**Tokeny (V3).** Závazné názvy a hodnoty barev, písem a rádiusů jsou v [plánu redesignu, §1](redesign-plan.md#1-tokeny-kontrakt-pro-vsechny).
+**Tokeny (V3).** Závazné názvy a hodnoty barev, písem a rádiusů jsou v [plánu redesignu, §1](redesign-plan.md#1-tokeny-kontrakt-pro-vsechny). Pravidla G7, G8 a G15 platí nad referenčními exporty.
 
-- **Žebřík ploch podle Buzz:** stránka nejtmavší, pilulka kroku o stupeň světlejší, panel o další stupeň světlejší, vstupy uvnitř panelu zpět o stupeň tmavší s 1px linkou. Tailwind: stránka `bg-zinc-900` (nebo pozadí dashboardu), karta `bg-zinc-800/60`, hover `bg-zinc-800`, vybraná `bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900`, panel `bg-zinc-800 rounded-2xl`, vstupy `bg-zinc-900 ring-1 ring-zinc-700`, větev/případ uvnitř kontejneru `bg-zinc-900/60`.
-- **Žádný akcent.** UI je celé šedé jako Buzz. Barva zůstává jen stavům běhu (úspěch `emerald-400`, chyba `rose-400`, běží `sky-400` s pulzem, vypnout při `prefers-reduced-motion`, zrušeno/varování `amber-400`, přeskočeno `zinc-400` s čárkovaným prstencem) a chybám validace (`rose-400`). Výběr, fokus (`ring-zinc-300`) a odkazy (podtržení) jsou šedobílé.
-- **Tvary, tři poloměry:** listová karta kroku `rounded-full` (56–64 px, číslo v kruhu 36 px), kontejnerové karty a panel `rounded-2xl`, vstupy a tlačítka `rounded-lg`; malé (+) kruh 28 px s `ring-1 ring-zinc-600`.
-- **Text v pilulce:** eyebrow typu 11 px `uppercase tracking-wider text-zinc-400`, id 14 px semibold `text-zinc-100`, sekundární údaj 13 px `text-zinc-400`. Panel: štítky polí 12–13 px semibold nad polem, sbalené řádky 15 px. Nadpis obrazovky 18 semibold; jméno scénáře v hlavičce mono s tužkou (jako jméno workflow v Buzz). Mono i pro id, výrazy, `run_id`, ceny, YAML. Písmo dashboardu (Inter/system).
+- **Žebřík ploch:** stránka `bg-canvas`, karta a panel `bg-surface`, hover `bg-surface-hover`, pole, čipy a větve `bg-nested` s případným `ring-line`. Vybraná karta má `ring-2 ring-accent` bez offsetu. Bez průhledných ploch a `backdrop-blur`.
+- **Barva:** primární text `fg`, popisky `fg-secondary`, meta `fg-muted`, ikony typů `type`; stav běhu má ikonu a text s barvami `success`, `error`, `running`, `warning` a `neutral`. Pulz jen `motion-safe`.
+- **Tvary:** pilulka kroku `rounded-full` s kruhem 36 px, kontejner/karta scénáře `rounded-card`, panel `rounded-panel`, ovládací prvky `rounded-control`; malé (+) kruh 28 px s `ring-line`.
+- **Text v pilulce:** typ 11 px uppercase, id mono 13 px `fg-secondary`, hodnota 14 px semibold `fg`, meta 13 px `fg-muted`. Mono i pro výrazy, `run_id`, ceny a YAML.
 - **Rozestupy:** 8px škála; pilulka `px-5 py-3`, číslo v kruhu s mezerou 12 px od textu, šipka mezi pilulkami ve 40px mezeře, panel `p-5` s vnitřním rozestupem sekcí 20 px, okraj panelu od hran 16 px.
-- **Šířky:** sloupec karet max 640 px centrovaný (Buzz má 380, u nás víc kvůli větvím `parallel` a sekundárním údajům); panel 400 px plovoucí; od 1100 px vedle sebe, pod tím panel jako vysouvací list (jediné místo se stínem).
+- **Šířky:** sloupec karet max 640 px centrovaný, panel přibližně 400 px; rozložení panelu řídí §2.3 a responzivita G14.
 - **Ikony typů** (lucide, 16 px, tah 1,5, vždy s textovým názvem typu): ask `message-square`, task `bot`, jev `scale`, image `image`, parallel `columns-2`, switch `split`, call `corner-down-right`, set `equal`, fail `octagon-x`, output `package-check`.
-- **Nedělat:** akcentová barva na tlačítkách nebo výběru, rámečky kolem pilulek a sekcí (jen prstenec u vybrané), stíny, vnořené boxy nad dvě úrovně, linky místo šipek mezi kroky, víc než dva štítky na kartě, stav jen barvou, tooltip jako jediný nositel informace, 12px text na obsah, překryvné spinnery, modál tam, kde stačí panel.
+- **Nedělat:** rámečky kolem pilulek a sekcí (jen prstenec u vybrané), stíny, vnořené boxy nad dvě úrovně, linky místo šipek mezi kroky, víc než dva štítky na kartě, stav jen barvou, tooltip jako jediný nositel informace, 12px text na obsah, překryvné spinnery.
 
-- **Mřížka karet** (projekty, scénáře): `grid gap-4`, karta min 340 px, `bg-zinc-800/60 rounded-xl p-5`, karta + `ring-1 ring-dashed ring-zinc-600 bg-transparent`.
-- **Ikony typů na kartách scénářů** v zaoblených čtvercích 32 px, `rounded-lg`. Buzz tu jako jediné místo používá modrou; totéž u nás: akcent (barva dashboardu Skynet Soul, jinak `bg-blue-500 text-white`) **jen** na tyto čtverce, všude jinde šedá.
-- **Koš:** `bg-rose-500/15 text-rose-400 hover:bg-rose-500/25`; jediná červená v editoru vedle chyb validace.
-- **Stavový čip na kartě scénáře:** ikona + text 12 px, `bg-zinc-900 rounded-full px-2`; barva jen ikona (emerald/rose/sky), text šedý.
+- **Mřížka karet:** `grid gap-4`, karta min 340 px, `bg-surface rounded-card p-5`; čárkovaná karta je jen v prázdném seznamu.
+- **Ikony typů na kartách scénářů:** kolečka 28 px `bg-nested text-type`, mezi nimi šipka `fg-muted`, pak případně čip `+N`.
+- **Koš:** `bg-error/15 text-error hover:bg-error/25`.
+- **Stavový čip na kartě scénáře:** ikona + text 12 px, `bg-nested rounded-full px-2`; barva jen ikona.
 
 ## 6. Přístupnost a klávesnice
 

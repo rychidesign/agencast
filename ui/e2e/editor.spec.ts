@@ -165,7 +165,8 @@ test("C4 nový scénář se dvěma kroky a output", async ({ page, project }) =>
 
   await page.getByRole("link", { name: `${project.name} / Scénáře` }).click();
   const sc = page.getByTestId("scenario-card-clanek");
-  await expect(sc).toContainText("3 kroky · pisatel · 1 vstup · 1 výstup");
+  await expect(sc).toContainText("3 kroky · pisatel");
+  await expect(sc).not.toContainText("clanek.yaml");
   await expect(sc.getByLabel("Typy kroků: ask, jev, output")).toBeVisible();
 });
 
@@ -328,7 +329,7 @@ test("C10 přesun a smazání kroku s ochranou odkazů", async ({ page, project 
   await expect(live(page)).toHaveText("Krok jev_1 vložen.");
   expect(await page.locator("[data-step-card]").evaluateAll((els) => els.map((e) => e.getAttribute("data-step-card")))).toEqual(["", "jev_1", "napis", "vystup"]);
   // render: jev_1 teď čte krok, který je až pod ním
-  await expect(cardBox(page, "jev_1").locator("p.text-rose-400")).toBeVisible();
+  await expect(cardBox(page, "jev_1").locator("p.text-error")).toBeVisible();
   await card(page, "jev_1").focus();
   await page.keyboard.press("Control+z");
   expect(await page.locator("[data-step-card]").evaluateAll((els) => els.map((e) => e.getAttribute("data-step-card")))).toEqual(["", "napis", "jev_1", "vystup"]);
@@ -422,7 +423,7 @@ test("C11 parallel a switch", async ({ page, project, server }) => {
   await expect(collapse).toHaveAttribute("aria-expanded", "true");
   await collapse.click();
   await expect(kratka).toBeHidden();
-  await expect(card(page, "parallel_1").locator("xpath=../..")).toContainText("3 kroky");
+  await expect(card(page, "parallel_1").locator("xpath=../../..")).toContainText("3 kroky");
   await page.getByRole("button", { name: "Rozbalit parallel_1" }).click();
   await expect(kratka).toBeVisible();
 
@@ -511,7 +512,7 @@ test("C12 přejmenování kroku s přepisem odkazů", async ({ page, project }) 
   await expect(card(page, "text_clanku")).toHaveAttribute("aria-label", "Krok 1: ask text_clanku");
   await expect(page).toHaveURL(/krok=text_clanku/);
   await page.waitForTimeout(800); // render
-  await expect(cardBox(page, "vystup").locator("p.text-rose-400")).toHaveCount(0);
+  await expect(cardBox(page, "vystup").locator("p.text-error")).toHaveCount(0);
 
   const req = page.waitForRequest((r) => r.url().endsWith("/scenarios/ukazka/batch"));
   await page.getByRole("button", { name: "Uložit" }).click();
@@ -638,7 +639,7 @@ test("N6 odchod s neuloženými změnami", async ({ page, project }) => {
   await expect(page).toHaveURL(new RegExp(`#/p/${project.name}/scenare$`));
 
   await expect(page.getByRole("button", { name: "Nový scénář" })).toBeVisible();
-  await page.getByRole("link", { name: /Napíše krátký text/ }).click();
+  await page.getByRole("link", { name: "ukazka" }).click();
   await page.getByRole("button", { name: /Krok 1: ask napis/ }).click();
   await page.getByRole("combobox", { name: /Prompt/ }).fill("Zpět: {{ inputs.tema }}");
   page.once("dialog", (d) => (kinds.push(d.type()), void d.dismiss()));

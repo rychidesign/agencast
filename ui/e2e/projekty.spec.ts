@@ -72,8 +72,9 @@ test("C2 založení projektu z GUI", async ({ page, project, server }) => {
   await expect(page.getByRole("navigation", { name: "Části projektu" })).toBeVisible();
   const sc = page.getByTestId("scenario-card-ukazka");
   await expect(sc).toContainText("Napíše krátký text na zadané téma");
-  await expect(sc).toContainText("2 kroky · pisatel · 1 vstup · 1 výstup");
-  await expect(sc).toContainText("ukazka.yaml");
+  await expect(sc).toContainText("2 kroky · pisatel");
+  await expect(sc).toContainText("ukazka");
+  await expect(sc).not.toContainText("ukazka.yaml");
 
   const root = path.join(server.projectsRoot, name);
   for (const f of ["workflows/config.yaml", "workflows/agents/pisatel.md", "workflows/scenarios/ukazka.yaml", ".env.example", ".gitignore"])

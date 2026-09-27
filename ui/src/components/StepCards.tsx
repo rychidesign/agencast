@@ -87,9 +87,9 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
   if (ctx.run) {
     const secs = rs?.status === "running" && rs.started_at ? (ctx.run.now - Date.parse(rs.started_at)) / 1000 : rs?.duration_s;
     right = rs && rs.status !== "skipped" ? (
-      <span className="inline-flex gap-4 font-mono tabular-nums">
+      <span className="inline-flex gap-2 font-mono tabular-nums">
         <span data-testid={`step-duration-${key}`}>{formatDuration(secs)}</span>
-        {rs.cost_usd != null && <span data-testid={`step-cost-${key}`}>{formatCost(rs.cost_usd)}</span>}
+        {rs.cost_usd != null && <>· <span data-testid={`step-cost-${key}`}>{formatCost(rs.cost_usd)}</span></>}
       </span>
     ) : null;
   }
@@ -110,33 +110,33 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
         onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
-        className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${shape === "pill" ? "rounded-full" : "rounded-xl"} ${
-          selected ? "bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900" : shape === "pill" ? "bg-zinc-800/60 hover:bg-zinc-800" : "hover:bg-zinc-800"
-        } ${rs?.status === "running" ? "motion-safe:animate-pulse" : ""} ${isCut ? "opacity-50" : ""}`}
+        className={`flex w-full items-center gap-3 bg-surface px-5 py-3 text-left transition-colors hover:bg-surface-hover ${shape === "pill" ? "rounded-full" : "rounded-card"} ${
+          selected ? "ring-2 ring-accent" : ""
+        } ${isCut ? "opacity-50" : ""}`}
       >
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-zinc-900 text-sm font-semibold text-zinc-200">
-          {status ? <StatusIcon status={status} label="" className="size-5" /> : step.nn}
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-nested font-mono text-sm text-fg-secondary">
+          {status ? <StatusIcon status={status} label="" className="size-4" /> : step.nn}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 text-[11px] tracking-wider text-zinc-400 uppercase">
-            <TypeIcon type={step.type} className="size-3.5" />
-            {step.type ?? "?"} · <span className="font-mono normal-case tracking-normal text-zinc-300">{step.id}</span>
-            {errors.length > 0 && <span className="size-1.5 rounded-full bg-rose-400" aria-hidden />}
+          <span className="flex items-center gap-1.5 text-[11px] tracking-wider text-fg-secondary uppercase">
+            <TypeIcon type={step.type} className="size-4 text-type" />
+            {step.type ?? "?"} · <span className="font-mono normal-case tracking-normal text-fg-secondary">{step.id}</span>
+            {errors.length > 0 && <span className="size-1.5 rounded-full bg-error" aria-hidden />}
           </span>
-          <span className={`block truncate text-sm font-semibold ${value ? "text-zinc-100" : "font-normal text-zinc-500"}`}>
+          <span className={`block truncate text-sm ${value ? "font-semibold text-fg" : "font-normal text-fg-muted"}`}>
             {value || t("step.value.empty")}
           </span>
         </span>
-        {right && <span className="max-w-[40%] shrink-0 truncate text-[13px] text-zinc-400">{right}</span>}
+        {right && <span className="max-w-[40%] shrink-0 truncate text-[13px] text-fg-muted">{right}</span>}
       </button>
       {edit && <CardControls step={step} edit={edit} above={above} />}
       {warn && (
-        <p className="mt-1 ml-14 flex items-center gap-1.5 text-[13px] text-amber-400">
+        <p className="mt-1 ml-14 flex items-center gap-1.5 text-[13px] text-warning">
           <TriangleAlert className="size-4" aria-hidden />{t("run.warning")}
         </p>
       )}
       {errors.map((e, i) => (
-        <p key={i} className="mt-1 ml-14 flex items-start gap-1.5 text-[13px] text-rose-400">
+        <p key={i} className="mt-1 ml-14 flex items-start gap-1.5 text-[13px] text-error">
           <CircleX className="mt-0.5 size-4 shrink-0" aria-hidden /><span className="line-clamp-2">{e.message.split("\n")[0]}</span>
         </p>
       ))}
@@ -163,7 +163,7 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
     <div className="absolute top-1/2 left-full ml-2 flex -translate-y-1/2 items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60 pointer-coarse:group-focus-within:opacity-100">
       <Menu items={items} label={t("common.menuFor", { name: step.id })} />
       <button type="button" onClick={() => edit.remove(step)} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
-        className="grid size-7 place-items-center rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 pointer-coarse:size-11">
+        className="grid size-7 place-items-center rounded-full bg-error/15 text-error hover:bg-error/25 pointer-coarse:size-11">
         <Trash2 className="size-3.5" aria-hidden />
       </button>
       {picker && (
@@ -181,7 +181,7 @@ export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afte
   if (!edit) return <Arrow />;
   return (
     <div className="group/conn relative flex h-10 items-center justify-center pointer-coarse:h-12">
-      <ArrowDown className={`absolute size-4 text-zinc-400 group-focus-within/conn:opacity-0 group-hover/conn:opacity-0 pointer-coarse:opacity-0 ${edit.cut_ ? "opacity-0" : ""}`} aria-hidden />
+      <ArrowDown className={`absolute size-4 text-fg-muted group-focus-within/conn:opacity-0 group-hover/conn:opacity-0 pointer-coarse:opacity-0 ${edit.cut_ ? "opacity-0" : ""}`} aria-hidden />
       <AddButton label={afterId ? t("edit.addAfter", { id: afterId }) : t("edit.addStart")} testid={afterId && `add-after-${afterId}`}
         paste={edit.cut_?.id} always={!!edit.cut_} onPick={(p) => edit.add(at, p)} />
     </div>
@@ -190,7 +190,7 @@ export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afte
 
 function Arrow() {
   return (
-    <div className="flex h-10 items-center justify-center text-zinc-400" aria-hidden>
+    <div className="flex h-10 items-center justify-center text-fg-muted" aria-hidden>
       <ArrowDown className="size-4" />
     </div>
   );
@@ -208,23 +208,23 @@ function Container({ step, ctx, meta, above, inner, children }: {
   const [open, setOpen] = useState(true);
   const Icon = open ? ChevronDown : ChevronRight;
   return (
-    <div className="relative rounded-2xl bg-zinc-800/60 p-2">
+    <div className="relative rounded-card bg-surface p-2">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
         aria-label={t(open ? "step.collapse" : "step.expand", { id: step.id })}
-        className="absolute top-6 -left-7 grid size-6 place-items-center rounded-full text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100">
+        className="absolute top-6 left-2 z-10 grid size-6 place-items-center rounded-full text-fg-muted hover:bg-surface-hover hover:text-fg pointer-coarse:size-11">
         <Icon className="size-4" aria-hidden />
       </button>
-      <StepCard step={step} ctx={ctx} shape="head" meta={meta} above={above} />
+      <div className="pl-8"><StepCard step={step} ctx={ctx} shape="head" meta={meta} above={above} /></div>
       {open ? <div className="p-2">{children}</div>
-        : <p className="px-5 pb-2 text-[13px] text-zinc-400">{t("count.steps", { n: flatten(inner).length })}</p>}
+        : <p className="px-5 pb-2 text-[13px] text-fg-muted">{t("count.steps", { n: flatten(inner).length })}</p>}
     </div>
   );
 }
 
 function Branch({ label, testid, children }: { label: string; testid?: string; children: ReactNode }) {
   return (
-    <section className="min-w-0 rounded-xl bg-zinc-900/60 p-3" aria-label={label} data-testid={testid}>
-      <h4 className="mb-2 font-mono text-[13px] text-zinc-400">{label}</h4>
+    <section className="min-w-0 rounded-card bg-nested p-3" aria-label={label} data-testid={testid}>
+      <h4 className="mb-2 font-mono text-[13px] text-fg-muted">{label}</h4>
       {children}
     </section>
   );
@@ -234,7 +234,7 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
   const uid = uidOf(step);
   const sub = (key: string[]): ListRef => ({ parent: uid, key });
   const addBranch = ctx.edit && (
-    <button type="button" onClick={() => ctx.edit!.addBranch(step)} className="rounded-full px-2.5 py-1 text-[13px] text-zinc-300 hover:bg-zinc-700">
+    <button type="button" onClick={() => ctx.edit!.addBranch(step)} className="rounded-full bg-nested px-3 py-1.5 text-[13px] text-fg-secondary hover:bg-surface-hover pointer-coarse:min-h-11">
       + {t(step.type === "parallel" ? "edit.addBranch" : "edit.addCase")}
     </button>
   );
@@ -259,9 +259,12 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
             <Branch key={c} label={`= ${c}`} testid={`case-${c}`}><StepList steps={steps} ctx={ctx} list={sub(["switch", "cases", c])} /></Branch>
           ))}
           {step.default?.length || ctx.edit ? (
-            <Branch label={t("step.switch.default")} testid="case-default"><StepList steps={step.default ?? []} ctx={ctx} list={sub(["switch", "default"])} /></Branch>
+            <Branch label={t("step.switch.default")} testid="case-default">
+              {!step.default?.length && <p className="font-mono text-[13px] text-fg-muted">{t("step.switch.elseNothing")}</p>}
+              <StepList steps={step.default ?? []} ctx={ctx} list={sub(["switch", "default"])} />
+            </Branch>
           ) : (
-            <p className="px-3 font-mono text-[13px] text-zinc-500">{t("step.switch.elseNothing")}</p>
+            <p className="px-3 font-mono text-[13px] text-fg-muted">{t("step.switch.elseNothing")}</p>
           )}
           {addBranch && <div className="text-right">{addBranch}</div>}
         </div>
@@ -277,7 +280,7 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
     // V editoru „otevřít“ nese cestu přes call (`?z=ig-post:navrh`) pro drobečky a návrat na kartu (§4.7).
     const from = ctx.trail !== undefined ? [ctx.trail, `${ctx.scenario}:${step.id}`].filter(Boolean).join(",") : undefined;
     const open = target && (
-      <a href={href(ctx.project, "scenare", target, { z: from })} className="text-[13px] text-zinc-400 underline hover:text-zinc-100">
+      <a href={href(ctx.project, "scenare", target, { z: from })} className="text-[13px] text-fg-secondary underline hover:text-fg">
         {target} {t("step.call.open")}
       </a>
     );
@@ -292,7 +295,7 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
     }
     return (
       <div>
-        <StepCard step={step} ctx={ctx} above={above} />
+        <div className="rounded-card bg-surface p-2"><StepCard step={step} ctx={ctx} shape="head" above={above} /></div>
         {open && <div className="mt-1 ml-16">{open}</div>}
       </div>
     );
@@ -322,7 +325,7 @@ export function StepList({ steps, ctx, list = MAIN }: { steps: Step[]; ctx: List
         <li className="flex h-14 items-center justify-center gap-3">
           <AddButton always label={t("edit.addEnd")} paste={edit.cut_?.id} onPick={(p) => edit.add(end, p)} />
           {main && edit.addOutput && (
-            <button type="button" onClick={edit.addOutput} className="rounded-full px-2.5 py-1 font-mono text-[13px] text-zinc-300 ring-1 ring-zinc-600 hover:bg-zinc-800">
+            <button type="button" onClick={edit.addOutput} className="rounded-full bg-nested px-2.5 py-1 font-mono text-[13px] text-fg-secondary ring-1 ring-line hover:bg-surface-hover pointer-coarse:min-h-11">
               + output
             </button>
           )}
@@ -344,13 +347,13 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
   });
   return (
     <button type="button" data-step-card="" aria-pressed={selected} onClick={(e) => (onSelect(), !selected && focusPanel(e))}
-      className={`flex w-full items-center gap-3 rounded-full px-5 py-3 text-left ${selected ? "bg-zinc-800 ring-1 ring-zinc-400/60 ring-offset-2 ring-offset-zinc-900" : "bg-zinc-800/60 hover:bg-zinc-800"}`}>
-      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-zinc-900 text-zinc-300">
+      className={`flex w-full items-center gap-3 rounded-full bg-surface px-5 py-3 text-left hover:bg-surface-hover ${selected ? "ring-2 ring-accent" : ""}`}>
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-nested text-fg-secondary">
         <AlignJustify className="size-4" strokeWidth={1.5} aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[11px] tracking-wider text-zinc-400 uppercase">{t("step.header")}</span>
-        <span className="block truncate text-sm font-semibold">{value}</span>
+        <span className="block text-[11px] tracking-wider text-fg-secondary uppercase">{t("step.header")}</span>
+        <span className="block truncate text-sm font-semibold text-fg">{value}</span>
       </span>
     </button>
   );

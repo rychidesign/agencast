@@ -60,31 +60,31 @@ export function TypePicker({ onPick, onClose, paste }: {
   return (
     <div ref={ref} role="listbox" tabIndex={-1} aria-label={t("picker.label")} onKeyDown={onKey}
       aria-activedescendant={items[active] ? `${id}-${items[active]}` : undefined}
-      className={`absolute top-1/2 z-30 w-60 -translate-y-1/2 rounded-xl bg-zinc-800 p-1 ring-1 ring-zinc-700 focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
-      {filter && <div className="px-3 py-1 font-mono text-xs text-zinc-400" aria-live="polite">{t("picker.filter", { filter })}</div>}
+      className={`absolute top-1/2 z-30 w-60 -translate-y-1/2 rounded-card bg-surface p-1 text-fg ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
+      {filter && <div className="px-3 py-1 font-mono text-xs text-fg-muted" aria-live="polite">{t("picker.filter", { filter })}</div>}
       {items.map((k, i) => {
         const g = k === "paste" ? -2 : PICKER_GROUPS.findIndex((gr) => gr.includes(k));
         const line = i > 0 && g !== group;
         group = g;
         return (
           <div key={k}>
-            {line && <div className="mx-2 my-1 h-px bg-zinc-700" aria-hidden />}
+            {line && <div className="mx-2 my-1 h-px bg-line" aria-hidden />}
             <div id={`${id}-${k}`} role="option" aria-selected={i === active}
               onMouseDown={(e) => (e.preventDefault(), onPick(k))} onMouseEnter={() => setActive(i)}
-              className={`flex h-9 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm ${i === active ? "bg-zinc-700" : ""}`}>
+              className={`flex h-9 cursor-pointer items-center gap-3 rounded-control px-3 text-sm pointer-coarse:h-11 ${i === active ? "bg-surface-hover" : ""}`}>
               {k === "paste" ? (
                 <span>{t("picker.paste", { id: paste! })}</span>
               ) : (
                 <>
-                  <span className="w-16 font-mono text-zinc-100">{k}</span>
-                  <span className="truncate text-zinc-400">{t(`picker.${k}`)}</span>
+                  <span className="w-16 font-mono text-fg">{k}</span>
+                  <span className="truncate text-fg-muted">{t(`picker.${k}`)}</span>
                 </>
               )}
             </div>
           </div>
         );
       })}
-      {!items.length && <div className="px-3 py-2 text-sm text-zinc-400">{t("picker.none")}</div>}
+      {!items.length && <div className="px-3 py-2 text-sm text-fg-muted">{t("picker.none")}</div>}
     </div>
   );
 }
@@ -103,7 +103,7 @@ export function AddButton({ label, onPick, paste, always = false, testid }: {
     <div className="relative inline-flex">
       <button ref={btnRef} type="button" aria-label={label} title={label} aria-haspopup="listbox" aria-expanded={open} data-testid={testid}
         onClick={() => setOpen(!open)}
-        className={`grid size-7 place-items-center rounded-full bg-zinc-900 text-zinc-300 ring-1 ring-zinc-600 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:outline-none pointer-coarse:size-11 ${paste ? "ring-zinc-300" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
+        className={`grid size-7 place-items-center rounded-full bg-nested text-fg-secondary ring-1 ring-line hover:bg-surface-hover hover:text-fg focus-visible:outline-none pointer-coarse:size-11 ${paste ? "ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
         <Plus className="size-4" aria-hidden />
       </button>
       {open && <TypePicker paste={paste} onClose={close} onPick={(p) => (setOpen(false), onPick(p))} />}

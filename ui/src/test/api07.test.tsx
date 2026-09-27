@@ -135,7 +135,7 @@ describe("karty bez N+1", () => {
     serve(() => undefined);
     await act(async () => render(<ScenariosTab project={project} onChanged={() => {}} />));
     expect(fetch).not.toHaveBeenCalled();
-    expect(screen.getAllByText("bez běhů").length).toBe(2); // čip i patička karty b
+    expect(screen.getAllByText("bez běhů").length).toBe(1); // jediný časový čip karty b
     expect(screen.getByText("chyba", { selector: ".sr-only", exact: false })).toBeTruthy();
   });
 

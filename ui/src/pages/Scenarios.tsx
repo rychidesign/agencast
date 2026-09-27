@@ -5,8 +5,7 @@ import { ApiError, enc, send } from "../api";
 import { Modal, NameDialog } from "../components/form";
 import { LastRun } from "../components/RunBadge";
 import { IconChain } from "../components/TypeIcon";
-import { EmptyState, ErrorList, Menu, StatusChip } from "../components/ui";
-import { formatWhen, runIdParts, utcTitle } from "../format";
+import { btn, ErrorList, Menu, StatusChip } from "../components/ui";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
 import type { ErrorItem, Project, ScenarioSummary } from "../types";
@@ -36,18 +35,22 @@ export function ScenariosTab({ project, onChanged }: { project: Project; onChang
   };
   return (
     <>
+      <div className="mb-4 flex justify-end">
+        <button type="button" onClick={() => setCreating(true)} className={btn.primary}>
+          <Plus className="size-4" aria-hidden />{t("scenarios.new")}
+        </button>
+      </div>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
-        <li>
+        {!project.scenarios.length && <li>
           <button type="button" onClick={() => setCreating(true)}
-            className="flex min-h-52 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-600 p-5 text-zinc-300 hover:bg-zinc-800/40 hover:text-zinc-100">
+            className="flex min-h-52 w-full flex-col items-center justify-center gap-3 rounded-card border border-dashed border-line p-5 text-fg-secondary hover:bg-surface-hover hover:text-fg">
             <Plus className="size-6" aria-hidden />
             <span className="text-sm">{t("scenarios.new")}</span>
           </button>
-        </li>
+        </li>}
         {project.scenarios.map((s) => (
           <ScenarioCard key={s.name} project={project} scenario={s} onValidate={() => void validate(s.name)} />
         ))}
-        {!project.scenarios.length && <li><EmptyState text={t("scenarios.empty")} /></li>}
       </ul>
       {creating && (
         <NameDialog title={t("scenarios.new")} withDescription taken={project.scenarios.map((s) => s.name)} onCancel={() => setCreating(false)}
@@ -74,43 +77,32 @@ export function ScenariosTab({ project, onChanged }: { project: Project; onChang
 function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; scenario: ScenarioSummary; onValidate: () => void }) {
   const open = href(project.name, "scenare", s.name);
   const agents = project.links.scenario_agent.filter(([sc]) => sc === s.name).map(([, a]) => a);
-  const nIn = Object.keys(s.inputs ?? {}).length;
-  const nOut = Object.keys(s.outputs ?? {}).length;
-  const meta = [
-    t("count.steps", { n: s.steps_count }),
-    agents.join(", "),
-    nIn ? t("count.inputs", { n: nIn }) : "",
-    nOut ? t("count.outputs", { n: nOut }) : "",
-    s.callable ? t("scenario.callable") : "",
-  ].filter(Boolean);
   const menu = [
     { label: t("common.open"), onSelect: () => navigate(open) },
     { label: t("scenarios.runsOf"), onSelect: () => navigate(href(project.name, "behy", undefined, { scenar: s.name })) },
     { label: t("scenarios.copyRun"), onSelect: () => navigator.clipboard.writeText(runCommand(project.root, s)) },
     { label: t("scenarios.validate"), onSelect: onValidate },
   ];
-  const lastRun = s.last_run;
-  const when = lastRun ? lastRun.finished_at ?? runIdParts(lastRun.run_id)?.startedAt : null;
   return (
-    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-52 flex-col rounded-xl bg-zinc-800/60 p-5 hover:bg-zinc-800">
+    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-52 flex-col rounded-card bg-surface p-5 hover:bg-surface-hover">
       <div className="flex flex-wrap items-center gap-3">
         <IconChain types={s.types} />
         <div className="relative z-10 ml-auto flex items-center gap-1 whitespace-nowrap">
           {s.errors.length > 0 ? (
             <StatusChip status="failed">{t("validation.count", { n: s.errors.length })}</StatusChip>
           ) : (
-            <LastRun run={lastRun} />
+            <LastRun run={s.last_run} />
           )}
           <Menu items={menu} label={t("common.menuFor", { name: s.name })} />
         </div>
       </div>
       <h2 className="mt-4 text-lg leading-snug font-semibold">
-        <a href={open} className="after:absolute after:inset-0 after:rounded-xl">{s.description || s.name}</a>
+        <a href={open} className="after:absolute after:inset-0 after:rounded-card">{s.name}</a>
       </h2>
-      <p className="mt-1 text-[13px] text-zinc-400">{meta.join(" · ")}</p>
-      <div className="mt-auto flex items-center justify-between pt-4 text-[13px] text-zinc-400">
-        <span className="font-mono">{s.name}.yaml</span>
-        <span title={utcTitle(when)}>{when ? formatWhen(when) : t("runs.none")}</span>
+      {s.description && <p className="mt-1 text-sm text-fg-secondary">{s.description}</p>}
+      <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 text-[13px] text-fg-muted">
+        <span>{[t("count.steps", { n: s.steps_count }), agents.join(", ")].filter(Boolean).join(" · ")}</span>
+        {s.callable && <span className="rounded-full bg-nested px-2 py-0.5">{t("scenario.callable")}</span>}
       </div>
     </li>
   );
