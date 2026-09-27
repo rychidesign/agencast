@@ -5,6 +5,10 @@
   --color-sidebar: #0B1524;
   --color-surface: #172436;
   --color-surface-hover: #1D2D42;
+  --color-surface-active: #1B2A3D;
+  --color-control: #31455F;
+  --color-control-hover: #3B5170;
+  --color-track: #25374A;
   --color-nested: #0D192A;
   --color-line: #BDD9F026;
   --color-fg: #EDF5FF;
@@ -22,8 +26,17 @@
   --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
   --radius-control: 8px;
+  --radius-button: 10px;
   --radius-card: 12px;
   --radius-panel: 16px;
+}
+
+@layer components {
+  .text-h1 { @apply text-[32px] leading-tight font-semibold tracking-[-0.5px]; }
+  .text-editor-title { @apply font-mono text-[32px] leading-tight font-semibold tracking-[-0.5px]; }
+  .text-panel-title { @apply text-xl font-semibold; }
+  .text-eyebrow { @apply font-mono text-[11px] tracking-[0.08em] text-fg-muted uppercase; }
+  .text-meta { @apply font-mono text-xs text-fg-muted; }
 }
 
 @layer base {

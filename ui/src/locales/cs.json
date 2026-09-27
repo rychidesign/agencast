@@ -400,5 +400,9 @@
   "editor.runs": "Běhy tohoto scénáře",
   "spend.label": "Dnes utraceno",
   "edit.nothingToUndo": "Není co vrátit",
-  "server.unreachable": "Server neodpovídá, nic se nezapsalo."
+  "server.unreachable": "Server neodpovídá, nic se nezapsalo.",
+  "code.readOnly": "Pouze čtení",
+  "code.output": "Výstup",
+  "code.position": "Řádek {line}, sloupec {column}",
+  "conflict.title": "Soubor se změnil"
 }

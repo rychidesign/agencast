@@ -1,6 +1,7 @@
 // Malý renderer Markdownu pro summary.md: nadpisy, tabulky, odrážky, odstavce, **tučně**, `kód`.
 // Vrací React prvky (žádné innerHTML), takže obsah běhu nemůže vložit HTML.
 import type { ReactNode } from "react";
+import { CodeBlock } from "./ui";
 
 function inline(text: string): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/).map((part, i) => {
@@ -28,7 +29,7 @@ export function Markdown({ text }: { text: string }) {
       const code: string[] = [];
       while (i < lines.length && !lines[i].startsWith("```")) code.push(lines[i++]);
       if (i < lines.length) i++;
-      out.push(<pre key={i} className="overflow-x-auto rounded-[var(--radius-control)] bg-nested p-3 font-mono text-[13px] leading-5 text-fg-secondary"><code>{code.join("\n")}</code></pre>);
+      out.push(<CodeBlock key={i} text={code.join("\n")} title={l.slice(3).trim() || undefined} />);
     } else if (h) {
       const cls = ["text-lg font-semibold", "mt-6 text-base font-semibold", "mt-4 text-sm font-semibold"][h[1].length - 1];
       const Tag = (["h2", "h3", "h4"] as const)[h[1].length - 1];

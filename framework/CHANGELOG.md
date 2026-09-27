@@ -5,6 +5,12 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.16.1 (nevydáno)
+
+- Věrnost: tokeny pro ovládací prvky, aktivní plochu a progress podle návrhu V3.
+- Věrnost: tlačítka, pole, přepínač, záložky, čipy, menu, akordeon a prázdné stavy mají rozměry a barvy návrhu.
+- Věrnost: YAML editor, čtecí bloky kódu a konfliktový pruh mají hlavičky, číslování a patičky podle návrhu.
+
 ## 0.16.0 — 2026-09-28 (GUI podle návrhu V3: sidebar, jednotné hlavičky, tokeny)
 
 Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny.
