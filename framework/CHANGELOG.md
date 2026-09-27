@@ -9,6 +9,8 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
 
 - Tokeny: Základní barvy, písma a rádiusy V3 jsou zavedené; Inter Variable
   a JetBrains Mono se bundlují lokálně.
+- Karty: Kroky, konektory, nabídka typů a karty scénářů používají tokeny V3;
+  přehled scénářů ukazuje jméno, popis a jediný čas v čipu posledního běhu.
 
 ## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
 

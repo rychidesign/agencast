@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { StepCard, type ListCtx } from "../components/StepCards";
+import { HeaderCard, StepCard, type ListCtx } from "../components/StepCards";
 import { IconChain } from "../components/TypeIcon";
 import { readBy, readsFrom, stepValue } from "../steps";
 import type { Step, StepType } from "../types";
@@ -60,6 +60,18 @@ describe("StepCard", () => {
     expect(screen.getByText("když inputs.x == 1")).toBeTruthy();
     expect(screen.getByText("agent „fotograf“ neexistuje")).toBeTruthy();
   });
+
+  it("vybraná karta i hlavička mají akcentový prstenec bez offsetu", () => {
+    render(<>
+      <StepCard step={step("ask", { ask: {} })} ctx={{ ...ctx, selected: "ask_1" }} />
+      <HeaderCard inputs={null} outputs={null} selected onSelect={() => {}} />
+    </>);
+    for (const card of screen.getAllByRole("button")) {
+      expect(card.className).toContain("ring-2 ring-accent");
+      expect(card.className).not.toContain("ring-offset");
+      expect(card.getAttribute("aria-pressed")).toBe("true");
+    }
+  });
 });
 
 describe("IconChain", () => {
@@ -72,6 +84,11 @@ describe("IconChain", () => {
   it("do 5 bez čipu", () => {
     render(<IconChain types={["ask", "output"]} />);
     expect(screen.queryByText(/^\+/)).toBeNull();
+  });
+  it("ikony jsou v kolečkách bez modrých čtverců", () => {
+    const { container } = render(<IconChain types={["ask"]} />);
+    expect(container.querySelector("li span.bg-nested.rounded-full.text-type")).toBeTruthy();
+    expect(container.innerHTML).not.toContain("bg-blue");
   });
 });
 
