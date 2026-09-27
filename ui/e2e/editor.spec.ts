@@ -48,7 +48,7 @@ test("C3 nový agent", async ({ page, project }) => {
   const jmeno = dialog.getByRole("textbox", { name: "Jméno" });
   await expect(jmeno).toBeFocused();
   await jmeno.fill("Pisatel");
-  await expect(dialog.getByText("Jen malá písmena, číslice a pomlčka.")).toBeVisible();
+  await expect(dialog.getByText("Malá písmena, číslice a pomlčka; začíná písmenem.")).toBeVisible();
   await jmeno.fill("pisatel");
   await expect(dialog.getByText("„pisatel“ už existuje.")).toBeVisible();
   await jmeno.fill("korektor");
@@ -695,4 +695,40 @@ test("C18 vložení proměnné z nabídky myší i klávesnicí", async ({ page,
   await page.getByRole("button", { name: "Uložit" }).click();
   await expect(saveStatus(page)).toHaveText(/^Uloženo ✓/);
   expect(project.read("scenarios/ukazka.yaml")).toContain("Další text{{ inputs.tema }}");
+});
+
+test("C19 přejmenování scénáře přepíše call a naviguje na nové jméno", async ({ page, project }) => {
+  project.write("scenarios/ukazka.yaml", project.read("scenarios/ukazka.yaml").replace(
+    /^name: ukazka$/m, "name: ukazka\ncallable: true"));
+  project.write("scenarios/volani.yaml", `version: 1
+name: volani
+description: Volá ukazka
+inputs:
+  tema: { type: string, default: káva }
+outputs:
+  text: { type: string }
+steps:
+  - id: spust
+    call:
+      scenario: ukazka
+      inputs:
+        tema: "{{ inputs.tema }}"
+  - id: vystup
+    output:
+      text: "{{ steps.spust.text }}"
+`);
+  await page.goto(`/#/p/${project.name}/scenare/ukazka`);
+  await page.getByRole("button", { name: "Přejmenovat" }).click();
+  const dialog = page.getByRole("dialog", { name: "Přejmenovat scénář „ukazka“?" });
+  await expect(dialog.getByRole("textbox", { name: "Jméno" })).toHaveValue("ukazka");
+  await dialog.getByRole("textbox", { name: "Jméno" }).fill("uvod");
+  await dialog.getByRole("button", { name: "Přejmenovat" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/scenare/uvod(?:\\?|$)`));
+  await expect(page.getByRole("heading", { name: "uvod", level: 1 })).toBeVisible();
+  expect(project.yaml<{ name: string }>("scenarios/uvod.yaml").name).toBe("uvod");
+  expect(project.yaml<{ steps: { call: { scenario: string } }[] }>("scenarios/volani.yaml").steps[0].call.scenario).toBe("uvod");
+  expect(fs.existsSync(path.join(project.wf, "scenarios/ukazka.yaml"))).toBe(false);
+  await expect(page.getByText(/^Přepsáno:/)).toContainText("scenarios/uvod.yaml");
+  await expect(page.getByText(/^Přepsáno:/)).toContainText("scenarios/volani.yaml");
 });

@@ -14,8 +14,8 @@ from . import ConfigErrors, projects as _projects
 from .projects import (ProjectConflict, list_projects as projects, new_project, normalize_root as normalize_project_root,
                        projects_root, registry_writable, remove as remove_project)
 from .edit import (Conflict, NotFound, OpError, add_step, batch, delete_agent, delete_scenario, delete_skill, delete_step,
-                   file_etag, move_step, read_file, render, replace_step, set_agent, set_config, set_header, set_skill,
-                   render_text as _render_text, update_step, validate_text, write_file)
+                   file_etag, move_step, read_file, rename_agent, rename_scenario, render, replace_step, set_agent,
+                   set_config, set_header, set_skill, render_text as _render_text, update_step, validate_text, write_file)
 from .engine import RUN_ID, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import LoadError, load_dotenv, read_yaml
@@ -30,7 +30,8 @@ __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "ne
            "spend", "Project", "Run", "Fake",
            # editační operace pro GUI (edit.py, api.md „Editace“): soubor je pravda, otisk, validace před zápisem
            "Conflict", "NotFound", "set_header", "add_step", "update_step", "move_step", "delete_step",
-           "delete_scenario", "set_agent", "delete_agent", "set_skill", "delete_skill", "set_config", "read_file",
+           "delete_scenario", "rename_scenario", "set_agent", "delete_agent", "rename_agent", "set_skill",
+           "delete_skill", "set_config", "read_file",
            "write_file", "validate_text",
            # 0.8.0: dávka a náhled bez zápisu, celý krok, lehký otisk souboru
            "OpError", "batch", "render", "render_text", "replace_step", "file_etag"]

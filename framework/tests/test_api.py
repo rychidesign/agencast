@@ -226,3 +226,35 @@ def test_edit_api(registry_server):
     assert r.status_code == 200 and client.get("/projects/alfa").json()["limits"]["run_budget_usd"] == 2
     assert client.put("/projects/alfa/config", json={"etag": r.json()["etag"], "fields": {"version": 2}}).status_code == 422
     assert client.put("/projects/alfa/nic", json={}).status_code == 404
+
+
+def test_rename_api_routes(registry_server):
+    _, client, root, _ = registry_server
+    callee = api.read_file(root, "scenarios/ukazka.yaml")
+    api.set_header(root, "ukazka", callee["etag"], {"callable": True})
+    api.new_scenario(root, "volani")
+    caller = api.read_file(root, "scenarios/volani.yaml")
+    api.add_step(root, "volani", caller["etag"], ["steps", 0],
+                 {"id": "zavolej", "call": {"scenario": "ukazka"}})
+    source = client.get("/projects/alfa/scenarios/ukazka").json()
+
+    stale = client.post("/projects/alfa/scenarios/ukazka/rename", json={"etag": "stary", "name": "uvod"})
+    assert stale.status_code == 409 and stale.json()["etag"] == source["etag"]
+    invalid = client.post("/projects/alfa/scenarios/ukazka/rename", json={"etag": source["etag"], "name": "Uvod"})
+    assert invalid.status_code == 422 and isinstance(invalid.json()["errors"][0], dict)
+    collision = client.post("/projects/alfa/scenarios/ukazka/rename",
+                            json={"etag": source["etag"], "name": "volani"})
+    assert collision.status_code == 422
+
+    renamed = client.post("/projects/alfa/scenarios/ukazka/rename", json={"etag": source["etag"], "name": "uvod"})
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "uvod" and renamed.json()["etag"] and renamed.json()["errors"] == []
+    assert renamed.json()["changed"] == ["scenarios/uvod.yaml", "scenarios/volani.yaml"]
+    assert client.get("/projects/alfa/files/scenarios/volani.yaml").json()["data"]["steps"][1]["call"]["scenario"] == "uvod"
+    assert client.get("/projects/alfa/scenarios/ukazka").status_code == 404
+
+    agent = client.get("/projects/alfa/files/agents/pisatel.md").json()
+    renamed_agent = client.post("/projects/alfa/agents/pisatel/rename", json={"etag": agent["etag"], "name": "redaktor"})
+    assert renamed_agent.status_code == 200 and renamed_agent.json()["name"] == "redaktor"
+    assert client.get("/projects/alfa/files/agents/redaktor.md").json()["frontmatter"]["name"] == "redaktor"
+    assert client.post("/projects/alfa/agents/nic/rename", json={"etag": "x", "name": "jine"}).status_code == 404

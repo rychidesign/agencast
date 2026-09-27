@@ -513,6 +513,10 @@ class Projects:
                     api.new_agent(root, name, g("description"), g("model"))
                 rel = f"{kind}/{name}.{'yaml' if kind == 'scenarios' else 'md'}"
                 return 200, {"name": name, "etag": api.read_file(root, rel)["etag"]}
+            case "POST", ["scenarios", s, "rename"]:
+                return 200, api.rename_scenario(root, s, tag, g("name"))
+            case "POST", ["agents", a, "rename"]:
+                return 200, api.rename_agent(root, a, tag, g("name"))
             case "PUT", ["scenarios", s]:
                 return 200, api.set_header(root, s, tag, g("fields"))
             case "DELETE", ["scenarios", s]:

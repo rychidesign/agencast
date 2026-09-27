@@ -46,6 +46,7 @@ beforeEach(() => {
   text = TEXT;
   extra = undefined;
   localStorage.clear();
+  sessionStorage.clear();
   saveToken("t");
   vi.stubGlobal("fetch", vi.fn(async (u: string, init: RequestInit = {}) => {
     const method = init.method ?? "GET";
@@ -113,6 +114,24 @@ describe("TypePicker", () => {
 });
 
 describe("editor scénáře", () => {
+  it("přejmenování odešle etag a nové jméno, obnoví soubory a naviguje", async () => {
+    extra = (method, url) => (method === "POST" && url === "/projects/p/scenarios/s/rename"
+      ? [200, { name: "t", etag: "e1", changed: ["scenarios/t.yaml", "scenarios/caller.yaml"], errors: [] }]
+      : undefined);
+    await openEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Přejmenovat" }));
+    const dialog = screen.getByRole("dialog", { name: "Přejmenovat scénář „s“?" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Jméno/ }), { target: { value: "t" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Přejmenovat" }));
+
+    expect(calls).toContainEqual({
+      method: "POST", url: "/projects/p/scenarios/s/rename", body: { etag: "e0", name: "t" },
+    });
+    expect(await screen.findByRole("heading", { name: "t" })).toBeTruthy();
+    expect(location.hash).toBe("#/p/p/scenare/t");
+    expect(await screen.findByText("Přepsáno: scenarios/t.yaml, scenarios/caller.yaml")).toBeTruthy();
+  });
+
   it("vložení kroku: + → typ → panel; Uložit = jedna dávka s otiskem, pak Uloženo", async () => {
     await openEditor();
     fireEvent.click(screen.getAllByRole("button", { name: "Vložit krok za copy" })[0]); // mezi copy a out

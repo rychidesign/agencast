@@ -58,7 +58,7 @@ test("C2 založení projektu z GUI", async ({ page, project, server }) => {
   const jmeno = dialog.getByRole("textbox", { name: "Jméno" });
   await expect(jmeno).toBeFocused();
   await jmeno.fill("Muj");
-  await expect(dialog.getByText("Jen malá písmena, číslice a pomlčka.")).toBeVisible();
+  await expect(dialog.getByText("Malá písmena, číslice a pomlčka; začíná písmenem.")).toBeVisible();
   await jmeno.fill(project.name);
   await expect(dialog.getByText(`„${project.name}“ už existuje.`)).toBeVisible();
   await jmeno.fill(name);

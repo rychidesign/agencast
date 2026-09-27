@@ -2,9 +2,9 @@
 // Form drží rozpracovaný strom (scenarioDraft.ts), YAML rozpracovaný text (textfile.ts); na disk jde
 // obojí až tlačítkem Uložit / Ctrl+S. Form → YAML převede rozpracovaný strom na text přes `render`;
 // YAML → Form převede neuložený text přes `render` bez zápisu (nalezy-api.md bod 26).
-import { ArrowLeft, CodeXml, Play, Undo2 } from "lucide-react";
+import { ArrowLeft, CodeXml, Play, Trash2, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
-import { enc, send, useApi } from "../api";
+import { ApiError, enc, send, useApi } from "../api";
 import { stepLines } from "../components/CodeView";
 import { Modal, NameDialog, type ModalAction } from "../components/form";
 import { RunPanel } from "../components/RunPanel";
@@ -16,12 +16,12 @@ import {
   adopt, blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
 } from "../edit";
 import { t } from "../i18n";
-import { href, setQuery, useLocation } from "../router";
+import { href, navigate, setQuery, useLocation } from "../router";
 import { useScenarioDraft } from "../scenarioDraft";
 import { readBy } from "../steps";
 import { draftKey, syntaxError, useLeaveGuard, useTextFile, writeDraft } from "../textfile";
 import type { ErrorItem, Project, Step, StepType } from "../types";
-import { SaveNote } from "./Agents";
+import { DeleteDialog, deleteFile, SaveNote } from "./Agents";
 
 /** Výběr hlavičkové karty v `?krok=` (id kroku nesmí začínat `_`, nekoliduje). */
 export const HEADER_KEY = "_hlavicka";
@@ -76,11 +76,21 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const [running, setRunning] = useState(false);
   const [cut, setCut] = useState<string>();
   const [pending, setPending] = useState<Pending>();
+  const [renaming, setRenaming] = useState(false);
+  const [renameGuard, setRenameGuard] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [announce, setAnnounce] = useState("");
   const [caretLine, setCaretLine] = useState(1);
   const proj = useApi<Project>(`/projects/${enc(project)}`);
   const form = useScenarioDraft(project, scenario, !yaml);
   const file = `scenarios/${scenario}.yaml`;
+  const noticeKey = `agencast.rename.${project}/${scenario}`;
+  const [renamedFiles] = useState(() => {
+    const files = sessionStorage.getItem(noticeKey);
+    if (!files) return [];
+    sessionStorage.removeItem(noticeKey);
+    return files.split("\n");
+  });
   const text = useTextFile(project, yaml ? file : null);
   useLeaveGuard(form.dirty || text.dirty);
   const work = form.work;
@@ -179,6 +189,35 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
     if (await text.save()) void form.reload();
   };
   const save = () => (yaml ? saveYaml() : saveForm());
+  const requestRename = () => (yaml ? text.dirty : form.dirty) ? setRenameGuard(true) : setRenaming(true);
+  const discardForRename = () => {
+    if (yaml) text.discard();
+    else void form.reloadFromDisk();
+    setRenameGuard(false);
+    setRenaming(true);
+  };
+  const saveForRename = async () => {
+    const ok = yaml ? await text.save() : await form.save();
+    if (!ok) return;
+    if (yaml) void form.reload();
+    setRenameGuard(false);
+    setRenaming(true);
+  };
+  const fileEtag = yaml ? text.doc?.etag : form.server?.sc.etag;
+  const renameScenario = async (newName: string) => {
+    let result: { changed: string[] };
+    try {
+      result = await send("POST", `/projects/${enc(project)}/scenarios/${enc(scenario)}/rename`, { etag: fileEtag, name: newName });
+    } catch (e) {
+      const err = e as ApiError;
+      throw new Error(err.errors.map((x) => x.message).join("\n") || err.message);
+    }
+    localStorage.removeItem(draftKey(project, file, "form"));
+    localStorage.removeItem(draftKey(project, file));
+    if (result.changed.length > 1) sessionStorage.setItem(`agencast.rename.${project}/${newName}`, result.changed.join("\n"));
+    proj.reload();
+    navigate(href(project, "scenare", newName, { krok: selected, z: trail || undefined }));
+  };
   const canSave = yaml ? text.dirty && !syntax && !text.validating && !text.errors.length && !text.conflict : form.dirty && !form.conflict;
 
   const switchMode = async (to: "form" | "yaml") => {
@@ -250,6 +289,10 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
               { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> },
             ]} />
           <SaveNote dirty={yaml ? text.dirty : form.dirty} errors={errCount} state={yaml ? text.state : form.state} onJump={jump} />
+          <button type="button" className={btn.secondary} onClick={requestRename} disabled={!fileEtag}>{t("rename.button")}</button>
+          <button type="button" className={btn.secondary} onClick={() => setDeleting(true)} disabled={!fileEtag}>
+            <Trash2 className="size-4" aria-hidden />{t("common.delete")}
+          </button>
           {!yaml && (
             <button type="button" className={btn.secondary} onClick={form.undo} disabled={!form.canUndo} title="Ctrl+Z">
               <Undo2 className="size-4" aria-hidden />{t("edit.undo")}
@@ -264,6 +307,9 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         </div>
       </header>
       <p className="sr-only" aria-live="polite">{announce}</p>
+      {renamedFiles.length > 1 && <p role="status" className="px-4 pt-2 text-sm text-zinc-400 sm:px-8">
+        {t("rename.changed", { files: renamedFiles.join(", ") })}
+      </p>}
       <div className="px-4 pb-16 sm:px-8">
         {conflict && (
           <ConflictBar conflict={conflict} onDiff={() => void showDiff()}
@@ -331,6 +377,22 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         branch: (s, name) => setSteps((l) => update(l, s.uid, (x) =>
           x.type === "parallel" ? { ...x, branches: { ...x.branches, [name]: [] } } : { ...x, cases: { ...x.cases, [name]: [] } })),
       }} />}
+      {renameGuard && <Modal title={t("mode.title")} onCancel={() => setRenameGuard(false)} actions={[
+        { label: t("mode.save"), primary: true, onSelect: () => void saveForRename() },
+        { label: t("mode.discard"), danger: true, onSelect: discardForRename },
+      ]}><p>{t(yaml ? "mode.yamlDirty" : "mode.formDirty")}</p></Modal>}
+      {renaming && fileEtag && <NameDialog title={t("rename.title", { what: t("delete.scenario"), name: scenario })} initialName={scenario}
+        submitLabel={t("rename.confirm")} pattern={/^[a-z][a-z0-9-]*$/}
+        taken={(proj.data?.scenarios ?? []).map((s) => s.name).filter((n) => n !== scenario)}
+        onCancel={() => setRenaming(false)} onSubmit={(newName) => renameScenario(newName)} />}
+      {deleting && fileEtag && <DeleteDialog what={t("delete.scenario")} name={scenario} onCancel={() => setDeleting(false)}
+        run={() => deleteFile(`/projects/${enc(project)}/scenarios/${enc(scenario)}`, fileEtag)}
+        onDone={() => {
+          localStorage.removeItem(draftKey(project, file, "form"));
+          localStorage.removeItem(draftKey(project, file));
+          proj.reload();
+          navigate(href(project, "scenare"));
+        }} />}
     </main>
   );
 }

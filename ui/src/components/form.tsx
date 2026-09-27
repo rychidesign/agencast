@@ -328,11 +328,12 @@ export const submitOnEnter = (submit: () => unknown) => (e: KeyboardEvent) => {
 };
 
 /** Dialog se jménem (nový scénář / agent / skill): slug s kontrolou na místě; `models` = výběr aliasu (agent). */
-export function NameDialog({ title, taken, onSubmit, onCancel, withDescription = false, models, pattern = /^[a-z0-9-]+$/ }: {
+export function NameDialog({ title, taken, onSubmit, onCancel, withDescription = false, models, pattern = /^[a-z][a-z0-9-]*$/,
+  initialName = "", submitLabel = t("common.create") }: {
   title: string; taken: string[]; onSubmit: (name: string, description: string, model: string) => Promise<void> | void;
-  onCancel: () => void; withDescription?: boolean; models?: string[]; pattern?: RegExp;
+  onCancel: () => void; withDescription?: boolean; models?: string[]; pattern?: RegExp; initialName?: string; submitLabel?: string;
 }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
   const [desc, setDesc] = useState("");
   const [model, setModel] = useState(models?.[0] ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -350,7 +351,7 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
   };
   return (
     <Modal title={title} onCancel={onCancel}
-      actions={[{ label: busy ? t("common.saving") : t("common.create"), primary: true, onSelect: submit }]}>
+      actions={[{ label: busy ? t("common.saving") : submitLabel, primary: true, onSelect: submit }]}>
       <form onSubmit={(e) => (e.preventDefault(), submit())} onKeyDown={submitOnEnter(submit)} className="space-y-3">
         <FormField label={t("form.name")} help={t("form.slugHelp")} errors={problem ? [problem] : []} required>
           {(a) => <input {...a} data-autofocus value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} ${mono}`} autoComplete="off" />}

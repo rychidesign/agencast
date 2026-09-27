@@ -167,6 +167,21 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 2. Uložit → „Uloženo ✓“; `project.read("scenarios/ukazka.yaml")` obsahuje vloženou šablonu.
 3. Klávesami: Tab z pole na tlačítko → Enter → šipka dolů → Enter; stejný výsledek. Test: `editor.spec.ts` „C18“.
 
+### C19 Přejmenování scénáře a agenta
+
+1. V editoru scénáře nebo agenta klikni na „Přejmenovat“. Dialog předvyplní
+   současný slug, odmítne neplatný či obsazený název; při neuloženém draftu
+   se nejdřív nabídne jeho uložení nebo zahození.
+2. Potvrzení pošle `POST …/scenarios/<staré>/rename` nebo
+   `POST …/agents/<staré>/rename` s `{etag, name}`. Scénář přepíše i
+   `call.scenario`; agent přepíše odkazy v `ask`/`task` a seznamech
+   `agents` v `mcp.yaml`. Komentáře zůstanou.
+3. Po úspěchu zmizí draft staré cesty, seznam se obnoví a editor přejde na
+   nové jméno. Když se změnilo více souborů, zobrazí se jejich cesty.
+   `runs/` se nemění; starší běhy dál ukazují původní jméno.
+   E2E: `editor.spec.ts` „C19“ ověří přejmenování `ukazka` → `uvod`,
+   odkaz z dalšího scénáře přes `call`, obsah souborů a novou URL.
+
 ## Negativní a okrajové stavy
 
 - **N1 Server neodpovídá** — Stav: `page.route("**/projects*", r => r.abort())` nebo zastavený `serve`. Očekávání: sticky `server-bar` `role=alert` „Server agencast neodpovídá (127.0.0.1:8787), zkouším znovu…“, obsah zůstává (poslední data), žádná chybová hláška navíc; po obnovení routy do 5 s pruh zmizí sám. V editoru s rozpracovanou změnou zůstává „Neuloženo“ a draft v `localStorage` (`agencast.draft.*`). **[hotovo]**

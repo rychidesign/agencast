@@ -35,6 +35,23 @@ def test_project_found_upwards(wf, monkeypatch, capsys):
     assert "žádné běhy" in capsys.readouterr().out
 
 
+def test_rename_cli(wf, monkeypatch, capsys):
+    root = str(wf.parent)
+    api.new_agent(root, "pisatel")
+    api.new_scenario(root, "ukazka")
+    assert main(["rename", "scenario", "ukazka", "uvod", "--project", root]) == 0
+    assert "scenarios/uvod.yaml" in capsys.readouterr().out
+    assert (wf / "scenarios" / "uvod.yaml").is_file()
+    assert not (wf / "scenarios" / "ukazka.yaml").exists()
+
+    monkeypatch.chdir(root)
+    assert main(["rename", "agent", "pisatel", "redaktor"]) == 0
+    out = capsys.readouterr().out
+    assert "agents/redaktor.md" in out and "scenarios/ukazka-task.yaml" not in out
+    assert main(["rename", "agent", "redaktor", "invalid name"]) == 2
+    assert "začíná písmenem" in capsys.readouterr().err
+
+
 def test_no_project(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert main(["validate", "ig-post", "--offline"]) == 2

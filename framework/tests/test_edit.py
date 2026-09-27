@@ -214,6 +214,97 @@ def test_existing_errors_do_not_block(proj):
     assert any("rozbity" in e for e in r["errors"])  # zůstává hlášená, ale změnu neblokuje
 
 
+def test_rename_scenario_updates_calls_and_keeps_comments(wf):
+    proj = wf.parent
+    api.new_scenario(proj, "ukazka")
+    callee = api.read_file(proj, "scenarios/ukazka.yaml")
+    api.set_header(proj, "ukazka", callee["etag"], {"callable": True})
+    api.new_scenario(proj, "volani")
+    caller = api.read_file(proj, "scenarios/volani.yaml")
+    api.add_step(proj, "volani", caller["etag"], ["steps", 0],
+                 {"id": "zavolej", "call": {"scenario": "ukazka"}})
+    callee_path = wf / "scenarios" / "ukazka.yaml"
+    callee_path.write_text(callee_path.read_text().replace("name: ukazka\n", "# zachovaný komentář\nname: ukazka\n"))
+    caller_path = wf / "scenarios" / "volani.yaml"
+    caller_path.write_text(caller_path.read_text().replace("scenario: ukazka", "scenario: ukazka # volání"))
+
+    r = api.rename_scenario(proj, "ukazka", api.read_file(proj, "scenarios/ukazka.yaml")["etag"], "uvod")
+
+    assert r["name"] == "uvod" and r["etag"] == api.read_file(proj, "scenarios/uvod.yaml")["etag"]
+    assert r["changed"] == ["scenarios/uvod.yaml", "scenarios/volani.yaml"]
+    assert "# zachovaný komentář" in (wf / "scenarios" / "uvod.yaml").read_text()
+    assert re.search(r"scenario: uvod\s+# volání", caller_path.read_text())
+    assert ["volani", "uvod"] in api.describe_project(proj)["links"]["scenario_scenario"]
+    with pytest.raises(api.NotFound):
+        api.read_file(proj, "scenarios/ukazka.yaml")
+
+
+def test_rename_agent_updates_task_and_mcp(wf):
+    proj = wf.parent
+    agent_path = wf / "agents" / "knihovnik.md"
+    before = api.read_file(proj, "agents/knihovnik.md")
+    agent_path.write_text(before["text"].replace("name: knihovnik\n", "# zachovaný frontmatter\nname: knihovnik\n"))
+    mcp_path = wf / "mcp.yaml"
+    mcp_path.write_text(yaml_edit(mcp_path.read_text(),
+                                  lambda d: d["servers"]["filesystem"]["agents"].yaml_add_eol_comment("zachované povolení", 0),
+                                  "mcp.yaml"))
+
+    r = api.rename_agent(proj, "knihovnik", api.read_file(proj, "agents/knihovnik.md")["etag"], "archivar")
+
+    assert r["name"] == "archivar"
+    assert r["changed"] == ["agents/archivar.md", "mcp.yaml", "scenarios/ukazka-task.yaml"]
+    new_agent = api.read_file(proj, "agents/archivar.md")
+    assert new_agent["frontmatter"]["name"] == "archivar"
+    assert "# zachovaný frontmatter" in new_agent["text"]
+    assert new_agent["body"] == before["body"]
+    task = api.read_file(proj, "scenarios/ukazka-task.yaml")["data"]["steps"][0]["task"]
+    assert task["agent"] == "archivar"
+    assert "archivar" in api.read_file(proj, "mcp.yaml")["data"]["servers"]["filesystem"]["agents"]
+    assert "# zachované povolení" in api.read_file(proj, "mcp.yaml")["text"]
+    links = api.describe_project(proj)["links"]
+    assert ["ukazka-task", "katalog", "archivar"] in links["scenario_step_agent"]
+    assert ["archivar", "filesystem"] in links["agent_server"]
+
+
+def test_rename_rejects_conflicts_collisions_names_and_new_errors(wf):
+    proj = wf.parent
+    rel = "scenarios/ukazka-task.yaml"
+    source = wf / rel
+    original = source.read_bytes()
+    tag = api.read_file(proj, rel)["etag"]
+    with pytest.raises(api.Conflict):
+        api.rename_scenario(proj, "ukazka-task", "stary", "novy")
+    with pytest.raises(ConfigErrors):
+        api.rename_scenario(proj, "ukazka-task", tag, "Pisatel")
+    with pytest.raises(ConfigErrors):
+        api.rename_scenario(proj, "ukazka-task", tag, "kontrola-tonu")
+    assert source.read_bytes() == original
+
+    # Nová chyba: scénář používající MCP server není po přejmenování v jeho allowlistu.
+    mcp = wf / "mcp.yaml"
+    mcp.write_text(yaml_edit(mcp.read_text(),
+                             lambda d: d["servers"]["filesystem"].update({"scenarios": ["ukazka-task"]}), "mcp.yaml"))
+    mcp_before = mcp.read_bytes()
+    source_before = source.read_bytes()
+    with pytest.raises(ConfigErrors, match="nesmí spustit agenta"):
+        api.rename_scenario(proj, "ukazka-task", api.read_file(proj, rel)["etag"], "ukazka-nova")
+    assert source.read_bytes() == source_before and mcp.read_bytes() == mcp_before
+    assert not (wf / "scenarios" / "ukazka-nova.yaml").exists()
+
+
+def test_rename_allows_existing_error_with_name_as_substring(wf):
+    proj = wf.parent
+    api.new_scenario(proj, "ukazka")
+    unrelated = wf / "scenarios" / "ukazkaextra.yaml"
+    unrelated.write_text("version: [\n")
+
+    result = api.rename_scenario(proj, "ukazka", api.read_file(proj, "scenarios/ukazka.yaml")["etag"], "uvod")
+
+    assert result["name"] == "uvod"
+    assert unrelated.read_text() == "version: [\n"
+    assert any("ukazkaextra.yaml" in error for error in result["errors"])
+
+
 def test_delete_refused_when_used(proj):
     wf = proj / "workflows"
     d = api.describe_project(proj)

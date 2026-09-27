@@ -32,7 +32,7 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarStri
 from . import ConfigErrors
 from .loader import LoadError, load_yaml, nested_lists
 from .mcp_client import load_mcp
-from .projects import NAME, describe_project, etag, text_tree
+from .projects import NAME, _check_name, describe_project, etag, text_tree
 from .validate import load_config
 
 _N = NAME.pattern
@@ -116,6 +116,25 @@ def _check(root: Path, rel: str, text: str | None) -> list[str]:
     """Chyby projektu po změně; chyba, která v projektu nebyla → ConfigErrors (nic se nezapíše)."""
     before = _errors(root)
     after = _errors_with(root, rel, text)
+    if new := [e for e in after if e not in before]:
+        raise ConfigErrors(new)
+    return after
+
+
+def _errors_with_many(root: Path, changes: dict[str, str | None]) -> list[str]:
+    """Chyby projektu po několika změnách současně (None = smazaný soubor)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        t = Path(tmp).resolve()
+        shutil.copytree(root / "workflows", t / "workflows")
+        for rel, text in changes.items():
+            _write(t / "workflows" / rel, text)
+        return [e.replace(str(t), str(root)) for e in _errors(t)]
+
+
+def _check_many(root: Path, changes: dict[str, str | None], old_name: str, new_name: str) -> list[str]:
+    """Validuje přejmenování jako jednu změnu; stávající chyby s novou cestou/názvem neblokují."""
+    before = {re.sub(rf"(?<![a-z0-9-]){re.escape(old_name)}(?![a-z0-9-])", new_name, e) for e in _errors(root)}
+    after = _errors_with_many(root, changes)
     if new := [e for e in after if e not in before]:
         raise ConfigErrors(new)
     return after
@@ -531,6 +550,136 @@ def _used(root, link: str, name: str, what: str):
     users = [a for a, b in describe_project(Path(root).resolve())["links"][link] if b == name]
     if users:
         raise ConfigErrors([f"{what} '{name}' nejde smazat — používá ho: {', '.join(users)}"])
+
+
+def _rename_references(node, kind: str, old: str, new: str) -> bool:
+    """Přepíše jen odkazy scénáře/agentů, ne libovolný text se stejným jménem."""
+    changed = False
+    if isinstance(node, dict):
+        if kind == "scenario" and isinstance(node.get("call"), dict) and node["call"].get("scenario") == old:
+            node["call"]["scenario"] = new
+            changed = True
+        if kind == "agent":
+            for step_type in ("ask", "task"):
+                step = node.get(step_type)
+                if isinstance(step, dict) and step.get("agent") == old:
+                    step["agent"] = new
+                    changed = True
+        for value in node.values():
+            changed = _rename_references(value, kind, old, new) or changed
+    elif isinstance(node, list):
+        for value in node:
+            changed = _rename_references(value, kind, old, new) or changed
+    return changed
+
+
+def _rename(root, kind: str, name: str, tag, new_name: str) -> dict[str, Any]:
+    root = Path(root).resolve()
+    ext = "yaml" if kind == "scenario" else "md"
+    folder = "scenarios" if kind == "scenario" else "agents"
+    old_rel, new_rel = f"{folder}/{name}.{ext}", f"{folder}/{new_name}.{ext}"
+    old_path = _path(root, old_rel)
+    with _lock:
+        old_text = _read(old_path)
+        if old_text is None:
+            raise NotFound(f"{old_rel}: soubor neexistuje")
+        if tag != etag(old_text):
+            raise Conflict(etag(old_text))
+        if not isinstance(new_name, str):
+            raise ConfigErrors(["name: má být text"])
+        _check_name(new_name, "scénář" if kind == "scenario" else "agent")
+        new_path = _path(root, new_rel)
+        if new_name == name:
+            return {"name": name, "etag": etag(old_text), "changed": [], "errors": _errors(root)}
+        if new_path.exists():
+            raise ConfigErrors([f"{new_path}: už existuje — nepřepisuju"])
+
+        if kind == "scenario":
+            new_text = yaml_edit(old_text, lambda data: data.__setitem__("name", new_name), old_rel)
+        else:
+            match = FRONTMATTER.match(old_text)
+            if not match:
+                raise ConfigErrors([f"{old_rel}: chybí frontmatter mezi řádky --- (oprav ho jako text přes files/)"])
+            frontmatter = yaml_edit(match[2], lambda data: data.__setitem__("name", new_name), old_rel)
+            new_text = match[1] + frontmatter + match[3] + match[4]
+
+        references: dict[str, str] = {}
+        for path in sorted((root / "workflows" / "scenarios").glob("*.yaml")):
+            rel = path.relative_to(root / "workflows").as_posix()
+            if rel == old_rel:
+                continue
+            text = _read(path)
+            if text is None:
+                continue
+            found = False
+
+            def edit_refs(data):
+                nonlocal found
+                if isinstance(data, dict):
+                    found = _rename_references(data, kind, name, new_name)
+
+            try:
+                updated = yaml_edit(text, edit_refs, rel)
+            except ConfigErrors:  # rozbitý existující soubor zůstává chybou, ale rename ho nepřepisuje
+                continue
+            if found and updated != text:
+                references[rel] = updated
+
+        if kind == "agent":
+            path = root / "workflows" / "mcp.yaml"
+            text = _read(path)
+            if text is not None:
+                found = False
+
+                def edit_mcp(data):
+                    nonlocal found
+                    servers = data.get("servers") if isinstance(data, dict) else None
+                    for server in servers.values() if isinstance(servers, dict) else ():
+                        agents = server.get("agents") if isinstance(server, dict) else None
+                        if isinstance(agents, list):
+                            for i, agent in enumerate(agents):
+                                if agent == name:
+                                    agents[i] = new_name
+                                    found = True
+
+                try:
+                    updated = yaml_edit(text, edit_mcp, "mcp.yaml")
+                except ConfigErrors:
+                    pass
+                else:
+                    if found and updated != text:
+                        references["mcp.yaml"] = updated
+
+        changes = {old_rel: None, new_rel: new_text, **references}
+        errors = _check_many(root, changes, name, new_name)
+
+        # Přepsané soubory jdou první; nová cesta vzniká až po poslední kontrole kolize.
+        if etag(_read(old_path)) != tag:
+            raise Conflict(etag(_read(old_path)))
+        for rel, updated in sorted(references.items()):
+            path = _path(root, rel)
+            original = _read(path)
+            if original is None:
+                raise Conflict(None)
+            _write(path, updated, etag(original), check=True)
+        if _read(old_path) is None or etag(_read(old_path)) != tag:
+            raise Conflict(etag(_read(old_path)))
+        if new_path.exists():
+            raise ConfigErrors([f"{new_path}: už existuje — nepřepisuju"])
+        _write(new_path, new_text)
+        _write(old_path, None, tag, check=True)
+
+    return {"name": new_name, "etag": etag(new_text), "changed": sorted([new_rel, *references]), "errors": errors}
+
+
+def rename_scenario(root, name: str, tag, new_name: str) -> dict[str, Any]:
+    """Přejmenuje scénář, jeho jméno v YAML a odkazy `call.scenario` v ostatních scénářích."""
+    return _rename(root, "scenario", name, tag, new_name)
+
+
+def rename_agent(root, name: str, tag, new_name: str) -> dict[str, Any]:
+    """Přejmenuje agenta, jeho frontmatter a odkazy v ask/task a mcp.yaml."""
+    return _rename(root, "agent", name, tag, new_name)
 
 
 def delete_scenario(root, name: str, tag) -> dict[str, Any]:

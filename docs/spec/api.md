@@ -197,6 +197,11 @@ Tělo požadavku je JSON objekt s polem `etag`. Odpovědi:
 | 404 | `{"error"}` — neznámý projekt, soubor, adresa kroku nebo cesta mimo povolené soubory |
 | 401 | chybí/nesedí token (stejný jako pro čtení) |
 
+Přejmenování vrací navíc `name` a `changed`: nové jméno a seřazené cesty
+změněných souborů relativně k `workflows/`; `errors` obsahuje chyby, které
+v projektu zůstaly. Přejmenování neupravuje `runs/`: starší běhy dál nesou
+jméno scénáře platné při spuštění.
+
 ### Adresa kroku
 
 Cesta ke kroku v dokumentu scénáře, jako JSON pole. Vrací ji
@@ -225,6 +230,8 @@ hodnota nahradí. Text s `{{ }}` se zapíše v dvojitých uvozovkách, víc
 |---|---|---|
 | `POST /projects/<p>/scenarios` | `{"name", "description"?}` | nový scénář ze šablony (`agencast new scenario`); 200 `{"name", "etag"}`, existující → 422; `description` od 0.8.0 |
 | `POST /projects/<p>/agents` | `{"name", "description"?, "model"?}` | nový agent ze šablony (`agencast new agent`); 200 `{"name", "etag"}`; od 0.8.0 `description` a `model` (alias z `config.yaml`, jiný → 422) |
+| `POST /projects/<p>/scenarios/<s>/rename` | `{"name"}` | přejmenuje scénář, soubor i odkazy `call.scenario`; 200 `{"name", "etag", "changed", "errors"}` |
+| `POST /projects/<p>/agents/<a>/rename` | `{"name"}` | přejmenuje agenta, soubor i odkazy v krocích `ask`/`task` a seznamech `agents` v `mcp.yaml`; 200 `{"name", "etag", "changed", "errors"}` |
 | `PUT /projects/<p>/scenarios/<s>` | `{"fields": {…}}` | hlavička: jen `description`, `inputs`, `outputs`, `callable` (jiné pole → 422) |
 | `DELETE /projects/<p>/scenarios/<s>` | — | smaže scénář; když ho jiný volá přes `call` → 422 |
 | `POST /projects/<p>/scenarios/<s>/steps` | `{"after": adresa, "step": {…}}` | vloží krok (celý, jako v souboru) za krok `after`; adresa seznamu = na jeho začátek; bez `after` na začátek `steps` |
@@ -262,8 +269,8 @@ hodnota nahradí. Text s `{{ }}` se zapíše v dvojitých uvozovkách, víc
 - Operace v jednom procesu `serve` jdou po jedné (zámek). Ruční úprava
   souboru mimo `serve` se pozná podle otisku při další operaci.
 - Veřejné API (`agencast.api`): `set_header`, `add_step`, `update_step`,
-  `move_step`, `delete_step`, `delete_scenario`, `set_agent`,
-  `delete_agent`, `set_skill`, `delete_skill`, `set_config`, `read_file`,
+  `move_step`, `delete_step`, `delete_scenario`, `rename_scenario`, `set_agent`,
+  `delete_agent`, `rename_agent`, `set_skill`, `delete_skill`, `set_config`, `read_file`,
   `write_file`, od 0.6.0 `validate_text`, od 0.8.0 `replace_step`,
   `batch`, `render`, `file_etag`; výjimky `Conflict` (`.etag`),
   `NotFound`, `ConfigErrors`, od 0.8.0 `OpError` (podtřída

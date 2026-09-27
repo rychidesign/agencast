@@ -6,6 +6,7 @@
     agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]] [--cors ORIGIN]   (mimo projekt: režim registru)
     agencast migrate <soubor>
     agencast new project <cesta> [--name N] | agent <jméno> | scenario <jméno>
+    agencast rename scenario <staré> <nové> | agent <staré> <nové>
     agencast projects list | add <cesta> [--name N] | rm <jméno>
 
 <scénář> je jméno (ig-post) nebo cesta k .yaml. Kořen projektu = první složka
@@ -198,6 +199,22 @@ def cmd_new(a) -> int:
     return 0
 
 
+def cmd_rename(a) -> int:
+    try:
+        root = _root(a)
+        rel = f"{'scenarios' if a.what == 'scenario' else 'agents'}/{a.old}.{'yaml' if a.what == 'scenario' else 'md'}"
+        tag = api.read_file(root, rel)["etag"]
+        rename = api.rename_scenario if a.what == "scenario" else api.rename_agent
+        result = rename(root, a.old, tag, a.new)
+    except api.Conflict as e:
+        return _fail_config([f"{rel}: soubor se během přejmenování změnil (aktuální otisk: {e.etag}); opakuj příkaz"])
+    except (ConfigErrors, api.NotFound) as e:
+        return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
+    for rel in result["changed"]:
+        print(f"přejmenováno: {root / 'workflows' / rel}")
+    return 0
+
+
 def cmd_projects(a) -> int:
     try:
         if a.projects_cmd == "add":
@@ -279,10 +296,16 @@ def main(argv=None) -> int:
     prs.add_parser("rm", help="odebere projekt z registru (soubory nemaže)").add_argument("name", metavar="jméno")
     for what, help_ in (("agent", "workflows/agents/<jméno>.md"), ("scenario", "workflows/scenarios/<jméno>.yaml")):
         ns.add_parser(what, parents=[common], help=help_).add_argument("name", metavar="jméno")
+    rn = sub.add_parser("rename", help="přejmenuje scénář nebo agenta včetně odkazů")
+    rns = rn.add_subparsers(dest="what", required=True)
+    for what in ("scenario", "agent"):
+        p = rns.add_parser(what, parents=[common])
+        p.add_argument("old", metavar="staré")
+        p.add_argument("new", metavar="nové")
     a = ap.parse_args(argv)
     return {"validate": cmd_validate, "run": cmd_run, "runs": cmd_runs, "serve": cmd_serve,
             "migrate": cmd_migrate, "new": cmd_new,
-            "projects": cmd_projects}[a.cmd](a)
+            "rename": cmd_rename, "projects": cmd_projects}[a.cmd](a)
 
 
 if __name__ == "__main__":

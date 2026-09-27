@@ -9,7 +9,7 @@ import { btn, EmptyState, ErrorList, ErrorText, Loading, StatusChip, Toggle } fr
 import { isObj, mergePatch } from "../edit";
 import { t } from "../i18n";
 import { href, navigate, type Tab } from "../router";
-import { useFileDraft, useLeaveGuard, useTextFile, type FileDraft, type SaveState } from "../textfile";
+import { draftKey, useFileDraft, useLeaveGuard, useTextFile, type FileDraft, type SaveState } from "../textfile";
 import type { ErrorItem, Project } from "../types";
 
 type Obj = Record<string, unknown>;
@@ -85,10 +85,10 @@ export function useConflictUi(f: Pick<FileDraft<unknown>, "conflict" | "reloadFr
   return { bar, modal, save, setModal, close };
 }
 
-/** Horní lišta editoru souboru: jméno, přepínač režimu, stav, Smazat, Uložit. */
-function EditorBar({ title, mode, onMode, modeBlocked, dirty, state, errors, canSave, onSave, onDelete }: {
+/** Horní lišta editoru souboru: jméno, přepínač režimu, stav, Přejmenovat, Smazat, Uložit. */
+function EditorBar({ title, mode, onMode, modeBlocked, dirty, state, errors, canSave, onSave, onRename, onDelete }: {
   title: string; mode: "form" | "text"; onMode: (m: "form" | "text") => void; modeBlocked?: string;
-  dirty: boolean; state: SaveState; errors: number; canSave: boolean; onSave: () => void; onDelete: () => void;
+  dirty: boolean; state: SaveState; errors: number; canSave: boolean; onSave: () => void; onRename: () => void; onDelete: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -96,6 +96,7 @@ function EditorBar({ title, mode, onMode, modeBlocked, dirty, state, errors, can
       <Toggle label={t("code.mode")} value={mode} onChange={onMode}
         options={[{ key: "form", label: t("code.form"), disabled: modeBlocked }, { key: "text", label: <><CodeXml className="size-3.5" aria-hidden />{t("code.markdown")}</> }]} />
       <SaveNote dirty={dirty} state={state} errors={errors} />
+      <button type="button" className={btn.secondary} onClick={onRename}>{t("rename.button")}</button>
       <button type="button" className={btn.secondary} onClick={onDelete}><Trash2 className="size-4" aria-hidden />{t("common.delete")}</button>
       <button type="button" className={btn.primary} onClick={onSave} disabled={!canSave} title="Ctrl+S">{t("common.save")}</button>
     </div>
@@ -103,7 +104,7 @@ function EditorBar({ title, mode, onMode, modeBlocked, dirty, state, errors, can
 }
 
 /** Smazání přes API: 422 = ochrana (používá ho scénář / agent), důvod z hlášky. */
-async function deleteFile(url: string, etag: string): Promise<string | null> {
+export async function deleteFile(url: string, etag: string): Promise<string | null> {
   try {
     await send("DELETE", url, { etag });
     return null;
@@ -113,7 +114,7 @@ async function deleteFile(url: string, etag: string): Promise<string | null> {
   }
 }
 
-function DeleteDialog({ what, name, run, onDone, onCancel }: {
+export function DeleteDialog({ what, name, run, onDone, onCancel }: {
   what: string; name: string; run: () => Promise<string | null>; onDone: () => void; onCancel: () => void;
 }) {
   const [reason, setReason] = useState<string | null>(null);
@@ -148,6 +149,14 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
   const url = `/projects/${enc(project.name)}/agents/${enc(name)}`;
   const [mode, setMode] = useState<"form" | "text">("form");
   const [deleting, setDeleting] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const noticeKey = `agencast.rename.${project.name}/${name}`;
+  const [renamedFiles] = useState(() => {
+    const files = sessionStorage.getItem(noticeKey);
+    if (!files) return [];
+    sessionStorage.removeItem(noticeKey);
+    return files.split("\n");
+  });
   const form = useFileDraft<AgentForm>(project.name, mode === "form" ? path : null, {
     fromDoc: (d) => ({ fm: d.frontmatter ?? {}, body: d.body ?? "" }),
     request: (d, v) => {
@@ -164,7 +173,21 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
   const usedBy = project.links.scenario_step_agent.filter(([, , ag]) => ag === name);
   const errors = active.state.kind === "failed" || active.dirty || mode === "text" ? active.errors : summary?.errors ?? [];
   const save = async () => {
-    if (await ui.save()) onChanged();
+    const ok = await ui.save();
+    if (ok) onChanged();
+    return ok;
+  };
+  const requestRename = () => {
+    if (!active.dirty) return setRenaming(true);
+    ui.setModal(
+      <Modal title={t("mode.title")} onCancel={ui.close} actions={[
+        { label: t("mode.save"), primary: true, onSelect: async () => {
+          ui.close();
+          if (await save()) setRenaming(true);
+        } },
+        { label: t("mode.discard"), danger: true, onSelect: () => (ui.close(), active.discard(), setRenaming(true)) },
+      ]}><p>{t("mode.fileDirty")}</p></Modal>,
+    );
   };
   const switchMode = (m: "form" | "text") => {
     if (!active.dirty) return setMode(m);
@@ -186,8 +209,9 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
       <EditorBar title={name} mode={mode} onMode={switchMode} dirty={active.dirty} state={active.state} errors={errors.length}
         modeBlocked={mode === "text" && text.errors.some((e) => e.line) ? t("code.fixYaml", { n: text.errors.find((e) => e.line)!.line! }) : undefined}
         canSave={active.dirty && !active.conflict && !(mode === "text" && (text.validating || text.errors.some((e) => e.line)))}
-        onSave={() => void save()} onDelete={() => setDeleting(true)} />
+        onSave={() => void save()} onRename={requestRename} onDelete={() => setDeleting(true)} />
       {ui.bar}
+      {renamedFiles.length > 1 && <p role="status" className="text-sm text-zinc-400">{t("rename.changed", { files: renamedFiles.join(", ") })}</p>}
       {active.loadError && <ErrorText error={active.loadError} />}
       {!active.doc && !active.loadError && <Loading rows={5} />}
       {mode === "text" && text.doc && <YamlEditor text={text.text} onChange={text.setText} file={path} errors={text.errors} />}
@@ -195,6 +219,24 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
         <AgentFields project={project} name={name} value={form.value} onChange={form.setValue} errors={errors} usedBy={usedBy} />
       )}
       {ui.modal}
+      {renaming && active.doc && (
+        <NameDialog title={t("rename.title", { what: t("delete.agent"), name })} initialName={name} submitLabel={t("rename.confirm")}
+          pattern={/^[a-z][a-z0-9-]*$/} taken={project.agents.map((a) => a.name).filter((n) => n !== name)} onCancel={() => setRenaming(false)}
+          onSubmit={async (newName) => {
+            let result: { changed: string[] };
+            try {
+              result = await send("POST", `${url}/rename`, { etag: active.doc!.etag, name: newName });
+            } catch (e) {
+              const err = e as ApiError;
+              throw new Error(err.errors.map((x) => x.message).join("\n") || err.message);
+            }
+            localStorage.removeItem(draftKey(project.name, path, "agent"));
+            localStorage.removeItem(draftKey(project.name, path));
+            if (result.changed.length > 1) sessionStorage.setItem(`agencast.rename.${project.name}/${newName}`, result.changed.join("\n"));
+            onChanged();
+            navigate(href(project.name, "agenti", newName));
+          }} />
+      )}
       {deleting && active.doc && (
         <DeleteDialog what={t("delete.agent")} name={name} onCancel={() => setDeleting(false)}
           run={() => deleteFile(url, active.doc!.etag)}
