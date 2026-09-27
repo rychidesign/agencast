@@ -400,5 +400,10 @@
   "editor.runs": "Běhy tohoto scénáře",
   "spend.label": "Dnes utraceno",
   "edit.nothingToUndo": "Není co vrátit",
-  "server.unreachable": "Server neodpovídá, nic se nezapsalo."
+  "server.unreachable": "Server neodpovídá, nic se nezapsalo.",
+  "edit.addStep": "Přidat krok",
+  "picker.output": "výstup scénáře",
+  "runForm.limitsTitle": "Limity",
+  "code.readOnly": "jen ke čtení",
+  "code.readOnlyBadge": "Pouze čtení"
 }

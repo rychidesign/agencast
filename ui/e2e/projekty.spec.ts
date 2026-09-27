@@ -73,7 +73,7 @@ test("C2 založení projektu z GUI", async ({ page, project, server }) => {
   await expect(page.getByRole("navigation", { name: "Části projektu" })).toBeVisible();
   const sc = page.getByTestId("scenario-card-ukazka");
   await expect(sc).toContainText("Napíše krátký text na zadané téma");
-  await expect(sc).toContainText("2 kroky · pisatel");
+  await expect(sc).toContainText("2 kroky · 1 agent");
   await expect(sc).toContainText("ukazka");
   await expect(sc).not.toContainText("ukazka.yaml");
 

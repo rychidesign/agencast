@@ -5,6 +5,13 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.16.1 (nevydáno)
+
+- Věrnost: karta scénáře podle návrhu — rádius 16, padding 24, min. výška 290; typy kroků jako prosté ikony 16 px bez koleček a šipek (řetěz se už nezalamuje), název 20 px, popis na 2 řádky, meta mono „7 kroků · 3 agenti“ + čip „volatelný“, dole čip běhu a „Otevřít ↗“ (`docs/ui/redesign-fidelity.md` §5).
+- Věrnost: karta kroku 96 px — číslo vlevo mimo kolečko, kolečko 40 px s ikonou typu, řádek „ask · navrh“ mono malými, titul 16 px (u ask/task/image úryvek promptu), třetí řádek mono s agentem / modelem · poměrem a podmínkou „když …“; ⋯ uvnitř pilulky; výběr `surface-active` + prstenec 1 px; v běhu vpravo „12,4 s · 0,0210 USD“ nad stavem (§6).
+- Věrnost: hlavičková karta, kontejnery (obal r16 p16, sbalení vpravo, větve r12 s kartami 72 px), (+) na konektoru v `control`, „+ Přidat krok“ a „+ output“ jako sekundární tlačítka, TypePicker s položkami 40 px; sloupec 640, panel 420, mezera 32 (§6).
+- Věrnost: panely — padding 24, eyebrow mono 11, titul 20, zavřít ghost 32; „Typ kroku“ ukazuje „ask · jedno volání agenta“; panel spuštění s kartami režimu 72 px, limity jako řádky s oddělovači, varováním v `warning/10` a tlačítky Zrušit + Spustit; panel kroku v běhu se stavovým čipem, podtrženými záložkami, blokem kódu (hlavička, čísla řádků, Kopírovat) a řádky souborů 44 px s ↗ (§7).
+
 ## 0.16.0 — 2026-09-28 (GUI podle návrhu V3: sidebar, jednotné hlavičky, tokeny)
 
 Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny.

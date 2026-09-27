@@ -111,18 +111,20 @@ důvod a čárkovaný okraj bez plochy (bez průhlednosti: text by měl kontrast
 ### 2.2 Přehled projektu (karty scénářů)
 
 ```
-Scénáře  ✗ 2 chyby                                                  [+ Nový scénář]  ⋯
+Scénáře                                                             [+ Nový scénář]  ⋯
 ┌───────────────────────────────────┐  ┌───────────────────────────────────┐
-│ ○ask → ○jev → ○fail → ○ask → +3  ⋯ │  │ ○task → ○output             ✗ 2 chyby│
-│ ✓ před 12 min                     │  │                                ⋯  │
+│ ▭ ⚖ ⊗ ▭ ⚖ +3                    ⋯ │  │ ⚙ ▣                             ⋯ │
+│                                   │  │                                   │
 │ ig-post                           │  │ ig-publish                        │
 │ Návrh IG příspěvku ke schválení    │  │ Publikace schváleného příspěvku    │
-│ 8 kroků · copywriter, photographer │  │ 3 kroky · publisher · volatelný    │
+│ 8 kroků · 2 agenti                │  │ 3 kroky · 1 agent (volatelný)      │
+│                                   │  │                                   │
+│ (✓ před 12 min)          Otevřít ↗ │  │ (✗ 2 chyby)              Otevřít ↗ │
 └───────────────────────────────────┘  └───────────────────────────────────┘
 ```
-- Titulek = jméno scénáře; `description` je podtitul, pokud existuje. Karta má plný `surface`, hover `surface-hover`, rádius `card` a padding 20 px.
-- Řetězec ikon = typy kroků v pořadí souboru, nejvýš 5, pak čip „+N“; `parallel`/`switch` jednou svou ikonou, vnitřek se nerozepisuje.
-- Nahoře je řetězec ikon typů v kolečkách `nested` 28 px a menu ⋯. Dole meta řádek „N kroků · agenti“, případný štítek „volatelný“ na `nested` a vpravo čip posledního běhu s časem (jako na kartě projektu); chyby validace mají přednost („✗ 2 chyby“). Popis má nejvýš 3 řádky, celý je v `title`. Počty vstupů a výstupů, název `.yaml` ani druhý čas se neukazují.
+- Titulek = jméno scénáře (20 px semibold); `description` je podtitul 14 px `fg-secondary`, nejvýš 2 řádky, celý v `title`. Karta (fidelity §5): plný `surface`, hover `surface-hover`, rádius 16, padding 24, min. výška 290, mezera mřížky 20.
+- Řetězec ikon = typy kroků v pořadí souboru jako **prosté ikony 16 px `text-type`, mezera 12, bez koleček a šipek**, nejvýš 5, pak „+N“ mono 12 `fg-muted`; `parallel`/`switch` jednou svou ikonou, vnitřek se nerozepisuje. Vpravo menu ⋯.
+- Meta řádek mono 12 `fg-muted` „N kroků · N agentů“ (počet, ne jména) a případný čip „volatelný“ (`nested`, text `type`). Spodní řádek: vlevo čip posledního běhu (jako na kartě projektu), chyby validace mají přednost („✗ 2 chyby“); vpravo „Otevřít ↗“ 14 medium `fg` — jen vizuální výzva, odkazem je celá karta (titul). Počty vstupů a výstupů, název `.yaml` ani druhý čas se neukazují.
 - ⋯: Otevřít, Běhy tohoto scénáře, Kopírovat příkaz spuštění, Validovat; později Duplikovat, Smazat.
 - Tlačítko „+ Nový scénář“ je v hlavičce sekce (G8); čárkovaná karta otevírá stejný dialog jen v prázdném seznamu.
 - „Chyby validace“ v hlavičce = součet `errors` všech souborů; klik otevře seznam s odkazy na soubor a krok.
@@ -158,23 +160,23 @@ Návrh IG příspěvku ke schválení
       (    caption, hashtags, image                                            )
                                     (+)
 ```
-Pilulka má `surface`, při hoveru `surface-hover`, při výběru `ring-2 ring-accent` bez offsetu. V kolečku `nested` 36 px je mono pořadové číslo; řádek `TYP · id` nese ikonu typu 16 px `type`, id mono `fg-secondary` a případně chybovou tečku. Pod ním je hodnota 14 px semibold `fg`, prázdný krok má „doplň v panelu“ normal `fg-muted`. Vpravo je `když …` mono `fg-muted`; v běhu trvání · cena. Nový krok dostane id `<typ>_<n>`. Hodnota podle typu:
+Pilulka (fidelity §6): `surface`, výška 96, padding 20 24, mezera 16; hover `surface-hover`, výběr `surface-active` + `ring-1 ring-accent` bez offsetu. Vlevo pořadové číslo mono 12 `fg-muted` (mimo kolečko), pak kolečko `nested` 40 px s ikonou typu 18 px `type`. Texty: řádek `typ · id` mono 12 `type` malými písmeny (+ případná chybová tečka), titul 16 px semibold `fg` (prázdný krok „doplň v panelu“ normal `fg-muted`), třetí řádek mono 12 `fg-muted` s doplňkem a podmínkou `· když …` (podmínka už není vpravo). Vpravo ⋯ uvnitř pilulky. V běhu je v kolečku stavová ikona a vpravo mono „12,4 s · 0,0210 USD“ nad textem stavu 12 `fg-muted`. Nový krok dostane id `<typ>_<n>`. Titul a třetí řádek podle typu (`steps.ts` `stepLines`):
 
-| Typ | Hodnota |
-|---|---|
-| ask, task | `agent: „prompt…“` |
-| jev | první otázka · typ; „+1 otázka“ |
-| image | alias · poměr stran · „prompt…“ |
-| call | `→ ig-text` · N vstupů |
-| set | jména hodnot |
-| fail | zpráva |
-| parallel | `kratka ∥ dlouha` (kontejner) |
-| switch | `podle steps.kontrola.druh: produkt, akce, jinak` (kontejner) |
-| output | jména výstupů |
+| Typ | Titul | Třetí řádek |
+|---|---|---|
+| ask, task | „prompt…“ | agent |
+| jev | „první otázka“ | typ · „+1 otázka“ |
+| image | „prompt…“ | alias · poměr stran · kvalita · rozlišení |
+| call | `→ ig-text` | N vstupů |
+| set | jména hodnot | — |
+| fail | zpráva | — |
+| parallel | `kratka ∥ dlouha` (kontejner) | N větví, běží zároveň |
+| switch | `podle steps.kontrola.druh: produkt, akce, jinak` (kontejner) | — |
+| output | jména výstupů | — |
 
-**Konektor:** šipka ↓ `fg-muted` mezi kartami se při hoveru nebo fokusu promění v (+) 28 px na `nested` s `ring-line`; vyjmutý krok drží (+) viditelné s `ring-accent`. Trvale viditelné (+) je i na konci každého seznamu, v hlavním seznamu vedle „+ output“. Menu ⋯ má „Vložit krok nad / pod“. Kontejnerové karty (`parallel`, `switch`, `call`) mají obal a hlavní kartu s rádiusem `card`. V běhu stavová ikona nahradí číslo; běžící ikona pulzuje jen při povoleném pohybu, přeskočené a nedošlé kroky mají opacity 40 %.
+**Konektor:** šipka ↓ 16 px `fg-muted`, výška 40, se při hoveru nebo fokusu promění v (+) 28 px `control`; vyjmutý krok drží (+) viditelné s `ring-accent`. Pod hlavním sloupcem jsou sekundární tlačítka 40 px „+ Přidat krok“ a „+ output“ vedle sebe na střed; na konci větví zůstává trvale viditelné (+). TypePicker: `surface` r12, položky 40 px, klíčové slovo mono 13 `fg` + popis 13 `fg-muted`, aktivní `surface-active`. Sloupec je 640 px, panel 420 px, mezera 32. Menu ⋯ má „Vložit krok nad / pod“. Kontejnerové karty (`parallel`, `switch`, `call`) mají obal a hlavní kartu s rádiusem `card`. V běhu stavová ikona nahradí číslo; běžící ikona pulzuje jen při povoleném pohybu, přeskočené a nedošlé kroky mají opacity 40 %.
 
-**Koš vně pilulky:** červený kulatý 28 px vpravo vně, zobrazí se při hoveru a při `focus-within`. Klávesnice: Tab z fokusované karty přejde na koš (je další zastávkou v pořadí, při fokusu se ukáže), nebo klávesa Delete na kartě; `aria-label="Smazat krok kontrola"`. Na dotykovém vstupu (`pointer: coarse`) je koš viditelný trvale ztlumeně. Ochrana mazání z §4.3 platí beze změny. Hlavičková karta koš nemá.
+**Koš vně pilulky:** červený kulatý 28 px vpravo vně (v mezeře 32 px mezi sloupcem a panelem), zobrazí se při hoveru a při `focus-within`. Klávesnice: Tab z fokusované karty přejde na koš (je další zastávkou v pořadí, při fokusu se ukáže), nebo klávesa Delete na kartě; `aria-label="Smazat krok kontrola"`. Na dotykovém vstupu (`pointer: coarse`) je koš viditelný trvale ztlumeně. Ochrana mazání z §4.3 platí beze změny. Hlavičková karta koš nemá.
 
 **Panel** (V3: `bg-surface`, rádius panel 16, padding 20; od 1280 px přilepený vedle sloupce pod hlavičkou, užší obrazovka = list dole přes sloupec se zavíracím křížkem, viz §1.1):
 
@@ -197,7 +199,7 @@ Pilulka má `surface`, při hoveru `surface-hover`, při výběru `ring-2 ring-a
 │ Podrobnosti kroku                    kontrola  ›  │
 └───────────────────────────────────────────────────┘
 ```
-- **PanelShell** (redesign V3): eyebrow 11 px verzálky `fg-muted` „KROK n · TYP“ (zároveň přístupné jméno panelu), titul 18 semibold = id kroku (mono), vpravo koš (`btn.icon`, červený) a zavřít (`btn.icon`, i Esc). Typ kroku je první pole formuláře (select), ne titul. Pole bez rámovaných info boxů, jedna nápověda 12 px pod polem (G11). Řádky map (otázky Jev, hodnoty `set`, vstupy/výstupy hlavičky) jsou oddělené hairline: klíč (`KeyInput`, mono) + odebrat (`Trash2`), pod tím pole; „+ Přidat …“ jako pilulka u štítku.
+- **PanelShell** (redesign V3, fidelity §7): padding 24, mezera polí 20; eyebrow mono 11 px verzálky `letter-spacing 0.08em` `fg-muted` „KROK n · TYP“ (zároveň přístupné jméno panelu), titul 20 semibold = id kroku (mono), vpravo koš (ghost 32 px, červený) a zavřít (ghost 32 px, i Esc). Typ kroku je první pole formuláře (select s volbami „ask · jedno volání agenta“ — mono klíč + popis), ne titul. Pole bez rámovaných info boxů, jedna nápověda 12 px pod polem (G11). Řádky map (otázky Jev, hodnoty `set`, vstupy/výstupy hlavičky) jsou oddělené hairline: klíč (`KeyInput`, mono) + odebrat (`Trash2`), pod tím pole; „+ Přidat …“ jako pilulka u štítku.
 - **Hlavička scénáře** (`HeaderPanel`, eyebrow „HLAVIČKA“, titul = jméno scénáře mono jako u panelu Spustit): popis, Vstupy a Výstupy jako řádky (jméno inline, typ, u vstupu povinný / výchozí hodnota, popis, odebrat) a přepínač „Volatelný“ s vysvětlením pod ním.
 - Jako v Buzz: pole typu nahoře, společné věci dole ve třech sbalených řádcích (hodnota vpravo šedě, hairline mezi nimi). Řádek se rozbalí na místě (akordeon, chevron se otočí), aby zůstal kontext panelu.
 - **Podmínka:** sbalený řádek ukazuje `vždy`, nebo zkrácený výraz (`steps.kontrola.on_brand < 0.7`); rozbalený = `ExprInput` + nápověda „Když vyjde nepravda, krok se přeskočí; kdo čte jeho výstup, potřebuje default.“ U `output` řádek není.
@@ -227,7 +229,7 @@ Pilulka má `surface`, při hoveru `surface-hover`, při výběru `ring-2 ring-a
 │      │  +                                                              │
 │ ⑫ navrh           call → ig-text  (otevřít ↗) · 1 vstup                │
 ```
-Pravidlo pro začátečníka: **vedle sebe = zároveň, pod sebou = jedna z možností.** Větve a případy mají `nested` bez rámečku, rádius `card`, mono štítek a vlastní +. Prázdný `default: []` se ukáže jako „jinak: nic“. Sbalení karty (šipka vlevo u čísla) schová vnitřek a ukáže jen počet kroků.
+Pravidlo pro začátečníka: **vedle sebe = zároveň, pod sebou = jedna z možností.** Kontejner (fidelity §6): obal `surface` rádius 16, padding 16; hlavní karta jako běžná (bez vlastní plochy), šipka sbalit 20 px vpravo vedle ⋯. Větve a případy mají `nested` bez rámečku, rádius 12, padding 12, štítek mono 12 `fg-muted` a vlastní +; karty uvnitř mají výšku 72 bez pořadového čísla. `call` bez rozbalení je běžná pilulka s odkazem „otevřít ↗“ pod ní. Prázdný `default: []` se ukáže jako „jinak: nic“. Sbalení karty schová vnitřek a ukáže jen počet kroků.
 
 ### 2.5 Prohlížeč běhu na kartách (detail běhu)
 
@@ -247,7 +249,7 @@ Kroky · Souhrn · Report · Soubory                                            
 ```
 Hlavička (G10): titul = scénář (odkaz do editoru) + malé mono run_id, vedle stav a „falešný běh“, vpravo trvání · cena; popis = vstupy na jeden řádek (celé v `title`). „Sledovat běh“ jen dokud běh žije; hláška „Běh skončil: …“ jen pro čtečku (`role="status"`), nápověda přerušeného běhu viditelná. Stejné karty jako v editoru: v kolečku je stavová ikona místo čísla, vpravo mono trvání · cena s tabulárními číslicemi. Přeskočené a nedošlé kroky jsou ztlumené na 40 %, běžící ikona pulzuje jen při povoleném pohybu. Panel podle typu: `ask`/`task` Prompt (prompt.md), Odpověď, Výstup (output.json), Volání (pokusy, tahy, tokeny, `finish_reason`, úroveň kaskády), u `task` navíc Nástroje (`tool_call`, nepovolené a neplatné argumenty zvýrazněné); `image` náhled + prompt; `jev` odpovědi s pravděpodobnostmi; `call` se rozbalí přímo v kartě na vnořené karty (`navrh/copy`); `set` hodnoty; `output` hodnoty + URL nahraných souborů. Přeskočený krok: důvod a „použit default“. Varování (`continued: true`) = `text-warning` trojúhelník + text pod kartou. Záložky: Souhrn = vykreslený summary.md, Report = report.html v sandboxovaném iframe, Soubory = strom z `files` s prohlížečem textu/JSON/PNG.
 
-**Panel kroku v běhu** (redesign V3): stejný PanelShell (eyebrow „KROK n · typ“, titul = cesta kroku mono). Řádek stavu: `StatusBadge` + trvání + cena + „3 tahy · 2 volání nástrojů“ (mono, `fg-muted`); pod ním text přeskočení / varování / chyby. Záložky jsou podtržené (`role="tablist"`, aktivní `border-accent`); „Volání (n)“ nese počet. Prompt, Výstup a Odpověď jsou blok kódu `bg-nested` mono 13/20; odpovědi Jev = klíč mono, hodnota tabular, pruh 0–1 (`bg-nested` / `accent`); volání a nástroje jako řádky `bg-nested` s rádiusem control, chybové `bg-error/10` s červeným textem; obrázek se zaoblením; seznam souborů jako mono odkazy do záložky Soubory; prázdná záložka „Nic k zobrazení.“ Záložka **Soubory** v detailu běhu: strom vlevo (vybraný soubor `bg-surface`), prohlížeč vpravo (blok kódu, obrázek; report beze změny v sandboxovaném iframe).
+**Panel kroku v běhu** (redesign V3, fidelity §7): stejný PanelShell (eyebrow „KROK n · typ“, titul = cesta kroku mono). Řádek stavu: stavový čip + mono 12 „12,4 s · 0,0210 USD“ + „3 tahy · 2 volání nástrojů“ (`fg-muted`); pod ním text přeskočení / varování / chyby. Záložky jsou podtržené, výška 40, 14 medium (`role="tablist"`, aktivní `fg` + `border-accent`, neaktivní `fg-secondary`); „Volání (n)“ nese počet. Prompt, Výstup a Odpověď jsou blok kódu (hlavička 40 px s `{}` + názvem souboru mono 13 + čipem „Pouze čtení“, tělo `nested` s čísly řádků mono 12 `fg-muted`, rádius 12, patička „JSON · jen ke čtení“ + „Kopírovat“); soubory kroku jsou řádky `nested` 44 px (ikona + cesta mono 13 + ↗) vedoucí do záložky Soubory; odpovědi Jev = klíč mono, hodnota tabular, pruh 0–1 (`bg-nested` / `accent`); volání a nástroje jako řádky `bg-nested` s rádiusem control, chybové `bg-error/10` s červeným textem; obrázek se zaoblením; seznam souborů jako mono odkazy do záložky Soubory; prázdná záložka „Nic k zobrazení.“ Záložka **Soubory** v detailu běhu: strom vlevo v kartě `surface` r16 (položky 36 px, vybraný soubor `surface-active`), prohlížeč vpravo v kartě `surface` r16 padding 24 (blok kódu, obrázek; report beze změny v sandboxovaném iframe).
 
 ### 2.6 Seznam běhů
 
@@ -448,7 +450,7 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 2. *Zachovat komentáře a pořadí v YAML?* — **Ano**, round-trip na serveru (agencast 0.5.0, ruamel.yaml), GUI posílá operace, ne text.
 3. *Akcent ze Skynet Soul, nebo šedě jako Buzz?* — **Šedě jako Buzz**; barva jen pro stavy běhu a chyby a **jediné akcentové místo jsou čtverce ikon typů na kartách scénářů** (jako modré čtverce v seznamu Buzz), barva převzatá z dashboardu Skynet Soul. Pozadí a písmo také ze Soulu. (Doporučení designéra po snímcích, koordinátor přijal; uživatel může změnit.)
 4. *Ukazovat, zda je proměnná prostředí nastavená (jen ✓/✗)?* — **Ano**, nikdy hodnotu. Vyžaduje bod 7.3.
-5. *Spouštění běhu z GUI s formulářem vstupů?* — **Ano**, `POST /projects/<p>/runs` s volitelnou callback URL. Vyžaduje úpravu API. Panel „Spustit běh“ (redesign V3): eyebrow „SPUSTIT BĚH“, titul = scénář; vstupy podle typu; „Režim běhu“ jako dvě volitelné karty s radiem uvnitř (Dry-run — jen plán, zdarma / Ostrý běh — volá modely a stojí peníze; vybraná má `ring-2 ring-accent`); limity (na běh, z toho obrázky, čas běhu, dnes utraceno / limit) jako dvousloupcový `dl` jen u ostrého běhu; varování (žlutě s ikonou) pro neuložené změny a vstup `file`; chyba API; vpravo jediné primární tlačítko „Spustit dry-run“ / „Spustit ostrý běh“ / „Spouštím…“. Samostatné „Zrušit“ není, panel zavírá ✕ v hlavičce a Esc.
+5. *Spouštění běhu z GUI s formulářem vstupů?* — **Ano**, `POST /projects/<p>/runs` s volitelnou callback URL. Vyžaduje úpravu API. Panel „Spustit běh“ (redesign V3): eyebrow „SPUSTIT BĚH“, titul = scénář; vstupy podle typu; „Režim běhu“ (eyebrow mono 11) jako dvě volitelné karty 72 px `nested` r12 s radiem uvnitř (Dry-run — jen plán, zdarma / Ostrý běh — volá modely a stojí peníze; vybraná má `ring-1 ring-accent`); „Limity“ (na běh, z toho obrázky, čas běhu, dnes utraceno / limit) jako řádky s oddělovači (štítek 13 `fg-secondary` vlevo, hodnota mono 13 vpravo) jen u ostrého běhu; varování v `bg-warning/10` s ikonou pro neuložené změny a vstup `file`; chyba API; vpravo sekundární „Zrušit“ (zavře panel jako ✕ a Esc) a primární „▷ Spustit dry-run“ / „Spustit ostrý běh“ / „Spouštím…“ (fidelity §7, 0.16.1; na úzké obrazovce pod sebou přes celou šířku).
 
 Body 7.2–7.4 a 8.5 jdou do navazujícího úkolu „API doplňky pro GUI“ po 0.5.0.
 

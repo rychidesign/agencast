@@ -13,18 +13,22 @@ import { btn, Collapsible, ErrorList } from "./ui";
 
 type Obj = Record<string, unknown>;
 
+/** Ikonové tlačítko hlavičky panelu: 32 px ghost (fidelity §7), na dotyku 44 px. */
+export const panelIcon = "grid size-8 shrink-0 place-items-center rounded-[var(--radius-control)] text-fg-muted hover:bg-surface-hover hover:text-fg disabled:opacity-50 pointer-coarse:size-11";
+
+/** PanelShell (fidelity §7): `surface` r16, padding 24, eyebrow mono 11 verzálky, titul 20 semibold. */
 export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   id: string; eyebrow: string; title: ReactNode; onClose: () => void; actions?: ReactNode; children: ReactNode;
 }) {
   return (
-    <aside aria-labelledby={id} className="rounded-panel bg-surface p-5">
+    <aside aria-labelledby={id} className="rounded-panel bg-surface p-6">
       <div className="mb-5 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div id={id} className="text-[11px] font-semibold tracking-wider text-fg-muted uppercase">{eyebrow}</div>
-          <div className="truncate text-lg font-semibold">{title}</div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div id={id} className="font-mono text-[11px] tracking-[0.08em] text-fg-muted uppercase">{eyebrow}</div>
+          <div className="truncate text-xl font-semibold">{title}</div>
         </div>
         {actions}
-        <button type="button" className={btn.icon} onClick={onClose} aria-label={t("common.close")} title={t("common.close")}>
+        <button type="button" className={panelIcon} onClick={onClose} aria-label={t("common.close")} title={t("common.close")}>
           <X className="size-4" aria-hidden />
         </button>
       </div>
@@ -96,7 +100,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
       title={<span className="font-mono" title={step.id}>{step.id}</span>} onClose={onClose}
       actions={
         <button type="button" onClick={edit.remove} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
-          className={`${btn.icon} text-error hover:bg-error/10 hover:text-error`}>
+          className={`${panelIcon} text-error hover:bg-error/10 hover:text-error`}>
           <Trash2 className="size-4" aria-hidden />
         </button>
       }>
@@ -107,7 +111,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
             <select {...a} value={type ?? ""} onChange={(e) => edit.retype(e.target.value as StepType)} disabled={type === "output"}
               className={`${inputCls} font-mono`}>
               {!type && <option value="">?</option>}
-              {TYPES.filter((k) => k !== "output" || type === "output").map((k) => <option key={k} value={k}>{k}</option>)}
+              {TYPES.filter((k) => k !== "output" || type === "output").map((k) => <option key={k} value={k}>{k} · {t(`picker.${k}`)}</option>)}
             </select>
           )}
         </FormField>

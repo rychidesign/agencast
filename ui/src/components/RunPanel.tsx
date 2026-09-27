@@ -1,7 +1,7 @@
 // Spuštění z GUI (§8.5, api.md „Spuštění z GUI“): formulář vstupů podle `inputs` scénáře,
 // dry-run nebo ostrý běh bez callbacku; před ostrým během limity z configu a dnešní útrata.
-import { TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { Play, TriangleAlert, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { formatCost, formatMoney } from "../format";
 import { t } from "../i18n";
@@ -25,7 +25,17 @@ export function runInputs(specs: Record<string, IoSpec>, values: Record<string, 
 }
 
 const Warning = ({ text }: { text: string }) => (
-  <p className="flex items-start gap-2 text-sm text-warning"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{text}</p>
+  <p className="flex items-start gap-3 rounded-card bg-warning/10 px-4 py-3 text-[13px] text-warning"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{text}</p>
+);
+
+const eyebrow = "font-mono text-[11px] tracking-[0.08em] text-fg-muted uppercase";
+
+/** Řádek limitu: štítek 13 `fg-secondary` vlevo, hodnota mono 13 vpravo, oddělovač pod (fidelity §7). */
+const Limit = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="flex items-center justify-between gap-4 border-b border-line py-3 text-[13px]">
+    <dt className="text-fg-secondary">{label}</dt>
+    <dd className="text-right font-mono tabular-nums">{children}</dd>
+  </div>
 );
 
 export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
@@ -69,29 +79,28 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
             {(a) => <ValueInput a11y={a} type={s.type} value={values[name]} onChange={(v) => (setValues({ ...values, [name]: v }), setMissing(missing.filter((m) => m !== name)))} />}
           </FormField>
         ))}
-        <fieldset className="space-y-2">
-          <legend className="mb-2 text-[11px] font-semibold tracking-wider text-fg-muted uppercase">{t("runForm.mode")}</legend>
+        <fieldset className="space-y-3">
+          <legend className={`mb-3 ${eyebrow}`}>{t("runForm.mode")}</legend>
           {([[true, "runForm.dry", "runForm.dryHelp"], [false, "runForm.live", "runForm.liveHelp"]] as const).map(([value, label, help]) => (
-            <label key={label} className={`flex cursor-pointer items-start gap-3 rounded-card bg-nested p-4 text-sm ${dry === value ? "ring-2 ring-accent" : "ring-1 ring-line hover:bg-surface-hover"}`}>
-              <input type="radio" name="mode" checked={dry === value} onChange={() => setDry(value)} className="mt-0.5 accent-accent" />
-              <span>{t(label)}<span className="mt-1 block text-xs text-fg-muted">{t(help)}</span></span>
+            <label key={label} className={`flex min-h-18 cursor-pointer items-start gap-3 rounded-card bg-nested px-4 py-3.5 text-sm ${dry === value ? "ring-1 ring-accent" : "hover:bg-surface-hover"}`}>
+              <input type="radio" name="mode" checked={dry === value} onChange={() => setDry(value)} className="mt-0.5 size-4 accent-accent" />
+              <span>{t(label)}<span className="mt-1 block text-xs text-fg-secondary">{t(help)}</span></span>
             </label>
           ))}
         </fieldset>
         {!dry && (
-          <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" aria-label={t("runForm.limits")}>
-            <dt className="text-fg-muted">{t("runForm.runBudget")}</dt>
-            <dd className="text-right font-mono">{typeof l.run_budget_usd === "number" ? `${formatMoney(l.run_budget_usd)} USD` : "–"}</dd>
-            {typeof l.run_image_budget_usd === "number" && (
-              <><dt className="text-fg-muted">{t("runForm.imageBudget")}</dt><dd className="text-right font-mono">{formatMoney(l.run_image_budget_usd)} USD</dd></>
-            )}
-            <dt className="text-fg-muted">{t("runForm.timeout")}</dt><dd className="text-right font-mono">{String(l.run_timeout ?? "–")}</dd>
-            <dt className="text-fg-muted">{t("runForm.daily")}</dt>
-            <dd className="text-right font-mono">
-              {spend.data ? `${formatCost(spend.data.total_usd)}` : "…"}
-              {typeof l.daily_budget_usd === "number" ? ` / ${formatMoney(l.daily_budget_usd)} USD` : " USD"}
-            </dd>
-          </dl>
+          <div>
+            <p className={eyebrow} aria-hidden>{t("runForm.limitsTitle")}</p>
+            <dl aria-label={t("runForm.limits")}>
+              <Limit label={t("runForm.runBudget")}>{typeof l.run_budget_usd === "number" ? `${formatMoney(l.run_budget_usd)} USD` : "–"}</Limit>
+              {typeof l.run_image_budget_usd === "number" && <Limit label={t("runForm.imageBudget")}>{formatMoney(l.run_image_budget_usd)} USD</Limit>}
+              <Limit label={t("runForm.timeout")}>{String(l.run_timeout ?? "–")}</Limit>
+              <Limit label={t("runForm.daily")}>
+                {spend.data ? `${formatCost(spend.data.total_usd)}` : "…"}
+                {typeof l.daily_budget_usd === "number" ? ` / ${formatMoney(l.daily_budget_usd)} USD` : " USD"}
+              </Limit>
+            </dl>
+          </div>
         )}
         {dirty && <Warning text={t("runForm.dirty")} />}
         {hasFile && <Warning text={t("runForm.fileBlocked")} />}
@@ -101,9 +110,12 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
             <ul className="list-inside list-disc font-mono text-xs text-error">{error.details.map((d) => <li key={d}>{d}</li>)}</ul>
           </div>
         )}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3 max-sm:flex-col-reverse">
+          <button type="button" className={`${btn.secondary} max-sm:w-full`} onClick={onClose}>
+            <X className="size-4" aria-hidden />{t("common.cancel")}
+          </button>
           <button type="submit" className={`${btn.primary} max-sm:w-full`} disabled={busy || hasFile}>
-            {busy ? t("runForm.starting") : dry ? t("runForm.submitDry") : t("runForm.submitLive")}
+            <Play className="size-4" aria-hidden />{busy ? t("runForm.starting") : dry ? t("runForm.submitDry") : t("runForm.submitLive")}
           </button>
         </div>
       </form>

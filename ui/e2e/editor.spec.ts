@@ -166,7 +166,7 @@ test("C4 nový scénář se dvěma kroky a output", async ({ page, project }) =>
 
   await page.getByRole("main").getByRole("link", { name: "Scénáře", exact: true }).click();
   const sc = page.getByTestId("scenario-card-clanek");
-  await expect(sc).toContainText("3 kroky · pisatel");
+  await expect(sc).toContainText("3 kroky · 1 agent");
   await expect(sc).not.toContainText("clanek.yaml");
   await expect(sc.getByLabel("Typy kroků: ask, jev, output")).toBeVisible();
 });
@@ -419,7 +419,8 @@ test("C11 parallel a switch", async ({ page, project, server }) => {
   const par = project.yaml<Scn>("scenarios/ukazka.yaml").steps[1] as unknown as Par;
   expect(Object.keys(par.parallel)).toEqual(["a", "b", "kratka"]);
   expect(Object.values(par.parallel).map((l) => l.length)).toEqual([1, 1, 1]);
-  await expect(card(page, "parallel_1")).toContainText("a ∥ b ∥ kratka · 3 větve, běží zároveň");
+  await expect(card(page, "parallel_1")).toContainText("a ∥ b ∥ kratka");
+  await expect(card(page, "parallel_1")).toContainText("3 větve, běží zároveň");
 
   const collapse = page.getByRole("button", { name: "Sbalit parallel_1" });
   await expect(collapse).toHaveAttribute("aria-expanded", "true");

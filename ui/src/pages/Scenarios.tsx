@@ -1,5 +1,5 @@
 // §2.2 Záložka Scénáře: mřížka karet scénářů.
-import { Plus } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send } from "../api";
 import { Modal, NameDialog } from "../components/form";
@@ -41,10 +41,10 @@ export function ScenariosTab({ project, header, onChanged }: { project: Project;
           <Plus className="size-4" aria-hidden />{t("scenarios.new")}
         </button>
       ) })}
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-5">
         {!project.scenarios.length && <li>
           <button type="button" onClick={() => setCreating(true)}
-            className="flex min-h-52 w-full flex-col items-center justify-center gap-3 rounded-card border border-dashed border-line p-5 text-fg-secondary hover:bg-surface-hover hover:text-fg">
+            className="flex min-h-[290px] w-full flex-col items-center justify-center gap-3 rounded-panel border border-dashed border-line p-6 text-fg-secondary hover:bg-surface-hover hover:text-fg">
             <Plus className="size-6" aria-hidden />
             <span className="text-sm">{t("scenarios.new")}</span>
           </button>
@@ -85,25 +85,32 @@ function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; 
     { label: t("scenarios.validate"), onSelect: onValidate },
   ];
   return (
-    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-52 flex-col rounded-card bg-surface p-5 hover:bg-surface-hover">
-      {/* stav dole vpravo jako na kartě projektu: nahoře by s řetězcem ikon zalomil řádek */}
+    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-[290px] flex-col gap-5 rounded-panel bg-surface p-6 hover:bg-surface-hover">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1 overflow-hidden"><IconChain types={s.types} /></div>
         <div className="relative z-10 -mr-2"><Menu items={menu} label={t("common.menuFor", { name: s.name })} /></div>
       </div>
-      <h2 className="mt-4 text-lg leading-snug font-semibold break-words">
-        <a href={open} className="after:absolute after:inset-0 after:rounded-card">{s.name}</a>
-      </h2>
-      {s.description && <p className="mt-1 line-clamp-3 text-sm text-fg-secondary" title={s.description}>{s.description}</p>}
-      <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 text-[13px] text-fg-muted">
-        <span className="min-w-0 break-words">{[t("count.steps", { n: s.steps_count }), agents.join(", ")].filter(Boolean).join(" · ")}</span>
-        {s.callable && <span className="rounded-full bg-nested px-2 py-0.5">{t("scenario.callable")}</span>}
-        <span className="relative z-10 ml-auto">
+      <div className="space-y-2">
+        <h2 className="text-xl leading-snug font-semibold break-words">
+          <a href={open} className="after:absolute after:inset-0 after:rounded-panel">{s.name}</a>
+        </h2>
+        {s.description && <p className="line-clamp-2 text-sm text-fg-secondary" title={s.description}>{s.description}</p>}
+        <p className="flex flex-wrap items-center gap-2 font-mono text-xs text-fg-muted">
+          <span>{[t("count.steps", { n: s.steps_count }), agents.length ? t("count.agents", { n: agents.length }) : ""].filter(Boolean).join(" · ")}</span>
+          {s.callable && <span className="rounded-full bg-nested px-2 py-0.5 text-type">{t("scenario.callable")}</span>}
+        </p>
+      </div>
+      <div className="mt-auto flex items-center justify-between gap-3">
+        <span className="relative z-10 min-w-0">
           {s.errors.length > 0 ? (
             <StatusChip status="failed">{t("validation.count", { n: s.errors.length })}</StatusChip>
           ) : (
             <LastRun run={s.last_run} />
           )}
+        </span>
+        {/* celá karta je odkaz (titul); „Otevřít ↗“ je jen vizuální výzva, ne druhý odkaz */}
+        <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-fg" aria-hidden>
+          {t("common.open")}<ArrowUpRight className="size-4 text-fg-secondary" />
         </span>
       </div>
     </li>
