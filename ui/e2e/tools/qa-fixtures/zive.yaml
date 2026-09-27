@@ -1,0 +1,19 @@
+version: 1
+name: zive
+description: Běh, který trvá deset minut (živé sledování a fronta)
+inputs:
+  tema: { type: string, default: káva }
+outputs:
+  text: { type: string }
+steps:
+  - id: napis
+    ask:
+      agent: pisatel
+      prompt: "Napiš: {{ inputs.tema }}"
+  - id: velmi_pomalu
+    ask:
+      agent: pisatel
+      prompt: "Pomalu: {{ steps.napis.text }}"
+  - id: vystup
+    output:
+      text: "{{ steps.velmi_pomalu.text }}"

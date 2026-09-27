@@ -81,7 +81,8 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
     || (ctx.run ? (rs ? t(`rstatus.${rs.status}`) : t("run.notReached")) : "");
   const warn = !!rs?.continued;
   const status: Status | undefined = ctx.run ? (warn ? "warning" : rs ? RUN_ICON[rs.status] : "none") : undefined;
-  // nedošlo i přeskočeno (nevybraný případ, `when`) je ztlumené (§3 CaseSection); důvod nese hodnota karty
+  // nedošlo i přeskočeno (nevybraný případ, `when`) je ztlumené (§3 CaseSection); důvod nese hodnota karty.
+  // Ztlumení = čárkovaný obrys bez plochy a tlumený text, ne průhlednost (ta by shodila kontrast pod 4,5:1).
   const dim = ctx.run && (!rs || rs.status === "skipped");
   let right: ReactNode = step.when ? <span className="font-mono">{t("step.when", { expr: step.when })}</span> : null;
   if (ctx.run) {
@@ -106,11 +107,12 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
     e.stopPropagation();
   };
   return (
-    <div className={`${dim ? "opacity-40" : ""} ${edit ? "group relative" : ""}`}>
+    // otevřené ⋯ / TypePicker leží v kontextu vrstvení karty (transform) → karta s fokusem nad sousedy
+    <div className={edit ? "group relative focus-within:z-10" : ""}>
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
         onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
-        className={`flex w-full items-center gap-3 bg-surface px-5 py-3 text-left transition-colors hover:bg-surface-hover ${shape === "pill" ? "rounded-full" : "rounded-card"} ${
+        className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-surface-hover ${dim ? "border border-dashed border-line" : "bg-surface"} ${shape === "pill" ? "rounded-full" : "rounded-card"} ${
           selected ? "ring-2 ring-accent" : ""
         } ${isCut ? "opacity-50" : ""}`}
       >
@@ -118,12 +120,12 @@ export function StepCard({ step, ctx, shape = "pill", meta, above }: CardProps) 
           {status ? <StatusIcon status={status} label="" className="size-4" /> : step.nn}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 text-[11px] tracking-wider text-fg-secondary uppercase">
-            <TypeIcon type={step.type} className="size-4 text-type" />
-            {step.type ?? "?"} · <span className="font-mono normal-case tracking-normal text-fg-secondary">{step.id}</span>
+          <span className={`flex items-center gap-1.5 text-[11px] tracking-wider uppercase ${dim ? "text-fg-muted" : "text-fg-secondary"}`}>
+            <TypeIcon type={step.type} className={`size-4 ${dim ? "" : "text-type"}`} />
+            {step.type ?? "?"} · <span className="font-mono normal-case tracking-normal">{step.id}</span>
             {errors.length > 0 && <span className="size-1.5 rounded-full bg-error" aria-hidden />}
           </span>
-          <span className={`block truncate text-sm ${value ? "font-semibold text-fg" : "font-normal text-fg-muted"}`}>
+          <span className={`block truncate text-sm ${value && !dim ? "font-semibold text-fg" : "font-normal text-fg-muted"}`}>
             {value || t("step.value.empty")}
           </span>
         </span>

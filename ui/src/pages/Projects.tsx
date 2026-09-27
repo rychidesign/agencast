@@ -68,7 +68,7 @@ function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: ()
   ];
   return (
     <li data-testid={`project-card-${project.name}`}
-      className={`relative flex min-h-44 flex-col rounded-card p-5 ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line opacity-50"}`}>
+      className={`relative flex min-h-44 flex-col rounded-card p-5 ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line"}`}>
       <div className="flex items-start justify-between gap-2">
         <h2 className="min-w-0 pt-1 text-lg font-semibold break-words">
           <a href={open} className="after:absolute after:inset-0 after:rounded-card">{project.name}</a>

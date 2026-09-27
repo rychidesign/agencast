@@ -254,7 +254,7 @@ Hlavička (G10): titul = scénář (odkaz do editoru) + malé mono run_id, vedle
 ```
 Běhy                                                                                      ⋯
 scénář: vše ▾   stav: vše ▾                                                ◌ 1 běží · 2 ve frontě
- ◌ běží       ig-post   běží · krok 4/8 foto_prompt   0:07        0,0021
+ ◌ běží       ig-post   krok 4/8 · foto_prompt         0:07        0,0021
  ◌ ve frontě  ig-post   ve frontě (2.)
  ✓ úspěch     ig-post   včera 14:03     17,5 s     0,0693     callback ✓
  ✗ chyba      ig-post   včera 14:15     4,4 s      0,0016     fail: stop_obrazek · callback nedoručen

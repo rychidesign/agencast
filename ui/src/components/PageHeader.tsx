@@ -8,7 +8,7 @@ import { Menu, type MenuItem } from "./ui";
 /** Odkaz zpět nad titulem („← Scénáře“). */
 export function BackLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <a href={href} className="inline-flex items-center gap-1.5 text-sm text-fg-secondary hover:text-fg">
+    <a href={href} className="inline-flex items-center gap-1.5 text-sm text-fg-secondary hover:text-fg pointer-coarse:min-h-11">
       <ArrowLeft className="size-4" aria-hidden /> {children}
     </a>
   );
@@ -44,8 +44,9 @@ export function PageHeader({ title, description, meta, actions, menu, menuLabel,
     };
   }, [sticky]);
   return (
+    // z-30: menu ⋯ z hlavičky musí ležet nad přilepeným panelem (z-20)
     <header ref={ref}
-      className={`space-y-3 pb-4 ${sticky ? "sticky top-0 z-20 -mx-4 bg-canvas px-4 pt-4 sm:-mx-8 sm:px-8" : ""}`}>
+      className={`space-y-3 pb-4 ${sticky ? "sticky top-0 z-30 -mx-4 bg-canvas px-4 pt-4 sm:-mx-8 sm:px-8" : ""}`}>
       {back && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{back}</div>}
       <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">

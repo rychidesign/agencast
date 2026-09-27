@@ -53,7 +53,7 @@
   "agent.mcpNotAllowed": "(vlastník nepovolil)",
   "agent.instructions": "Instrukce (system prompt)",
   "agent.usedBy": "Používá",
-  "skill.usedBy": "používají",
+  "skill.usedBy": "Používají",
   "config.keyFrom": "klíč z proměnné",
   "config.jevModel": "Jev model",
   "config.models": "Modely",
@@ -77,7 +77,7 @@
   "runs.filter.state": "stav:",
   "runs.filter.all": "vše",
   "runs.live": "{running} běží · {queued} ve frontě",
-  "runs.runningStep": "běží · krok {n}/{total} {step}",
+  "runs.runningStep": "krok {n}/{total} · {step}",
   "runs.more": "Načíst další",
   "runs.queued": "ve frontě ({n}.)",
   "runs.col.state": "Stav",
@@ -399,5 +399,6 @@
   "common.moreActions": "Další akce",
   "editor.runs": "Běhy tohoto scénáře",
   "spend.label": "Dnes utraceno",
-  "edit.nothingToUndo": "Není co vrátit"
+  "edit.nothingToUndo": "Není co vrátit",
+  "server.unreachable": "Server neodpovídá, nic se nezapsalo."
 }

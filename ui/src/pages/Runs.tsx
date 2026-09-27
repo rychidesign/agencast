@@ -118,9 +118,9 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
       <td className="pr-4 font-mono text-[13px]">
         <a href={href(project, "behy", r.run_id)} className="after:absolute after:inset-0">{runScenario(r) || r.run_id}</a>
       </td>
-      <td className="pr-4 text-fg-secondary" title={utcTitle(when)}>{what}</td>
-      <td className="pr-4 text-right font-mono text-[13px]">{r.duration_s != null ? formatDuration(r.duration_s) : ""}</td>
-      <td className="pr-4 text-right font-mono text-[13px]">{r.cost_usd != null ? formatCost(r.cost_usd) : ""}</td>
+      <td className="pr-4 whitespace-nowrap text-fg-secondary" title={utcTitle(when)}>{what}</td>
+      <td className="pr-4 text-right font-mono text-[13px] whitespace-nowrap">{r.duration_s != null ? formatDuration(r.duration_s) : ""}</td>
+      <td className="pr-4 text-right font-mono text-[13px] whitespace-nowrap">{r.cost_usd != null ? formatCost(r.cost_usd) : ""}</td>
       <td className="pr-4 text-fg-muted">{note}</td>
     </tr>
   );

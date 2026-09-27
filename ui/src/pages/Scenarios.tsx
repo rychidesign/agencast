@@ -86,24 +86,25 @@ function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; 
   ];
   return (
     <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-52 flex-col rounded-card bg-surface p-5 hover:bg-surface-hover">
-      <div className="flex flex-wrap items-center gap-3">
-        <IconChain types={s.types} />
-        <div className="relative z-10 ml-auto flex items-center gap-1 whitespace-nowrap">
+      {/* stav dole vpravo jako na kartě projektu: nahoře by s řetězcem ikon zalomil řádek */}
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1 overflow-hidden"><IconChain types={s.types} /></div>
+        <div className="relative z-10 -mr-2"><Menu items={menu} label={t("common.menuFor", { name: s.name })} /></div>
+      </div>
+      <h2 className="mt-4 text-lg leading-snug font-semibold break-words">
+        <a href={open} className="after:absolute after:inset-0 after:rounded-card">{s.name}</a>
+      </h2>
+      {s.description && <p className="mt-1 line-clamp-3 text-sm text-fg-secondary" title={s.description}>{s.description}</p>}
+      <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 text-[13px] text-fg-muted">
+        <span className="min-w-0 break-words">{[t("count.steps", { n: s.steps_count }), agents.join(", ")].filter(Boolean).join(" · ")}</span>
+        {s.callable && <span className="rounded-full bg-nested px-2 py-0.5">{t("scenario.callable")}</span>}
+        <span className="relative z-10 ml-auto">
           {s.errors.length > 0 ? (
             <StatusChip status="failed">{t("validation.count", { n: s.errors.length })}</StatusChip>
           ) : (
             <LastRun run={s.last_run} />
           )}
-          <Menu items={menu} label={t("common.menuFor", { name: s.name })} />
-        </div>
-      </div>
-      <h2 className="mt-4 text-lg leading-snug font-semibold">
-        <a href={open} className="after:absolute after:inset-0 after:rounded-card">{s.name}</a>
-      </h2>
-      {s.description && <p className="mt-1 text-sm text-fg-secondary">{s.description}</p>}
-      <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 text-[13px] text-fg-muted">
-        <span>{[t("count.steps", { n: s.steps_count }), agents.join(", ")].filter(Boolean).join(" · ")}</span>
-        {s.callable && <span className="rounded-full bg-nested px-2 py-0.5">{t("scenario.callable")}</span>}
+        </span>
       </div>
     </li>
   );

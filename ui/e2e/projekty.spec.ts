@@ -187,7 +187,7 @@ test("N3 nedostupný a neznámý projekt, neznámá adresa", async ({ page, proj
     const card = page.getByTestId(`project-card-${stary}`);
     await expect(card).toContainText("nedostupný");
     await expect(card).toContainText(`chybí ${s.body.root}/workflows/config.yaml`);
-    await expect(card).toHaveCSS("opacity", "0.5");
+    await expect(card).toHaveCSS("border-top-style", "dashed"); // ztlumená (bez průhlednosti kvůli kontrastu)
     await page.getByRole("button", { name: `Akce pro ${stary}` }).click();
     await expect(page.getByRole("menuitem")).toHaveText(["Otevřít", "Kopírovat cestu", "Odebrat z registru"]);
   });

@@ -1,0 +1,24 @@
+version: 1
+name: chyba
+description: Běh, který skončí chybou
+inputs:
+  tema: { type: string, default: káva }
+outputs:
+  text: { type: string }
+steps:
+  - id: napis
+    ask:
+      agent: pisatel
+      prompt: "Napiš: {{ inputs.tema }}"
+  - id: vynech
+    when: inputs.tema == "nikdy"
+    ask:
+      agent: pisatel
+      prompt: "Tohle se přeskočí"
+    default: { text: "výchozí" }
+  - id: stop
+    when: inputs.tema != "nikdy"
+    fail: "Zastaveno naschvál"
+  - id: vystup
+    output:
+      text: "{{ steps.napis.text }} {{ steps.vynech.text }}"

@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { enc, useApi } from "../api";
 import { PageHeader } from "../components/PageHeader";
-import { ErrorList, ErrorText, Loading, StatusChip, type MenuItem } from "../components/ui";
+import { btn, ErrorList, ErrorText, Loading, StatusChip, type MenuItem } from "../components/ui";
 import { t } from "../i18n";
 import { href, type Tab } from "../router";
 import type { ErrorItem, Project } from "../types";
@@ -38,6 +38,14 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
   const reload = () => (detail.reload(), setGen(gen + 1));
   const p = detail.data;
   const errors = p ? allErrors(p) : [];
+  // neexistující / nedostupný projekt: bez názvu sekce, s cestou zpět (jako 404 adresy)
+  if (detail.error?.status === 404)
+    return (
+      <>
+        <PageHeader title={project} actions={<a className={btn.secondary} href="#/">{t("projects.title")}</a>} />
+        <ErrorText error={detail.error} />
+      </>
+    );
   const header: SectionHeader = (x = {}) => (
     <>
       <PageHeader title={t(`project.tab.${tab}`)} description={x.description} actions={x.actions} menuLabel={x.menuLabel}

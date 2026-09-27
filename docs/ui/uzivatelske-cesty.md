@@ -84,7 +84,7 @@ Cíl: spustit scénář a vidět, že běží. Stav: `ukazka` + fixture `dlouhy.
 3. `tema` = „nová káva“, Spustit dry-run → `POST /projects/demo/runs {dry_run: true}` 200 → `#/p/demo/behy/<run_id>`, `run-state` „jen plán (dry-run)“, text „Tohle je jen plán (dry-run) — běh neproběhl.“, vykreslený `plan.md`. Disk: `demo/runs/<run_id>/plan.md`, `inputs.json` (`{"tema":"nová káva"}`), bez `events.jsonl`.
 4. Znovu Spustit, `radio "Ostrý běh"` → `dl "Limity běhu"`: „na běh 1,00 USD“, „čas běhu 1h“, „dnes utraceno 0 / 5,00 USD“ (spend ignoruje falešné běhy); s neuloženou změnou navíc varování s ikonou „Máš neuložené změny — běh použije verzi na disku.“ → `button "Spustit ostrý běh"` → 202 → `…?spusteno=1`.
 5. Na `dlouhy`: hlavička „běží“, chip „falešný běh“, karta `[data-step-card="pomalu"]` `aria-label` „… — běží“ (pulz), čas tiká, `aria-live` „krok pomalu běží“, `checkbox "sledovat běh"`; po ≈ 4 s `role=status` „Běh skončil: úspěch“, karta „— úspěch“, checkbox zmizí, dotazování skončí (žádný další GET do 6 s).
-6. Záložka `Běhy`: řádek `run-row` s ikonou + sr „běží“, „běží · krok 1/2 pomalu · falešný běh“, vpravo „1 běží · 0 ve frontě“; dva starty naráz → druhý „ve frontě (2.)“. Disk: `runs/<run_id>/{run.lock, events.jsonl, scenario/dlouhy.yaml, steps/01-pomalu/…, summary.md, report.html}`.
+6. Záložka `Běhy`: řádek `run-row` s ikonou + sr „běží“, „krok 1/2 · pomalu“ (stav se v řádku neopakuje), „falešný běh“, vpravo „1 běží · 0 ve frontě“; dva starty naráz → druhý „ve frontě (2.)“. Disk: `runs/<run_id>/{run.lock, events.jsonl, scenario/dlouhy.yaml, steps/01-pomalu/…, summary.md, report.html}`.
 
 ### C7 Čtení výsledku a ceny **[hotovo]**
 Cíl: pochopit, co běh vyrobil a kolik stál. Stav: dokončený běh `ukazka` (C6).

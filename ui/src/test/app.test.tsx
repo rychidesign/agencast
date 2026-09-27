@@ -57,7 +57,7 @@ describe("seznam běhů", () => {
 
     await act(async () => render(<RunsTab project="thtd" />));
     expect(runCalls()).toBe(1);
-    expect(screen.getByText("běží · krok 4/8 foto_prompt")).toBeTruthy();
+    expect(screen.getByText("krok 4/8 · foto_prompt")).toBeTruthy();
 
     await act(async () => void (await vi.advanceTimersByTimeAsync(RUNS_POLL_MS)));
     expect(runCalls()).toBe(2);

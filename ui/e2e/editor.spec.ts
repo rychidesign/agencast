@@ -478,7 +478,7 @@ test("C11 parallel a switch", async ({ page, project, server }) => {
   const nevybrany = page.getByTestId("case-ano").locator("[data-step-card]");
   await expect(nevybrany).toHaveAttribute("aria-label", /— přeskočeno$/);
   await expect(nevybrany).toContainText("přeskočeno:");
-  await expect(nevybrany.locator("xpath=..")).toHaveCSS("opacity", "0.4");
+  await expect(nevybrany).toHaveCSS("border-top-style", "dashed"); // ztlumená (bez průhlednosti kvůli kontrastu)
   await expect(page.getByTestId("case-default").locator("[data-step-card]")).toHaveAttribute("aria-label", /— úspěch$/);
   for (const b of ["a", "b", "kratka"])
     await expect(page.getByTestId(`branch-${b}`).locator("[data-step-card]")).toHaveAttribute("aria-label", /— úspěch$/);

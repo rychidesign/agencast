@@ -60,7 +60,7 @@ export function TypePicker({ onPick, onClose, paste }: {
   return (
     <div ref={ref} role="listbox" tabIndex={-1} aria-label={t("picker.label")} onKeyDown={onKey}
       aria-activedescendant={items[active] ? `${id}-${items[active]}` : undefined}
-      className={`absolute top-1/2 z-30 w-60 -translate-y-1/2 rounded-card bg-surface p-1 text-fg ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
+      className={`absolute top-1/2 z-30 w-72 -translate-y-1/2 rounded-card bg-surface p-1 text-fg ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
       {filter && <div className="px-3 py-1 font-mono text-xs text-fg-muted" aria-live="polite">{t("picker.filter", { filter })}</div>}
       {items.map((k, i) => {
         const g = k === "paste" ? -2 : PICKER_GROUPS.findIndex((gr) => gr.includes(k));
