@@ -2,6 +2,7 @@
 // Scénář filtruje server (`?scenario=`), stav klient; starší stránky bere přes `before`.
 import { useEffect, useState } from "react";
 import { enc, useApi } from "../api";
+import { inputCls } from "../components/form";
 import { RUN_STATUS } from "../components/RunBadge";
 import { btn, EmptyState, ErrorText, Loading, StatusBadge, StatusIcon } from "../components/ui";
 import {
@@ -14,7 +15,7 @@ import type { Project, RunListItem, RunState } from "../types";
 export const RUNS_POLL_MS = 5000;
 export const RUNS_PAGE = 50;
 
-const selectCls = "h-9 rounded-control bg-nested px-2 text-fg ring-1 ring-line pointer-coarse:h-11";
+const selectCls = `${inputCls} w-auto!`;
 
 const FILTERS: RunState[] = ["running", "queued", "interrupted", "succeeded", "failed", "dry_run"];
 
@@ -108,13 +109,12 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
   else what = formatWhen(when);
   const note = [
     state === "failed" ? failReason(r.status) : "",
-    state === "dry_run" || state === "interrupted" ? t(`run.state.${state}`) : "",
     r.fake ? t("run.fake") : "",
     r.callback ?? "",
   ].filter(Boolean).join(" · ");
   return (
     <tr data-testid={`run-row-${r.run_id}`} title={r.run_id} className="relative border-t border-line first:border-t-0 hover:bg-surface-hover">
-      <td className="w-32 py-2.5 pl-4 whitespace-nowrap"><StatusBadge status={RUN_STATUS[state]}>{t(`run.state.${state}`)}</StatusBadge></td>
+      <td className="py-2.5 pr-4 pl-4 whitespace-nowrap"><StatusBadge status={RUN_STATUS[state]}>{t(`run.state.${state}`)}</StatusBadge></td>
       <td className="pr-4 font-mono text-[13px]">
         <a href={href(project, "behy", r.run_id)} className="after:absolute after:inset-0">{runScenario(r) || r.run_id}</a>
       </td>

@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveToken } from "../api";
+import { PageHeader } from "../components/PageHeader";
 import { ConfigTab } from "../pages/Config";
 import type { Project } from "../types";
 
@@ -34,7 +35,7 @@ describe("Config: alias modelu", () => {
       if (url === "/projects/p/config" && init?.method === "PUT") return json(200, { etag: "c2", errors: [] });
       return json(404, { error: `není ${url}` });
     }));
-    await act(async () => render(<ConfigTab name="p" project={project} />));
+    await act(async () => render(<ConfigTab name="p" project={project} header={(x) => <PageHeader title="Config" {...x} />} />));
     fireEvent.click(await screen.findByRole("button", { name: "+ alias" }));
     // G3/G5: jeden přepínač, jedno Uložit, cesta projektu místo „config.yaml · mcp.yaml“
     expect(screen.getAllByRole("radiogroup", { name: "Zobrazení" })).toHaveLength(1);

@@ -31,7 +31,7 @@ je používají jako třídy (`bg-canvas`, `text-fg-muted`, `ring-line`, `font-m
 | `--color-line` | `#BDD9F026` | hairline, ring polí |
 | `--color-fg` | `#EDF5FF` | primární text |
 | `--color-fg-secondary` | `#B5C6DB` | popisky, štítky |
-| `--color-fg-muted` | `#8194AD` | meta, nápověda |
+| `--color-fg-muted` | `#8497B0` | meta, nápověda (vlna C: z `#8194AD`, viz kontrast níže) |
 | `--color-accent` | `#D2E4FA` | primární tlačítko, fokus ring, aktivní prvek |
 | `--color-ink` | `#132236` | text na akcentu |
 | `--color-success` | `#6ED5AB` | úspěch |
@@ -52,7 +52,14 @@ Velikosti: ovládací prvek 36 px (kompaktní 32, dotyk 44), ikona 16 px tah 1,5
 (`@fontsource-variable/inter`, `@fontsource-variable/jetbrains-mono`), žádné CDN — GUI běží
 jen na Tailscale a musí fungovat offline.
 
-Barvy `zinc-*` z kódu postupně mizí; nový kód je nepoužívá.
+Barvy `zinc-*` z kódu postupně mizí; nový kód je nepoužívá. Od vlny C v `ui/src` žádné `zinc-*` ani
+napevno zapsané barvy nejsou (výjimka: bílé pozadí iframe `report.html` a barvy v testovacích fixture);
+šipka selectu se kreslí gradientem z `var(--color-fg-muted)`, ne SVG s barvou.
+
+Kontrast (WCAG 2.1, vlna C, 2026-09-28): `fg-muted` `#8497B0` má na `canvas` 6,3:1, `surface` 5,24:1,
+`nested` 5,91:1 a `surface-hover` 4,67:1. Původní `#8194AD` měl na `surface-hover` jen 4,50:1 (4,496),
+proto posun o 3 body jasu. `fg-secondary` ≥ 8,0:1, `error` ≥ 6,4:1, `warning` ≥ 8,4:1, `success` ≥ 7,8:1,
+`running` ≥ 6,8:1, `neutral` ≥ 6,5:1 na všech plochách; `ink` na `accent` 12,4:1.
 
 ---
 

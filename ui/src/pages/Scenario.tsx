@@ -11,8 +11,8 @@ import { RunPanel } from "../components/RunPanel";
 import { Connector, HeaderCard, onColumnKey, StepList, uidOf, type EditCtx, type ListCtx } from "../components/StepCards";
 import { HeaderPanel, StepPanel } from "../components/StepPanel";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
-import { BackLink, PageHeader, type HeaderMenuItem } from "../components/PageHeader";
-import { ErrorText, Loading, Toggle, btn } from "../components/ui";
+import { BackLink, PageHeader } from "../components/PageHeader";
+import { ErrorText, Loading, Toggle, btn, type MenuItem } from "../components/ui";
 import {
   adopt, blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
 } from "../edit";
@@ -55,7 +55,8 @@ export function closeOnEsc(selected: string | undefined) {
 
 export function PanelSlot({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed inset-x-4 bottom-4 z-20 max-h-[70vh] overflow-auto rounded-2xl shadow-2xl min-[1100px]:sticky min-[1100px]:top-[calc(var(--page-header-h,5rem)+1rem)] min-[1100px]:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] min-[1100px]:w-[400px] min-[1100px]:shrink-0 min-[1100px]:self-start min-[1100px]:shadow-none">
+    // Vedle sloupce až od 1280 px (sidebar 232 + sloupec + panel 400); užší = přes sloupec dole, vždy se zavíracím křížkem.
+    <div className="fixed inset-x-4 bottom-4 z-20 max-h-[70vh] overflow-auto rounded-panel shadow-2xl lg:left-[calc(232px+1rem)] xl:sticky xl:top-[calc(var(--page-header-h,5rem)+1rem)] xl:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] xl:w-[400px] xl:shrink-0 xl:self-start xl:shadow-none">
       {children}
     </div>
   );
@@ -276,8 +277,8 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
 
   const p = proj.data;
   const summary = p?.scenarios.find((s) => s.name === scenario);
-  const menu: HeaderMenuItem[] = [
-    ...(!yaml ? [{ label: `${t("edit.undo")} (Ctrl+Z)`, onSelect: form.undo, disabled: !form.canUndo }] : []),
+  const menu: MenuItem[] = [
+    ...(!yaml ? [{ label: `${t("edit.undo")} (Ctrl+Z)`, onSelect: form.undo, disabled: form.canUndo ? undefined : t("edit.nothingToUndo") }] : []),
     ...(p && summary ? [{ label: t("scenarios.copyRun"), onSelect: () => void navigator.clipboard.writeText(runCommand(p.root, summary)) }] : []),
     { label: t("editor.runs"), onSelect: () => navigate(href(project, "behy", undefined, { scenar: scenario })) },
     // bez otisku souboru (ještě se načítá) přejmenovat ani smazat nejde

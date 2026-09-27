@@ -57,6 +57,12 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
   znovu…“ (`role="alert"`, `data-testid="server-bar"`).
 - **Pod 1024 px** se sidebar sbalí do horní lišty: značka + jméno projektu, pod nimi navigace vodorovně
   s přetečením; „← Projekty“ a útrata skryté. Položky navigace mají 44 px.
+- **Responzivita obsahu** (ověřeno při 768 / 1024 / 1440 px): editor scénáře má panel vedle sloupce karet
+  až od 1280 px (sidebar 232 + sloupec + panel 400); užší obrazovka ukáže panel jako list přes sloupec dole
+  (max. 70 % výšky, od 1024 px odsazený od sidebaru), vždy se zavíracím křížkem a Esc. Agenti a Skilly mají
+  seznam vedle editoru od 1100 px, jinak nad ním. Tabulka běhů má vodorovný posuv (min. 40rem), řádek
+  modelového aliasu v Configu se zalomí. Menu ⋯ se otevírá doleva od tlačítka, rozbalený seznam chyb
+  projektu má šířku nejvýš viewport − 2 rem.
 - **Hlavička stránky** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4): nad titulem volitelně
   odkaz zpět; H1 + `meta` (čip chyb, stav běhu) + jednořádkový popis; vpravo nejvýš primární + jedno
   sekundární tlačítko a menu ⋯ „Další akce“ se zbytkem (nebezpečné položky poslední); druhý řádek pro
@@ -64,12 +70,21 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
   hlásí v `--page-header-h` (podle ní se přilepí panel).
 - Hlavičky podle stránky:
   - **Projekt:** titul = sekce („Scénáře“, „Agenti“, …), `meta` = čip „N chyb“ s rozbalovacím seznamem
-    (odkazy na soubor a krok), ikona Načíst znovu. Bez cesty projektu, limitů a útraty. Blok chyby
-    configu (422) zůstává pod hlavičkou.
+    (odkazy na soubor a krok). V ⋯ je vždy první „Načíst znovu“. Bez cesty projektu, limitů a útraty. Blok
+    chyby configu (422) zůstává pod hlavičkou. Hlavičku skládá `ProjectPage` (typ `SectionHeader`) a sekce
+    do ní doplní své akce, položky ⋯ a druhý řádek; do načtení dat ji kreslí stránka sama:
+    - Scénáře: „+ Nový scénář“ (primární).
+    - Agenti / Skilly: „+ Nový agent“ / „+ Nový skill“ (sekundární) a Uložit (primární, Ctrl+S); ⋯ má
+      přístupné jméno „Akce pro <jméno>“ a nese Přejmenovat (jen agent) a Smazat (červeně, poslední).
+      Druhý řádek: Form | Markdown (jen agent) + stav uložení. Prázdná sekce má jen primární „+ Nový …“.
+    - Config: popis = cesta projektu (mono, jediné místo mimo kartu projektu, G5), Uložit; druhý řádek
+      Form | YAML + stav uložení.
+    - Běhy: jen titul a ⋯.
   - **Editor scénáře:** „← Scénáře“ (+ drobečky přes `call`), titul = jméno scénáře mono, popis = `description`,
     akce Spustit a Uložit (Ctrl+S); ⋯: Vrátit zpět (Ctrl+Z), Kopírovat příkaz spuštění, Běhy tohoto
     scénáře, Přejmenovat, Smazat. Druhý řádek: Form | YAML + stav uložení s čipem chyb.
   - **Detail běhu:** viz 2.5.
+  - **Neexistující adresa:** titul „Tahle adresa v GUI neexistuje.“ a sekundární odkaz Projekty.
 
 ## 2. Obrazovky
 
@@ -96,7 +111,7 @@ důvod, čárkovaný okraj a 50 % opacity. Celá karta je odkaz. ⋯: Otevřít,
 ### 2.2 Přehled projektu (karty scénářů)
 
 ```
-                                                    [+ Nový scénář]
+Scénáře  ✗ 2 chyby                                                  [+ Nový scénář]  ⋯
 ┌───────────────────────────────────┐  ┌───────────────────────────────────┐
 │ ○ask → ○jev → ○fail → ○ask → +3  ⋯ │  │ ○task → ○output             ✗ 2 chyby│
 │ ✓ před 12 min                     │  │                                ⋯  │
@@ -109,13 +124,16 @@ důvod, čárkovaný okraj a 50 % opacity. Celá karta je odkaz. ⋯: Otevřít,
 - Řetězec ikon = typy kroků v pořadí souboru, nejvýš 5, pak čip „+N“; `parallel`/`switch` jednou svou ikonou, vnitřek se nerozepisuje.
 - Nahoře je řetězec ikon typů v kolečkách `nested` 28 px, čip posledního běhu s časem a menu ⋯; chyby validace mají přednost („✗ 2 chyby“). Meta řádek má jen „N kroků · agenti“ a případný štítek „volatelný“ na `nested`. Počty vstupů a výstupů, název `.yaml` ani druhý čas se neukazují.
 - ⋯: Otevřít, Běhy tohoto scénáře, Kopírovat příkaz spuštění, Validovat; později Duplikovat, Smazat.
-- Tlačítko „+ Nový scénář“ je nad mřížkou vpravo; čárkovaná karta otevírá stejný dialog jen v prázdném seznamu. Po integraci se tlačítko přesune do hlavičky stránky.
+- Tlačítko „+ Nový scénář“ je v hlavičce sekce (G8); čárkovaná karta otevírá stejný dialog jen v prázdném seznamu.
 - „Chyby validace“ v hlavičce = součet `errors` všech souborů; klik otevře seznam s odkazy na soubor a krok.
 
 ### 2.3 Editor scénáře (karty + panel)
 
 ```
-← thtd / Scénáře    ig-post ✎  Návrh IG příspěvku ke schválení ✎     [Form | <> YAML]     Neuloženo · 1 chyba   [Uložit]
+← Scénáře
+ig-post                                                          [▷ Spustit] [Uložit]  ⋯
+Návrh IG příspěvku ke schválení
+[Form | <> YAML]   Neuloženo · ✗ 1 chyba
 
       ( ≡  HLAVIČKA                                                            )
       (    1 vstup: tema · 3 výstupy: caption, hashtags, image                 )
@@ -158,7 +176,7 @@ Pilulka má `surface`, při hoveru `surface-hover`, při výběru `ring-2 ring-a
 
 **Koš vně pilulky:** červený kulatý 28 px vpravo vně, zobrazí se při hoveru a při `focus-within`. Klávesnice: Tab z fokusované karty přejde na koš (je další zastávkou v pořadí, při fokusu se ukáže), nebo klávesa Delete na kartě; `aria-label="Smazat krok kontrola"`. Na dotykovém vstupu (`pointer: coarse`) je koš viditelný trvale ztlumeně. Ochrana mazání z §4.3 platí beze změny. Hlavičková karta koš nemá.
 
-**Panel** (plovoucí zaoblený obdélník vpravo, okraj 16 px od hran; V3: `bg-surface`, rádius panel 16, padding 20):
+**Panel** (V3: `bg-surface`, rádius panel 16, padding 20; od 1280 px přilepený vedle sloupce pod hlavičkou, užší obrazovka = list dole přes sloupec se zavíracím křížkem, viz §1.1):
 
 ```
 ┌ KROK 2 · JEV                               🗑   ✕ ┐
@@ -234,7 +252,7 @@ Hlavička (G10): titul = scénář (odkaz do editoru) + malé mono run_id, vedle
 ### 2.6 Seznam běhů
 
 ```
-Běhy                                                                                      ⟳
+Běhy                                                                                      ⋯
 scénář: vše ▾   stav: vše ▾                                                ◌ 1 běží · 2 ve frontě
  ◌ běží       ig-post   běží · krok 4/8 foto_prompt   0:07        0,0021
  ◌ ve frontě  ig-post   ve frontě (2.)
@@ -244,48 +262,68 @@ scénář: vše ▾   stav: vše ▾                                            
 ```
 Bez sloupce run_id (je v detailu a v `title` řádku) a bez řádku útraty (je v sidebaru), G9. Stav = ikona +
 text. Řádek je odkaz na detail. Sloupce ze `runs` (stav, cena, trvání, callback); scénář a čas z `run_id`.
-Běžící řádek se obnovuje (viz 4.8). Prázdný seznam: „Žádné běhy.“ s CLI řádkem; starší stránky tlačítkem
+Stav je jen ve sloupci stavu, poznámka ho neopakuje (jen důvod chyby, „falešný běh“, callback). Tabulka
+leží ve vodorovném posuvu. Běžící řádek se obnovuje (viz 4.8). Prázdný seznam: „Žádné běhy.“ s CLI řádkem; starší stránky tlačítkem
 „Načíst další“.
 
 ### 2.7 Agent
 
 ```
-Agenti                     │ copywriter                                   Form | Markdown    Uloženo ✓
- copywriter                │ popis    [Copywriter pro IG značky THTD               ]
- photographer              │ model    [chytry ▾]   anthropic/claude-haiku-4.5
- publisher   ✗ 1 chyba     │ skilly   [thtd-hlas ×] [+]
-                           │ MCP      ☑ instagram: ☑ create_media ☑ publish_media     ☐ filesystem (vlastník nepovolil)
-                           │ limity   max_turns [6]   budget_usd [0,20]   timeout [5m]
-                           │ ── Instrukce (system prompt) ──────────────────────────────────────
-                           │ Jsi copywriter značky THTD …
-                           │ Používá: ig-post (copy) · ig-text (napis)
+Agenti  ✗ 1 chyba                                       [+ Nový agent] [Uložit]  ⋯
+[Form | <> Markdown]   Uloženo ✓
+ copywriter          │ copywriter
+ photographer        │ popis *    [Copywriter pro IG značky THTD                     ]
+ publisher  ✗ 1 chyba│ model *    [chytry — anthropic/claude-haiku-4.5 ▾]
+                     │ skilly     [thtd-hlas ×] [+ přidat skill ▾]
+                     │ MCP servery ☑ instagram: ☑ create_media ☑ publish_media
+                     │             ☐ filesystem (vlastník nepovolil)
+                     │ Limity     max_turns [6]   budget_usd * [0,20]   timeout [5m]
+                     │ Instrukce (system prompt) *
+                     │ [Jsi copywriter značky THTD …                                   ]
+                     │ Používá: ig-post (copy) · ig-text (napis)
 ```
-Jméno = název souboru, jen ke čtení (přejmenování = samostatná akce s kontrolou odkazů). MCP nabízí jen servery, kde je agent v `agents` v mcp.yaml; ostatní ztlumené s důvodem. `max_turns` se zvýrazní jako povinný, jakmile je zaškrtnutý server.
+Jedna hlavička sekce (§1.1): „+ Nový agent“, Uložit a ⋯ „Akce pro copywriter“ (Přejmenovat, Smazat).
+Druhý řádek Form | Markdown a stav uložení. Seznam agentů je vlevo (od 1100 px, jinak nad editorem), jméno
+vybraného agenta je nad formulářem jen jako nadpis (`h2`, mono), bez cesty souboru a bez druhého Uložit.
+Jméno = název souboru, jen ke čtení (přejmenování = samostatná akce s kontrolou odkazů). MCP nabízí jen
+servery, kde je agent v `agents` v mcp.yaml; ostatní ztlumené s důvodem. `max_turns` je podmíněně povinné:
+při zaškrtnutém serveru dostane hvězdičku a nápověda pod polem to řekne; rámované zvýraznění ani info box
+není (G11).
 
 ### 2.8 Config
 
 ```
-Config   config.yaml · mcp.yaml                                                    Form | YAML   Uloženo ✓
- OpenRouter   klíč z proměnné [OPENROUTER_API_KEY]  ✓ nastavena na serveru     Jev model [jev-1.13]
- Modely       chytry         anthropic/claude-haiku-4.5     native_schema   max_tokens –    používá 3 agenti
-              rychly         google/gemini-3.5-flash-lite   tool_wrapper
-              gemini-image   google/gemini-3.1-flash-image                                  + alias
- Úložiště     r2 ▾   bucket [thtd-posts]   veřejná URL [https://files…]   proměnné R2_ACCOUNT_ID ✓ …
- Limity       na běh [1,00] USD · obrázky [0,30] · čas [1h] · hloubka call [3] · souběžně [2] · denně [5,00]
- Webhook      token z proměnné [WEBHOOK_TOKEN] ✓        Callback   tajemství z proměnné [CALLBACK_SECRET] ✓
- MCP servery  instagram   http · agenti: publisher · scénáře: ig-publish · nástroje: create_media, publish_media
+Config                                                                      [Uložit]  ⋯
+~/thtd
+[Form | <> YAML]   Uloženo ✓
+ Připojení     klíč z proměnné [OPENROUTER_API_KEY]  ✓ nastavena na serveru
+               Jev model jev-1.13 · mění se v YAML režimu
+ ───────────────────────────────────────────────────────────────────────────── + alias
+ Modely        [chytry] [anthropic/claude-haiku-4.5] [chat ▾] [native_schema ▾] [max_tokens] 🗑
+               používá copywriter
+ ─────────────────────────────────────────────────────────────────────────────
+ Úložiště · Limity · Webhook a callback · Proměnné · MCP servery
 ```
-Pole `_env` ukazují jen jméno proměnné; hodnota se nikde nezobrazí ani needituje. „používá N agentů“ brání smazání aliasu, který je v užití.
+Hlavička sekce: popis = cesta projektu, jediné Uložit, druhý řádek jediný přepínač Form | YAML a stav
+uložení (YAML režim ukazuje `config.yaml` a pod ním `mcp.yaml`). Sekce = nadpis + pole oddělené hairline,
+bez karet a technických štítků. Pole `_env` ukazují jen jméno proměnné; hodnota se nikde nezobrazí ani
+needituje. Pod každým aliasem je meta „používá copywriter“ / „nepoužívá se“; používaný alias nejde smazat.
+Na úzké obrazovce se řádek aliasu zalomí (pole ID drží nejmenší šířku). MCP servery jsou jen ke čtení
+(„mění se jen v YAML režimu“), bez mcp.yaml věta „Projekt nemá mcp.yaml.“.
 
 ### 2.9 Skill
 
 ```
-Skilly            │ thtd-hlas                                                          Uloženo ✓
- thtd-hlas        │ popis   [Tón a slovník značky THTD pro texty na sociální sítě]
- ig-pravidla      │ ── Text skillu ───────────────────────────────────────────────────
-                  │ Tykáme. Krátké věty. …
+Skilly                                                  [+ Nový skill] [Uložit]  ⋯
+Uloženo ✓
+ thtd-hlas        │ thtd-hlas
+ ig-pravidla      │ ┌ SKILL.md (Markdown editor s čísly řádků) ──────────────────────┐
+                  │ │ ---                                                            │
+                  │ │ name: thtd-hlas …                                              │
+                  │ └────────────────────────────────────────────────────────────────┘
                   │ Používají: copywriter · publisher
 ```
+Stejná hlavička jako Agent, bez přepínače režimu (skill je vždy celý SKILL.md); ⋯ má jen Smazat.
 
 ## 3. Inventář komponent
 
@@ -293,10 +331,11 @@ Skilly            │ thtd-hlas                                                 
 |---|---|---|
 | `StepCard` | dvouřádková pilulka: eyebrow `TYP · id` + hodnota tučně (tabulka v §2.3); číslo v kruhu 36 px; vpravo `když` / v běhu čas + cena; chyba pod kartou | výchozí, hover, vybraná (ring s mezerou), s chybou, sbalená; v běhu stavová ikona místo čísla, nedošlo (40 % opacity) |
 | `DeleteButton` | červený kulatý 28 px vně pilulky | hover / focus-within / trvale na dotyku |
-| `ScenarioCard` | `IconChain` (max 5 + „+N“), stavový čip posledního běhu vpravo nahoře, ⋯, titulek = description, meta řádek, patička soubor + poslední běh | výchozí, hover, s chybami validace |
-| `ProjectCard` | dostupnost, jméno, cesta mono, patička počty + dnešní útrata + poslední běh | dostupný; nedostupný 50 % + čárkovaný prstenec + důvod |
+| `ScenarioCard` | `IconChain` (max 5 + „+N“), čip posledního běhu s časem vpravo nahoře (chyby validace mají přednost), ⋯, titul = jméno, podtitul = description, meta „N kroků · agenti“ + štítek „volatelný“ | výchozí, hover, s chybami validace |
+| `ProjectCard` | jméno + ⋯, cesta mono, počty, pod čarou čip posledního běhu + dnešní útrata | dostupný bez štítku; nedostupný 50 % + čárkovaný okraj + štítek a důvod |
+| `PageHeader` | H1 + `meta` + popis, vpravo nejvýš dvě tlačítka a ⋯ (`menu`, `menuLabel`), nad titulem `back`, druhý řádek `children` | přilepená (`sticky`, výška v `--page-header-h`) v editoru a detailu běhu |
 | `AddCard` | čárkovaná karta s +; scénář → dialog Nový scénář (čtecí fáze: CLI příkaz s kopírováním); projekt → CLI příkaz s kopírováním | |
-| `IconChain` | ikona typu v zaobleném čtverci 32 px, šipka → mezi nimi, pořadí souboru | |
+| `IconChain` | ikona typu v kolečku 28 px `bg-nested text-type`, šipka → mezi nimi, pořadí souboru | |
 | `HeaderCard` | vstupy a výstupy scénáře | jako karta, nesmazatelná, vždy první |
 | `Connector` + `AddButton` | šipka ↓ jako glyph mezi pilulkami (mezera ~40 px), na hover/focus se promění v (+) 28 px; trvalé (+) jen na konci každého seznamu | výchozí, focus, „vložit vyjmutý krok“ |
 | `BranchColumn` / `CaseSection` | větev `parallel` vedle sebe / případ `switch` pod sebou, každý s vlastním seznamem a + | aktivní, v běhu přeskočená (ztlumená s důvodem) |
@@ -316,7 +355,7 @@ Skilly            │ thtd-hlas                                                 
 | `ConflictBar` | sticky pruh nad kartami | viz 4.6 |
 | `EmptyState` | jedna věta, volitelně `CliLine` s příkazem v bloku `bg-nested` | projekt bez scénářů, bez běhů, běh ve frontě, nedostupný projekt |
 | `Skeleton`, `Loading` | pulzující bloky `bg-surface`; žádné spinnery mimo tlačítka | načítání seznamů a karet |
-| `ServerBar` | „Server agencast neodpovídá (localhost:8787), zkouším znovu…“, 401 „Token serveru nesedí“, 422 config s odkazem na Config | |
+| `ServerBar` → sidebar | „Server agencast neodpovídá (localhost:8787), zkouším znovu…“ dole v sidebaru (`role="alert"`); 401 = obrazovka Token serveru; 422 config = blok pod hlavičkou projektu s odkazem na Config | |
 
 ## 4. Interakce
 
@@ -345,7 +384,9 @@ Skilly            │ thtd-hlas                                                 
 5. **Form / YAML:** jeden zdroj = surový text souboru; úpravy z formuláře jsou cílené záplaty do textu, aby přežily komentáře a pořadí (ig-post.yaml má číslované komentáře). YAML režim nahradí sloupec karet i panel jedním blokem přes celou šířku a výšku, jako v Buzz:
 
 ```
-← thtd / Scénáře    ig-post ✎  Návrh IG příspěvku ke schválení ✎     [Form | <> YAML]     Neuloženo · 1 chyba   [Uložit]
+← Scénáře
+ig-post                                                          [▷ Spustit] [Uložit]  ⋯
+[Form | <> YAML]   Neuloženo · ✗ 1 chyba
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │  1  version: 1                                                                             │
 │  2  name: ig-post                                                                          │
@@ -361,7 +402,7 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 ```
    - Odchylka od Buzz: úzký šedý sloupec s čísly řádků, protože hlášky `validate` i chyby YAML loaderu (duplicitní klíč) odkazují na řádek. Zvýraznění syntaxe jen dvěma odstíny (klíče světle, komentáře ztlumeně), žádné barvy.
    - Nápověda pod blokem jmenuje soubor (připomínka „soubor je pravda“), ne obecnou větu.
-   - **Chyby:** při psaní (500 ms) `POST validate`; chybný řádek má vlevo svislou rose značku, pod blokem seznam chyb (řádek · krok · hláška), klik skočí na řádek. Syntaktická chyba YAML se ukáže hned s řádkem a blokuje návrat do Form (přepínač ztlumený, tooltip „Oprav YAML: řádek 12“); významové chyby (neznámý agent) návrat neblokují, zobrazí se na kartách. Uložit je zakázané, dokud je jakákoli chyba.
+   - **Chyby:** při psaní (500 ms) `POST validate`; chybný řádek má podklad `error/10` a vlevo svislou značku `error`, pod blokem seznam chyb (řádek · krok · hláška), klik skočí na řádek. Syntaktická chyba YAML se ukáže hned s řádkem a blokuje návrat do Form (přepínač ztlumený, tooltip „Oprav YAML: řádek 12“); významové chyby (neznámý agent) návrat neblokují, zobrazí se na kartách. Uložit je zakázané, dokud je jakákoli chyba.
    - Přepnutí Form → YAML položí kurzor na řádek `- id:` vybraného kroku a na chvíli podbarví jeho řádky; hlavičková karta vede na začátek souboru. YAML → Form: znovu vybere krok, ve kterém stál kurzor.
    - Totéž pro Config (`config.yaml`; `mcp.yaml` jako druhý blok pod ním), pro agenty a skilly je druhý segment `<> Markdown` a blok ukazuje celý soubor včetně frontmatteru.
 6. **Konflikt souboru:** GUI si drží otisk; kontrola při fokusu okna a každých 5 s. Změna na disku bez lokálních úprav = tiché znovunačtení + krátká hláška „Načteno z disku (14:05)“. S lokálními úpravami sticky pruh: „Soubor se na disku změnil“ [Zobrazit rozdíl] [Načíst z disku a zahodit moje změny] [Ponechat moje]; Uložit pak vyžaduje potvrzení „Přepsat verzi na disku“. Nikdy automatické slučování.
@@ -391,7 +432,7 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 
 - Karty jsou tlačítka v seznamu: ↑/↓ přesouvají fokus, Enter/mezera otevře panel, Esc zavře a vrátí fokus na kartu, Delete maže (s ochranou), Alt+↑/↓ přesouvá, Ctrl+S ukládá, Ctrl+Z vrací.
 - + je skutečné tlačítko v pořadí tabulátoru, viditelné i bez hoveru. Panel je `aside` s `aria-labelledby`; formulářová pole mají štítek nad polem, `aria-describedby` na nápovědu i chybu.
-- Fokus `focus-visible:ring-2 ring-offset-2 ring-offset-zinc-950`; kontrast čitelného textu ≥ 4,5:1; stav vždy ikona + text (u samotné tečky `sr-only`); živý běh hlásí změny přes `aria-live="polite"` („krok foto běží“).
+- Fokus `:focus-visible` = `ring-2 ring-accent ring-offset-2 ring-offset-canvas` globálně v `index.css`; kontrast čitelného textu ≥ 4,5:1 (měření tokenů v plánu redesignu §1); stav vždy ikona + text (u samotné tečky `sr-only`); živý běh hlásí změny přes `aria-live="polite"` („krok foto běží“).
 - `lang="cs"`, všechny řetězce v `locales/cs.json` (klíče typu `step.type.ask`, `run.status.skipped`), plurály ICU (`{n, plural, one {# krok} few {# kroky} other {# kroků}}`), čísla přes `Intl.NumberFormat("cs")`, časy lokálně s UTC v tooltipu.
 
 ## 7. Co GUI potřebuje od API navíc (mění, co jde postavit)

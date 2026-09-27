@@ -5,9 +5,6 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { t } from "../i18n";
 import { Menu, type MenuItem } from "./ui";
 
-/** Položka ⋯; `danger` a `disabled` Menu z ui.tsx zatím nevykresluje (doplní vlna C), `disabled` hlídáme tady. */
-export type HeaderMenuItem = MenuItem & { danger?: boolean; disabled?: boolean };
-
 /** Odkaz zpět nad titulem („← Scénáře“). */
 export function BackLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -17,14 +14,17 @@ export function BackLink({ href, children }: { href: string; children: ReactNode
   );
 }
 
-export function PageHeader({ title, description, meta, actions, menu, back, sticky, children }: {
+export function PageHeader({ title, description, meta, actions, menu, menuLabel, back, sticky, children }: {
   title: ReactNode;
   description?: ReactNode;
   /** Vedle titulu: čip chyb, stav běhu. */
   meta?: ReactNode;
   /** Nejvýš primární + jedno sekundární tlačítko. */
   actions?: ReactNode;
-  menu?: HeaderMenuItem[];
+  /** Sekundární akce (G4); nebezpečné `danger` a poslední. */
+  menu?: MenuItem[];
+  /** Přístupné jméno ⋯, výchozí „Další akce“. */
+  menuLabel?: string;
   /** Řádek nad titulem: odkaz zpět, drobečky. */
   back?: ReactNode;
   /** Přilepená hlavička (editor, běh); výšku hlásí v `--page-header-h` pro přilepený panel. */
@@ -38,9 +38,11 @@ export function PageHeader({ title, description, meta, actions, menu, back, stic
     if (!sticky || !el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => document.documentElement.style.setProperty("--page-header-h", `${el.offsetHeight}px`));
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--page-header-h");
+    };
   }, [sticky]);
-  const items = menu?.map((it) => (it.disabled ? { ...it, onSelect: () => {} } : it));
   return (
     <header ref={ref}
       className={`space-y-3 pb-4 ${sticky ? "sticky top-0 z-20 -mx-4 bg-canvas px-4 pt-4 sm:-mx-8 sm:px-8" : ""}`}>
@@ -53,10 +55,10 @@ export function PageHeader({ title, description, meta, actions, menu, back, stic
           </div>
           {description && <div className="mt-1 truncate text-sm text-fg-secondary">{description}</div>}
         </div>
-        {(actions || items) && (
+        {(actions || menu?.length) && (
           <div className="flex flex-wrap items-center gap-2">
             {actions}
-            {items && <Menu items={items} label={t("common.moreActions")} />}
+            {!!menu?.length && <Menu items={menu} label={menuLabel ?? t("common.moreActions")} />}
           </div>
         )}
       </div>

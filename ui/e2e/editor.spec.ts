@@ -39,11 +39,12 @@ steps:
 test("C3 nový agent", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/agenti`);
   const nav = page.getByRole("navigation", { name: "Agenti" });
-  await expect(nav.getByRole("button", { name: "Nový agent" })).toBeVisible();
+  // G8: „+ Nový agent“ je v hlavičce sekce, ne v seznamu
+  await expect(page.locator("main header").getByRole("button", { name: "Nový agent" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "pisatel" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("heading", { name: "pisatel", level: 2 })).toBeVisible();
 
-  await nav.getByRole("button", { name: "Nový agent" }).click();
+  await page.getByRole("button", { name: "Nový agent" }).click();
   const dialog = page.getByRole("dialog", { name: "Nový agent" });
   const jmeno = dialog.getByRole("textbox", { name: "Jméno" });
   await expect(jmeno).toBeFocused();

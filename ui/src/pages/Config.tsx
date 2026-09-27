@@ -13,6 +13,7 @@ import { t } from "../i18n";
 import { useFileDraft, useLeaveGuard, useTextFile } from "../textfile";
 import type { FileDoc, Project } from "../types";
 import { SaveNote, useConflictUi } from "./Agents";
+import type { SectionHeader } from "./Project";
 
 type Obj = Record<string, unknown>;
 
@@ -38,13 +39,13 @@ function EnvVar({ name, env }: { name: unknown; env?: Record<string, boolean> })
 }
 
 const Section = ({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) => (
-  <section className="space-y-3 border-t border-line pt-5">
+  <section className="space-y-3 border-t border-line pt-5 first-of-type:border-t-0 first-of-type:pt-0">
     <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">{title}</h3>{action}</div>
     {children}
   </section>
 );
 
-export function ConfigTab({ name, project, onChanged }: { name: string; project?: Project; onChanged?: () => void }) {
+export function ConfigTab({ name, project, header, onChanged }: { name: string; project?: Project; header: SectionHeader; onChanged?: () => void }) {
   // Bez projektu (config neprošel, 422) rovnou text souboru.
   const [mode, setMode] = useState<"form" | "yaml">(project ? "form" : "yaml");
   const url = `/projects/${enc(name)}/config`;
@@ -93,18 +94,17 @@ export function ConfigTab({ name, project, onChanged }: { name: string; project?
         if (canSave) void save();
       }
     }}>
-      <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <p className="mr-auto truncate font-mono text-[13px] text-fg-muted">{project?.root}</p>
-          <button type="button" className={btn.primary} disabled={!canSave} onClick={() => void save()} title="Ctrl+S">{t("common.save")}</button>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
+      {header({
+        // G5: cesta projektu jen tady (a na kartě v Projektech)
+        description: project && <span className="font-mono text-[13px] text-fg-muted" title={project.root}>{project.root}</span>,
+        actions: <button type="button" className={btn.primary} disabled={!canSave} onClick={() => void save()} title="Ctrl+S">{t("common.save")}</button>,
+        children: <>
           <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
             options={[{ key: "form", label: t("code.form"), disabled: syntax ? t("code.fixYaml", { n: syntax.line! }) : !project ? t("config.formNeedsValid") : undefined },
               { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> }]} />
           <SaveNote dirty={dirty} state={state} errors={errors.length} />
-        </div>
-      </div>
+        </>,
+      })}
       {mode === "form" ? (
         <>
           {formUi.bar}
@@ -184,43 +184,44 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
         while (`model-${n}` in models) n++;
         put("models", { ...models, [`model-${n}`]: { id: "" } });
       }} />}>
-        <ul className="space-y-2">
+        <ul className="space-y-4">
           {Object.entries(models).map(([alias, m]) => {
             const users = usage(alias);
             const setM = (k: string, v: unknown) => put("models", { ...models, [alias]: clean(m, k, v) });
             return (
               <li key={alias} className="space-y-1">
-                <div className="grid grid-cols-[10rem_1fr_7rem_7rem_9rem_7rem_auto] items-center gap-2">
-                  {users.length ? <span className="px-3 font-mono text-sm">{alias}</span>
+                {/* úzký obsah (tablet): řádek se zalomí, pole ID drží nejmenší šířku */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="w-40 shrink-0">{users.length ? <span className="px-3 font-mono text-sm">{alias}</span>
                     : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
-                      onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}
-                  <input aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
-                    value={String(m.id ?? "")} onChange={(e) => setM("id", e.target.value)} />
-                  <select aria-label={t("config.api", { alias })} className={inputCls} value={String(m.api ?? "chat")}
+                      onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}</div>
+                  <div className="min-w-56 flex-1"><input aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
+                    value={String(m.id ?? "")} onChange={(e) => setM("id", e.target.value)} /></div>
+                  <div className="w-28"><select aria-label={t("config.api", { alias })} className={inputCls} value={String(m.api ?? "chat")}
                     onChange={(e) => {
                       const next = clean(m, "api", e.target.value);
                       put("models", { ...models, [alias]: e.target.value === "images" ? next : clean(next, "quality", undefined) });
                     }}>
                     <option value="chat">chat</option>
                     <option value="images">images</option>
-                  </select>
-                  {m.api === "images" ? <select aria-label={t("config.quality", { alias })} className={inputCls} value={String(m.quality ?? "")}
+                  </select></div>
+                  {m.api === "images" && <div className="w-28"><select aria-label={t("config.quality", { alias })} className={inputCls} value={String(m.quality ?? "")}
                     onChange={(e) => setM("quality", e.target.value || undefined)}>
                     <option value="">{t("panel.default")}</option>
                     <option value="auto">auto</option>
                     <option value="low">low</option>
                     <option value="medium">medium</option>
                     <option value="high">high</option>
-                  </select> : <span />}
-                  <select aria-label={t("config.structured", { alias })} className={inputCls} value={String(m.structured_output ?? "")}
+                  </select></div>}
+                  <div className="w-56"><select aria-label={t("config.structured", { alias })} className={inputCls} value={String(m.structured_output ?? "")}
                     onChange={(e) => setM("structured_output", e.target.value)}>
                     <option value="">native_schema ({t("panel.default")})</option>
                     <option value="native_schema">native_schema</option>
                     <option value="tool_wrapper">tool_wrapper</option>
                     <option value="prompt">prompt</option>
-                  </select>
-                  <input aria-label={t("config.maxTokens", { alias })} type="number" min={1} className={`${inputCls} font-mono`} placeholder="max_tokens"
-                    value={typeof m.max_tokens === "number" ? m.max_tokens : ""} onChange={(e) => setM("max_tokens", e.target.value === "" ? undefined : Number(e.target.value))} />
+                  </select></div>
+                  <div className="w-32"><input aria-label={t("config.maxTokens", { alias })} type="number" min={1} className={`${inputCls} font-mono`} placeholder="max_tokens"
+                    value={typeof m.max_tokens === "number" ? m.max_tokens : ""} onChange={(e) => setM("max_tokens", e.target.value === "" ? undefined : Number(e.target.value))} /></div>
                   <button type="button" className={btn.icon} disabled={users.length > 0}
                     aria-label={t("config.removeAlias", { alias })}
                     title={users.length ? t("config.aliasUsed", { agents: users.join(", ") }) : t("config.removeAlias", { alias })}

@@ -398,5 +398,6 @@
   "config.webhook": "Webhook a callback",
   "common.moreActions": "Další akce",
   "editor.runs": "Běhy tohoto scénáře",
-  "spend.label": "Dnes utraceno"
+  "spend.label": "Dnes utraceno",
+  "edit.nothingToUndo": "Není co vrátit"
 }

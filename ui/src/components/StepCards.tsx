@@ -325,7 +325,7 @@ export function StepList({ steps, ctx, list = MAIN }: { steps: Step[]; ctx: List
         <li className="flex h-14 items-center justify-center gap-3">
           <AddButton always label={t("edit.addEnd")} paste={edit.cut_?.id} onPick={(p) => edit.add(end, p)} />
           {main && edit.addOutput && (
-            <button type="button" onClick={edit.addOutput} className="rounded-full bg-nested px-2.5 py-1 font-mono text-[13px] text-fg-secondary ring-1 ring-line hover:bg-surface-hover pointer-coarse:min-h-11">
+            <button type="button" onClick={edit.addOutput} className="rounded-full bg-nested px-2.5 py-1 font-mono text-[13px] text-fg-secondary ring-1 ring-line focus-visible:ring-2 focus-visible:ring-accent hover:bg-surface-hover pointer-coarse:min-h-11">
               + output
             </button>
           )}

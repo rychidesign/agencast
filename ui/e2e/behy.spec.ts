@@ -206,7 +206,9 @@ test("N5 přerušený běh (proces zabitý uprostřed kroku)", async ({ page, pr
   const polls = await countRequests(page, (u) => u.includes(`/runs/${id}`), () => page.waitForTimeout(6_000));
   expect(polls).toBe(0);
   await page.goto(`/#/p/${project.name}/behy`);
-  await expect(page.getByTestId(`run-row-${id}`)).toContainText("přerušen · falešný běh");
+  // stav je jen ve sloupci stavu, poznámka ho neopakuje (vlna C)
+  await expect(page.getByTestId(`run-row-${id}`).locator("td").first()).toHaveText("přerušen");
+  await expect(page.getByTestId(`run-row-${id}`).locator("td").last()).toHaveText("falešný běh");
 });
 
 test("N5b přerušený běh pod serve (restart serve)", async ({ page, project, server }) => {

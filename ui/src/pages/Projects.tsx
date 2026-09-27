@@ -3,8 +3,8 @@ import { CircleSlash, FolderPlus, Plus, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { FormField, inputCls, Modal, submitOnEnter } from "../components/form";
-import { PageHeader, type HeaderMenuItem } from "../components/PageHeader";
-import { btn, CliLine, ErrorText, Menu, Skeleton, Toggle } from "../components/ui";
+import { PageHeader } from "../components/PageHeader";
+import { btn, CliLine, ErrorText, Menu, Skeleton, Toggle, type MenuItem } from "../components/ui";
 import { formatCost } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
@@ -61,7 +61,7 @@ export function ProjectsPage() {
 
 function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: () => void }) {
   const open = href(project.name);
-  const menu: HeaderMenuItem[] = [
+  const menu: MenuItem[] = [
     { label: t("common.open"), onSelect: () => navigate(open) },
     { label: t("projects.copyPath"), onSelect: () => navigator.clipboard.writeText(project.root) },
     ...(onRemove ? [{ label: t("projects.remove"), onSelect: onRemove, danger: true }] : []),

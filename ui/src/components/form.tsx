@@ -5,7 +5,7 @@ import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn } from "./ui";
 
-const selectArrow = `[&:is(select)]:appearance-none [&:is(select)]:bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%238194AD'%20stroke-width='1.5'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E")] [&:is(select)]:bg-no-repeat [&:is(select)]:bg-[position:right_12px_center] [&:is(select)]:pr-9`;
+const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:5px_5px] [&:is(select)]:bg-[position:calc(100%-19px)_55%,calc(100%-14px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-9";
 export const inputCls =
   `w-full min-h-9 rounded-[var(--radius-control)] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-line focus:outline-none focus:ring-2 focus:ring-accent aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:text-base ${selectArrow}`;
 const mono = "font-mono text-[13px]";

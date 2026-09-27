@@ -1,7 +1,7 @@
 // Redesign V3, vlna B4 (docs/ui/redesign-plan.md §2 G1–G4, G11, G12): panely, editor agenta, Config.
 import { expect, test } from "./fixtures";
 
-test("R1 panel kroku: eyebrow, titul = id, typ jako pole, Esc zavře", async ({ page, project }) => {
+test("PN1 panel kroku: eyebrow, titul = id, typ jako pole, Esc zavře", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenare/ukazka`);
   await page.getByRole("button", { name: /Krok 1: ask napis/ }).click();
   const panel = page.getByRole("complementary", { name: "KROK 1 · ask" });
@@ -13,7 +13,7 @@ test("R1 panel kroku: eyebrow, titul = id, typ jako pole, Esc zavře", async ({ 
   await expect(page).not.toHaveURL(/krok=/);
 });
 
-test("R2 panel spuštění: režim se volí kartou, limity jen u ostrého běhu", async ({ page, project }) => {
+test("PN2 panel spuštění: režim se volí kartou, limity jen u ostrého běhu", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenare/ukazka`);
   await page.getByRole("button", { name: "Spustit", exact: true }).click();
   const panel = page.getByRole("complementary");
@@ -29,7 +29,7 @@ test("R2 panel spuštění: režim se volí kartou, limity jen u ostrého běhu"
   await expect(panel.getByRole("button", { name: "Zrušit" })).toHaveCount(0);
 });
 
-test("R3 editor agenta: Uložit jen nahoře, Přejmenovat a Smazat v ⋯, bez nadpisu a cesty ve formuláři", async ({ page, project }) => {
+test("PN3 editor agenta: Uložit jen nahoře, Přejmenovat a Smazat v ⋯, bez nadpisu a cesty ve formuláři", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/agenti/pisatel`);
   await expect(page.getByRole("heading", { name: "pisatel", level: 2 })).toBeVisible();
   await expect(page.getByRole("button", { name: "Uložit" })).toHaveCount(1);
@@ -38,12 +38,12 @@ test("R3 editor agenta: Uložit jen nahoře, Přejmenovat a Smazat v ⋯, bez na
   await expect(page.getByText("agents/pisatel.md")).toHaveCount(0);
   await expect(page.getByRole("radiogroup", { name: "Zobrazení" })).toHaveCount(1);
   await page.getByRole("button", { name: "Akce pro pisatel" }).click();
-  await expect(page.getByRole("menuitem")).toHaveText(["Přejmenovat", "Smazat"]);
+  await expect(page.getByRole("menuitem")).toHaveText(["Načíst znovu", "Přejmenovat", "Smazat"]);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
 });
 
-test("R4 Config: jeden přepínač režimu, jedno Uložit, cesta projektu", async ({ page, project }) => {
+test("PN4 Config: jeden přepínač režimu, jedno Uložit, cesta projektu", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/config`);
   await expect(page.getByRole("heading", { name: "Připojení" })).toBeVisible();
   await expect(page.getByRole("radiogroup", { name: "Zobrazení" })).toHaveCount(1);

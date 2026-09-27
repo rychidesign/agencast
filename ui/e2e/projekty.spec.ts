@@ -166,8 +166,10 @@ test("N2 špatný token a změna tokenu na serveru", async ({ page, project }) =
   await page.goto(`/#/p/${project.name}`);
   await expect(page.getByRole("heading", { name: "Scénáře", level: 1 })).toBeVisible();
   // server „restartovaný s jiným tokenem“: každý požadavek API vrací 401
+  // menu otevřít ještě před 401, jinak ho může odpojit obrazovka tokenu vyvolaná pollingem
+  await page.getByRole("button", { name: "Další akce" }).click();
   await page.route(/\/projects/, (r) => r.fulfill({ status: 401, contentType: "application/json", body: '{"error": "chybí nebo nesedí token"}' }));
-  await page.getByRole("button", { name: "Načíst znovu" }).click();
+  await page.getByRole("menuitem", { name: "Načíst znovu" }).click();
   await expect(page.getByRole("alert")).toHaveText("Token serveru nesedí — server vrátil 401.");
   expect(await page.evaluate(() => localStorage.getItem("agencast.token"))).toBe(TOKEN);
   await page.unroute(/\/projects/);

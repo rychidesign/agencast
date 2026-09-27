@@ -94,7 +94,7 @@ export function ConflictBar({ conflict, onDiff, onReload, onKeep }: {
   conflict: Conflict; onDiff: () => void; onReload: () => void; onKeep: () => void;
 }) {
   return (
-    <div role="alert" data-testid="conflict-bar" className="sticky top-[4.5rem] z-10 mx-auto mb-4 flex max-w-4xl flex-wrap items-center gap-2 rounded-[var(--radius-card)] bg-surface px-4 py-3 text-sm ring-1 ring-warning/60">
+    <div role="alert" data-testid="conflict-bar" className="sticky top-[calc(var(--page-header-h,0px)+0.5rem)] z-10 mx-auto mb-4 flex max-w-4xl flex-wrap items-center gap-2 rounded-[var(--radius-card)] bg-surface px-4 py-3 text-sm ring-1 ring-warning/60">
       <span className="flex-1 text-warning">{t(conflict.stale ? "conflict.stale" : "conflict.changed")}</span>
       <button type="button" className={btn.secondary} onClick={onDiff}>{t("conflict.diff")}</button>
       <button type="button" className={btn.secondary} onClick={onReload}>{t("conflict.reload")}</button>

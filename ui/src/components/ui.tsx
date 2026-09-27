@@ -9,8 +9,8 @@ import type { ErrorItem } from "../types";
 
 export const btn = {
   primary: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-ink hover:bg-fg disabled:opacity-50 pointer-coarse:h-11",
-  secondary: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface px-4 text-sm text-fg ring-1 ring-line hover:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11",
-  danger: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface px-4 text-sm text-error ring-1 ring-line hover:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11",
+  secondary: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface px-4 text-sm text-fg ring-1 ring-line focus-visible:ring-2 focus-visible:ring-accent hover:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11",
+  danger: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface px-4 text-sm text-error ring-1 ring-line focus-visible:ring-2 focus-visible:ring-accent hover:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11",
   ghost: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50 pointer-coarse:h-11",
   icon: "grid size-8 place-items-center rounded-[var(--radius-control)] text-fg-muted hover:bg-surface-hover hover:text-fg disabled:opacity-50 pointer-coarse:size-11",
 };

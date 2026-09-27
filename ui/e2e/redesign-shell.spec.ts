@@ -62,6 +62,8 @@ test.describe("pod 1024 px", () => {
     await page.goto(`/#/p/${project.name}`);
     const nav = page.getByRole("navigation", { name: "Části projektu" });
     await expect(nav).toBeVisible();
+    // hlavičku po načtení projektu přebírá záložka (nový uzel), měřit až po načtení karet
+    await expect(page.getByTestId("scenario-card-ukazka")).toBeVisible();
     const h1 = (await page.getByRole("heading", { name: "Scénáře", level: 1 }).boundingBox())!;
     const boxes = await Promise.all(NAV.map(async (n) => (await nav.getByRole("link", { name: n }).boundingBox())!));
     for (const b of boxes) {

@@ -1,6 +1,7 @@
 import { KeyRound } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { saveToken, useConnection } from "./api";
+import { PageHeader } from "./components/PageHeader";
 import { Shell } from "./components/Shell";
 import { btn } from "./components/ui";
 import { t } from "./i18n";
@@ -23,10 +24,7 @@ export function App() {
       {route.page === "scenario" && <ScenarioPage key={`${route.project}/${route.scenario}`} {...route} />}
       {route.page === "run" && <RunPage key={`${route.project}/${route.runId}`} {...route} />}
       {route.page === "notFound" && (
-        <div className="space-y-2">
-          <p>{t("app.notFound")}</p>
-          <a className="text-sm text-fg-secondary underline hover:text-fg" href="#/">{t("projects.title")}</a>
-        </div>
+        <PageHeader title={t("app.notFound")} actions={<a className={btn.secondary} href="#/">{t("projects.title")}</a>} />
       )}
     </Shell>
   );

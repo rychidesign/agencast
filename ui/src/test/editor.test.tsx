@@ -324,11 +324,13 @@ describe("formulář agenta", () => {
     location.hash = "#/p/p/agenti/publisher";
     await act(async () => void render(<App />));
     const ig = await screen.findByRole("checkbox", { name: /instagram/ });
-    // EditorBar (G1–G4): jedno Uložit nahoře, Přejmenovat a Smazat v menu ⋯
+    // EditorBar (G1–G4): jedno Uložit v hlavičce sekce, Přejmenovat a Smazat (poslední, červeně) v menu ⋯
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Agenti"]);
     expect(screen.getAllByRole("button", { name: "Uložit" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Smazat" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Akce pro publisher" }));
-    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Přejmenovat", "Smazat"]);
+    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Načíst znovu", "Přejmenovat", "Smazat"]);
+    expect(screen.getByRole("menuitem", { name: "Smazat" }).className).toContain("text-error");
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     const turns = screen.getByRole("spinbutton", { name: /max_turns/ });
     expect(turns.getAttribute("aria-required")).toBe("false");

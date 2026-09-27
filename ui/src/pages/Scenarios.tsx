@@ -9,6 +9,7 @@ import { btn, ErrorList, Menu, StatusChip } from "../components/ui";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
 import type { ErrorItem, Project, ScenarioSummary } from "../types";
+import type { SectionHeader } from "./Project";
 
 /** Příkaz spuštění z CLI; povinné vstupy bez `default` jako `-i jmeno=…`. */
 export function runCommand(root: string, s: ScenarioSummary): string {
@@ -19,7 +20,7 @@ export function runCommand(root: string, s: ScenarioSummary): string {
   return `agencast --project ${root} run ${s.name}${inputs}`;
 }
 
-export function ScenariosTab({ project, onChanged }: { project: Project; onChanged: () => void }) {
+export function ScenariosTab({ project, header, onChanged }: { project: Project; header: SectionHeader; onChanged: () => void }) {
   const [creating, setCreating] = useState(false);
   const [checked, setChecked] = useState<{ name: string; errors: ErrorItem[] | string }>();
   const base = `/projects/${enc(project.name)}`;
@@ -35,11 +36,11 @@ export function ScenariosTab({ project, onChanged }: { project: Project; onChang
   };
   return (
     <>
-      <div className="mb-4 flex justify-end">
+      {header({ actions: (
         <button type="button" onClick={() => setCreating(true)} className={btn.primary}>
           <Plus className="size-4" aria-hidden />{t("scenarios.new")}
         </button>
-      </div>
+      ) })}
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
         {!project.scenarios.length && <li>
           <button type="button" onClick={() => setCreating(true)}

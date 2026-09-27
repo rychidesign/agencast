@@ -5,36 +5,40 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
-## 0.16.0 (nevydáno)
+## 0.16.0 — 2026-09-28 (GUI podle návrhu V3: sidebar, jednotné hlavičky, tokeny)
 
-- Tokeny: Základní barvy, písma a rádiusy V3 jsou zavedené; Inter Variable
-  a JetBrains Mono se bundlují lokálně.
-- Shell: GUI má levý sidebar (značka, „← Projekty“, jméno projektu, navigace
+Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny.
+
+- Tokeny: barvy, písma a rádiusy V3 v `ui/src/index.css`; Inter Variable a
+  JetBrains Mono se bundlují lokálně (bez CDN). V `ui/src` nezůstaly třídy
+  `zinc-*` ani napevno zapsané barvy (výjimka: bílé pozadí iframe reportu).
+  `fg-muted` je `#8497B0`, aby i na `surface-hover` měl kontrast ≥ 4,5:1.
+- Shell: levý sidebar (značka, „← Projekty“, jméno projektu, navigace
   Scénáře · Agenti · Běhy · Skilly · Config, dole dnešní útrata s pruhem);
-  pod 1024 px se sbalí do horní lišty. Výpadek serveru hlásí dole v sidebaru
-  místo pruhu nahoře.
-- Shell: Jednotná hlavička stránek (`PageHeader`): titul, popis, nejvýš dvě
-  tlačítka a menu ⋯ „Další akce“. V editoru scénáře jsou Vrátit zpět,
-  Kopírovat příkaz spuštění, Běhy tohoto scénáře, Přejmenovat a Smazat v ⋯.
-- Shell: Projekt má v hlavičce název sekce a čip chyb; cesta, limity a útrata
-  z ní zmizely (útrata je v sidebaru). Karta projektu bez štítku „dostupný“,
-  přidání projektu je tlačítko v hlavičce (čárkovaná karta jen u prázdného
-  seznamu).
-- Shell: Seznam běhů bez sloupce run_id (je v `title` řádku a v detailu) a
-  bez řádku útraty; stav je ikona + text. Detail běhu: „← Běhy“, vstupy na
-  jeden řádek, „Běh skončil: …“ jen pro čtečku.
-- Panely: panel kroku, hlavičky, spuštění a kroku v běhu jsou v tokenech V3;
-  eyebrow „KROK n · typ“, titul = id kroku, typ kroku je první pole. Režim
-  běhu se volí kartou, limity jsou dvousloupcový přehled jen u ostrého běhu.
-  Záložky kroku v běhu jsou podtržené, obsah v blocích kódu.
-- Panely: editor agenta a skillu má jedno Uložit v hlavičce a Přejmenovat /
-  Smazat v menu ⋯; přepínač režimu a stav uložení jsou v druhém řádku.
-  Config ukazuje cestu projektu, jeden přepínač a sekce bez karet; alias má
-  meta „používá …“ / „nepoužívá se“.
-- Karty: Kroky, konektory, nabídka typů a karty scénářů používají tokeny V3;
-  přehled scénářů ukazuje jméno, popis a jediný čas v čipu posledního běhu.
-- Prvky: Tlačítka, formulářová pole, stavy, menu, modály a editory používají
-  tokeny V3; menu podporuje nebezpečné a zakázané položky.
+  pod 1024 px horní lišta. Výpadek serveru hlásí dole v sidebaru.
+- Hlavičky: každá stránka má jednu hlavičku (`PageHeader`): titul, popis,
+  nejvýš dvě tlačítka a menu ⋯ s ostatními akcemi (nebezpečné červeně a
+  poslední); přepínač Form | YAML / Markdown a stav uložení jsou v jejím
+  druhém řádku. Sekce projektu v ní nesou „+ Nový scénář“, „+ Nový agent“,
+  „+ Nový skill“ a Uložit; „Načíst znovu“ je v ⋯. Config má cestu projektu
+  jako popis. Neexistující adresa má stejnou hlavičku.
+- Projekty a projekt: karta projektu bez štítku „dostupný“, přidání projektu
+  je tlačítko v hlavičce (čárkovaná karta jen u prázdného seznamu); hlavička
+  projektu neukazuje cestu, limity ani útratu.
+- Karty: kroky, konektory, nabídka typů a karty scénářů v tokenech V3; karta
+  scénáře ukazuje jméno, popis, „N kroků · agenti“ a jediný čas v čipu
+  posledního běhu.
+- Panely: panel kroku, hlavičky, spuštění a kroku v běhu v tokenech V3
+  (eyebrow „KROK n · typ“, typ kroku jako první pole, režim běhu kartou).
+  V editoru scénáře je panel vedle sloupce karet od 1280 px, užší obrazovka
+  ho ukáže jako list dole se zavíracím křížkem.
+- Běhy: seznam bez sloupce run_id a bez řádku útraty, stav se v poznámce
+  neopakuje; detail běhu s „← Běhy“, vstupy na jeden řádek a „Běh skončil“
+  jen pro čtečku.
+- Formuláře: editor agenta a skillu i Config mají jedno Uložit; sekce bez
+  karet a technických štítků; alias modelu má meta „používá …“ /
+  „nepoužívá se“ a na úzké obrazovce se zalomí. Prvky (tlačítka, pole,
+  menu, modály, editory) v tokenech V3.
 
 ## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
 
