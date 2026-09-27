@@ -26,3 +26,6 @@ framework/src/agencast/ui/
 # E2E (ui/e2e)
 ui/e2e/test-results/
 ui/e2e/playwright-report/
+
+# Referenční exporty z návrhu (generují se z docs/ui/design/*.pen)
+docs/ui/design/ref/
