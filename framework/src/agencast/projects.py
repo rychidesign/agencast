@@ -258,7 +258,7 @@ def remove(name: str):
 
 
 def ensure(root: Path) -> str | None:
-    """Po úspěšném validate/run: projekt, který v registru není, přidá. Vrací hlášku pro stderr."""
+    """Po úspěšném run: projekt, který v registru není, přidá. Vrací hlášku pro stderr."""
     if any(Path(x["root"]) == root for x in _read()):
         return None
     return f"projekt {add(root)} přidán do registru ({registry_path()})"

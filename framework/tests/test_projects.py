@@ -73,14 +73,16 @@ def test_concurrent_registry_adds_keep_both(tmp_path):
     assert {x["name"] for x in api.projects()} == {"alfa", "beta"}
 
 
-def test_validate_adds_project_once(tmp_path, registry, capsys):
+def test_run_adds_project_once_validate_never(tmp_path, registry, capsys):
     root = tmp_path / "p"
     api.new_project(root)
     registry.unlink()
-    assert main(["--project", str(root), "validate", "ukazka", "--offline"]) == 0
+    assert main(["--project", str(root), "validate", "ukazka", "--offline"]) == 0  # 0.15.1: validate bez vedlejších účinků
+    assert not registry.exists() and "registru" not in capsys.readouterr().err
+    assert main(["--project", str(root), "run", "ukazka", "--fake"]) == 0
     assert f"projekt p přidán do registru ({registry})" in capsys.readouterr().err
     assert main(["--project", str(root), "run", "ukazka", "--fake"]) == 0
     assert "registru" not in capsys.readouterr().err
     registry.write_text(f"projects:\n  - {{name: p, root: {tmp_path / 'jiny'}}}\n")
-    assert main(["--project", str(root), "validate", "ukazka", "--offline"]) == 0  # kolize validate nezastaví
+    assert main(["--project", str(root), "run", "ukazka", "--fake"]) == 0  # kolize run nezastaví
     assert "config: projekt 'p' už v registru je" in capsys.readouterr().err

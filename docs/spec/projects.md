@@ -45,7 +45,7 @@ projects:
 | `agencast new project <cesta> [--name N]` | Založí projekt a hned ho zapíše. |
 | `agencast projects add <cesta> [--name N]` | Zapíše existující projekt. |
 | `agencast projects rm <jméno>` | Odebere položku; soubory projektu zůstávají. |
-| úspěšný `agencast validate` / `run` | Projekt, který v registru není, přidá pod výchozím jménem a jednou vypíše na stderr `projekt <name> přidán do registru (<cesta k projects.yaml>)`. |
+| úspěšný `agencast run` | Projekt, který v registru není, přidá pod výchozím jménem a jednou vypíše na stderr `projekt <name> přidán do registru (<cesta k projects.yaml>)`. `validate` registr nemění (od 0.15.1; do té doby přidával i on — kopie projektu v testech a worktree pak zůstávaly v registru). |
 
 Kolize jména → chyba `config` s nápovědou `agencast projects add <cesta>
 --name <jméno>`. U `validate`/`run` se chyba registru jen vypíše na

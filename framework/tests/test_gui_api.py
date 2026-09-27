@@ -237,3 +237,21 @@ def test_serves_gui_without_token_and_cors(registry_server, tmp_path, monkeypatc
         cors.close()
         srv.shutdown()
         srv.server_close()
+
+
+def test_projects_list_survives_root_without_workflows(registry_server):
+    """0.15.1: zapsaný kořen bez workflows/ (smazaný worktree) nesmí shodit GET /projects na 500."""
+    import yaml
+    from agencast.projects import registry_path
+    reg = registry_path()
+    data = yaml.safe_load(reg.read_text())
+    data["projects"].append({"name": "zmizely", "root": "/tmp/agencast-neexistuje-xyz"})
+    reg.write_text(yaml.safe_dump(data, allow_unicode=True))
+    _, client, _, _ = registry_server
+    r = client.get("/projects")
+    assert r.status_code == 200
+    items = {p["name"]: p for p in r.json()["projects"]}
+    assert items["alfa"]["available"] is True
+    z = items["zmizely"]
+    assert z["available"] is False and "workflows" in z["reason"]
+    assert z["spend_today_usd"] == 0 and z["last_run"] is None and z["counts"] == {"scenarios": 0, "agents": 0}

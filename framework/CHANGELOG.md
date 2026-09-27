@@ -5,6 +5,15 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
+
+- `GET /projects` už nespadne (500), když některý zapsaný kořen nemá
+  `workflows/`; položka je jen `available: false` s důvodem, jako když
+  chybí `config.yaml`. GUI ji nabídne k odebrání.
+- `agencast validate` už projekt do registru nepřidává, dělá to jen úspěšný
+  `run`. Validace z kopií projektu (testy, worktree workerů) tak
+  nezanechávají v registru cizí položky.
+
 ## 0.15.0 — 2026-09-27 (přejmenování scénáře a agenta)
 
 - Veřejné API, HTTP API, CLI i GUI umí přejmenovat scénář nebo agenta a

@@ -40,12 +40,16 @@ def _root(a) -> Path:
     return api.find_root(a.project)
 
 
-def _project(a, *, offline=False):
-    """Ověří scénář; s --fake se modely ověřují proti falešným katalogům."""
+def _project(a, *, offline=False, register=False):
+    """Ověří scénář; s --fake se modely ověřují proti falešným katalogům. `register` = úspěšný `run`
+    zapíše projekt do registru (validate od 0.15.1 ne: je bez vedlejších účinků, volají ho i nástroje
+    a testy z cizích kopií projektu); chyba registru příkaz nezastaví."""
     arg = getattr(a, "fake", None)
     fake = _fake(arg, {}) if arg is not None else None  # modely doplní api.load z config.yaml
     p = api.load(a.scenario, project_root=a.project, fake=fake, offline=offline)
-    try:  # úspěšný validate/run zapíše projekt do registru; chyba registru příkaz nezastaví
+    if not register:
+        return p, fake
+    try:
         msg = api.ensure_project(p.base)
     except ConfigErrors as e:
         msg = "\n".join(f"config: {x}" for x in e.errors)
@@ -72,7 +76,7 @@ def cmd_run(a) -> int:
             return _fail_config([f"vstup '{item}' má mít tvar klíč=hodnota"])
         raw[key] = value
     try:
-        p, fake = _project(a)
+        p, fake = _project(a, register=True)
         inputs = resolve_inputs(p.scenario, raw, from_text=True)
         if a.dry_run:
             rec = api.dry_run(p, inputs)

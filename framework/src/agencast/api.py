@@ -156,7 +156,7 @@ def add_project(path, name: str | None = None) -> str:
 
 
 def ensure_project(root) -> str | None:
-    """Po úspěšném validate/run: projekt mimo registr do něj přidá; vrací hlášku pro stderr (nebo None)."""
+    """Po úspěšném run (do 0.15.0 i validate): projekt mimo registr do něj přidá; vrací hlášku pro stderr (nebo None)."""
     return _projects.ensure(Path(root).resolve())
 
 

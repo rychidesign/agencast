@@ -404,8 +404,9 @@ class Projects:
                 wf = root / "workflows"
                 counts = {"scenarios": sum(1 for _ in (wf / "scenarios").glob("*.yaml")),
                           "agents": sum(1 for _ in (wf / "agents").glob("*.md"))}
-                projects.append(x | {"last_run": api.last_run(root) if x["available"] else None, "counts": counts,
-                                     "spend_today_usd": api.spend(root, today)["total_usd"]})
+                available = bool(x["available"])  # bez workflows/ by spend/last_run vyhodily ConfigErrors → 500 (0.15.1)
+                projects.append(x | {"last_run": api.last_run(root) if available else None, "counts": counts,
+                                     "spend_today_usd": api.spend(root, today)["total_usd"] if available else 0})
             return 200, {"projects": projects, "registry": str(registry_path()),
                     "projects_root": str(projects_root),
                     "writable": self.hook is None and api.registry_writable()}
