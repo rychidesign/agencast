@@ -416,5 +416,9 @@
   "code.readOnly": "Pouze čtení",
   "code.output": "Výstup",
   "code.position": "Řádek {line}, sloupec {column}",
-  "conflict.title": "Soubor se změnil"
+  "conflict.title": "Soubor se změnil",
+  "edit.addStep": "Přidat krok",
+  "picker.output": "výstup scénáře",
+  "runForm.limitsTitle": "Limity",
+  "code.readOnlyBadge": "Pouze čtení"
 }

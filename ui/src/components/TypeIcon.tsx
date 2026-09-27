@@ -16,23 +16,16 @@ export function TypeIcon({ type, className = "size-4" }: { type: StepType | null
   return <Icon className={className} strokeWidth={1.5} aria-hidden />;
 }
 
-/** Řetězec ikon typů na kartě scénáře: nejvýš 5, pak čip „+N“ (§2.2). */
+/** Řetězec ikon typů na kartě scénáře: prosté ikony 16 px bez koleček a šipek, nejvýš 5, pak „+N“ (fidelity §5). */
 export function IconChain({ types, max = 5 }: { types: (StepType | null)[]; max?: number }) {
   const shown = types.slice(0, max);
   const rest = types.length - shown.length;
   return (
-    <ol className="flex items-center gap-1.5" aria-label={t("scenario.chain", { types: types.join(", ") })}>
+    <ol className="flex h-8 items-center gap-3 text-type" aria-label={t("scenario.chain", { types: types.join(", ") })}>
       {shown.map((type, i) => (
-        <li key={i} className="flex items-center gap-1.5">
-          {i > 0 && <span className="text-fg-muted" aria-hidden>→</span>}
-          <span className="grid size-7 place-items-center rounded-full bg-nested text-type" title={type ?? "?"}>
-            <TypeIcon type={type} />
-          </span>
-        </li>
+        <li key={i} title={type ?? "?"}><TypeIcon type={type} /></li>
       ))}
-      {rest > 0 && (
-        <li className="rounded-full bg-nested px-2 py-1 text-xs text-fg-secondary">+{rest}</li>
-      )}
+      {rest > 0 && <li className="font-mono text-xs text-fg-muted">+{rest}</li>}
     </ol>
   );
 }

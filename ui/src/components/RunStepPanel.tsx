@@ -1,4 +1,5 @@
 // Panel kroku v prohlížeči běhu (§2.5): záložky podle typu kroku.
+import { ExternalLink, FileText } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { enc, getText, useApi } from "../api";
 import { formatCost, formatDuration } from "../format";
@@ -6,8 +7,8 @@ import { t } from "../i18n";
 import { setQuery } from "../router";
 import type { RunEvent, RunStep, RunStepDetail, StepType } from "../types";
 import { PanelShell } from "./StepPanel";
-import { FileViewer, runFilePath } from "./RunFiles";
-import { ErrorText, Loading, StatusBadge, type Status } from "./ui";
+import { CodeBlock, FileViewer, runFilePath } from "./RunFiles";
+import { ErrorText, Loading, StatusChip, type Status } from "./ui";
 
 type PanelTab = "prompt" | "response" | "output" | "calls" | "tools" | "image" | "files";
 
@@ -28,7 +29,7 @@ const TAB_KEY: Record<PanelTab, string> = {
 const Empty = () => <p className="text-sm text-fg-muted">{t("rpanel.empty")}</p>;
 
 /** Odpověď modelu: text zprávy, jinak celé JSON tělo. */
-function ResponseView({ path }: { path: string }) {
+function ResponseView({ path, name }: { path: string; name: string }) {
   const res = useApi<string>(path, undefined, getText);
   if (res.error) return <ErrorText error={res.error} />;
   if (res.data === undefined) return <Loading rows={3} />;
@@ -38,7 +39,7 @@ function ResponseView({ path }: { path: string }) {
     const msg = body?.choices?.[0]?.message;
     shown = typeof msg?.content === "string" && msg.content ? msg.content : JSON.stringify(msg ?? body, null, 2);
   } catch { /* není JSON — ukážeme text */ }
-  return <pre className="overflow-auto rounded-card bg-nested p-4 font-mono text-[13px] leading-5 whitespace-pre-wrap break-words">{shown}</pre>;
+  return <CodeBlock name={name} text={shown} badge={t("code.readOnlyBadge")} />;
 }
 
 /** Odpovědi Jev s pravděpodobností jako pruh (0–1), jiné hodnoty textem. */
@@ -135,12 +136,12 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
   const status: Status = rs ? (rs.continued ? "warning" : rs.status) : "none";
 
   let body: ReactNode = <Empty />;
-  if (active === "prompt" && files.includes(dir + "prompt.md")) body = <FileViewer project={project} runId={runId} path={dir + "prompt.md"} />;
+  if (active === "prompt" && files.includes(dir + "prompt.md")) body = <FileViewer project={project} runId={runId} path={dir + "prompt.md"} name="prompt.md" />;
   if (active === "output" && d?.output != null)
-    body = <pre className="overflow-auto rounded-card bg-nested p-4 font-mono text-[13px] leading-5 whitespace-pre-wrap break-words">{JSON.stringify(d.output, null, 2)}</pre>;
+    body = <CodeBlock name="output.json" text={JSON.stringify(d.output, null, 2)} badge={t("code.readOnlyBadge")} foot={`JSON · ${t("code.readOnly")}`} />;
   if (active === "response")
     body = kind === "jev" ? <JevAnswers answers={rs?.answers} />
-      : responses.length ? <ResponseView path={runFilePath(project, runId, responses[responses.length - 1])} /> : <Empty />;
+      : responses.length ? <ResponseView path={runFilePath(project, runId, responses.at(-1)!)} name={responses.at(-1)!.slice(dir.length)} /> : <Empty />;
   if (active === "calls") body = <Calls events={own} />;
   if (active === "tools") body = <Tools events={own} />;
   if (active === "image") {
@@ -149,10 +150,14 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
   }
   if (active === "files")
     body = files.length ? (
-      <ul className="space-y-1">
+      <ul className="space-y-2">
         {files.map((f) => (
           <li key={f}>
-            <button type="button" className="font-mono text-[13px] text-fg-secondary underline hover:text-fg" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>{f.slice(dir.length)}</button>
+            <button type="button" className="flex h-11 w-full items-center gap-3 rounded-control bg-nested px-3 text-left hover:bg-surface-hover" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>
+              <FileText className="size-4 shrink-0 text-fg-secondary" aria-hidden />
+              <span className="truncate font-mono text-[13px]">{f.slice(dir.length)}</span>
+              <ExternalLink className="size-4 shrink-0 text-fg-secondary" aria-hidden />
+            </button>
           </li>
         ))}
       </ul>
@@ -161,12 +166,13 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
   return (
     <PanelShell id="run-step-title" eyebrow={`${rs?.nn ? t("panel.step", { n: rs.nn }) : ""} · ${kind ?? "?"}`.replace(/^ · /, "")}
       title={<span className="font-mono">{path}</span>} onClose={onClose}>
-      <div className="space-y-4">
-        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
-          <StatusBadge status={status}>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</StatusBadge>
-          {rs?.duration_s != null && <span className="font-mono">{formatDuration(rs.duration_s)}</span>}
-          {rs?.cost_usd != null && <span className="font-mono">{formatCost(rs.cost_usd)} USD</span>}
-          {rs?.turns != null && <span className="font-mono text-fg-muted">{t("rpanel.turns", { turns: rs.turns, tools: rs.tool_calls ?? 0 })}</span>}
+      <div className="space-y-5">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-fg-muted">
+          <StatusChip status={status}>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</StatusChip>
+          {(rs?.duration_s != null || rs?.cost_usd != null) && (
+            <span className="tabular-nums">{[rs.duration_s != null && formatDuration(rs.duration_s), rs.cost_usd != null && `${formatCost(rs.cost_usd)} USD`].filter(Boolean).join(" · ")}</span>
+          )}
+          {rs?.turns != null && <span>{t("rpanel.turns", { turns: rs.turns, tools: rs.tool_calls ?? 0 })}</span>}
         </p>
         {rs?.status === "skipped" && (
           <p className="text-sm text-fg-secondary">
@@ -179,10 +185,10 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
         {detail.error && <ErrorText error={detail.error} />}
         {rs && (
           <>
-            <div role="tablist" aria-label={t("rpanel.tabs")} className="flex flex-wrap gap-x-4 border-b border-line">
+            <div role="tablist" aria-label={t("rpanel.tabs")} className="flex flex-wrap gap-x-6 border-b border-line">
                 {tabs.map((k) => (
                   <button key={k} type="button" role="tab" aria-selected={k === active} onClick={() => setTab(k)}
-                    className={`-mb-px border-b-2 py-2 text-sm pointer-coarse:py-3 ${k === active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg"}`}>
+                    className={`-mb-px h-10 border-b-2 text-sm font-medium pointer-coarse:h-11 ${k === active ? "border-accent text-fg" : "border-transparent text-fg-secondary hover:text-fg"}`}>
                     {t(TAB_KEY[k])}{k === "calls" ? ` (${rs.calls?.length ?? 0})` : ""}
                   </button>
                 ))}

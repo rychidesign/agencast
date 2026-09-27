@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { t } from "../i18n";
 import type { StepType } from "../types";
+import { btn } from "./ui";
 
 /** Skupiny oddělené hairline; `output` se nenabízí (jde jen na konec hlavního seznamu). */
 export const PICKER_GROUPS: StepType[][] = [["ask", "task", "jev", "image"], ["parallel", "switch", "call", "fail"], ["set"]];
@@ -60,7 +61,7 @@ export function TypePicker({ onPick, onClose, paste }: {
   return (
     <div ref={ref} role="listbox" tabIndex={-1} aria-label={t("picker.label")} onKeyDown={onKey}
       aria-activedescendant={items[active] ? `${id}-${items[active]}` : undefined}
-      className={`absolute top-1/2 z-30 w-72 -translate-y-1/2 rounded-card bg-surface p-1 text-fg ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
+      className={`absolute top-1/2 z-30 w-80 -translate-y-1/2 rounded-card bg-surface p-2 text-fg shadow-2xl ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
       {filter && <div className="px-3 py-1 font-mono text-xs text-fg-muted" aria-live="polite">{t("picker.filter", { filter })}</div>}
       {items.map((k, i) => {
         const g = k === "paste" ? -2 : PICKER_GROUPS.findIndex((gr) => gr.includes(k));
@@ -71,12 +72,12 @@ export function TypePicker({ onPick, onClose, paste }: {
             {line && <div className="mx-2 my-1 h-px bg-line" aria-hidden />}
             <div id={`${id}-${k}`} role="option" aria-selected={i === active}
               onMouseDown={(e) => (e.preventDefault(), onPick(k))} onMouseEnter={() => setActive(i)}
-              className={`flex h-9 cursor-pointer items-center gap-3 rounded-control px-3 text-sm pointer-coarse:h-11 ${i === active ? "bg-surface-hover" : ""}`}>
+              className={`flex h-10 cursor-pointer items-center gap-3 rounded-control px-3 text-[13px] pointer-coarse:h-11 ${i === active ? "bg-surface-active" : ""}`}>
               {k === "paste" ? (
                 <span>{t("picker.paste", { id: paste! })}</span>
               ) : (
                 <>
-                  <span className="w-16 font-mono text-fg">{k}</span>
+                  <span className="w-16 shrink-0 font-mono text-fg">{k}</span>
                   <span className="truncate text-fg-muted">{t(`picker.${k}`)}</span>
                 </>
               )}
@@ -84,14 +85,15 @@ export function TypePicker({ onPick, onClose, paste }: {
           </div>
         );
       })}
-      {!items.length && <div className="px-3 py-2 text-sm text-fg-muted">{t("picker.none")}</div>}
+      {!items.length && <div className="px-3 py-2 text-[13px] text-fg-muted">{t("picker.none")}</div>}
     </div>
   );
 }
 
-/** `AddButton` (§3): (+) 28 px; mezi kartami se ukazuje při hoveru/fokusu místo šipky, na konci trvale. */
-export function AddButton({ label, onPick, paste, always = false, testid }: {
-  label: string; onPick: (p: Pick) => void; paste?: string; always?: boolean; testid?: string;
+/** `AddButton` (§3): (+) 28 px `control`; mezi kartami se ukazuje při hoveru/fokusu místo šipky, na konci trvale.
+ *  S `text` je to sekundární tlačítko „+ Přidat krok“ pod hlavním sloupcem (fidelity §6). */
+export function AddButton({ label, onPick, paste, always = false, testid, text }: {
+  label: string; onPick: (p: Pick) => void; paste?: string; always?: boolean; testid?: string; text?: string;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -103,8 +105,9 @@ export function AddButton({ label, onPick, paste, always = false, testid }: {
     <div className="relative inline-flex">
       <button ref={btnRef} type="button" aria-label={label} title={label} aria-haspopup="listbox" aria-expanded={open} data-testid={testid}
         onClick={() => setOpen(!open)}
-        className={`grid size-7 place-items-center rounded-full bg-nested text-fg-secondary ring-1 ring-line hover:bg-surface-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-accent pointer-coarse:size-11 ${paste ? "ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
-        <Plus className="size-4" aria-hidden />
+        className={text ? `${btn.secondary} ${paste ? "ring-1 ring-accent" : ""}`
+          : `grid size-7 place-items-center rounded-full bg-control text-fg hover:bg-control-hover focus-visible:ring-2 focus-visible:ring-accent pointer-coarse:size-11 ${paste ? "ring-1 ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
+        <Plus className="size-4" aria-hidden />{text}
       </button>
       {open && <TypePicker paste={paste} onClose={close} onPick={(p) => (setOpen(false), onPick(p))} />}
     </div>

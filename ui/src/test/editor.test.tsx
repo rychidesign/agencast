@@ -204,7 +204,7 @@ describe("editor scénáře", () => {
     fireEvent.change(screen.getByRole("combobox", { name: /Prompt/ }), { target: { value: "jinak" } });
     await save();
     expect(screen.getByText(/neprošla kontrolou \(1 chyba\)/)).toBeTruthy();
-    const card = screen.getByRole("button", { name: /Krok 1: ask copy/ }).parentElement!;
+    const card = screen.getByRole("button", { name: /Krok 1: ask copy/ }).closest("li")!;
     expect(card.textContent).toContain("ops[0] update_step");
     expect(screen.getByRole("complementary").textContent).toContain("ops[0] update_step");
   });

@@ -57,9 +57,9 @@ export function closeOnEsc(selected: string | undefined) {
 
 export function PanelSlot({ children }: { children: ReactNode }) {
   return (
-    // Vedle sloupce až od 1280 px (sidebar 232 + sloupec + panel 400); užší = přes sloupec dole, vždy se zavíracím křížkem.
+    // Vedle sloupce až od 1280 px (sidebar 232 + sloupec 640 + mezera 32 + panel 420, fidelity §6); užší = přes sloupec dole, vždy se zavíracím křížkem.
     // List (z-40) leží nad přilepenou hlavičkou (z-30); panel vedle sloupce (z-20) pod ní, aby ho menu ⋯ z hlavičky překrylo.
-    <div className="fixed inset-x-4 bottom-4 z-40 max-h-[70vh] overflow-auto rounded-panel shadow-2xl lg:left-[calc(232px+1rem)] xl:sticky xl:top-[calc(var(--page-header-h,5rem)+1rem)] xl:z-20 xl:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] xl:w-[400px] xl:shrink-0 xl:self-start xl:shadow-none">
+    <div className="fixed inset-x-4 bottom-4 z-40 max-h-[70vh] overflow-auto rounded-panel shadow-2xl lg:left-[calc(232px+1rem)] xl:sticky xl:top-[calc(var(--page-header-h,5rem)+1rem)] xl:z-20 xl:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] xl:w-[420px] xl:shrink-0 xl:self-start xl:shadow-none">
       {children}
     </div>
   );
@@ -336,8 +336,8 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
           ) : text.loadError ? <ErrorText error={text.loadError} /> : <Loading rows={8} />
         )}
         {work && !yaml && (
-          <div className="flex justify-center gap-6 pt-6">
-            <section className="w-full max-w-[640px] pr-20 pointer-coarse:pr-28" aria-label={t("step.list")} onKeyDown={onColumnKey}>
+          <div className="flex justify-center gap-8 pt-6">
+            <section className="w-full max-w-[640px] max-sm:pr-9 pointer-coarse:max-w-[688px] pointer-coarse:pr-12" aria-label={t("step.list")} onKeyDown={onColumnKey}>
               <HeaderCard inputs={work.header.inputs} outputs={work.header.outputs} selected={selected === HEADER_KEY} onSelect={() => select(HEADER_KEY)} />
               <Connector ctx={ctx} at={{ list: { parent: null, key: [] } }} />
               <StepList steps={steps} ctx={ctx} />
