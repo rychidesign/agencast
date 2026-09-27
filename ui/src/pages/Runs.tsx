@@ -1,29 +1,37 @@
 // §2.6 Seznam běhů s filtry; obnovuje se každých 5 s, dokud něco běží nebo čeká (§4.8).
-// Scénář filtruje server (`?scenario=`), stav klient; starší stránky bere přes `before`.
+// Scénář filtruje server (`?scenario=`), stav a hledání klient; starší stránky bere přes `before`.
+// Fidelity §8: filtrační karta, záhlaví sloupců, řádky jako karty 80 px.
+import { Activity, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { enc, useApi } from "../api";
 import { inputCls } from "../components/form";
 import { RUN_STATUS } from "../components/RunBadge";
-import { btn, EmptyState, ErrorText, Skeleton, StatusBadge, StatusIcon } from "../components/ui";
+import { btn, EmptyState, ErrorText, Skeleton, StatusIcon } from "../components/ui";
 import {
-  failReason, formatCost, formatDuration, formatWhen, isLive, runScenario, runStartedAt, utcTitle,
+  failReason, formatCost, formatDuration, formatElapsed, formatWhen, isLive, runScenario, runStartedAt, utcTitle,
 } from "../format";
 import { t } from "../i18n";
 import { href, setQuery, useLocation } from "../router";
 import type { Project, RunListItem, RunState } from "../types";
+import type { SectionHeader } from "./Project";
 
 export const RUNS_POLL_MS = 5000;
 export const RUNS_PAGE = 50;
 
-const selectCls = `${inputCls} w-auto!`;
-
 const FILTERS: RunState[] = ["running", "queued", "interrupted", "succeeded", "failed", "dry_run"];
 
-export function RunsTab({ project }: { project: string }) {
+/** Barva textu stavu v řádku (stav je vždy i slovem, barva jen zvýrazní). */
+const STATE_COLOR: Record<RunState, string> = {
+  running: "text-running", succeeded: "text-success", failed: "text-error", interrupted: "text-warning",
+  cancelled: "text-warning", queued: "text-fg-secondary", dry_run: "text-fg-secondary",
+};
+
+export function RunsTab({ project, header }: { project: string; header: SectionHeader }) {
   const { query } = useLocation();
   const base = `/projects/${enc(project)}`;
   const scenario = query.get("scenar") ?? "";
   const state = query.get("stav") ?? "";
+  const [search, setSearch] = useState("");
   const [before, setBefore] = useState<string>();
   const [olderRuns, setOlderRuns] = useState<RunListItem[]>([]);
   useEffect(() => { setBefore(undefined); setOlderRuns([]); }, [base, scenario]);
@@ -44,56 +52,68 @@ export function RunsTab({ project }: { project: string }) {
   const nextBefore = before ? page.data?.next_before : runs.data?.next_before;
   const scenarios = [...new Set([...(detail.data?.scenarios.map((s) => s.name) ?? []), ...all.map(runScenario), ...(scenario ? [scenario] : [])])]
     .filter(Boolean).sort();
-  const shown = all.filter((r) => !state || r.state === state);
+  const needle = search.trim().toLowerCase();
+  const shown = all.filter((r) => (!state || r.state === state)
+    && (!needle || runScenario(r).toLowerCase().includes(needle) || r.run_id.toLowerCase().includes(needle)));
   const nRunning = all.filter((r) => r.state === "running").length;
   const nQueued = all.filter((r) => r.state === "queued").length;
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        <label className="inline-flex items-center gap-2 text-fg-secondary">
-          {t("runs.filter.scenario")}
-          <select value={scenario} onChange={(e) => setQuery({ scenar: e.target.value || undefined })}
-            className={selectCls}>
-            <option value="">{t("runs.filter.all")}</option>
-            {scenarios.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </label>
-        <label className="inline-flex items-center gap-2 text-fg-secondary">
-          {t("runs.filter.state")}
-          <select value={state} onChange={(e) => setQuery({ stav: e.target.value || undefined })}
-            className={selectCls}>
-            <option value="">{t("runs.filter.all")}</option>
+    <>
+      {header({
+        meta: (nRunning > 0 || nQueued > 0) && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-nested px-3 py-1.5 font-mono text-xs text-running" aria-live="polite">
+            <Activity className="size-3.5" aria-hidden />{t("runs.live", { running: nRunning, queued: nQueued })}
+          </span>
+        ),
+      })}
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2.5 rounded-panel bg-surface p-3 ring-1 ring-line">
+          <div className="relative min-w-[min(16rem,100%)] flex-[2]">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-muted" aria-hidden />
+            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t("runs.search")}
+              placeholder={t("runs.search")} className={`${inputCls} pl-10`} />
+          </div>
+          <select value={state} onChange={(e) => setQuery({ stav: e.target.value || undefined })} aria-label={t("runs.filter.stateLabel")}
+            className={`${inputCls} min-w-[min(11rem,100%)] flex-1`}>
+            <option value="">{t("runs.filter.allStates")}</option>
             {FILTERS.map((f) => <option key={f} value={f}>{t(`run.state.${f}`)}</option>)}
           </select>
-        </label>
-        {(nRunning > 0 || nQueued > 0) && (
-          <span className="ml-auto inline-flex items-center gap-1.5" aria-live="polite">
-            <StatusIcon status="running" label="" />
-            {t("runs.live", { running: nRunning, queued: nQueued })}
-          </span>
+          <select value={scenario} onChange={(e) => setQuery({ scenar: e.target.value || undefined })} aria-label={t("runs.filter.scenarioLabel")}
+            className={`${inputCls} min-w-[min(11rem,100%)] flex-1`}>
+            <option value="">{t("runs.filter.allScenarios")}</option>
+            {scenarios.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        {runs.error && runs.error.status !== 0 && <ErrorText error={runs.error} />}
+        {runs.loading && !runs.data && <div role="status" aria-label={t("common.loading")}><Skeleton className="h-[264px] rounded-card" /></div>}
+        {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scénář>"}`} />}
+        {shown.length > 0 && (
+          <div className="relative -my-2 overflow-x-auto" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
+            <table className="w-full min-w-[46rem] border-separate border-spacing-y-2 text-sm">
+              <caption className="sr-only">{t("project.tab.behy")}</caption>
+              <thead>
+                <tr className="font-mono text-[11px] tracking-[0.08em] text-fg-muted uppercase [&>th]:pb-1 [&>th]:font-normal">
+                  <th className="pr-4 pl-[58px] text-left">{t("runs.col.scenarioId")}</th>
+                  <th className="pr-4 text-left">{t("runs.col.state")}</th>
+                  <th className="pr-4 text-left">{t("runs.col.when")}</th>
+                  <th className="pr-4 text-right">{t("runs.col.duration")}</th>
+                  <th className="pr-4 text-right">{t("runs.col.price")}</th>
+                  <th><span className="sr-only">{t("common.open")}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((r) => <RunRow key={r.run_id} project={project} run={r} />)}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {nextBefore && (
+          <button type="button" className={btn.secondary} disabled={page.loading} onClick={() => setBefore(nextBefore)}>
+            <ChevronDown className="size-4" aria-hidden />{t("runs.more")}
+          </button>
         )}
       </div>
-      {runs.error && runs.error.status !== 0 && <ErrorText error={runs.error} />}
-      {runs.loading && !runs.data && <div role="status" aria-label={t("common.loading")}><Skeleton className="h-[220px] rounded-card" /></div>}
-      {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scénář>"}`} />}
-      {shown.length > 0 && (
-        <div className="overflow-x-auto rounded-card bg-surface" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
-        <table className="w-full min-w-[40rem] text-sm">
-          <caption className="sr-only">{t("project.tab.behy")}</caption>
-          <thead className="sr-only">
-            <tr><th>{t("runs.col.state")}</th><th>{t("runs.col.scenario")}</th><th>{t("runs.col.when")}</th>
-              <th>{t("runs.col.duration")}</th><th>{t("runs.col.cost")}</th><th>{t("runs.col.note")}</th></tr>
-          </thead>
-          <tbody>
-            {shown.map((r) => <RunRow key={r.run_id} project={project} run={r} />)}
-          </tbody>
-        </table>
-        </div>
-      )}
-      {nextBefore && (
-        <button type="button" className={btn.secondary} disabled={page.loading} onClick={() => setBefore(nextBefore)}>{t("runs.more")}</button>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -107,21 +127,29 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
       : t("run.state.running");
   else if (state === "queued") what = t("runs.queued", { n: r.queue_position ?? "?" });
   else what = formatWhen(when);
-  const note = [
-    state === "failed" ? failReason(r.status) : "",
-    r.fake ? t("run.fake") : "",
-    r.callback ?? "",
-  ].filter(Boolean).join(" · ");
+  const reason = state === "failed" ? failReason(r.status) : "";
+  const note = [r.fake ? t("run.fake") : "", r.callback ?? ""].filter(Boolean).join(" · ");
+  // běžící běh ukazuje čas od startu; obnoví se s pollingem seznamu (5 s)
+  const duration = r.duration_s != null ? formatDuration(r.duration_s) : state === "running" ? formatElapsed(when) : "–";
   return (
-    <tr data-testid={`run-row-${r.run_id}`} title={r.run_id} className="relative border-t border-line first:border-t-0 hover:bg-surface-hover">
-      <td className="py-2.5 pr-4 pl-4 whitespace-nowrap"><StatusBadge status={RUN_STATUS[state]}>{t(`run.state.${state}`)}</StatusBadge></td>
-      <td className="pr-4 font-mono text-[13px]">
-        <a href={href(project, "behy", r.run_id)} className="after:absolute after:inset-0">{runScenario(r) || r.run_id}</a>
+    <tr data-testid={`run-row-${r.run_id}`} title={r.run_id}
+      className="relative h-20 [&>td]:bg-surface hover:[&>td]:bg-surface-hover">
+      <td className="rounded-l-card py-3 pr-4 pl-5">
+        <div className="flex items-center gap-[18px]">
+          <StatusIcon status={RUN_STATUS[state]} label="" className="size-5" />
+          <div className="min-w-0">
+            <a href={href(project, "behy", r.run_id)} className="block truncate text-[15px] font-semibold text-fg after:absolute after:inset-0">
+              {runScenario(r) || r.run_id}
+            </a>
+            <p className="mt-1 truncate font-mono text-xs text-fg-muted">{r.run_id}{note && ` · ${note}`}</p>
+          </div>
+        </div>
       </td>
-      <td className="pr-4 whitespace-nowrap text-fg-secondary" title={utcTitle(when)}>{what}</td>
-      <td className="pr-4 text-right font-mono text-[13px] whitespace-nowrap">{r.duration_s != null ? formatDuration(r.duration_s) : ""}</td>
-      <td className="pr-4 text-right font-mono text-[13px] whitespace-nowrap">{r.cost_usd != null ? formatCost(r.cost_usd) : ""}</td>
-      <td className="pr-4 text-fg-muted">{note}</td>
+      <td className={`pr-4 whitespace-nowrap ${STATE_COLOR[state]}`}>{reason ? t("run.failedIn", { reason }) : t(`run.state.${state}`)}</td>
+      <td className="pr-4 font-mono text-xs whitespace-nowrap text-fg-secondary" title={utcTitle(when)}>{what}</td>
+      <td className="pr-4 text-right font-mono text-xs whitespace-nowrap text-fg-secondary">{duration}</td>
+      <td className="pr-4 text-right font-mono text-xs whitespace-nowrap text-fg-secondary">{r.cost_usd != null ? `${formatCost(r.cost_usd)} USD` : "–"}</td>
+      <td className="w-10 rounded-r-card pr-5"><ChevronRight className="size-4 text-fg-secondary" aria-hidden /></td>
     </tr>
   );
 }

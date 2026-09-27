@@ -55,7 +55,7 @@ test("C6 spuštění běhu s formulářem vstupů (dry-run, ostrý, živý)", as
   await panel.getByRole("radio", { name: /Ostrý běh/ }).check();
   const limits = panel.getByRole("definition");
   await expect(panel.getByLabel("Limity běhu")).toBeVisible();
-  await expect(limits).toHaveText(["1,00 USD", "0,30 USD", "1h", "0 USD"]);
+  await expect(limits).toHaveText(["1,00 USD", "0,30 USD", "1h", "0,0000 USD"]); // formatCost: čtyři místa (fidelity §8)
   await expect(panel.getByText("Máš neuložené změny — běh použije verzi na disku.")).toBeVisible();
   const live = page.waitForResponse((r) => r.url().endsWith(`/projects/${project.name}/runs`) && r.request().method() === "POST");
   page.once("dialog", (d) => void d.accept());
@@ -102,10 +102,11 @@ test("C7 čtení výsledku a ceny", async ({ page, project, server }) => {
   await page.goto(`/#/p/${project.name}/behy/${id}`);
   const h1 = page.getByRole("heading", { level: 1 });
   await expect(h1.getByRole("link", { name: "ukazka" })).toBeVisible();
-  await expect(h1).toContainText(id);
+  await expect(page.locator("main header").getByText(id, { exact: true })).toBeVisible(); // run_id pod titulem
+  await expect(page.getByRole("link", { name: "Otevřít scénář" })).toHaveAttribute("href", `#/p/${project.name}/scenare/ukazka`);
   await expect(page.getByTestId("run-state")).toHaveText("úspěch");
   await expect(page.getByTestId("run-duration")).toHaveText(/^\d+,\d\ss$/); // mezi číslem a jednotkou je NBSP
-  await expect(page.getByTestId("run-cost")).toHaveText(/^(0|\d+,\d{4,}) USD$/);
+  await expect(page.getByTestId("run-cost")).toHaveText(/^\d+,\d{4} USD$/);
   await expect(page.getByText(/Vstupy\s*tema = „nová káva“/)).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Části běhu" }).getByRole("link")).toHaveText(["Kroky", "Souhrn", "Report", "Soubory"]);
 
@@ -144,9 +145,15 @@ test("C7 čtení výsledku a ceny", async ({ page, project, server }) => {
 
   await page.getByRole("link", { name: "Běhy", exact: true }).click();
   const req = page.waitForRequest((r) => r.url().includes("/runs?scenario=ukazka&limit=50"));
-  await page.getByRole("combobox", { name: "scénář:" }).selectOption("ukazka");
+  await page.getByRole("combobox", { name: "Filtr scénáře" }).selectOption("ukazka");
   await req;
-  await page.getByRole("combobox", { name: "stav:" }).selectOption({ label: "úspěch" });
+  await page.getByRole("combobox", { name: "Filtr stavu" }).selectOption({ label: "úspěch" });
+  await expect(page.getByTestId(`run-row-${id}`)).toBeVisible();
+  await expect(page.getByTestId(`run-row-${id}`)).toContainText(/\d+,\d{4} USD/);
+  // hledání filtruje klient podle jména scénáře i run_id
+  await page.getByRole("searchbox", { name: "Hledat scénář nebo ID běhu…" }).fill("nic-takoveho");
+  await expect(page.getByTestId(`run-row-${id}`)).toBeHidden();
+  await page.getByRole("searchbox", { name: "Hledat scénář nebo ID běhu…" }).fill(id.slice(-4));
   await expect(page.getByTestId(`run-row-${id}`)).toBeVisible();
   await expect(page.getByRole("button", { name: "Načíst další" })).toBeHidden();
 });
@@ -173,7 +180,8 @@ test("C8 chybný běh", async ({ page, project, server }) => {
   await expect(page.getByText("Zastaveno naschvál").first()).toBeVisible();
 
   await page.goto(`/#/p/${project.name}/behy`);
-  await expect(page.getByTestId(`run-row-${id}`)).toContainText("fail v stop · falešný běh");
+  await expect(page.getByTestId(`run-row-${id}`)).toContainText("chyba: fail v stop");
+  await expect(page.getByTestId(`run-row-${id}`)).toContainText(`${id} · falešný běh`);
   await page.goto(`/#/p/${project.name}`);
   await expect(page.getByTestId("scenario-card-chyba")).toContainText("chyba");
   const dir = path.join(project.runsDir, id);
@@ -206,9 +214,9 @@ test("N5 přerušený běh (proces zabitý uprostřed kroku)", async ({ page, pr
   const polls = await countRequests(page, (u) => u.includes(`/runs/${id}`), () => page.waitForTimeout(6_000));
   expect(polls).toBe(0);
   await page.goto(`/#/p/${project.name}/behy`);
-  // stav je jen ve sloupci stavu, poznámka ho neopakuje (vlna C)
-  await expect(page.getByTestId(`run-row-${id}`).locator("td").first()).toHaveText("přerušen");
-  await expect(page.getByTestId(`run-row-${id}`).locator("td").last()).toHaveText("falešný běh");
+  // stav je jen ve sloupci stavu, poznámka pod run_id ho neopakuje (vlna C, fidelity §8)
+  await expect(page.getByTestId(`run-row-${id}`).locator("td").nth(1)).toHaveText("přerušen");
+  await expect(page.getByTestId(`run-row-${id}`).locator("td").first()).toContainText(`${id} · falešný běh`);
 });
 
 test("N5b přerušený běh pod serve (restart serve)", async ({ page, project, server }) => {

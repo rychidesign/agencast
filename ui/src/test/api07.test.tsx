@@ -152,7 +152,7 @@ describe("karty bez N+1", () => {
       if (url === "/projects/p/spend") return { day: "x", total_usd: 0, runs: [] };
     });
     await act(async () => render(<ProjectsPage />));
-    expect(screen.getByText("Registr /home/x/.config/agencast/projects.yaml")).toBeTruthy();
+    expect(screen.getByText("/home/x/.config/agencast/projects.yaml")).toBeTruthy();
     expect(screen.getByText("chybí /q/workflows/config.yaml")).toBeTruthy();
     expect(screen.getByText("běží", { selector: ".sr-only", exact: false })).toBeTruthy();
     expect(urls()).toEqual(["/projects"]);
@@ -179,11 +179,11 @@ describe("seznam běhů", () => {
       if (url === "/projects/p/spend") return { day: "x", total_usd: 0, runs: [] };
     });
     location.hash = "#/p/p/behy?scenar=ig-post";
-    await act(async () => render(<RunsTab project="p" />));
+    await act(async () => render(<RunsTab project="p" header={(x) => x?.meta} />));
     expect(urls()).toContain(`/projects/p/runs?scenario=ig-post&limit=${RUNS_PAGE}`);
     expect(screen.getByText("ve frontě (2.)")).toBeTruthy();
     expect(screen.getAllByText("přerušen").length).toBeGreaterThan(0);
-    expect(screen.getByText("falešný běh")).toBeTruthy();
+    expect(screen.getByText(/ · falešný běh$/)).toBeTruthy();
     expect(screen.getByRole("option", { name: "jiny" })).toBeTruthy();
 
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Načíst další" })));

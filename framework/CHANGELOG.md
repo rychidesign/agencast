@@ -7,6 +7,19 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
 
 ## 0.16.1 (nevydáno)
 
+- Věrnost: sidebar podle návrhu V3 (232 px, značka 25/22 px, „← Projekty“ jako řádek 44 px s
+  oddělovačem, položky 44 px s mezerou 6, aktivní `surface-active`, pruh útraty na `track`).
+- Věrnost: hlavička stránky s H1 32 px semibold, popisem 14 a meta řádkem mono 13; ⋯ v hlavičce jako
+  ikonové tlačítko `bg-control` 48 × 48 (editor 40 × 40); obsah max. 1176 px, pod hlavičkou 24 px.
+- Věrnost: Projekty mají popis, cestu registru pod ním a ikonové „Načíst znovu“; karta projektu radius 16,
+  padding 24, název 20 px, čipy počtů a útrata „dnes 1,20 USD“ (dvě desetinná místa).
+- Věrnost: Běhy s filtrační kartou (hledání podle scénáře a run_id, stav, scénář), záhlavím sloupců a řádky
+  jako karty 80 px s run_id pod jménem, stavem v barvě a „Načíst další“ s ikonou; čip „N běží · M ve frontě“
+  v hlavičce. Cena běhu a kroku vždy se čtyřmi desetinnými místy („0,0000 USD“, ne „0“ ani „0,000013128“).
+- Věrnost: detail běhu s titulem mono 32 a ↗, run_id pod ním, čipem stavu, „32,4 s · 0,0812 USD“,
+  tlačítkem „Otevřít scénář“, kartou VSTUPY a záložkami přes celou šířku se „sledovat běh“ vpravo.
+- Věrnost: editor má Spustit jako primární a Uložit jako sekundární tlačítko s ikonou; token serveru a
+  neexistující adresa (404) podle návrhu (karta 420 px, přepínač zobrazení tokenu; velké „404“).
 - Věrnost: Agenti a Skilly mají seznam 200 px s kartami položek a editor v kartě; skilly a MCP
   servery agenta jsou řádky s checkboxy, instrukce mají delší Markdown pole a použití tvoří odkazy.
 - Věrnost: Config má formulář v kartě, sekce ve dvojicích sloupců, vnořené karty aliasů,

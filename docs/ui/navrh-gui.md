@@ -31,7 +31,7 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
 ### 1.1 Rozložení (shell, redesign V3 0.16.0)
 
 ```
-┌ sidebar 232 px ───┐┌ hlavní oblast (canvas, obsah max. 1200 px) ──────────────────────────────┐
+┌ sidebar 232 px ───┐┌ hlavní oblast (canvas, obsah max. 1176 px, padding 32) ──────────────────┐
 │ ◈ agencast        ││ ← Scénáře                                                                │
 │ ← Projekty        ││ ig-post  ✗ 2 chyby                             [▷ Spustit] [Uložit]  ⋯   │
 │ ───────────────── ││ Návrh IG příspěvku ke schválení                                          │
@@ -48,11 +48,17 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
 └───────────────────┘└──────────────────────────────────────────────────────────────────────────┘
 ```
 - `Shell` (`ui/src/components/Shell.tsx`): sidebar `bg-sidebar` s hairline vpravo, hlavní oblast `bg-canvas`,
-  obsah max. 1200 px. Token screen je bez shellu.
+  obsah max. 1176 px s paddingem 32 px (fidelity §1). Token screen je bez shellu.
+- **Rozměry sidebaru** (fidelity §3, `V3 / ProjectSidebar`): šířka 232, padding 28 20, mezera 22. Značka
+  `Layers2` 25 px `text-type` + „agencast“ 22 px semibold (`letter-spacing -0.7`). „← Projekty“ je řádek
+  44 px (ikona 16, text 14 medium `fg-secondary`), pod ním oddělovač 1 px `line`, jméno projektu 14 semibold
+  a položky navigace 44 px, radius 8, mezera 6, padding 0 14, ikona 16 `fg-muted`, text 14 medium
+  `fg-secondary`; aktivní `bg-surface-active text-fg` s ikonou `fg`. Útrata: popisek 12 `fg-muted`, částka
+  mono 12 medium, pruh 3 px na dráze `bg-track`.
 - **Sidebar** nese kontext projektu (G5): značka (odkaz na Projekty), „← Projekty“, jméno projektu, navigace
   Scénáře · Agenti · Běhy · Skilly · Config (`nav` „Části projektu“, aktivní položka `aria-current="page"`;
   editor scénáře patří pod Scénáře, detail běhu pod Běhy) a dole „Dnes utraceno 1,20 / 5,00 USD“ s pruhem
-  (zelený, po překročení denního limitu červený; bez limitu jen částka). Na stránce Projekty jen značka.
+  (zelený, po překročení denního limitu červený; bez limitu jen částka). Na stránce Projekty jen značka, na neexistující adrese značka a „← Projekty“.
   Řádek „server dostupný“ není (G6); při výpadku se dole objeví „Server agencast neodpovídá (…), zkouším
   znovu…“ (`role="alert"`, `data-testid="server-bar"`).
 - **Pod 1024 px** se sidebar sbalí do horní lišty: značka + jméno projektu, pod nimi navigace vodorovně
@@ -60,13 +66,16 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
 - **Responzivita obsahu** (ověřeno při 768 / 1024 / 1440 px): editor scénáře má panel vedle sloupce karet
   až od 1280 px (sidebar 232 + sloupec + panel 400); užší obrazovka ukáže panel jako list přes sloupec dole
   (max. 70 % výšky, od 1024 px odsazený od sidebaru), vždy se zavíracím křížkem a Esc. Agenti a Skilly mají
-  seznam vedle editoru od 1100 px, jinak nad ním. Tabulka běhů má vodorovný posuv (min. 40rem), řádek
+  seznam vedle editoru od 1100 px, jinak nad ním. Tabulka běhů má vodorovný posuv (min. 46rem), řádek
   modelového aliasu v Configu se zalomí. Menu ⋯ se otevírá doleva od tlačítka, rozbalený seznam chyb
   projektu má šířku nejvýš viewport − 2 rem.
-- **Hlavička stránky** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4): nad titulem volitelně
-  odkaz zpět; H1 + `meta` (čip chyb, stav běhu) + jednořádkový popis; vpravo nejvýš primární + jedno
-  sekundární tlačítko a menu ⋯ „Další akce“ se zbytkem (nebezpečné položky poslední); druhý řádek pro
-  přepínač režimu a stav uložení nebo záložky. V editoru a detailu běhu je hlavička přilepená a svou výšku
+- **Hlavička stránky** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4, fidelity §1): nad titulem
+  volitelně odkaz zpět; H1 32 px semibold (`letter-spacing -0.5`) + `meta` (čip chyb, stav běhu), pod ním
+  jednořádkový popis 14 `fg-secondary` a `detail` (mono 13 `fg-muted`: cesta registru, run_id); vpravo
+  nejvýš primární + jedno sekundární tlačítko (40 px) a menu ⋯ „Další akce“ se zbytkem (nebezpečné položky
+  poslední) jako ikonové tlačítko `bg-control` 48 × 48 (v editoru 40 × 40); samostatné ikonové tlačítko
+  hlavičky je `headerIconBtn` (48 × 48). Pod hlavičkou 24 px; druhý řádek pro přepínač režimu a stav
+  uložení nebo záložky. V editoru a detailu běhu je hlavička přilepená a svou výšku
   hlásí v `--page-header-h` (podle ní se přilepí panel).
 - Hlavičky podle stránky:
   - **Projekt:** titul = sekce („Scénáře“, „Agenti“, …), `meta` = čip „N chyb“ s rozbalovacím seznamem
@@ -79,32 +88,41 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
       Druhý řádek: Form | Markdown (jen agent) + stav uložení. Prázdná sekce má jen primární „+ Nový …“.
     - Config: popis = cesta projektu (mono, jediné místo mimo kartu projektu, G5), Uložit; druhý řádek
       Form | YAML + stav uložení.
-    - Běhy: jen titul a ⋯.
+    - Běhy: titul, `meta` = čip „2 běží · 1 ve frontě“ (mono 12 `running`, jen když něco žije) a ⋯.
   - **Editor scénáře:** „← Scénáře“ (+ drobečky přes `call`), titul = jméno scénáře mono, popis = `description`,
-    akce Spustit a Uložit (Ctrl+S); ⋯: Vrátit zpět (Ctrl+Z), Kopírovat příkaz spuštění, Běhy tohoto
+    akce Spustit (primární, Play) a Uložit (sekundární, Save, Ctrl+S); ⋯ 40 × 40: Vrátit zpět (Ctrl+Z), Kopírovat příkaz spuštění, Běhy tohoto
     scénáře, Přejmenovat, Smazat. Druhý řádek: Form | YAML + stav uložení s čipem chyb.
   - **Detail běhu:** viz 2.5.
-  - **Neexistující adresa:** titul „Tahle adresa v GUI neexistuje.“ a sekundární odkaz Projekty.
+  - **Neexistující adresa** (návrh V3 / 14): na střed ikona `MapPinX`, „404“ mono 64 `fg-muted`, titul
+    „Tahle adresa v GUI neexistuje.“, věta „Vrať se na přehled projektů a pokračuj odtud.“ a primární
+    „← Projekty“.
+  - **Token serveru** (návrh V3 / 01): karta 420 px, radius 16, padding 32; značka, titul 28, nápověda,
+    pole 44 px se zámkem a přepínačem Zobrazit/Skrýt token, chyba jako čip `text-error`, primární
+    „✓ Uložit“ a pod ním adresa serveru mono 12.
 
 ## 2. Obrazovky
 
 ### 2.1 Seznam projektů (karty)
 
 ```
-Projekty                                                                          ⟳  [+ Přidat projekt]
-Registr ~/.config/agencast/projects.yaml
+Projekty                                                                          [⟳] [+ Přidat projekt]
+Spravuj projekty, scénáře a běhy agentů na jednom místě.
+~/.config/agencast/projects.yaml
 ┌────────────────────────┐  ┌────────────────────────┐  ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
 │ thtd                ⋯  │  │ ukazka              ⋯  │    stary-projekt       ⋯
 │ ~/thtd                 │  │ ~/ukazka               │  │ /mnt/disk/stary        │
 │                        │  │                        │    ⊘ nedostupný
-│ 3 scénáře · 4 agenti   │  │ 1 scénář · 1 agent     │  │ chybí workflows/       │
+│ [3 scénáře] [4 agenti] │  │ [1 scénář] [1 agent]   │  │ chybí workflows/       │
 │ ────────────────────── │  │ ────────────────────── │    config.yaml
-│ ✓ před 12 min  dnes 0,42│  │ bez běhů      dnes 0 USD│  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
+│ ✓ před 12 min dnes 0,42 USD│ bez běhů   dnes 0,00 USD│  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
 └────────────────────────┘  └────────────────────────┘
 ```
-Hlavička: titul, popis = cesta registru (mono), „+ Přidat projekt“ (bez práva zápisu registru otevře okno
-s CLI příkazem) a ⋯ s „Načíst znovu“ jako v sekcích projektu. Karta: jméno + ⋯, cesta mono, „N scénářů · N agentů“, pod čarou čip
-posledního běhu a dnešní útrata. Dostupný projekt nemá štítek (G6); nedostupný má štítek „nedostupný“,
+Hlavička (fidelity §4): titul, popis „Spravuj projekty, scénáře a běhy agentů na jednom místě.“, `detail` =
+cesta registru (mono 13; celé „Registr …“ v `title`), ikonové „Načíst znovu“ 48 × 48 `bg-control` a
+„+ Přidat projekt“ (bez práva zápisu registru otevře okno s CLI příkazem). Karta: `bg-surface`, radius 16,
+padding 24, min. výška 260, mezera mřížky 20; jméno 20 semibold + ⋯, cesta mono 12 `fg-muted`, čipy počtů
+(`bg-nested`, mono 12 `fg-secondary`), pod čarou čip posledního běhu a dnešní útrata mono 12 („dnes 1,20 USD“,
+dvě místa, drobné částky pod 0,01 čtyři — `formatSpend`). Dostupný projekt nemá štítek (G6); nedostupný má štítek „nedostupný“,
 důvod a čárkovaný okraj bez plochy (bez průhlednosti: text by měl kontrast pod 4,5:1). Celá karta je odkaz. ⋯: Otevřít, Kopírovat cestu, Odebrat z registru
 (poslední, nebezpečná). Čárkovaná karta „Přidat projekt“ jen u prázdného seznamu (G8).
 
@@ -245,24 +263,30 @@ Kroky · Souhrn · Report · Soubory                                            
 │ · ⑦ foto            image · nedošlo                                     │ └──────────────────────────────────────┘
 │ · ⑧ out             output · nedošlo                                    │
 ```
-Hlavička (G10): titul = scénář (odkaz do editoru) + malé mono run_id, vedle stav a „falešný běh“, vpravo trvání · cena; popis = vstupy na jeden řádek (celé v `title`). „Sledovat běh“ jen dokud běh žije; hláška „Běh skončil: …“ jen pro čtečku (`role="status"`), nápověda přerušeného běhu viditelná. Stejné karty jako v editoru: v kolečku je stavová ikona místo čísla, vpravo mono trvání · cena s tabulárními číslicemi. Přeskočené a nedošlé kroky jsou ztlumené na 40 %, běžící ikona pulzuje jen při povoleném pohybu. Panel podle typu: `ask`/`task` Prompt (prompt.md), Odpověď, Výstup (output.json), Volání (pokusy, tahy, tokeny, `finish_reason`, úroveň kaskády), u `task` navíc Nástroje (`tool_call`, nepovolené a neplatné argumenty zvýrazněné); `image` náhled + prompt; `jev` odpovědi s pravděpodobnostmi; `call` se rozbalí přímo v kartě na vnořené karty (`navrh/copy`); `set` hodnoty; `output` hodnoty + URL nahraných souborů. Přeskočený krok: důvod a „použit default“. Varování (`continued: true`) = `text-warning` trojúhelník + text pod kartou. Záložky: Souhrn = vykreslený summary.md, Report = report.html v sandboxovaném iframe, Soubory = strom z `files` s prohlížečem textu/JSON/PNG.
+Hlavička (G10, fidelity §8): titul = scénář mono 32 s ikonou ↗ (odkaz do editoru), pod ním run_id mono 13 `fg-muted`; vpravo čip stavu (+ „falešný běh“), mono „32,4 s · 0,0812 USD“ a sekundární „Otevřít scénář“. Vstupy jako karta `bg-nested` (min. 48 px): eyebrow „VSTUPY“ mono 11 + hodnoty mono 13 na jeden řádek (celé v `title`). Záložky podtržené přes celou šířku, „sledovat běh“ vpravo na stejné čáře. „Sledovat běh“ jen dokud běh žije; hláška „Běh skončil: …“ jen pro čtečku (`role="status"`), nápověda přerušeného běhu viditelná. Stejné karty jako v editoru: v kolečku je stavová ikona místo čísla, vpravo mono trvání · cena s tabulárními číslicemi. Přeskočené a nedošlé kroky jsou ztlumené na 40 %, běžící ikona pulzuje jen při povoleném pohybu. Panel podle typu: `ask`/`task` Prompt (prompt.md), Odpověď, Výstup (output.json), Volání (pokusy, tahy, tokeny, `finish_reason`, úroveň kaskády), u `task` navíc Nástroje (`tool_call`, nepovolené a neplatné argumenty zvýrazněné); `image` náhled + prompt; `jev` odpovědi s pravděpodobnostmi; `call` se rozbalí přímo v kartě na vnořené karty (`navrh/copy`); `set` hodnoty; `output` hodnoty + URL nahraných souborů. Přeskočený krok: důvod a „použit default“. Varování (`continued: true`) = `text-warning` trojúhelník + text pod kartou. Záložky: Souhrn = vykreslený summary.md, Report = report.html v sandboxovaném iframe, Soubory = strom z `files` s prohlížečem textu/JSON/PNG.
 
 **Panel kroku v běhu** (redesign V3): stejný PanelShell (eyebrow „KROK n · typ“, titul = cesta kroku mono). Řádek stavu: `StatusBadge` + trvání + cena + „3 tahy · 2 volání nástrojů“ (mono, `fg-muted`); pod ním text přeskočení / varování / chyby. Záložky jsou podtržené (`role="tablist"`, aktivní `border-accent`); „Volání (n)“ nese počet. Prompt, Výstup a Odpověď jsou blok kódu `bg-nested` mono 13/20; odpovědi Jev = klíč mono, hodnota tabular, pruh 0–1 (`bg-nested` / `accent`); volání a nástroje jako řádky `bg-nested` s rádiusem control, chybové `bg-error/10` s červeným textem; obrázek se zaoblením; seznam souborů jako mono odkazy do záložky Soubory; prázdná záložka „Nic k zobrazení.“ Záložka **Soubory** v detailu běhu: strom vlevo (vybraný soubor `bg-surface`), prohlížeč vpravo (blok kódu, obrázek; report beze změny v sandboxovaném iframe).
 
 ### 2.6 Seznam běhů
 
 ```
-Běhy                                                                                      ⋯
-scénář: vše ▾   stav: vše ▾                                                ◌ 1 běží · 2 ve frontě
- ◌ běží       ig-post   krok 4/8 · foto_prompt         0:07        0,0021
- ◌ ve frontě  ig-post   ve frontě (2.)
- ✓ úspěch     ig-post   včera 14:03     17,5 s     0,0693     callback ✓
- ✗ chyba      ig-post   včera 14:15     4,4 s      0,0016     fail: stop_obrazek · callback nedoručen
- ✓ úspěch     ukazka    včera 12:00     2,1 s      0          falešný běh
+Běhy  ∿ 1 běží · 2 ve frontě                                                              [⋯]
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 🔍 Hledat scénář nebo ID běhu…            │ Všechny stavy ▾        │ Všechny scénáře ▾       │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+      SCÉNÁŘ / RUN_ID                 STAV              KDY                    TRVÁNÍ        CENA
+┌ ◌  ig-post                          běží              krok 4/8 · foto_prompt  00:07   0,0021 USD  › ┐
+│    20260926-091502-ig-post-3c1f                                                                   │
+┌ ✗  ig-post                          chyba: fail v stop včera 14:15          4,4 s   0,0016 USD  › ┐
+│    20260925-141502-ig-post-9f3c · falešný běh · callback nedoručen                                │
 ```
-Bez sloupce run_id (je v detailu a v `title` řádku) a bez řádku útraty (je v sidebaru), G9. Stav = ikona +
-text. Řádek je odkaz na detail. Sloupce ze `runs` (stav, cena, trvání, callback); scénář a čas z `run_id`.
-Stav je jen ve sloupci stavu, poznámka ho neopakuje (jen důvod chyby, „falešný běh“, callback). Tabulka
+Fidelity §8: filtrační karta `bg-surface` radius 16 padding 12 — hledání (klientsky podle jména scénáře a
+run_id), select stavu (klient), select scénáře (server `?scenario=`); filtr období z návrhu není. Záhlaví
+sloupců mono 11 verzálky `fg-muted`. Řádek = karta `bg-surface` radius 12, výška 80, mezera 8, hover
+`bg-surface-hover`, celý řádek odkaz: ikona stavu 20 px, jméno scénáře 15 semibold a pod ním run_id mono 12
+(+ „falešný běh“, callback); stav jako text v barvě stavu (u chyby „chyba: <důvod>“); KDY, TRVÁNÍ
+(„00:42“ od startu u běžících) a CENA („0,0812 USD“, `formatCost` vždy čtyři místa) mono 12; vpravo
+chevron. Bez řádku útraty (je v sidebaru), G9. Tabulka
 leží ve vodorovném posuvu. Běžící řádek se obnovuje (viz 4.8). Prázdný seznam: „Žádné běhy.“ s CLI řádkem; starší stránky tlačítkem
 „Načíst další“.
 

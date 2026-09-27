@@ -2,7 +2,7 @@
 // Form drží rozpracovaný strom (scenarioDraft.ts), YAML rozpracovaný text (textfile.ts); na disk jde
 // obojí až tlačítkem Uložit / Ctrl+S. Form → YAML převede rozpracovaný strom na text přes `render`;
 // YAML → Form převede neuložený text přes `render` bez zápisu (nalezy-api.md bod 26).
-import { CodeXml, Play } from "lucide-react";
+import { CodeXml, Play, Save } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { stepLines } from "../components/CodeView";
@@ -300,11 +300,11 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         title={<span className="font-mono">{scenario}</span>}
         description={work?.header.description}
         actions={<>
-          <button type="button" className={btn.secondary} onClick={() => (setRunning(true), setQuery({ krok: undefined }))} disabled={!p || !work}>
+          <button type="button" className={btn.primary} onClick={() => (setRunning(true), setQuery({ krok: undefined }))} disabled={!p || !work}>
             <Play className="size-4" aria-hidden />{t("runForm.open")}
           </button>
-          <button type="button" className={btn.primary} onClick={() => void save()} disabled={!canSave} title="Ctrl+S">
-            {t("common.save")}
+          <button type="button" className={btn.secondary} onClick={() => void save()} disabled={!canSave} title="Ctrl+S">
+            <Save className="size-4" aria-hidden />{t("common.save")}
           </button>
         </>}
         menu={menu}>

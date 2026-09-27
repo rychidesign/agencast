@@ -32,16 +32,16 @@ test.describe("bez tokenu", () => {
       await page.getByRole("textbox", { name: "Token" }).fill(TOKEN);
       await page.getByRole("textbox", { name: "Token" }).press("Enter");
       const card = page.getByTestId(`project-card-${project.name}`);
-      await expect(card).toContainText("1 scénář · 1 agent");
-      await expect(card).toContainText("dnes 0 USD");
+      await expect(card).toContainText(/1 scénář\s*1 agent/); // čipy počtů (fidelity §4)
+      await expect(card).toContainText("dnes 0,00 USD");
     });
     expect(cardCalls).toBe(0);
     await expect(page.getByRole("heading", { name: "Projekty" })).toBeVisible();
-    await expect(page.getByText(`Registr ${server.cfg}/projects.yaml`)).toBeVisible();
+    await expect(page.getByText(`${server.cfg}/projects.yaml`, { exact: true })).toBeVisible();
     const card = page.getByTestId(`project-card-${project.name}`);
     await expect(card).not.toContainText("dostupný"); // G6: dostupný projekt bez štítku
-    await expect(card).toContainText("1 scénář · 1 agent");
-    await expect(card).toContainText("dnes 0 USD");
+    await expect(card).toContainText(/1 scénář\s*1 agent/); // čipy počtů (fidelity §4)
+    await expect(card).toContainText("dnes 0,00 USD");
     await expect(card).toContainText("bez běhů");
     expect(await page.evaluate(() => localStorage.getItem("agencast.token"))).toBe(TOKEN);
     expect(auth.length).toBeGreaterThan(0);
@@ -112,7 +112,7 @@ test("C13 přidání existujícího projektu", async ({ page, project, server })
   await dialog.getByRole("button", { name: "Přidat", exact: true }).click();
   await expect(dialog).toBeHidden();
   const card = page.getByTestId(`project-card-${project.name}-cizi`);
-  await expect(card).toContainText("1 scénář · 1 agent");
+  await expect(card).toContainText(/1 scénář\s*1 agent/); // čipy počtů (fidelity §4)
   expect(readYaml<Registry>(path.join(server.cfg, "projects.yaml")).projects).toContainEqual({ name: `${project.name}-cizi`, root: cizi });
   expect(files()).toEqual(before);
 
@@ -198,7 +198,8 @@ test("N3 nedostupný a neznámý projekt, neznámá adresa", async ({ page, proj
   await expect(page.getByRole("alert")).toContainText("neexistuje");
   await page.goto("/#/x");
   await expect(page.getByText("Tahle adresa v GUI neexistuje.")).toBeVisible();
-  await page.getByRole("link", { name: "Projekty" }).click();
+  await expect(page.getByText("404")).toBeVisible();
+  await page.getByRole("main").getByRole("link", { name: "Projekty" }).click();
   await expect(page.getByRole("heading", { name: "Projekty" })).toBeVisible();
 });
 
