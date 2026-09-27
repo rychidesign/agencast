@@ -52,12 +52,14 @@ Cíl: nový projekt bez terminálu. Stav: registr jen `demo`. Cíl podle chystan
 
 ### C3 Nový agent **[hotovo; dialog nemá popis ani model, ač API 0.8.0 umí — šablona zapíše `description: TODO`]**
 Cíl: agent s vlastními instrukcemi. Stav: `demo`.
-1. `#/p/demo/agenti` → jedna hlavička sekce: `h1 "Agenti"`, `button "Nový agent"` (sekundární), `button "Uložit"` a ⋯ `button "Akce pro pisatel"`; pod ní `radiogroup "Zobrazení"` a stav uložení. Vlevo `nav "Agenti"` jen se seznamem (odkaz `pisatel`, `aria-current=page`), vpravo nad formulářem `h2 "pisatel"`.
+1. `#/p/demo/agenti` → jedna hlavička sekce: `h1 "Agenti"`, `button "Nový agent"` (sekundární), `button "Uložit"` a ⋯ `button "Akce pro pisatel"`. Vlevo `nav "Agenti"` se seznamem 200 px (položky 48 px, ikona, aktivní ring), vpravo `h2 "pisatel"` nad kartou editoru (`bg-surface`, radius 16, padding 24). První řádek karty je `radiogroup "Zobrazení"` a stav uložení; uvnitř karty není další název ani Uložit.
 2. Nový agent → dialog „Nový agent“, `textbox "Jméno"` (autofocus); `Pisatel` → „Jen malá písmena…“; `pisatel` → „„pisatel“ už existuje.“; `korektor` → Vytvořit.
-3. → `#/p/demo/agenti/korektor`, `h2 "korektor"`, `radiogroup "Zobrazení"` (Form | Markdown), `testid save-status` „Uloženo ✓“; pole `textbox "popis"` (obsahuje `TODO`), `combobox "model"` = `chytry`, `textbox "Instrukce (system prompt)"`, „Používá: –“. Disk: `agents/korektor.md` s frontmatter `model: chytry`, `budget_usd: 0.02`.
+3. → `#/p/demo/agenti/korektor`, `h2 "korektor"`, karta s `radiogroup "Zobrazení"` (Form | Markdown) a `testid save-status` „Uloženo ✓“; pole `textbox "popis"` (obsahuje `TODO`), `combobox "model"` = `chytry`, skilly a MCP servery jako seznamy checkboxů v `bg-nested`, limity ve třech sloupcích, `textbox "Instrukce (system prompt)"` (nejméně 12 řádků, patička „Podporuje Markdown“), „Používá: –“. Disk: `agents/korektor.md` s frontmatter `model: chytry`, `budget_usd: 0.02`.
 4. Popis „Kontroluje pravopis“, instrukce „Opravuj jen chyby.“ → „Neuloženo“ → Ctrl+S → „Uloženo ✓ HH:MM“; disk: `description:` změněn, tělo nahrazeno, ostatní řádky beze změny.
 5. Přepnout `radio "Markdown"` → `textbox "agents/korektor.md"` s celým souborem včetně `---`; nápověda „Upravuješ přímo soubor workflows/agents/korektor.md…“.
 6. `button "Akce pro korektor"` → `menuitem "Smazat"` (červeně, poslední; před ním „Načíst znovu“ a „Přejmenovat“) → dialog „Smazat agenta „korektor“?“ → Smazat → zpět `#/p/demo/agenti`, v seznamu jen `pisatel`, soubor pryč. Varianta: smazat `pisatel` → v dialogu `role=alert` „agent 'pisatel' nejde smazat — používá ho: ukazka“, soubor zůstal.
+
+Skill: `#/p/demo/skilly` → „Nový skill“ vytvoří `skills/pruzkum/SKILL.md`; seznam 200 px má položky 48 px a ikonu knihy. Vpravo je `h2 "pruzkum"` nad kartou, v ní Markdown editor a „Používají“. V agentovi zaškrtnout `pruzkum` v seznamu skillů → Uložit → vazba se zapíše do `agents/pisatel.md`; po návratu na skill odkaz „pisatel ↗“ vede zpět na agenta. Test `fidelity-agenti-config.spec.ts`.
 
 ### C4 Nový scénář se dvěma kroky a `output` **[hotovo; uložení = několik operací po sobě, ne dávka → nález 11 obcházeno]**
 Cíl: vlastní scénář „napiš a zkontroluj“. Stav: `demo` s `pisatel`.
@@ -158,10 +160,10 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 
 ### C17 Alias modelu v Configu **[hotovo — ladění 2026-09-26, 0.10.3]**
 
-1. Config → „+ alias“ přidá řádek `model-1`; pole Alias bere jméno jako u agenta (malá písmena, číslice, pomlčka — `gpt-image`), neplatné se při opuštění pole vrátí a pravidlo je v `title` pole i pod seznamem.
+1. Config → karta radius 16 má jako první cestu projektu (mono 13), přepínač Form | YAML a stav uložení; Připojení | Jev model jsou vedle sebe. „+ Přidat alias“ přidá vnořenou kartu `model-1`; pole Alias bere jméno jako u agenta (malá písmena, číslice, pomlčka — `gpt-image`), neplatné se při opuštění pole vrátí a pravidlo je v `title` pole i pod seznamem.
 2. Id modelu, Uložit → `PUT …/config` (merge patch); nový alias se do `config.yaml` zapíše stejným řádkovým stylem `{ id: … }` jako ostatní, přejmenování maže starý klíč první.
-3. Pod každým řádkem aliasu meta „používá pisatel“ nebo „nepoužívá se“; používaný alias má koš neaktivní s důvodem v `title`.
-4. Po načtení je alias v nabídce modelu agenta. Test: `editor.spec.ts` „C17“; hlavička Configu (`h1 "Config"`, popis = cesta projektu, jeden přepínač Form | YAML ve druhém řádku, jedno Uložit, ⋯ s „Načíst znovu“) `redesign-panely.spec.ts` „PN4“.
+3. Pod každou kartou aliasu je meta „používá pisatel“ nebo „nepoužívá se“; používaný alias má „Smazat alias“ neaktivní s důvodem v `title`. Úložiště | Webhook a callback a Limity | Proměnné jsou ve dvojicích sloupců; proměnné tvoří řádky 40 px s barevným stavem a MCP server má vnořenou kartu s čipem „Pouze čtení“.
+4. Po načtení je alias v nabídce modelu agenta. Test: `editor.spec.ts` „C17“, `fidelity-agenti-config.spec.ts`; hlavička Configu má `h1 "Config"`, jedno Uložit a ⋯ s „Načíst znovu“. Cesta projektu a jediný přepínač Form | YAML jsou v kartě.
 
 ### C18 Vložení proměnné z nabídky
 

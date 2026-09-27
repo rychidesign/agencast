@@ -5,6 +5,13 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.16.1 (nevydáno)
+
+- Věrnost: Agenti a Skilly mají seznam 200 px s kartami položek a editor v kartě; skilly a MCP
+  servery agenta jsou řádky s checkboxy, instrukce mají delší Markdown pole a použití tvoří odkazy.
+- Věrnost: Config má formulář v kartě, sekce ve dvojicích sloupců, vnořené karty aliasů,
+  stavové řádky proměnných a MCP servery označené „Pouze čtení“.
+
 ## 0.16.0 — 2026-09-28 (GUI podle návrhu V3: sidebar, jednotné hlavičky, tokeny)
 
 Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny.
