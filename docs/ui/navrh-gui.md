@@ -114,16 +114,19 @@ Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod 
 
 **Koš vně pilulky:** červený kulatý 28 px vpravo vně, zobrazí se při hoveru a při `focus-within`. Klávesnice: Tab z fokusované karty přejde na koš (je další zastávkou v pořadí, při fokusu se ukáže), nebo klávesa Delete na kartě; `aria-label="Smazat krok kontrola"`. Na dotykovém vstupu (`pointer: coarse`) je koš viditelný trvale ztlumeně. Ochrana mazání z §4.3 platí beze změny. Hlavičková karta koš nemá.
 
-**Panel** (plovoucí zaoblený obdélník vpravo, okraj 16 px od hran):
+**Panel** (plovoucí zaoblený obdélník vpravo, okraj 16 px od hran; V3: `bg-surface`, rádius panel 16, padding 20):
 
 ```
-┌ KROK 2                                    🗑   ✕ ┐
-│ jev ▾                                             │
+┌ KROK 2 · JEV                               🗑   ✕ ┐
+│ kontrola                                          │
 │                                                   │
+│ Typ kroku                                         │
+│ [jev                                         ▾]   │
 │ State                                             │
 │ [{{ steps.copy.caption }}                    ]    │
 │ Otázky                          [+ Přidat otázku] │
-│  on_brand   noul ▾   Odpovídá text tónu…      🗑  │
+│  [on_brand                                ]   🗑  │
+│  [noul ▾]  Instrukce [Odpovídá text tónu…  ]      │
 │ ───────────────────────────────────────────────── │
 │ Podmínka                                 vždy  ›  │
 │ ───────────────────────────────────────────────── │
@@ -132,6 +135,8 @@ Pilulka přesně jako v Buzz: eyebrow `TYP · id` (typ uppercase, id mono), pod 
 │ Podrobnosti kroku                    kontrola  ›  │
 └───────────────────────────────────────────────────┘
 ```
+- **PanelShell** (redesign V3): eyebrow 11 px verzálky `fg-muted` „KROK n · TYP“ (zároveň přístupné jméno panelu), titul 18 semibold = id kroku (mono), vpravo koš (`btn.icon`, červený) a zavřít (`btn.icon`, i Esc). Typ kroku je první pole formuláře (select), ne titul. Pole bez rámovaných info boxů, jedna nápověda 12 px pod polem (G11). Řádky map (otázky Jev, hodnoty `set`, vstupy/výstupy hlavičky) jsou oddělené hairline: klíč (`KeyInput`, mono) + odebrat (`Trash2`), pod tím pole; „+ Přidat …“ jako pilulka u štítku.
+- **Hlavička scénáře** (`HeaderPanel`, eyebrow „HLAVIČKA“): popis, Vstupy a Výstupy jako řádky (jméno inline, typ, u vstupu povinný / výchozí hodnota, popis, odebrat) a přepínač „Volatelný“ s vysvětlením pod ním.
 - Jako v Buzz: pole typu nahoře, společné věci dole ve třech sbalených řádcích (hodnota vpravo šedě, hairline mezi nimi). Řádek se rozbalí na místě (akordeon, chevron se otočí), aby zůstal kontext panelu.
 - **Podmínka:** sbalený řádek ukazuje `vždy`, nebo zkrácený výraz (`steps.kontrola.on_brand < 0.7`); rozbalený = `ExprInput` + nápověda „Když vyjde nepravda, krok se přeskočí; kdo čte jeho výstup, potřebuje default.“ U `output` řádek není.
 - **Spolehlivost:** timeout, budget_usd, retry, on_error, default; jen pro typy z tabulky §3 spec.
@@ -177,6 +182,8 @@ Vstupy  tema = „nová káva“              Kroky · Souhrn · Report · Soubo
 │ · ⑧ out             output · nedošlo                                    │
 ```
 Stejné karty jako v editoru, navíc stav vlevo, čas a cena vpravo. Panel podle typu: `ask`/`task` Prompt (prompt.md), Odpověď, Výstup (output.json), Volání (pokusy, tahy, tokeny, `finish_reason`, úroveň kaskády), u `task` navíc Nástroje (`tool_call`, nepovolené a neplatné argumenty zvýrazněné); `image` náhled + prompt; `jev` odpovědi s pravděpodobnostmi; `call` se rozbalí přímo v kartě na vnořené karty (`navrh/copy`); `set` hodnoty; `output` hodnoty + URL nahraných souborů. Přeskočený krok: důvod a „použit default“. Varování (`continued: true`) = žlutý trojúhelník + text. Záložky: Souhrn = vykreslený summary.md, Report = report.html v sandboxovaném iframe, Soubory = strom z `files` s prohlížečem textu/JSON/PNG.
+
+**Panel kroku v běhu** (redesign V3): stejný PanelShell (eyebrow „KROK n · typ“, titul = cesta kroku mono). Řádek stavu: `StatusBadge` + trvání + cena + „3 tahy · 2 volání nástrojů“ (mono, `fg-muted`); pod ním text přeskočení / varování / chyby. Záložky jsou podtržené (`role="tablist"`, aktivní `border-accent`); „Volání (n)“ nese počet. Prompt, Výstup a Odpověď jsou blok kódu `bg-nested` mono 13/20; odpovědi Jev = klíč mono, hodnota tabular, pruh 0–1 (`bg-nested` / `accent`); volání a nástroje jako řádky `bg-nested` s rádiusem control, chybové `bg-error/10` s červeným textem; obrázek se zaoblením; seznam souborů jako mono odkazy do záložky Soubory; prázdná záložka „Nic k zobrazení.“ Záložka **Soubory** v detailu běhu: strom vlevo (vybraný soubor `bg-surface`), prohlížeč vpravo (blok kódu, obrázek; report beze změny v sandboxovaném iframe).
 
 ### 2.6 Seznam běhů
 
@@ -346,7 +353,7 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 2. *Zachovat komentáře a pořadí v YAML?* — **Ano**, round-trip na serveru (agencast 0.5.0, ruamel.yaml), GUI posílá operace, ne text.
 3. *Akcent ze Skynet Soul, nebo šedě jako Buzz?* — **Šedě jako Buzz**; barva jen pro stavy běhu a chyby a **jediné akcentové místo jsou čtverce ikon typů na kartách scénářů** (jako modré čtverce v seznamu Buzz), barva převzatá z dashboardu Skynet Soul. Pozadí a písmo také ze Soulu. (Doporučení designéra po snímcích, koordinátor přijal; uživatel může změnit.)
 4. *Ukazovat, zda je proměnná prostředí nastavená (jen ✓/✗)?* — **Ano**, nikdy hodnotu. Vyžaduje bod 7.3.
-5. *Spouštění běhu z GUI s formulářem vstupů?* — **Ano**, `POST /projects/<p>/runs` s volitelnou callback URL. Vyžaduje úpravu API.
+5. *Spouštění běhu z GUI s formulářem vstupů?* — **Ano**, `POST /projects/<p>/runs` s volitelnou callback URL. Vyžaduje úpravu API. Panel „Spustit běh“ (redesign V3): eyebrow „SPUSTIT BĚH“, titul = scénář; vstupy podle typu; „Režim běhu“ jako dvě volitelné karty s radiem uvnitř (Dry-run — jen plán, zdarma / Ostrý běh — volá modely a stojí peníze; vybraná má `ring-2 ring-accent`); limity (na běh, z toho obrázky, čas běhu, dnes utraceno / limit) jako dvousloupcový `dl` jen u ostrého běhu; varování (žlutě s ikonou) pro neuložené změny a vstup `file`; chyba API; vpravo jediné primární tlačítko „Spustit dry-run“ / „Spustit ostrý běh“ / „Spouštím…“. Samostatné „Zrušit“ není, panel zavírá ✕ v hlavičce a Esc.
 
 Body 7.2–7.4 a 8.5 jdou do navazujícího úkolu „API doplňky pro GUI“ po 0.5.0.
 

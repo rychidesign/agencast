@@ -25,7 +25,7 @@ const TAB_KEY: Record<PanelTab, string> = {
   tools: "rpanel.tools", image: "rpanel.image", files: "rpanel.files",
 };
 
-const Empty = () => <p className="text-sm text-zinc-400">{t("rpanel.empty")}</p>;
+const Empty = () => <p className="text-sm text-fg-muted">{t("rpanel.empty")}</p>;
 
 /** Odpověď modelu: text zprávy, jinak celé JSON tělo. */
 function ResponseView({ path }: { path: string }) {
@@ -38,7 +38,7 @@ function ResponseView({ path }: { path: string }) {
     const msg = body?.choices?.[0]?.message;
     shown = typeof msg?.content === "string" && msg.content ? msg.content : JSON.stringify(msg ?? body, null, 2);
   } catch { /* není JSON — ukážeme text */ }
-  return <pre className="font-mono text-[13px] whitespace-pre-wrap break-words">{shown}</pre>;
+  return <pre className="overflow-auto rounded-card bg-nested p-4 font-mono text-[13px] leading-5 whitespace-pre-wrap break-words">{shown}</pre>;
 }
 
 /** Odpovědi Jev s pravděpodobností jako pruh (0–1), jiné hodnoty textem. */
@@ -52,7 +52,7 @@ function JevAnswers({ answers = {} }: { answers?: Record<string, unknown> }) {
           <dd className="font-mono tabular-nums">{typeof v === "number" ? v.toLocaleString("cs", { maximumFractionDigits: 3 }) : String(v)}</dd>
           <dd aria-hidden>
             {typeof v === "number" && v >= 0 && v <= 1 && (
-              <span className="block h-1.5 overflow-hidden rounded-full bg-zinc-900"><span className="block h-full bg-zinc-300" style={{ width: `${v * 100}%` }} /></span>
+              <span className="block h-1.5 overflow-hidden rounded-full bg-nested"><span className="block h-full bg-accent" style={{ width: `${v * 100}%` }} /></span>
             )}
           </dd>
         </div>
@@ -72,20 +72,20 @@ function Calls({ events }: { events: RunEvent[] }) {
   return (
     <ol className="space-y-3 text-[13px]">
       {calls.map((e, i) => (
-        <li key={i} className="rounded-lg bg-zinc-900 p-3">
+        <li key={i} className="rounded-control bg-nested px-3 py-2">
           {e.type === "error" ? (
-            <p className="text-rose-400"><span className="font-mono">{String(e.class)}</span>: {String(e.message)}{e.will_retry ? " ↻" : ""}</p>
+            <p className="text-error"><span className="font-mono">{String(e.class)}</span>: {String(e.message)}{e.will_retry ? " ↻" : ""}</p>
           ) : (
             <>
               <p className="font-mono">
                 {t("rpanel.attempt", { n: String(e.attempt ?? 1) })}{e.turn != null && ` · ${t("rpanel.turn", { n: String(e.turn) })}`}
                 {" · "}{e.alias ? `${e.alias} → ` : ""}{String(e.response_model ?? e.model)}
               </p>
-              <p className="text-zinc-400">
+              <p className="text-fg-muted">
                 {[e.provider, e.finish_reason && `finish_reason ${e.finish_reason}${e.native_finish_reason ? ` (${e.native_finish_reason})` : ""}`,
                   e.structured_output, e.http_status && `HTTP ${e.http_status}`].filter(Boolean).join(" · ")}
               </p>
-              <p className="text-zinc-400">{formatDuration(e.duration_s as number)} · {usage(e)}</p>
+              <p className="text-fg-muted">{formatDuration(e.duration_s as number)} · {usage(e)}</p>
             </>
           )}
         </li>
@@ -102,10 +102,10 @@ function Tools({ events }: { events: RunEvent[] }) {
       {calls.map((e, i) => {
         const flag = e.allowed === false ? t("rpanel.toolDenied") : e.invalid_args ? t("rpanel.toolInvalid") : e.is_error ? t("rpanel.toolError") : "";
         return (
-          <li key={i} className={`rounded-lg p-3 ${flag ? "bg-rose-500/10" : "bg-zinc-900"}`}>
+          <li key={i} className={`rounded-control px-3 py-2 ${flag ? "bg-error/10" : "bg-nested"}`}>
             <p className="font-mono">{t("rpanel.turn", { n: String(e.turn) })} · {String(e.server)}.{String(e.tool)}</p>
-            <p className="text-zinc-400">
-              {flag && <span className="text-rose-400">{flag} · </span>}
+            <p className="text-fg-muted">
+              {flag && <span className="text-error">{flag} · </span>}
               {formatDuration(e.duration_s as number)}
               {typeof e.call_file === "string" && (
                 <> · <button type="button" className="underline" onClick={() => setQuery({ zalozka: "soubory", soubor: e.call_file as string })}>{e.call_file}</button></>
@@ -137,7 +137,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
   let body: ReactNode = <Empty />;
   if (active === "prompt" && files.includes(dir + "prompt.md")) body = <FileViewer project={project} runId={runId} path={dir + "prompt.md"} />;
   if (active === "output" && d?.output != null)
-    body = <pre className="overflow-auto rounded-xl bg-zinc-800/60 p-4 font-mono text-[13px] leading-5 whitespace-pre-wrap break-words">{JSON.stringify(d.output, null, 2)}</pre>;
+    body = <pre className="overflow-auto rounded-card bg-nested p-4 font-mono text-[13px] leading-5 whitespace-pre-wrap break-words">{JSON.stringify(d.output, null, 2)}</pre>;
   if (active === "response")
     body = kind === "jev" ? <JevAnswers answers={rs?.answers} />
       : responses.length ? <ResponseView path={runFilePath(project, runId, responses[responses.length - 1])} /> : <Empty />;
@@ -152,7 +152,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
       <ul className="space-y-1">
         {files.map((f) => (
           <li key={f}>
-            <button type="button" className="font-mono text-[13px] underline" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>{f.slice(dir.length)}</button>
+            <button type="button" className="font-mono text-[13px] text-fg-secondary underline hover:text-fg" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>{f.slice(dir.length)}</button>
           </li>
         ))}
       </ul>
@@ -162,27 +162,27 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
     <PanelShell id="run-step-title" eyebrow={`${rs?.nn ? t("panel.step", { n: rs.nn }) : ""} · ${kind ?? "?"}`.replace(/^ · /, "")}
       title={<span className="font-mono">{path}</span>} onClose={onClose}>
       <div className="space-y-4">
-        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
           <StatusBadge status={status}>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</StatusBadge>
           {rs?.duration_s != null && <span className="font-mono">{formatDuration(rs.duration_s)}</span>}
           {rs?.cost_usd != null && <span className="font-mono">{formatCost(rs.cost_usd)} USD</span>}
-          {rs?.turns != null && <span className="text-zinc-400">{t("rpanel.turns", { turns: rs.turns, tools: rs.tool_calls ?? 0 })}</span>}
+          {rs?.turns != null && <span className="font-mono text-fg-muted">{t("rpanel.turns", { turns: rs.turns, tools: rs.tool_calls ?? 0 })}</span>}
         </p>
         {rs?.status === "skipped" && (
-          <p className="text-sm text-zinc-300">
+          <p className="text-sm text-fg-secondary">
             {t("run.skipped", { reason: rs.reason ?? rs.reason_code ?? "" })}
             {rs.default_used && ` · ${t("run.defaultUsed")}`}
           </p>
         )}
-        {status === "warning" && <p className="text-sm text-amber-400">{t("run.warning")}{rs?.default_used && ` · ${t("run.defaultUsed")}`}</p>}
+        {status === "warning" && <p className="text-sm text-warning">{t("run.warning")}{rs?.default_used && ` · ${t("run.defaultUsed")}`}</p>}
         {rs?.error && <ErrorText error={{ message: `${rs.error.class}: ${rs.error.message}` }} />}
         {detail.error && <ErrorText error={detail.error} />}
         {rs && (
           <>
-            <div role="tablist" aria-label={t("rpanel.tabs")} className="flex flex-wrap gap-1">
+            <div role="tablist" aria-label={t("rpanel.tabs")} className="flex flex-wrap gap-x-4 border-b border-line">
                 {tabs.map((k) => (
                   <button key={k} type="button" role="tab" aria-selected={k === active} onClick={() => setTab(k)}
-                    className={`rounded-full px-3 py-1 text-sm ${k === active ? "bg-zinc-700 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}>
+                    className={`-mb-px border-b-2 py-2 text-sm pointer-coarse:py-3 ${k === active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg"}`}>
                     {t(TAB_KEY[k])}{k === "calls" ? ` (${rs.calls?.length ?? 0})` : ""}
                   </button>
                 ))}

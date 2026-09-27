@@ -28,7 +28,7 @@ function BlobImage({ path, alt }: { path: string; alt: string }) {
     return () => void (u && URL.revokeObjectURL(u));
   }, [path]);
   if (error) return <ErrorText error={error} />;
-  return url ? <img src={url} alt={alt} className="max-h-[60vh] rounded-lg" /> : <Loading rows={1} />;
+  return url ? <img src={url} alt={alt} className="max-h-[60vh] rounded-control" /> : <Loading rows={1} />;
 }
 
 export function FileViewer({ project, runId, path }: { project: string; runId: string; path: string }) {
@@ -38,7 +38,7 @@ export function FileViewer({ project, runId, path }: { project: string; runId: s
   if (text.error) return <ErrorText error={text.error} />;
   if (text.data === undefined) return <Loading rows={4} />;
   const body = path.endsWith(".json") ? prettyJson(text.data) : text.data;
-  return <pre className="overflow-auto rounded-xl bg-zinc-800/60 p-4 font-mono text-[13px] leading-5 whitespace-pre-wrap break-words">{body}</pre>;
+  return <pre className="overflow-auto rounded-card bg-nested p-4 font-mono text-[13px] leading-5 whitespace-pre-wrap break-words">{body}</pre>;
 }
 
 type Tree = { [name: string]: Tree | null };
@@ -64,14 +64,14 @@ function TreeNode({ tree, prefix, current }: { tree: Tree; prefix: string; curre
         return sub ? (
           <li key={name}>
             <details open={!!current?.startsWith(`${path}/`) || prefix === ""}>
-              <summary className="cursor-pointer font-mono text-[13px] text-zinc-400">{name}/</summary>
+              <summary className="cursor-pointer font-mono text-[13px] text-fg-muted">{name}/</summary>
               <TreeNode tree={sub} prefix={`${path}/`} current={current} />
             </details>
           </li>
         ) : (
           <li key={name}>
             <button type="button" onClick={() => setQuery({ soubor: path })} aria-current={current === path ? "true" : undefined}
-              className={`w-full truncate rounded px-1.5 text-left font-mono text-[13px] ${current === path ? "bg-zinc-800 text-zinc-100" : "text-zinc-300 hover:bg-zinc-800/60"}`}>
+              className={`w-full truncate rounded-control px-2 py-0.5 text-left font-mono text-[13px] ${current === path ? "bg-surface text-fg" : "text-fg-secondary hover:bg-surface-hover"}`}>
               {name}
             </button>
           </li>
@@ -89,7 +89,7 @@ export function FilesTab({ project, runId, files, current }: { project: string; 
       </nav>
       <div className="min-w-0">
         {current && files.includes(current) ? <FileViewer project={project} runId={runId} path={current} />
-          : <p className="text-sm text-zinc-400">{current ? t("run.noFile") : t("run.pickFile")}</p>}
+          : <p className="text-sm text-fg-muted">{current ? t("run.noFile") : t("run.pickFile")}</p>}
       </div>
     </div>
   );
@@ -100,5 +100,5 @@ export function ReportTab({ project, runId }: { project: string; runId: string }
   const html = useApi<string>(runFilePath(project, runId, "report.html"), undefined, getText);
   if (html.error) return <ErrorText error={html.error} />;
   if (html.data === undefined) return <Loading rows={6} />;
-  return <iframe title={t("run.reportTitle")} sandbox="" srcDoc={html.data} className="h-[80vh] w-full rounded-xl bg-white" />;
+  return <iframe title={t("run.reportTitle")} sandbox="" srcDoc={html.data} className="h-[80vh] w-full rounded-card bg-white" />;
 }

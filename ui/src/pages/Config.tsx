@@ -27,19 +27,19 @@ export function configFields(data: unknown): Obj {
 }
 
 function EnvVar({ name, env }: { name: unknown; env?: Record<string, boolean> }) {
-  if (typeof name !== "string" || !name) return <span className="text-zinc-500">–</span>;
+  if (typeof name !== "string" || !name) return <span className="text-fg-muted">–</span>;
   const set = env?.[name];
-  if (set === undefined) return <span className="text-[13px] text-zinc-500">{t("config.envUnknown")}</span>;
+  if (set === undefined) return <span className="text-[13px] text-fg-muted">{t("config.envUnknown")}</span>;
   return (
     <StatusBadge status={set ? "succeeded" : "failed"}>
-      <span className="text-[13px] text-zinc-400">{set ? t("config.envSet") : t("config.envMissing")}</span>
+      <span className="text-[13px] text-fg-muted">{set ? t("config.envSet") : t("config.envMissing")}</span>
     </StatusBadge>
   );
 }
 
 const Section = ({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) => (
-  <section className="space-y-3 rounded-xl bg-zinc-800/40 p-4">
-    <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">{title}</h3>{action}</div>
+  <section className="space-y-3 border-t border-line pt-5">
+    <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">{title}</h3>{action}</div>
     {children}
   </section>
 );
@@ -93,13 +93,17 @@ export function ConfigTab({ name, project, onChanged }: { name: string; project?
         if (canSave) void save();
       }
     }}>
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="mr-auto font-mono text-sm text-zinc-400">config.yaml · mcp.yaml</h2>
-        <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
-          options={[{ key: "form", label: t("code.form"), disabled: syntax ? t("code.fixYaml", { n: syntax.line! }) : !project ? t("config.formNeedsValid") : undefined },
-            { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> }]} />
-        <SaveNote dirty={dirty} state={state} errors={errors.length} />
-        <button type="button" className={btn.primary} disabled={!canSave} onClick={() => void save()} title="Ctrl+S">{t("common.save")}</button>
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <p className="mr-auto truncate font-mono text-[13px] text-fg-muted">{project?.root}</p>
+          <button type="button" className={btn.primary} disabled={!canSave} onClick={() => void save()} title="Ctrl+S">{t("common.save")}</button>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
+            options={[{ key: "form", label: t("code.form"), disabled: syntax ? t("code.fixYaml", { n: syntax.line! }) : !project ? t("config.formNeedsValid") : undefined },
+              { key: "yaml", label: <><CodeXml className="size-3.5" aria-hidden />YAML</> }]} />
+          <SaveNote dirty={dirty} state={state} errors={errors.length} />
+        </div>
       </div>
       {mode === "form" ? (
         <>
@@ -117,7 +121,7 @@ export function ConfigTab({ name, project, onChanged }: { name: string; project?
             : config.loadError ? <ErrorText error={config.loadError} /> : <Loading rows={8} />}
           {mcpUi.bar}
           {mcp.doc ? <YamlEditor text={mcp.text} onChange={mcp.setText} file="mcp.yaml" errors={mcp.errors} />
-            : mcp.loadError?.status === 404 ? <p className="text-sm text-zinc-400">{t("config.noMcp")}</p>
+            : mcp.loadError?.status === 404 ? <p className="text-sm text-fg-muted">{t("config.noMcp")}</p>
             : mcp.loadError ? <ErrorText error={mcp.loadError} /> : <Loading rows={4} />}
           {formUi.modal}{configUi.modal}{mcpUi.modal}
         </div>
@@ -168,12 +172,12 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
   };
   const known = ["models", "limits", "storage", "webhook", "callback", "openrouter"];
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <ErrorList errors={errors.filter((e) => !e.field || !known.some((k) => e.field!.startsWith(k)))} />
-      <p className="text-xs text-zinc-400">{t("config.secretsHelp")}</p>
-      <Section title="OpenRouter">
+      <Section title={t("config.connection")}>
+        <p className="text-xs text-fg-muted">{t("config.secretsHelp")}</p>
         {envField(t("config.keyFrom"), "openrouter", "api_key_env")}
-        <p className="text-sm text-zinc-400">{t("config.jevModel")} <span className="font-mono">{String(jev ?? "jev-1.13")}</span> · {t("config.yamlOnly")}</p>
+        <p className="text-sm text-fg-muted">{t("config.jevModel")} <span className="font-mono">{String(jev ?? "jev-1.13")}</span> · {t("config.yamlOnly")}</p>
       </Section>
       <Section title={t("config.models")} action={<AddPill label={t("config.addAlias")} onClick={() => {
         let n = 1;
@@ -224,13 +228,13 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
                     <Trash2 className="size-4" aria-hidden />
                   </button>
                 </div>
-                {users.length > 0 && <p className="pl-3 text-xs text-zinc-400">{t("config.usedByAgents", { n: users.length })}: {users.join(", ")}</p>}
-                {fe(`models.${alias}`).map((e, i) => <p key={i} className="font-mono text-xs text-rose-400">{e.message}</p>)}
+                <p className="px-3 text-xs text-fg-muted">{users.length ? t("config.usedByAgents", { agents: users.join(", ") }) : t("config.unused")}</p>
+                {fe(`models.${alias}`).map((e, i) => <p key={i} className="font-mono text-xs text-error">{e.message}</p>)}
               </li>
             );
           })}
         </ul>
-        <p className="text-xs text-zinc-400">{t("config.aliasRule")}</p>
+        <p className="text-xs text-fg-muted">{t("config.aliasRule")}</p>
       </Section>
       <Section title={t("config.storage")}>
         <FormField label="type" errors={fe("storage.type")}>
@@ -265,7 +269,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
           ))}
         </div>
       </Section>
-      <Section title="Webhook · Callback">
+      <Section title={t("config.webhook")}>
         <div className="grid grid-cols-2 gap-3">
           {envField("webhook.token_env", "webhook", "token_env")}
           {envField("callback.secret_env", "callback", "secret_env")}
@@ -281,7 +285,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
           {project?.mcp_servers.map((s) => (
             <li key={s.name} className="text-sm">
               <span className="font-mono">{s.name}</span>
-              <span className="text-zinc-400">
+              <span className="text-fg-muted">
                 {" "}{s.type}
                 {s.agents && ` · ${t("config.mcpAgents")}: ${s.agents.join(", ")}`}
                 {s.scenarios && ` · ${t("config.mcpScenarios")}: ${s.scenarios.join(", ")}`}
@@ -289,9 +293,9 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
               </span>
             </li>
           ))}
-          {!project?.mcp_servers.length && <li className="text-zinc-500">–</li>}
+          {!project?.mcp_servers.length && <li className="text-sm text-fg-muted">{t("config.noMcp")}</li>}
         </ul>
-        <p className="text-xs text-zinc-400">{t("config.mcpYaml")}</p>
+        {!!project?.mcp_servers.length && <p className="text-xs text-fg-muted">{t("config.mcpYaml")}</p>}
       </Section>
     </div>
   );

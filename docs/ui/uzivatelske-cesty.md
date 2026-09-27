@@ -79,10 +79,10 @@ Cíl: pochopit, co je špatně, a opravit to bez terminálu. Stav: `demo/ukazka`
 
 ### C6 Spuštění běhu s formulářem vstupů (dry-run, ostrý, živý) **[hotovo; po 202 čte GUI 15 s i stav `dry_run` (hack `?spusteno=1`, nález 15 — v 0.8.0 už není třeba)]**
 Cíl: spustit scénář a vidět, že běží. Stav: `ukazka` + fixture `dlouhy.yaml` (krok `pomalu` se `sleep: 4`).
-1. Editor `ukazka` → `button "Spustit"` → panel eyebrow „SPUSTIT BĚH“, `textbox "tema"` předvyplněný `káva`, nápověda „string · O čem psát“, `radio "Dry-run"` zaškrtnuté (nápověda „Jen plán… zdarma.“), `button "Spustit dry-run"`.
+1. Editor `ukazka` → `button "Spustit"` → panel eyebrow „SPUSTIT BĚH“, `textbox "tema"` předvyplněný `káva`, nápověda „string · O čem psát“, `group "Režim běhu"` se dvěma kartami (radio uvnitř, klik kamkoli na kartu vybírá, vybraná má ring), `radio "Dry-run"` zaškrtnuté (nápověda „Jen plán… zdarma.“), vpravo `button "Spustit dry-run"`; tlačítko „Zrušit“ v panelu není (zavírá ✕ a Esc).
 2. Vymazat tema, `checkbox "povinný"` je ve fixture zapnutý (varianta scénáře bez default) → odeslat → pod polem „Povinný vstup.“, žádný POST.
 3. `tema` = „nová káva“, Spustit dry-run → `POST /projects/demo/runs {dry_run: true}` 200 → `#/p/demo/behy/<run_id>`, `run-state` „jen plán (dry-run)“, text „Tohle je jen plán (dry-run) — běh neproběhl.“, vykreslený `plan.md`. Disk: `demo/runs/<run_id>/plan.md`, `inputs.json` (`{"tema":"nová káva"}`), bez `events.jsonl`.
-4. Znovu Spustit, `radio "Ostrý běh"` → `dl "Limity běhu"`: „na běh 1,00 USD“, „čas běhu 1h“, „dnes utraceno 0 / 5,00 USD“ (spend ignoruje falešné běhy); s neuloženou změnou navíc „Máš neuložené změny — běh použije verzi na disku.“ → `button "Spustit ostrý běh"` → 202 → `…?spusteno=1`.
+4. Znovu Spustit, `radio "Ostrý běh"` → `dl "Limity běhu"`: „na běh 1,00 USD“, „čas běhu 1h“, „dnes utraceno 0 / 5,00 USD“ (spend ignoruje falešné běhy); s neuloženou změnou navíc varování s ikonou „Máš neuložené změny — běh použije verzi na disku.“ → `button "Spustit ostrý běh"` → 202 → `…?spusteno=1`.
 5. Na `dlouhy`: hlavička „běží“, chip „falešný běh“, karta `[data-step-card="pomalu"]` `aria-label` „… — běží“ (pulz), čas tiká, `aria-live` „krok pomalu běží“, `checkbox "sledovat běh"`; po ≈ 4 s `role=status` „Běh skončil: úspěch“, karta „— úspěch“, checkbox zmizí, dotazování skončí (žádný další GET do 6 s).
 6. Záložka `Běhy`: řádek `run-row` s ikonou + sr „běží“, „běží · krok 1/2 pomalu · falešný běh“, vpravo „1 běží · 0 ve frontě“; dva starty naráz → druhý „ve frontě (2.)“. Disk: `runs/<run_id>/{run.lock, events.jsonl, scenario/dlouhy.yaml, steps/01-pomalu/…, summary.md, report.html}`.
 
@@ -159,7 +159,8 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 
 1. Config → „+ alias“ přidá řádek `model-1`; pole Alias bere jméno jako u agenta (malá písmena, číslice, pomlčka — `gpt-image`), neplatné se při opuštění pole vrátí a pravidlo je v `title` pole i pod seznamem.
 2. Id modelu, Uložit → `PUT …/config` (merge patch); nový alias se do `config.yaml` zapíše stejným řádkovým stylem `{ id: … }` jako ostatní, přejmenování maže starý klíč první.
-3. Po načtení je alias v nabídce modelu agenta. Test: `editor.spec.ts` „C17“.
+3. Pod každým řádkem aliasu meta „používá pisatel“ nebo „nepoužívá se“; používaný alias má koš neaktivní s důvodem v `title`.
+4. Po načtení je alias v nabídce modelu agenta. Test: `editor.spec.ts` „C17“; hlavička Configu (cesta projektu, jeden přepínač Form | YAML, jedno Uložit) `redesign-panely.spec.ts` „R4“.
 
 ### C18 Vložení proměnné z nabídky
 
@@ -169,7 +170,8 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 
 ### C19 Přejmenování scénáře a agenta
 
-1. V editoru scénáře nebo agenta klikni na „Přejmenovat“. Dialog předvyplní
+1. V editoru scénáře klikni na „Přejmenovat“, v editoru agenta na menu ⋯
+   (`button "Akce pro <agent>"`) → „Přejmenovat“. Dialog předvyplní
    současný slug, odmítne neplatný či obsazený název; při neuloženém draftu
    se nejdřív nabídne jeho uložení nebo zahození.
 2. Potvrzení pošle `POST …/scenarios/<staré>/rename` nebo
