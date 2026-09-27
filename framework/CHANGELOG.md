@@ -33,6 +33,8 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
   meta „používá …“ / „nepoužívá se“.
 - Karty: Kroky, konektory, nabídka typů a karty scénářů používají tokeny V3;
   přehled scénářů ukazuje jméno, popis a jediný čas v čipu posledního běhu.
+- Prvky: Tlačítka, formulářová pole, stavy, menu, modály a editory používají
+  tokeny V3; menu podporuje nebezpečné a zakázané položky.
 
 ## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
 
