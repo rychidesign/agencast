@@ -27,6 +27,10 @@ je používají jako třídy (`bg-canvas`, `text-fg-muted`, `ring-line`, `font-m
 | `--color-sidebar` | `#0B1524` | pozadí sidebaru |
 | `--color-surface` | `#172436` | karta, panel, menu, modál |
 | `--color-surface-hover` | `#1D2D42` | hover karty / položky |
+| `--color-surface-active` | `#1B2A3D` | vybraná karta a aktivní položka |
+| `--color-control` | `#31455F` | sekundární a ikonové tlačítko |
+| `--color-control-hover` | `#3B5170` | hover sekundárního tlačítka |
+| `--color-track` | `#25374A` | dráha progress baru |
 | `--color-nested` | `#0D192A` | pole, čip, blok kódu, vnořený prvek |
 | `--color-line` | `#BDD9F026` | hairline, ring polí |
 | `--color-fg` | `#EDF5FF` | primární text |
@@ -43,12 +47,13 @@ je používají jako třídy (`bg-canvas`, `text-fg-muted`, `ring-line`, `font-m
 | `--color-type` | `#8BDCDF` | ikona typu kroku |
 | `--font-sans` | `"Inter Variable", Inter, system-ui, sans-serif` | text |
 | `--font-mono` | `"JetBrains Mono Variable", ui-monospace, monospace` | id, cesty, výrazy, YAML, čísla |
-| `--radius-control` | `8px` | tlačítka, pole |
+| `--radius-control` | `8px` | pole a drobné vnořené prvky |
+| `--radius-button` | `10px` | tlačítka |
 | `--radius-card` | `12px` | karty, menu |
 | `--radius-panel` | `16px` | panel, modál |
 
-Velikosti: ovládací prvek 36 px (kompaktní 32, dotyk 44), ikona 16 px tah 1,5, písmo 12 (nápověda),
-13 (štítek, mono, meta), 14 (tělo), 18 (nadpis), eyebrow 11 px verzálky. Fonty se bundlují
+Velikosti podle věrnosti V3: tlačítko 40 px (ikonové v hlavičce 48 px), pole 44 px, záložka 40 px,
+H1 32 px, panelový titul 20 px, štítek pole 13 px, meta mono 12 px, eyebrow 11 px. Fonty se bundlují
 (`@fontsource-variable/inter`, `@fontsource-variable/jetbrains-mono`), žádné CDN — GUI běží
 jen na Tailscale a musí fungovat offline.
 

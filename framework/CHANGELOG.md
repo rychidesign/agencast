@@ -24,6 +24,9 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
   servery agenta jsou řádky s checkboxy, instrukce mají delší Markdown pole a použití tvoří odkazy.
 - Věrnost: Config má formulář v kartě, sekce ve dvojicích sloupců, vnořené karty aliasů,
   stavové řádky proměnných a MCP servery označené „Pouze čtení“.
+- Věrnost: tokeny pro ovládací prvky, aktivní plochu a progress podle návrhu V3.
+- Věrnost: tlačítka, pole, přepínač, záložky, čipy, menu, akordeon a prázdné stavy mají rozměry a barvy návrhu.
+- Věrnost: YAML editor, čtecí bloky kódu a konfliktový pruh mají hlavičky, číslování a patičky podle návrhu.
 
 ## 0.16.0 — 2026-09-28 (GUI podle návrhu V3: sidebar, jednotné hlavičky, tokeny)
 

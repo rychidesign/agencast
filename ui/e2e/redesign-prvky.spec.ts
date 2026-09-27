@@ -58,3 +58,17 @@ test("P4 proměnná se vloží myší i klávesnicí", async ({ page, project })
   await page.keyboard.press("Enter");
   await expect(prompt).toHaveValue("Další {{ inputs.tema }}");
 });
+
+test("P5 základní ovládání drží rozměry návrhu", async ({ page, project }) => {
+  await page.goto("/");
+  const add = page.getByRole("button", { name: "Přidat projekt" }).first();
+  await expect(add).toBeVisible();
+  expect(await add.evaluate((el) => ({ height: el.getBoundingClientRect().height, radius: getComputedStyle(el).borderRadius }))).toEqual({ height: 40, radius: "10px" });
+  const menu = page.getByRole("button", { name: "Další akce" });
+  expect(await menu.evaluate((el) => el.getBoundingClientRect().width)).toBe(40);
+
+  await page.goto(`/#/p/${project.name}/config`);
+  const field = page.locator("input:not([type=checkbox])").first();
+  await expect(field).toBeVisible();
+  expect(await field.evaluate((el) => el.getBoundingClientRect().height)).toBe(44);
+});

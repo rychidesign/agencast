@@ -1,6 +1,6 @@
 // Drobné sdílené komponenty (§3 inventář): stavy, skeleton, kopírování, menu ⋯, záložky, hodnoty.
 import {
-  Ban, Check, ChevronRight, CircleCheck, CircleSlash, CircleDashed, CircleDot, CircleX, Copy, Ellipsis, FileText,
+  Ban, Braces, Check, ChevronRight, CircleCheck, CircleSlash, CircleDashed, CircleDot, CircleX, Copy, Ellipsis, FileText, Inbox,
   TriangleAlert, type LucideIcon, Circle,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -8,11 +8,12 @@ import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 
 export const btn = {
-  primary: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-accent px-4 text-sm font-medium text-ink hover:bg-fg disabled:opacity-50 pointer-coarse:h-11",
-  secondary: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface px-4 text-sm text-fg ring-1 ring-line focus-visible:ring-2 focus-visible:ring-accent hover:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11",
-  danger: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-surface px-4 text-sm text-error ring-1 ring-line focus-visible:ring-2 focus-visible:ring-accent hover:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11",
-  ghost: "inline-flex h-9 items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50 pointer-coarse:h-11",
-  icon: "grid size-8 place-items-center rounded-[var(--radius-control)] text-fg-muted hover:bg-surface-hover hover:text-fg disabled:opacity-50 pointer-coarse:size-11",
+  primary: "inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-accent px-[18px] text-sm font-semibold text-ink hover:bg-fg disabled:opacity-50 pointer-coarse:h-11",
+  secondary: "inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-control px-[18px] text-sm font-semibold text-fg hover:bg-control-hover disabled:opacity-50 pointer-coarse:h-11",
+  danger: "inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-error/15 px-[18px] text-sm font-semibold text-error hover:bg-error/25 disabled:opacity-50 pointer-coarse:h-11",
+  ghost: "inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-button)] px-[18px] text-sm font-semibold text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50 pointer-coarse:h-11",
+  icon: "grid size-10 place-items-center rounded-[var(--radius-button)] bg-control text-fg hover:bg-control-hover disabled:opacity-50 pointer-coarse:size-11",
+  iconLg: "grid size-12 place-items-center rounded-[var(--radius-button)] bg-control text-fg hover:bg-control-hover disabled:opacity-50",
 };
 
 // --- stav ---------------------------------------------------------------------------------
@@ -54,11 +55,12 @@ export function StatusBadge({ status, children }: { status: Status; children: Re
   );
 }
 
-/** Stavový čip na kartě (§5): ikona barevně, text šedý. */
+/** Stavový čip na kartě: ikona i text používají barvu stavu. */
 export function StatusChip({ status, children }: { status: Status; children: ReactNode }) {
+  const { icon: Icon, color } = STATUS[status];
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-nested px-2 py-0.5 text-xs whitespace-nowrap text-fg-secondary">
-      <StatusBadge status={status}>{children}</StatusBadge>
+    <span className={`inline-flex items-center gap-2 rounded-full bg-nested px-3 py-1.5 font-mono text-xs whitespace-nowrap ${color}`}>
+      <Icon className={`size-3.5 shrink-0 ${color}`} aria-hidden />{children}
     </span>
   );
 }
@@ -81,9 +83,10 @@ export function Loading({ rows = 3, pill = false }: { rows?: number; pill?: bool
 
 export function EmptyState({ text, cli }: { text: string; cli?: string }) {
   return (
-    <div className="rounded-[var(--radius-card)] bg-surface p-6 text-sm text-fg-secondary">
+    <div className="flex flex-col items-center gap-3 rounded-[var(--radius-panel)] bg-surface p-8 text-center text-sm text-fg-secondary">
+      <Inbox className="size-7 text-running" aria-hidden />
       <p>{text}</p>
-      {cli && <CliLine cmd={cli} className="mt-3" />}
+      {cli && <CliLine cmd={cli} className="mt-1 w-full max-w-lg text-left" />}
     </div>
   );
 }
@@ -142,6 +145,34 @@ export function CliLine({ cmd, className = "" }: { cmd: string; className?: stri
   );
 }
 
+/** Čitelný výstup kroku s čísly řádků a kopií celého textu. */
+export function CodeBlock({ text: source, title, file, language }: { text: string; title?: string; file?: string; language?: string }) {
+  const [copied, setCopied] = useState(false);
+  const name = title ?? file ?? t("code.output");
+  const lines = source.replace(/\n$/, "").split("\n");
+  return (
+    <section className="overflow-hidden rounded-[var(--radius-card)] bg-surface ring-1 ring-line">
+      <div className="flex h-10 items-center gap-2 border-b border-line px-4">
+        <Braces className="size-4 text-fg-secondary" aria-hidden />
+        <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-fg">{name}</span>
+        <span className="rounded-md bg-nested px-2 py-1 font-mono text-[11px] text-fg-secondary">{language ?? t("code.readOnly")}</span>
+      </div>
+      <div className="overflow-auto bg-nested p-4 font-mono text-[13px] leading-6" role="region" aria-label={name} tabIndex={0}>
+        <table className="border-collapse"><tbody>{lines.map((line, i) => (
+          <tr key={i}><td className="pr-4 text-right align-top font-mono text-xs text-fg-muted select-none">{i + 1}</td><td className="whitespace-pre text-fg-secondary">{line || " "}</td></tr>
+        ))}</tbody></table>
+      </div>
+      <div className="flex justify-end border-t border-line px-3 py-2">
+        <button type="button" className={btn.secondary} onClick={async () => {
+          await navigator.clipboard.writeText(source);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}><Copy className="size-4" aria-hidden />{copied ? t("common.copied") : t("common.copy")}</button>
+      </div>
+    </section>
+  );
+}
+
 // --- menu ⋯ ---------------------------------------------------------------------------------
 
 export interface MenuItem {
@@ -151,7 +182,7 @@ export interface MenuItem {
   disabled?: string;
 }
 
-export function Menu({ items, label }: { items: MenuItem[]; label: string }) {
+export function Menu({ items, label, large = false }: { items: MenuItem[]; label: string; large?: boolean }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -180,17 +211,17 @@ export function Menu({ items, label }: { items: MenuItem[]; label: string }) {
   return (
     <div ref={root} className="relative" onKeyDown={onKey}>
       <button
-        type="button" className={btn.icon} aria-label={label} aria-haspopup="menu" aria-expanded={open}
+        type="button" className={large ? btn.iconLg : btn.icon} aria-label={label} aria-haspopup="menu" aria-expanded={open}
         aria-controls={id} onClick={(e) => (e.stopPropagation(), setOpen(!open))}
       >
-        <Ellipsis className="size-4" aria-hidden />
+        <Ellipsis className="size-5" aria-hidden />
       </button>
       {open && (
-        <div id={id} role="menu" className="absolute right-0 z-20 mt-1 w-60 rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
+        <div id={id} role="menu" className="absolute right-0 z-20 mt-1 w-60 rounded-[var(--radius-card)] bg-surface p-2 ring-1 ring-line">
           {items.map((it) => (
             <button
               key={it.label} type="button" role="menuitem" tabIndex={-1} disabled={!!it.disabled} aria-disabled={!!it.disabled || undefined} title={it.disabled}
-              className={`flex h-9 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-sm hover:bg-surface-hover focus:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11 ${it.danger ? "text-error" : "text-fg"}`}
+              className={`flex h-10 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-sm hover:bg-surface-hover focus:bg-surface-hover disabled:opacity-50 ${it.danger ? "text-error" : "text-fg"}`}
               onClick={(e) => (e.stopPropagation(), setOpen(false), it.onSelect())}
             >
               {it.label}
@@ -210,7 +241,7 @@ export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: 
       {tabs.map((tab) => (
         <a
           key={tab.key} href={tab.href} aria-current={tab.key === active ? "page" : undefined}
-          className={`border-b-2 px-1 py-2 text-sm pointer-coarse:py-3 ${tab.key === active ? "border-accent text-fg" : "border-transparent text-fg-secondary hover:text-fg"}`}
+          className={`flex h-10 items-center border-b-2 px-1 text-sm font-medium ${tab.key === active ? "border-accent text-fg" : "border-transparent text-fg-secondary hover:text-fg"}`}
         >
           {tab.label}
         </a>
@@ -225,12 +256,12 @@ export function Toggle<K extends string>({ value, options, onChange, label }: {
   onChange: (k: K) => void; label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-full bg-nested p-0.5">
+    <div role="radiogroup" aria-label={label} className="inline-flex gap-1 rounded-full bg-nested p-1">
       {options.map((o) => (
         <button
           key={o.key} type="button" role="radio" aria-checked={o.key === value} aria-disabled={!!o.disabled || undefined}
           title={o.disabled} aria-description={o.disabled} onClick={() => !o.disabled && onChange(o.key)}
-          className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm pointer-coarse:h-11 ${o.key === value ? "bg-surface text-fg" : o.disabled ? "cursor-not-allowed text-fg-muted opacity-50" : "text-fg-secondary hover:text-fg"}`}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm ${o.key === value ? "bg-accent font-semibold text-ink" : o.disabled ? "cursor-not-allowed text-fg-muted opacity-50" : "text-fg-secondary hover:text-fg"}`}
         >
           {o.label}
         </button>
@@ -251,7 +282,7 @@ export function Collapsible({ title, value, children }: { title: string; value: 
         className="flex h-12 w-full items-center gap-3 text-left text-[15px] text-fg"
       >
         <span className="flex-1 font-medium">{title}</span>
-        <span className="max-w-[55%] truncate font-mono text-[13px] text-fg-muted" title={typeof value === "string" ? value : undefined}>{value}</span>
+        <span className="max-w-[55%] truncate font-mono text-xs text-fg-muted" title={typeof value === "string" ? value : undefined}>{value}</span>
         <ChevronRight className={`size-4 text-fg-muted transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
       </button>
       {open && <div id={id} className="pb-4">{children}</div>}

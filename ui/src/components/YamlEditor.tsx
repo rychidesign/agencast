@@ -1,6 +1,7 @@
 // `YamlEditor` (§3, §4.5): textarea nad zvýrazněným textem, čísla řádků,
 // chybné řádky a seznam chyb s odkazem na řádek. `ConflictBar` a rozdíl (§4.6).
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { FileCode2, TriangleAlert } from "lucide-react";
 import { t } from "../i18n";
 import { lineDiff, type Conflict } from "../textfile";
 import type { ErrorItem } from "../types";
@@ -18,7 +19,10 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
 }) {
   const box = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
+  const hintId = useId();
+  const errorsId = useId();
   const [flash, setFlash] = useState(focus);
+  const [position, setPosition] = useState<[number, number]>([1, 1]);
   const lines = text.split("\n");
   const bad = new Set(errors.map((e) => e.line).filter(Boolean));
 
@@ -28,6 +32,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
     const offset = lines.slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0);
     el.focus({ preventScroll: true });
     el.setSelectionRange(offset, offset);
+    setPosition([line, 1]);
     if (box.current) box.current.scrollTop = Math.max(0, (line - 1) * LINE_PX + PAD_PX - box.current.clientHeight / 3);
   };
   useEffect(() => {
@@ -42,16 +47,25 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
 
   const caret = () => {
     const el = area.current;
-    if (el && onCaretLine) onCaretLine(el.value.slice(0, el.selectionStart).split("\n").length);
+    if (!el) return;
+    const before = el.value.slice(0, el.selectionStart);
+    const line = before.split("\n").length;
+    setPosition([line, before.length - before.lastIndexOf("\n")]);
+    onCaretLine?.(line);
   };
   return (
-    <div>
-      <div ref={box} className="max-h-[calc(100vh-14rem)] overflow-auto rounded-[var(--radius-card)] bg-nested font-mono text-[13px] leading-6 ring-1 ring-line focus-within:ring-accent">
+    <div className="overflow-hidden rounded-[var(--radius-panel)] bg-surface ring-1 ring-line focus-within:ring-accent">
+      <div className="flex h-12 items-center gap-2.5 border-b border-line px-[18px]">
+        <FileCode2 className="size-[18px] text-fg-secondary" aria-hidden />
+        <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-fg">{file}</span>
+        <span className="rounded-md bg-nested px-2 py-1 font-mono text-[11px] text-fg-secondary ring-1 ring-line">{file.endsWith(".md") ? "Markdown" : "YAML"}</span>
+      </div>
+      <div ref={box} className="max-h-[calc(100vh-14rem)] overflow-auto bg-nested font-mono text-[13px] leading-6">
         <div className="flex min-w-max">
-          <div aria-hidden className="py-4 pr-3 pl-4 text-right text-fg-muted select-none">
+          <div aria-hidden className="py-4 pr-3 pl-4 text-right font-mono text-xs text-fg-muted select-none">
             {lines.map((_, i) => (
               <div key={i} data-testid={bad.has(i + 1) ? `yaml-line-${i + 1}` : undefined}
-                className={bad.has(i + 1) ? "-ml-4 border-l-2 border-error bg-error/10 pl-[14px] text-error" : flash && i + 1 >= flash[0] && i + 1 <= flash[1] ? "-ml-4 border-l-2 border-accent bg-surface-hover pl-[14px]" : ""}>{i + 1}</div>
+                className={bad.has(i + 1) ? "-ml-4 border-l-2 border-error bg-error/10 pl-[14px] text-error" : flash && i + 1 >= flash[0] && i + 1 <= flash[1] ? "-ml-4 border-l-2 border-accent bg-surface-active pl-[14px]" : ""}>{i + 1}</div>
             ))}
           </div>
           <div className="relative flex-1 py-4 pr-4">
@@ -59,20 +73,23 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
               {lines.map((l, i) => {
                 const n = i + 1;
                 const hi = flash && n >= flash[0] && n <= flash[1];
-                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-hover transition-colors" : ""}><Line text={l || " "} /></div>;
+                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-active transition-colors" : ""}><Line text={l || " "} /></div>;
               })}
             </pre>
             <textarea
               ref={area} value={text} readOnly={readOnly} wrap="off" spellCheck={false} aria-label={label ?? file}
-              aria-describedby="yaml-hint yaml-errors" aria-invalid={errors.length > 0 || undefined}
+              aria-describedby={`${hintId} ${errorsId}`} aria-invalid={errors.length > 0 || undefined}
               onChange={(e) => onChange(e.target.value)} onSelect={caret} onKeyUp={caret} onClick={caret}
               className="absolute inset-0 resize-none overflow-hidden bg-transparent py-4 pr-4 whitespace-pre text-transparent caret-fg outline-none selection:bg-accent/30"
             />
           </div>
         </div>
       </div>
-      <p id="yaml-hint" className="mt-2 text-xs text-fg-muted">{t(readOnly ? "code.hint" : "code.editHint", { file: `workflows/${file}` })}</p>
-      <div id="yaml-errors" className="mt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-2 text-xs text-fg-muted">
+        <p id={hintId}>{t(readOnly ? "code.hint" : "code.editHint", { file: `workflows/${file}` })}</p>
+        <span className="font-mono whitespace-nowrap">{t("code.position", { line: position[0], column: position[1] })}</span>
+      </div>
+      <div id={errorsId} className={errors.length ? "border-t border-line p-4" : ""}>
         <ul className="space-y-2">
           {errors.map((e, i) => (
             <li key={i}>
@@ -96,8 +113,9 @@ export function ConflictBar({ conflict, onDiff, onReload, onKeep, inHeader = fal
   inHeader?: boolean;
 }) {
   return (
-    <div role="alert" data-testid="conflict-bar" className={`${inHeader ? "w-full" : "sticky top-[calc(var(--page-header-h,0px)+0.5rem)] z-10 mx-auto mb-4 max-w-4xl"} flex flex-wrap items-center gap-2 rounded-[var(--radius-card)] bg-surface px-4 py-3 text-sm ring-1 ring-warning/60`}>
-      <span className="flex-1 text-warning">{t(conflict.stale ? "conflict.stale" : "conflict.changed")}</span>
+    <div role="alert" data-testid="conflict-bar" className={`${inHeader ? "w-full" : "sticky top-[calc(var(--page-header-h,0px)+0.5rem)] z-10 mx-auto mb-4 max-w-4xl"} flex flex-wrap items-center gap-3 rounded-[var(--radius-card)] bg-warning/10 px-4 py-3 ring-1 ring-warning/40`}>
+      <TriangleAlert className="size-5 shrink-0 text-warning" aria-hidden />
+      <div className="min-w-40 flex-1"><strong className="text-sm font-semibold text-warning">{t("conflict.title")}</strong><p className="text-[13px] text-fg-secondary">{t(conflict.stale ? "conflict.stale" : "conflict.changed")}</p></div>
       <button type="button" className={btn.secondary} onClick={onDiff}>{t("conflict.diff")}</button>
       <button type="button" className={btn.secondary} onClick={onReload}>{t("conflict.reload")}</button>
       <button type="button" className={btn.secondary} onClick={onKeep}>{t("conflict.keep")}</button>

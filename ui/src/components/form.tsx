@@ -5,9 +5,9 @@ import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn } from "./ui";
 
-const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:5px_5px] [&:is(select)]:bg-[position:calc(100%-19px)_55%,calc(100%-14px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-9";
+const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:8px_8px] [&:is(select)]:bg-[position:calc(100%-25px)_55%,calc(100%-17px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-10";
 export const inputCls =
-  `w-full min-h-9 rounded-[var(--radius-control)] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-line focus:outline-none focus:ring-2 focus:ring-accent aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:text-base ${selectArrow}`;
+  `w-full min-h-11 rounded-[var(--radius-control)] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-line focus:outline-none focus:ring-2 focus:ring-accent aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:text-base [&:is(textarea)]:p-3 ${selectArrow}`;
 const mono = "font-mono text-[13px]";
 
 /** Pole se štítkem nad sebou (§6): `aria-describedby` na nápovědu i chybu. */
@@ -18,9 +18,9 @@ export function FormField({ label, help, errors = [], required, children, action
   const id = useId();
   const described = [help && `${id}-help`, errors.length && `${id}-err`].filter(Boolean).join(" ") || undefined;
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-[13px] font-semibold text-fg-secondary">
+        <label htmlFor={id} className="text-[13px] font-medium text-fg-secondary">
           {label}{required && <span className="text-fg-muted"> *</span>}
         </label>
         {action}
@@ -176,10 +176,10 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   return (
     <div ref={root} className="relative">
       {multiline
-        ? <textarea {...props} className={`${inputCls} ${mono} pr-12`} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
+        ? <textarea {...props} className={`${inputCls} ${mono} [&:is(textarea)]:pr-12`} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
         : <input {...props} className={`${inputCls} ${mono} pr-12`} />}
       <button
-        type="button" className={`absolute right-1 grid size-8 place-items-center rounded-[var(--radius-control)] text-variable pointer-coarse:size-11 ${multiline ? "top-1" : "top-1/2 -translate-y-1/2"} ${variablesOpen ? "bg-surface" : "hover:bg-surface"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
+        type="button" className={`absolute right-0.5 grid size-10 place-items-center rounded-[var(--radius-control)] bg-control text-variable hover:bg-control-hover pointer-coarse:size-11 ${multiline ? "top-1" : "top-1/2 -translate-y-1/2"} disabled:cursor-not-allowed disabled:opacity-40`}
         aria-label={t("form.variables.insert")} title={candidates.length ? t("form.variables.insert") : t("form.variables.none")}
         aria-haspopup="menu" aria-expanded={variablesOpen} aria-controls={menuId} disabled={!candidates.length}
         onClick={() => (setVariableActive(0), setVariablesOpen((isOpen) => !isOpen))}
@@ -218,7 +218,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
                 const i = candidates.indexOf(candidate);
                 return (
                   <button key={candidate} type="button" role="menuitem" tabIndex={-1}
-                    className={`flex min-h-9 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-variable ${mono} ${i === variableActive ? "bg-surface-hover" : "hover:bg-surface-hover"} pointer-coarse:min-h-11`}
+                    className={`flex min-h-10 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-variable ${mono} ${i === variableActive ? "bg-surface-hover" : "hover:bg-surface-hover"} pointer-coarse:min-h-11`}
                     onFocus={() => setVariableActive(i)} onClick={() => insertVariable(candidate)}>
                     {candidate}
                   </button>

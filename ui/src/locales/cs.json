@@ -412,5 +412,9 @@
   "runs.filter.scenarioLabel": "Filtr scénáře",
   "runs.col.scenarioId": "Scénář / run_id",
   "runs.col.price": "Cena",
-  "run.openScenario": "Otevřít scénář"
+  "run.openScenario": "Otevřít scénář",
+  "code.readOnly": "Pouze čtení",
+  "code.output": "Výstup",
+  "code.position": "Řádek {line}, sloupec {column}",
+  "conflict.title": "Soubor se změnil"
 }
