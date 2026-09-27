@@ -17,10 +17,10 @@ export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   id: string; eyebrow: string; title: ReactNode; onClose: () => void; actions?: ReactNode; children: ReactNode;
 }) {
   return (
-    <aside aria-labelledby={id} className="rounded-2xl bg-zinc-800 p-5">
+    <aside aria-labelledby={id} className="rounded-panel bg-surface p-5">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div id={id} className="text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">{eyebrow}</div>
+          <div id={id} className="text-[11px] font-semibold tracking-wider text-fg-muted uppercase">{eyebrow}</div>
           <div className="truncate text-lg font-semibold">{title}</div>
         </div>
         {actions}
@@ -92,24 +92,27 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
   const ctx: FormCtx = { step, candidates, project, header, errors: fieldErrors, change: edit.change };
 
   return (
-    <PanelShell id="step-panel-title" eyebrow={t("panel.step", { n: step.nn })} onClose={onClose}
-      title={
-        <select aria-label={t("panel.type")} value={type ?? ""} onChange={(e) => edit.retype(e.target.value as StepType)}
-          disabled={type === "output"} className="rounded-lg bg-transparent font-mono text-lg font-semibold hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300">
-          {!type && <option value="">?</option>}
-          {TYPES.filter((k) => k !== "output" || type === "output").map((k) => <option key={k} value={k}>{k}</option>)}
-        </select>
-      }
+    <PanelShell id="step-panel-title" eyebrow={`${t("panel.step", { n: step.nn })} · ${type ?? "?"}`}
+      title={<span className="font-mono">{step.id}</span>} onClose={onClose}
       actions={
         <button type="button" onClick={edit.remove} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
-          className="grid size-8 place-items-center rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25">
+          className={`${btn.icon} text-error hover:bg-error/10 hover:text-error`}>
           <Trash2 className="size-4" aria-hidden />
         </button>
       }>
       <div className="space-y-5">
         <ErrorList errors={loose} />
+        <FormField label={t("panel.type")}>
+          {(a) => (
+            <select {...a} value={type ?? ""} onChange={(e) => edit.retype(e.target.value as StepType)} disabled={type === "output"}
+              className={`${inputCls} font-mono`}>
+              {!type && <option value="">?</option>}
+              {TYPES.filter((k) => k !== "output" || type === "output").map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          )}
+        </FormField>
         <TypeForm ctx={ctx} />
-        <div className="divide-y divide-zinc-700 border-t border-zinc-700">
+        <div className="divide-y divide-line border-t border-line">
           {type !== "output" && (
             <Collapsible title={t("panel.condition")} value={<span className="font-mono">{step.when || t("panel.always")}</span>}>
               <FormField label={t("panel.when")} help={t("panel.conditionHelp")} errors={fieldErrors("when")}>
@@ -149,12 +152,12 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
             <div className="space-y-4">
               <IdField step={step} steps={steps} errors={fieldErrors("id")} onRename={edit.rename} />
               <dl className="space-y-3 text-sm">
-                <div><dt className="text-[13px] font-semibold text-zinc-300">{t("panel.readsFrom")}</dt>
+                <div><dt className="text-[13px] font-semibold text-fg-secondary">{t("panel.readsFrom")}</dt>
                   <dd className="mt-1"><Chips ids={readsFrom(step)} onSelect={onSelect} /></dd></div>
-                <div><dt className="text-[13px] font-semibold text-zinc-300">{t("panel.readBy")}</dt>
+                <div><dt className="text-[13px] font-semibold text-fg-secondary">{t("panel.readBy")}</dt>
                   <dd className="mt-1"><Chips ids={readBy(flat(steps), step.id)} onSelect={onSelect} /></dd></div>
               </dl>
-              <a className="inline-block text-sm underline" href={href(project.name, "scenare", scenario, { krok: step.id, rezim: "yaml" })}>
+              <a className="inline-block text-sm text-fg-secondary underline hover:text-fg" href={href(project.name, "scenare", scenario, { krok: step.id, rezim: "yaml" })}>
                 {t("panel.openYaml")}
               </a>
             </div>
@@ -170,10 +173,10 @@ const Chips = ({ ids, onSelect }: { ids: string[]; onSelect: (id: string) => voi
     <span className="flex flex-wrap gap-1.5">
       {ids.map((id) => (
         <button key={id} type="button" onClick={() => onSelect(id)}
-          className="rounded-full bg-zinc-900 px-2.5 py-0.5 font-mono text-[13px] hover:bg-zinc-700">{id}</button>
+          className="rounded-full bg-nested px-2.5 py-0.5 font-mono text-[13px] hover:bg-surface-hover">{id}</button>
       ))}
     </span>
-  ) : <span className="text-zinc-500">{t("panel.nothing")}</span>;
+  ) : <span className="text-fg-muted">{t("panel.nothing")}</span>;
 
 /** Přejmenování id: formát a jedinečnost; odkazy čtenářů přepíše dávka (`rename_step`, `rename_refs`). */
 function IdField({ step, steps, errors, onRename }: {
@@ -386,7 +389,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
       const names = [...new Set([...Object.keys(ctx.header.outputs ?? {}), ...Object.keys(body)])];
       return (
         <div className="space-y-4">
-          <p className="text-xs text-zinc-400">{t("help.output")}</p>
+          <p className="text-xs text-fg-muted">{t("help.output")}</p>
           {names.map((n) => (
             <FormField key={n} label={n} errors={errors(`output.${n}`)} help={ctx.header.outputs?.[n]?.type}>
               {(a) => <CodeInput a11y={a} template value={String(body[n] ?? "")} candidates={candidates} onChange={(v) => setBody(n, v)} />}
@@ -401,11 +404,11 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
           <FormField label={t("field.value")} help={t("help.switch")} errors={errors("switch.value")} required>
             {(a) => <CodeInput a11y={a} value={str("value")} candidates={candidates} placeholder="steps.kontrola.druh" onChange={(v) => setBody("value", v)} />}
           </FormField>
-          <p className="text-sm text-zinc-400">{t("panel.cases", { names: Object.keys(step.cases ?? {}).join(", ") || "–" })}</p>
+          <p className="text-sm text-fg-muted">{t("panel.cases", { names: Object.keys(step.cases ?? {}).join(", ") || "–" })}</p>
         </div>
       );
     case "parallel":
-      return <p className="text-sm text-zinc-400">{t("panel.branches", { names: Object.keys(step.branches ?? {}).join(", ") })}</p>;
+      return <p className="text-sm text-fg-muted">{t("panel.branches", { names: Object.keys(step.branches ?? {}).join(", ") })}</p>;
   }
 }
 
@@ -430,9 +433,9 @@ function MapRows<V>({ ctx, k, label, addLabel, prefix, blank, row }: {
   return (
     <FormField label={label} action={<AddPill label={addLabel} onClick={add} />} errors={ctx.errors(k ? `${type}.${k}` : type).filter((e) => e.field === (k ? `${type}.${k}` : type))}>
       {() => (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-line">
           {Object.entries(map).map(([name, v]) => (
-            <li key={name} className="space-y-2 rounded-lg bg-zinc-900/60 p-3">
+            <li key={name} className="space-y-2 py-3 first:pt-0">
               <div className="flex items-center gap-2">
                 <KeyInput name={name} taken={Object.keys(map)} onRename={(to) => write(renameKey(map, name, to), "rename")} />
                 <button type="button" className={btn.icon} aria-label={t("panel.removeRow", { name })}
@@ -489,11 +492,11 @@ export function HeaderPanel({ header, errors, onClose, change }: {
       <FormField label={t(`panel.${which}`)} errors={fe(which).filter((e) => e.field === which)}
         action={<AddPill label={t(which === "inputs" ? "panel.addInput" : "panel.addOutput")} onClick={add} />}>
         {() => (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-line">
             {Object.entries(map).map(([name, spec]) => {
               const put = (s: IoSpec, key: string) => write({ ...map, [name]: s }, `${which}:${name}:${key}`);
               return (
-                <li key={name} className="space-y-2 rounded-lg bg-zinc-900/60 p-3">
+                <li key={name} className="space-y-2 py-3 first:pt-0">
                   <div className="flex items-center gap-2">
                     <KeyInput name={name} taken={Object.keys(map)} label={t("panel.keyName")}
                       onRename={(to) => write(renameKey(map, name, to) as Record<string, IoSpec>, "rename")} />
@@ -531,7 +534,7 @@ export function HeaderPanel({ header, errors, onClose, change }: {
                       const { description: _x, ...rest } = spec;
                       put(e.target.value ? { ...rest, description: e.target.value } : rest, "desc");
                     }} />
-                  {fe(`${which}.${name}`).map((e, i) => <p key={i} className="font-mono text-xs text-rose-400">{e.message}</p>)}
+                  {fe(`${which}.${name}`).map((e, i) => <p key={i} className="font-mono text-xs text-error">{e.message}</p>)}
                 </li>
               );
             })}
@@ -549,7 +552,7 @@ export function HeaderPanel({ header, errors, onClose, change }: {
         </FormField>
         {io("inputs")}
         {io("outputs")}
-        <FormField label="callable" help={t("help.callable")} errors={fe("callable")}>
+        <FormField label={t("panel.callableLabel")} help={t("help.callable")} errors={fe("callable")}>
           {(a) => (
             <label className="flex items-center gap-2 text-sm">
               <input {...a} type="checkbox" checked={header.callable} onChange={(e) => change((h) => ({ ...h, callable: e.target.checked }))} />

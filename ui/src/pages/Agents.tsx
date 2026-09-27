@@ -1,11 +1,11 @@
 // §2.7 Agenti a §2.9 Skilly — seznam vlevo, editor vpravo. Agent: formulář frontmatteru + instrukce
 // (`PUT …/agents/<a>`), nebo celý soubor jako Markdown (`files/`). Skill: celý SKILL.md (`PUT …/skills/<n>`).
-import { CodeXml, Plus, Trash2 } from "lucide-react";
+import { CodeXml, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ApiError, enc, send } from "../api";
 import { FormField, inputCls, Modal, NameDialog } from "../components/form";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
-import { btn, EmptyState, ErrorList, ErrorText, Loading, StatusChip, Toggle } from "../components/ui";
+import { btn, EmptyState, ErrorList, ErrorText, Loading, Menu, StatusChip, Toggle } from "../components/ui";
 import { isObj, mergePatch } from "../edit";
 import { t } from "../i18n";
 import { href, navigate, type Tab } from "../router";
@@ -29,9 +29,9 @@ export function MasterDetail({ project, tab, items, selected, onNew, children }:
           {items.map((it) => (
             <li key={it.name}>
               <a href={href(project.name, tab, it.name)} aria-current={it.name === current ? "page" : undefined}
-                className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${it.name === current ? "bg-zinc-800 text-zinc-100" : "text-zinc-300 hover:bg-zinc-800/60"}`}>
+                className={`flex items-center justify-between gap-2 rounded-control px-3 py-2 text-sm ${it.name === current ? "bg-surface text-fg" : "text-fg-secondary hover:bg-surface-hover"}`}>
                 <span className="truncate font-mono">{it.name}</span>
-                {it.errors.length > 0 && <span className="shrink-0 text-xs text-rose-400">✗ {t("validation.count", { n: it.errors.length })}</span>}
+                {it.errors.length > 0 && <span className="shrink-0 text-xs text-error">✗ {t("validation.count", { n: it.errors.length })}</span>}
               </a>
             </li>
           ))}
@@ -53,7 +53,7 @@ export function SaveNote({ dirty, state, errors = 0, onJump }: { dirty: boolean;
     : t("save.clean");
   return (
     <span className="inline-flex items-center gap-2 text-sm" aria-live="polite">
-      <span data-testid="save-status" className={state.kind === "failed" ? "text-rose-400" : "text-zinc-400"}>{text}</span>
+      <span data-testid="save-status" className={state.kind === "failed" ? "text-error" : "text-fg-muted"}>{text}</span>
       {errors > 0 && (onJump
         ? <button type="button" onClick={onJump} className="hover:underline"><StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip></button>
         : <StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip>)}
@@ -85,20 +85,28 @@ export function useConflictUi(f: Pick<FileDraft<unknown>, "conflict" | "reloadFr
   return { bar, modal, save, setModal, close };
 }
 
-/** Horní lišta editoru souboru: jméno, přepínač režimu, stav, Přejmenovat, Smazat, Uložit. */
+/** Hlavička editoru souboru (G1–G4): jméno, Uložit a ⋯ (Přejmenovat, Smazat); pod tím přepínač režimu a stav. */
 function EditorBar({ title, mode, onMode, modeBlocked, dirty, state, errors, canSave, onSave, onRename, onDelete }: {
-  title: string; mode: "form" | "text"; onMode: (m: "form" | "text") => void; modeBlocked?: string;
-  dirty: boolean; state: SaveState; errors: number; canSave: boolean; onSave: () => void; onRename: () => void; onDelete: () => void;
+  title: string; mode?: "form" | "text"; onMode?: (m: "form" | "text") => void; modeBlocked?: string;
+  dirty: boolean; state: SaveState; errors: number; canSave: boolean; onSave: () => void; onRename?: () => void; onDelete: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <h2 className="mr-auto font-mono text-lg font-semibold">{title}</h2>
-      <Toggle label={t("code.mode")} value={mode} onChange={onMode}
-        options={[{ key: "form", label: t("code.form"), disabled: modeBlocked }, { key: "text", label: <><CodeXml className="size-3.5" aria-hidden />{t("code.markdown")}</> }]} />
-      <SaveNote dirty={dirty} state={state} errors={errors} />
-      <button type="button" className={btn.secondary} onClick={onRename}>{t("rename.button")}</button>
-      <button type="button" className={btn.secondary} onClick={onDelete}><Trash2 className="size-4" aria-hidden />{t("common.delete")}</button>
-      <button type="button" className={btn.primary} onClick={onSave} disabled={!canSave} title="Ctrl+S">{t("common.save")}</button>
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h2 className="mr-auto truncate font-mono text-lg font-semibold">{title}</h2>
+        <button type="button" className={btn.primary} onClick={onSave} disabled={!canSave} title="Ctrl+S">{t("common.save")}</button>
+        <Menu label={t("common.menuFor", { name: title })} items={[
+          ...(onRename ? [{ label: t("rename.button"), onSelect: onRename }] : []),
+          { label: t("common.delete"), onSelect: onDelete },
+        ]} />
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        {mode && onMode && (
+          <Toggle label={t("code.mode")} value={mode} onChange={onMode}
+            options={[{ key: "form", label: t("code.form"), disabled: modeBlocked }, { key: "text", label: <><CodeXml className="size-3.5" aria-hidden />{t("code.markdown")}</> }]} />
+        )}
+        <SaveNote dirty={dirty} state={state} errors={errors} />
+      </div>
     </div>
   );
 }
@@ -125,7 +133,7 @@ export function DeleteDialog({ what, name, run, onDone, onCancel }: {
         if (r) setReason(r);
         else onDone();
       } }]}>
-      {reason ? <p role="alert" className="font-mono text-xs whitespace-pre-wrap text-rose-400">{reason}</p> : <p>{t("delete.text")}</p>}
+      {reason ? <p role="alert" className="font-mono text-xs whitespace-pre-wrap text-error">{reason}</p> : <p>{t("delete.text")}</p>}
     </Modal>
   );
 }
@@ -138,9 +146,9 @@ interface AgentForm {
 }
 
 const Chip = ({ children, onRemove, label }: { children: ReactNode; onRemove?: () => void; label?: string }) => (
-  <span className="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2.5 py-0.5 font-mono text-[13px] text-zinc-200">
+  <span className="inline-flex items-center gap-1 rounded-full bg-nested px-2.5 py-0.5 font-mono text-[13px] text-fg">
     {children}
-    {onRemove && <button type="button" onClick={onRemove} aria-label={label} className="text-zinc-400 hover:text-zinc-100">×</button>}
+    {onRemove && <button type="button" onClick={onRemove} aria-label={label} className="text-fg-muted hover:text-fg">×</button>}
   </span>
 );
 
@@ -211,7 +219,7 @@ function AgentEditor({ project, name, onChanged }: { project: Project; name: str
         canSave={active.dirty && !active.conflict && !(mode === "text" && (text.validating || text.errors.some((e) => e.line)))}
         onSave={() => void save()} onRename={requestRename} onDelete={() => setDeleting(true)} />
       {ui.bar}
-      {renamedFiles.length > 1 && <p role="status" className="text-sm text-zinc-400">{t("rename.changed", { files: renamedFiles.join(", ") })}</p>}
+      {renamedFiles.length > 1 && <p role="status" className="text-sm text-fg-muted">{t("rename.changed", { files: renamedFiles.join(", ") })}</p>}
       {active.loadError && <ErrorText error={active.loadError} />}
       {!active.doc && !active.loadError && <Loading rows={5} />}
       {mode === "text" && text.doc && <YamlEditor text={text.text} onChange={text.setText} file={path} errors={text.errors} />}
@@ -309,11 +317,11 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
               const allowed = !!s.agents?.includes(name);
               const on = mcp.includes(s.name);
               return (
-                <li key={s.name} className={allowed || on ? "" : "text-zinc-500"}>
+                <li key={s.name} className={allowed || on ? "" : "text-fg-muted"}>
                   <label className="flex items-center gap-2 font-mono text-sm">
                     <input type="checkbox" checked={on} disabled={!allowed && !on} onChange={(e) => toggleServer(s.name, e.target.checked, s.tools)} />
                     {s.name}
-                    {!allowed && <span className="font-sans text-[13px]">{t("agent.mcpNotAllowed")}</span>}
+                    {!allowed && <span className="font-sans text-xs text-fg-muted">{t("agent.mcpNotAllowed")}</span>}
                   </label>
                   {on && (
                     <div className="mt-1 ml-6 flex flex-wrap gap-3">
@@ -327,42 +335,45 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
                           </label>
                         );
                       })}
-                      {!s.tools && <span className="text-[13px] text-zinc-400">{t("agent.toolsFree")}</span>}
+                      {!s.tools && <span className="text-xs text-fg-muted">{t("agent.toolsFree")}</span>}
                     </div>
                   )}
                 </li>
               );
             })}
-            {!project.mcp_servers.length && <li className="text-sm text-zinc-500">–</li>}
+            {!project.mcp_servers.length && <li className="text-sm text-fg-muted">–</li>}
           </ul>
         )}
       </FormField>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <FormField label="max_turns" required={needTurns} errors={fe("limits.max_turns")}
-          help={needTurns ? t("agent.turnsRequired") : t("agent.turnsHelp")}>
-          {(a) => (
-            <input {...a} type="number" min={1} aria-required={needTurns}
-              className={`${inputCls} font-mono ${needTurns && limits.max_turns == null ? "ring-2 ring-amber-400" : ""}`}
-              value={typeof limits.max_turns === "number" ? limits.max_turns : ""}
-              onChange={(e) => setLimit("max_turns", e.target.value === "" ? undefined : Number(e.target.value))} />
-          )}
-        </FormField>
-        <FormField label="budget_usd" errors={fe("limits.budget_usd")} required>
-          {(a) => <input {...a} type="number" step={0.01} min={0} className={`${inputCls} font-mono`} value={typeof limits.budget_usd === "number" ? limits.budget_usd : ""}
-            onChange={(e) => setLimit("budget_usd", e.target.value === "" ? undefined : Number(e.target.value))} />}
-        </FormField>
-        <FormField label="timeout" errors={fe("limits.timeout")}>
-          {(a) => <input {...a} className={`${inputCls} font-mono`} placeholder="5m" value={String(limits.timeout ?? "")} onChange={(e) => setLimit("timeout", e.target.value)} />}
-        </FormField>
-      </div>
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold">{t("config.limits")}</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <FormField label="max_turns" required={needTurns} errors={fe("limits.max_turns")}
+            help={needTurns ? t("agent.turnsRequired") : t("agent.turnsHelp")}>
+            {(a) => (
+              <input {...a} type="number" min={1} aria-required={needTurns}
+                className={`${inputCls} font-mono`}
+                value={typeof limits.max_turns === "number" ? limits.max_turns : ""}
+                onChange={(e) => setLimit("max_turns", e.target.value === "" ? undefined : Number(e.target.value))} />
+            )}
+          </FormField>
+          <FormField label="budget_usd" errors={fe("limits.budget_usd")} required>
+            {(a) => <input {...a} type="number" step={0.01} min={0} className={`${inputCls} font-mono`} value={typeof limits.budget_usd === "number" ? limits.budget_usd : ""}
+              onChange={(e) => setLimit("budget_usd", e.target.value === "" ? undefined : Number(e.target.value))} />}
+          </FormField>
+          <FormField label="timeout" errors={fe("limits.timeout")}>
+            {(a) => <input {...a} className={`${inputCls} font-mono`} placeholder="5m" value={String(limits.timeout ?? "")} onChange={(e) => setLimit("timeout", e.target.value)} />}
+          </FormField>
+        </div>
+      </section>
       <FormField label={t("agent.instructions")} errors={fe("body")} required>
-        {(a) => <textarea {...a} rows={Math.min(24, Math.max(8, value.body.split("\n").length + 1))} className={`${inputCls} leading-6`}
+        {(a) => <textarea {...a} rows={Math.min(24, Math.max(8, value.body.split("\n").length + 1))} className={`${inputCls} font-mono text-[13px] leading-5`}
           value={value.body} onChange={(e) => onChange({ ...value, body: e.target.value })} />}
       </FormField>
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-fg-muted">
         {t("agent.usedBy")}{": "}
         {usedBy.length ? usedBy.map(([s, step], i) => (
-          <span key={`${s}/${step}`}>{i > 0 && " · "}<a className="font-mono underline" href={href(project.name, "scenare", s, { krok: step })}>{s} ({step})</a></span>
+          <span key={`${s}/${step}`}>{i > 0 && " · "}<a className="font-mono text-fg-secondary underline hover:text-fg" href={href(project.name, "scenare", s, { krok: step })}>{s} ({step})</a></span>
         )) : "–"}
       </p>
     </div>
@@ -411,20 +422,14 @@ function SkillEditor({ project, name, onChanged }: { project: Project; name: str
         if (text.dirty) void save();
       }
     }}>
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="mr-auto font-mono text-lg font-semibold">{name}</h2>
-        <SaveNote dirty={text.dirty} state={text.state} errors={text.errors.length} />
-        <button type="button" className={btn.secondary} onClick={() => setDeleting(true)}><Trash2 className="size-4" aria-hidden />{t("common.delete")}</button>
-        <button type="button" className={btn.primary} disabled={!text.dirty || !!text.conflict || text.validating || !!syntax} onClick={() => void save()}>
-          {t("common.save")}
-        </button>
-      </div>
+      <EditorBar title={name} dirty={text.dirty} state={text.state} errors={text.errors.length}
+        canSave={text.dirty && !text.conflict && !text.validating && !syntax} onSave={() => void save()} onDelete={() => setDeleting(true)} />
       {ui.bar}
       {text.loadError && <ErrorText error={text.loadError} />}
       {text.doc ? <YamlEditor text={text.text} onChange={text.setText} file={path} errors={text.errors} /> : !text.loadError && <Loading rows={5} />}
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-fg-muted">
         {t("skill.usedBy")}{": "}
-        {usedBy.length ? usedBy.map((a, i) => <span key={a}>{i > 0 && ", "}<a className="font-mono underline" href={href(project.name, "agenti", a)}>{a}</a></span>) : "–"}
+        {usedBy.length ? usedBy.map((a, i) => <span key={a}>{i > 0 && ", "}<a className="font-mono text-fg-secondary underline hover:text-fg" href={href(project.name, "agenti", a)}>{a}</a></span>) : "–"}
       </p>
       {ui.modal}
       {deleting && text.doc && (

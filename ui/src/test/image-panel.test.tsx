@@ -16,6 +16,10 @@ it("parametry obrázku přijímají šablony a nabízejí proměnné", () => {
   render(<StepPanel step={step} steps={[step]} header={{ description: "", callable: false, outputs: null,
     inputs: { pomer: { type: "string", default: "4:5" } } }} project={project} scenario="s" errors={[]}
     onClose={vi.fn()} onSelect={vi.fn()} edit={{ change, retype: vi.fn(), remove: vi.fn(), rename: vi.fn() }} />);
+  // PanelShell: eyebrow „KROK 1 · image“ pojmenuje panel, titul je id kroku, typ je pole formuláře
+  const panel = screen.getByRole("complementary", { name: "KROK 1 · image" });
+  expect(within(panel).getAllByText("foto")[0].className).toContain("font-mono");
+  expect((screen.getByRole("combobox", { name: "Typ kroku" }) as HTMLSelectElement).value).toBe("image");
   for (const [label, field, placeholder] of [["Poměr stran", "aspect_ratio", "4:5"], ["Kvalita", "quality", "medium"], ["Rozlišení", "resolution", "1K"]]) {
     const input = screen.getByRole("combobox", { name: label }) as HTMLInputElement;
     expect(input.placeholder).toBe(placeholder);

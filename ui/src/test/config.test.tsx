@@ -36,6 +36,13 @@ describe("Config: alias modelu", () => {
     }));
     await act(async () => render(<ConfigTab name="p" project={project} />));
     fireEvent.click(await screen.findByRole("button", { name: "+ alias" }));
+    // G3/G5: jeden přepínač, jedno Uložit, cesta projektu místo „config.yaml · mcp.yaml“
+    expect(screen.getAllByRole("radiogroup", { name: "Zobrazení" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Uložit" })).toHaveLength(1);
+    expect(screen.getByText("/tmp/p")).toBeTruthy();
+    expect(screen.queryByText("config.yaml · mcp.yaml")).toBeNull();
+    expect(screen.getByText("používá pisatel")).toBeTruthy();
+    expect(screen.getByText("nepoužívá se")).toBeTruthy();
     // chytry používá agent → jen text; jediné pole Alias je nový model-1
     const alias = screen.getByRole("textbox", { name: "Alias" }) as HTMLInputElement;
     expect(alias.value).toBe("model-1");

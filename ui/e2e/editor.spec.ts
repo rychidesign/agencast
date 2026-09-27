@@ -83,7 +83,8 @@ test("C3 nový agent", async ({ page, project }) => {
   await expect(page.getByRole("textbox", { name: "agents/korektor.md" })).toHaveValue(/^---\n/);
   await expect(page.getByText("Upravuješ přímo soubor workflows/agents/korektor.md")).toBeVisible();
 
-  await page.getByRole("button", { name: "Smazat", exact: true }).click();
+  await page.getByRole("button", { name: "Akce pro korektor" }).click();
+  await page.getByRole("menuitem", { name: "Smazat" }).click();
   const del = page.getByRole("dialog", { name: "Smazat agenta „korektor“?" });
   await del.getByRole("button", { name: "Smazat", exact: true }).click();
   await expect(page).toHaveURL(/\/agenti$/);
@@ -91,7 +92,8 @@ test("C3 nový agent", async ({ page, project }) => {
   expect(fs.existsSync(path.join(project.wf, "agents/korektor.md"))).toBe(false);
 
   // pisatel používá ukazka → smazání odmítne API a dialog řekne proč
-  await page.getByRole("button", { name: "Smazat", exact: true }).click();
+  await page.getByRole("button", { name: "Akce pro pisatel" }).click();
+  await page.getByRole("menuitem", { name: "Smazat" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Smazat", exact: true }).click();
   await expect(page.getByRole("dialog").getByRole("alert")).toContainText("ukazka");
   expect(fs.existsSync(path.join(project.wf, "agents/pisatel.md"))).toBe(true);

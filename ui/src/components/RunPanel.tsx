@@ -1,5 +1,6 @@
 // Spuštění z GUI (§8.5, api.md „Spuštění z GUI“): formulář vstupů podle `inputs` scénáře,
 // dry-run nebo ostrý běh bez callbacku; před ostrým během limity z configu a dnešní útrata.
+import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { formatCost, formatMoney } from "../format";
@@ -22,6 +23,10 @@ export function runInputs(specs: Record<string, IoSpec>, values: Record<string, 
   }
   return { inputs, missing };
 }
+
+const Warning = ({ text }: { text: string }) => (
+  <p className="flex items-start gap-2 text-sm text-warning"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{text}</p>
+);
 
 export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
   project: Project; scenario: string; inputs: Record<string, IoSpec> | null; dirty: boolean; onClose: () => void;
@@ -56,8 +61,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
   return (
     <PanelShell id="run-panel-title" eyebrow={t("runForm.eyebrow")} title={scenario} onClose={onClose}>
       <form className="space-y-5" onSubmit={(e) => (e.preventDefault(), submit())}>
-        {dirty && <p className="text-sm text-amber-400">{t("runForm.dirty")}</p>}
-        {!Object.keys(specs).length && <p className="text-sm text-zinc-400">{t("runForm.noInputs")}</p>}
+        {!Object.keys(specs).length && <p className="text-sm text-fg-muted">{t("runForm.noInputs")}</p>}
         {Object.entries(specs).map(([name, s]) => (
           <FormField key={name} label={name} required={s.required}
             help={[s.type, s.description, s.type === "file" ? t("runForm.fileHelp") : ""].filter(Boolean).join(" · ")}
@@ -66,41 +70,42 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
           </FormField>
         ))}
         <fieldset className="space-y-2">
-          <legend className="text-[13px] font-semibold text-zinc-300">{t("runForm.mode")}</legend>
-          <label className="flex items-start gap-2 text-sm">
-            <input type="radio" name="mode" checked={dry} onChange={() => setDry(true)} className="mt-1" />
-            <span>{t("runForm.dry")}<span className="block text-xs text-zinc-400">{t("runForm.dryHelp")}</span></span>
-          </label>
-          <label className="flex items-start gap-2 text-sm">
-            <input type="radio" name="mode" checked={!dry} onChange={() => setDry(false)} className="mt-1" />
-            <span>{t("runForm.live")}<span className="block text-xs text-zinc-400">{t("runForm.liveHelp")}</span></span>
-          </label>
+          <legend className="mb-2 text-[11px] font-semibold tracking-wider text-fg-muted uppercase">{t("runForm.mode")}</legend>
+          {([[true, "runForm.dry", "runForm.dryHelp"], [false, "runForm.live", "runForm.liveHelp"]] as const).map(([value, label, help]) => (
+            <label key={label} className={`flex cursor-pointer items-start gap-3 rounded-card bg-nested p-4 text-sm ${dry === value ? "ring-2 ring-accent" : "ring-1 ring-line hover:bg-surface-hover"}`}>
+              <input type="radio" name="mode" checked={dry === value} onChange={() => setDry(value)} className="mt-0.5 accent-accent" />
+              <span>{t(label)}<span className="mt-1 block text-xs text-fg-muted">{t(help)}</span></span>
+            </label>
+          ))}
         </fieldset>
         {!dry && (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg bg-zinc-900 p-3 text-sm" aria-label={t("runForm.limits")}>
-            <dt className="text-zinc-400">{t("runForm.runBudget")}</dt>
-            <dd className="font-mono">{typeof l.run_budget_usd === "number" ? `${formatMoney(l.run_budget_usd)} USD` : "–"}</dd>
+          <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm" aria-label={t("runForm.limits")}>
+            <dt className="text-fg-muted">{t("runForm.runBudget")}</dt>
+            <dd className="text-right font-mono">{typeof l.run_budget_usd === "number" ? `${formatMoney(l.run_budget_usd)} USD` : "–"}</dd>
             {typeof l.run_image_budget_usd === "number" && (
-              <><dt className="text-zinc-400">{t("runForm.imageBudget")}</dt><dd className="font-mono">{formatMoney(l.run_image_budget_usd)} USD</dd></>
+              <><dt className="text-fg-muted">{t("runForm.imageBudget")}</dt><dd className="text-right font-mono">{formatMoney(l.run_image_budget_usd)} USD</dd></>
             )}
-            <dt className="text-zinc-400">{t("runForm.timeout")}</dt><dd className="font-mono">{String(l.run_timeout ?? "–")}</dd>
-            <dt className="text-zinc-400">{t("runForm.daily")}</dt>
-            <dd className="font-mono">
+            <dt className="text-fg-muted">{t("runForm.timeout")}</dt><dd className="text-right font-mono">{String(l.run_timeout ?? "–")}</dd>
+            <dt className="text-fg-muted">{t("runForm.daily")}</dt>
+            <dd className="text-right font-mono">
               {spend.data ? `${formatCost(spend.data.total_usd)}` : "…"}
               {typeof l.daily_budget_usd === "number" ? ` / ${formatMoney(l.daily_budget_usd)} USD` : " USD"}
             </dd>
           </dl>
         )}
-        {hasFile && <p className="text-sm text-amber-400">{t("runForm.fileBlocked")}</p>}
+        {dirty && <Warning text={t("runForm.dirty")} />}
+        {hasFile && <Warning text={t("runForm.fileBlocked")} />}
         {error && (
           <div className="space-y-1">
             <ErrorText error={error} />
-            <ul className="list-inside list-disc font-mono text-xs text-rose-400">{error.details.map((d) => <li key={d}>{d}</li>)}</ul>
+            <ul className="list-inside list-disc font-mono text-xs text-error">{error.details.map((d) => <li key={d}>{d}</li>)}</ul>
           </div>
         )}
-        <button type="submit" className={`${btn.primary} max-sm:w-full`} disabled={busy || hasFile}>
-          {busy ? t("runForm.starting") : dry ? t("runForm.submitDry") : t("runForm.submitLive")}
-        </button>
+        <div className="flex justify-end">
+          <button type="submit" className={`${btn.primary} max-sm:w-full`} disabled={busy || hasFile}>
+            {busy ? t("runForm.starting") : dry ? t("runForm.submitDry") : t("runForm.submitLive")}
+          </button>
+        </div>
       </form>
     </PanelShell>
   );

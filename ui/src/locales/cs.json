@@ -52,7 +52,7 @@
   "agent.description": "popis",
   "agent.model": "model",
   "agent.skills": "skilly",
-  "agent.mcp": "MCP",
+  "agent.mcp": "MCP servery",
   "agent.mcpNotAllowed": "(vlastník nepovolil)",
   "agent.instructions": "Instrukce (system prompt)",
   "agent.usedBy": "Používá",
@@ -60,7 +60,7 @@
   "config.keyFrom": "klíč z proměnné",
   "config.jevModel": "Jev model",
   "config.models": "Modely",
-  "config.usedByAgents": "{n, plural, one {používá # agent} few {používají # agenti} other {používá # agentů}}",
+  "config.usedByAgents": "používá {agents}",
   "config.storage": "Úložiště",
   "config.limits": "Limity",
   "config.env": "Proměnné",
@@ -314,7 +314,7 @@
   "run.fileInput": "soubor předá jen krok call",
   "runForm.open": "Spustit",
   "runForm.eyebrow": "SPUSTIT BĚH",
-  "runForm.mode": "Druh běhu",
+  "runForm.mode": "Režim běhu",
   "runForm.dry": "Dry-run",
   "runForm.dryHelp": "Jen plán (plan.md), nic se nevolá, zdarma.",
   "runForm.live": "Ostrý běh",
@@ -396,5 +396,9 @@
   "edit.addAfter": "Vložit krok za {id}",
   "edit.addStart": "Vložit krok na začátek",
   "rpanel.tabs": "Části kroku",
-  "leave.confirm": "Máš neuložené změny. Odejít? Rozpracovaný stav zůstane v tomto prohlížeči."
+  "leave.confirm": "Máš neuložené změny. Odejít? Rozpracovaný stav zůstane v tomto prohlížeči.",
+  "panel.callableLabel": "Volatelný",
+  "config.connection": "Připojení",
+  "config.unused": "nepoužívá se",
+  "config.webhook": "Webhook a callback"
 }

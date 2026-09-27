@@ -9,6 +9,14 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
 
 - Tokeny: Základní barvy, písma a rádiusy V3 jsou zavedené; Inter Variable
   a JetBrains Mono se bundlují lokálně.
+- Panely: panel kroku, hlavičky, spuštění a kroku v běhu jsou v tokenech V3;
+  eyebrow „KROK n · typ“, titul = id kroku, typ kroku je první pole. Režim
+  běhu se volí kartou, limity jsou dvousloupcový přehled jen u ostrého běhu.
+  Záložky kroku v běhu jsou podtržené, obsah v blocích kódu.
+- Panely: editor agenta a skillu má jedno Uložit v hlavičce a Přejmenovat /
+  Smazat v menu ⋯; přepínač režimu a stav uložení jsou v druhém řádku.
+  Config ukazuje cestu projektu, jeden přepínač a sekce bez karet; alias má
+  meta „používá …“ / „nepoužívá se“.
 
 ## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
 
