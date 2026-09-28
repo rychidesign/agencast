@@ -61,14 +61,13 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
   (zelený, po překročení denního limitu červený; bez limitu jen částka). Na stránce Projekty jen značka, na neexistující adrese značka a „← Projekty“.
   Řádek „server dostupný“ není (G6); při výpadku se dole objeví „Server agencast neodpovídá (…), zkouším
   znovu…“ (`role="alert"`, `data-testid="server-bar"`).
-- **Pod 1024 px** se sidebar sbalí do horní lišty: značka + jméno projektu, pod nimi navigace vodorovně
-  s přetečením; „← Projekty“ a útrata skryté. Položky navigace mají 44 px.
+- **Pod 1024 px** je v horní liště značka a jméno projektu. Projektová navigace se otevírá z FAB 56 px
+  vpravo dole do nabídky nad tlačítkem; má „← Projekty“, položky 48 px a útratu. FAB není na seznamu projektů ani 404.
 - **Responzivita obsahu** (ověřeno při 768 / 1024 / 1440 px): editor scénáře má panel vedle sloupce karet
-  až od 1280 px (sidebar 232 + sloupec + panel 400); užší obrazovka ukáže panel jako list přes sloupec dole
-  (max. 70 % výšky, od 1024 px odsazený od sidebaru), vždy se zavíracím křížkem a Esc. Agenti a Skilly mají
+  až od 1280 px (sidebar 232 + sloupec + panel 400); užší obrazovka ukáže spodní sheet s horními rohy 16 px,
+  stínem a max. výškou `100dvh - 48px` (na tabletu šířka nejvýš 720 px), vždy se zavíracím křížkem a Esc. Agenti a Skilly mají
   seznam vedle editoru od 1100 px, jinak nad ním. Tabulka běhů má vodorovný posuv (min. 46rem), řádek
-  modelového aliasu v Configu se zalomí. Menu ⋯ se otevírá doleva od tlačítka, rozbalený seznam chyb
-  projektu má šířku nejvýš viewport − 2 rem.
+  modelového aliasu v Configu se zalomí. Popovery se vejdou do viewportu s okrajem 12 px a podle prostoru se otevřou dolů nebo nahoru.
 - **Hlavička stránky** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4, fidelity §1): nad titulem
   volitelně odkaz zpět (12 px); H1 28/42 regular (změřeno z .pen) + `meta` (čip chyb, stav běhu), pod ním
   jednořádkový popis 14 `fg-secondary` a `detail` 8 px pod titulem (mono 13 `fg-muted`: run_id); vpravo
@@ -369,16 +368,16 @@ Stejná hlavička jako Agent, bez přepínače režimu (skill je vždy celý SKI
 | `HeaderCard` | vstupy a výstupy scénáře | jako karta, nesmazatelná, vždy první |
 | `Connector` + `AddButton` | šipka ↓ jako glyph mezi pilulkami (konektor 44 px), na hover/focus se promění v (+) kolečko 44 px; trvalé (+) jen na konci každého seznamu | výchozí, focus, „vložit vyjmutý krok“ |
 | `BranchColumn` / `CaseSection` | větev `parallel` vedle sebe / případ `switch` pod sebou, každý s vlastním seznamem a + | aktivní, v běhu přeskočená (ztlumená s důvodem) |
-| `TypePicker` | prostý seznam vpravo od + (bez ikon a nadpisů skupin, dvě hairline), klíčové slovo mono + 2–4 slova popisu šedě; `bg-surface ring-1 ring-line rounded-[var(--radius-card)] p-1 w-60`, řádek `h-9 px-3 rounded-[var(--radius-control)]`, zvýrazněný `bg-surface-hover`; `role="listbox"` | `output` se nenabízí; po Vyjmout navíc „Vložit … sem“ |
+| `TypePicker` | prostý seznam u +, na telefonu u spodního okraje; `bg-menu` bez rámečku se stínem, radius 12, padding 8, řádek 40 px; `role="listbox"` | `output` se nenabízí; po Vyjmout navíc „Vložit … sem“ |
 | `StepPanel` | plovoucí zaoblený panel (16 px, okraj 16 px od hran), eyebrow „KROK n“ + typ jako select, koš a ×; pole typu nahoře; dole tři sbalené řádky Podmínka / Spolehlivost / Podrobnosti kroku jako akordeon (`h-12 text-[15px]`, hodnota `text-fg-muted`, `divide-y divide-line`, `aria-expanded`) | čtení, editace, s chybami; v běhu záložky Prompt/Odpověď/Výstup/Volání/Soubory |
 | `Toggle` (`FormYamlToggle`) | segmentový přepínač `bg-nested` r9 s paddingem 4 px; segment 44 px r7, 13 px, aktivní `bg-accent text-ink`, neaktivní `text-fg-muted`; `role="radiogroup"`; u agentů a skillů druhý segment Markdown | syntaktická chyba YAML = návrat do Form zakázán s důvodem v `title` a `aria-description` |
 | `YamlEditor`, `CodeView`, `CodeBlock`, `Markdown` | hlavička s názvem a čipem, tělo `bg-nested` mono 13 px, čísla řádků mono 12 px, zvýraznění `surface-active`, patička s nápovědou/polohou nebo Kopírovat; Markdown používá `CodeBlock` | bez chyb, se syntaktickou chybou (Form zakázán), s významovými chybami |
 | `Button` (`btn`) | výška 44 px, radius 10 px, padding 18 px (změřeno z .pen); `primary`: `bg-accent text-ink`; `secondary`: `bg-control text-fg`; `icon`: 44 px `bg-control`; `iconGhost`: 44 px bez výplně (⋯ na kartách); `danger`: `bg-danger text-error`; `ghost`: pouze text; `copyBtn`: Kopírovat s obrysem v bloku kódu | výchozí, hover, focus, disabled |
 | `StatusIcon`, `StatusBadge`, `StatusChip` | vždy ikona + text (u ikony text pro čtečku); čip `bg-nested`, padding 7×10 px, text mono 12 medium v barvě stavu; u „běží“ pulzuje jen ikona | `succeeded` → `success`; `failed` → `error`; `warning`, `cancelled`, `interrupted` → `warning`; `running` → `running` (pulz jen `motion-safe`); `queued`, `skipped`, `dry-run`, `none` → `neutral` |
-| `Menu` | tlačítko ⋯ (`btn.icon`) a seznam `bg-surface ring-line` radius 12; položka 40 px, hover `surface-hover`; `MenuItem.danger` = `text-error`, `MenuItem.disabled` = důvod v `title`, `aria-disabled` | šipky pro pohyb, Esc zavře a vrátí fokus |
+| `Menu` | tlačítko ⋯ (`btn.icon`) a seznam `bg-menu` bez rámečku se stínem `shadow-pop`, radius 12, padding 8, gap 4; položka 40 px, radius 7, hover `surface-active`; `MenuItem.danger` = `text-error`, `MenuItem.disabled` = důvod v `title`, `aria-disabled` | ve viewportu nejméně 12 px od okraje; šipky pro pohyb, Esc zavře a vrátí fokus |
 | `TabLinks`, `Collapsible` | záložky 47 px, 13 medium, padding 0 18, mezera 28, podtržení 2 px `accent`; řádek akordeonu 52 px se šipkou vlevo, titul 14 medium, hodnota mono 11 px `fg-muted` | aktivní záložka `aria-current`, akordeon `aria-expanded` |
 | `FormField`, `CodeInput`, `JsonInput`, `ValueInput` | štítek `fg-secondary` 13 px medium, nápověda `fg-muted` 12 px, chyba mono `error`; pole 44 px `bg-nested ring-line` radius 6 s fokusem `accent`; proměnné `variable` | invalid `ring-error`; našeptávač i menu proměnných ovladatelné klávesnicí; souborový vstup disabled |
-| `Modal` | podklad `canvas/70`, panel `bg-surface` radius 14: hlavička p24 s linkou (titul 22 + zavřít 44; informační dialog bez křížku), obsah p24 mezera 18, patička p 18 24 s linkou, vpravo Zrušit a pak akce (změřeno z .pen); fokus na první akci | Esc zavírá, Tab zůstává v dialogu, nebezpečná akce používá `btn.danger` |
+| `Modal` | podklad `canvas/70`, panel `bg-surface` radius 14 a stín: hlavička p24 s linkou (titul 22 + zavřít 44; informační dialog bez křížku), obsah p24 mezera 18, patička p 18 24 s linkou, vpravo Zrušit a pak akce; na telefonu spodní sheet s horními rohy a max. výškou `100dvh - 48px`; fokus na první akci | Esc zavírá, Tab zůstává v dialogu, nebezpečná akce používá `btn.danger` |
 | `CostChip`, `DurationChip` | `0,0015 USD` (čárka, ≥ 4 místa, nula = `0`, `USD` za číslem s pevnou mezerou), `17,5 s` / `1 min 12 s`; mono | u obrázků „z toho obrázky …“ v hlavičce |
 | `ExprInput`, `TemplateInput` | mono pole; našeptávač `inputs.` a `steps.<id>.<pole>` jen pro kroky nad a ve stejné větvi; nabídka proměnných tlačítkem u pole | chyba s hláškou a stříškou `^` ze serveru |
 | `ValidationError` | text pod polem + červená tečka u karty + počet v hlavičce „Neuloženo · 2 chyby“ (klik = skok na první) | |

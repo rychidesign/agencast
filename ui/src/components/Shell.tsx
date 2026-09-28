@@ -1,4 +1,4 @@
-// Rozložení (redesign G5, G6, G14): sidebar 232 px + hlavní oblast; pod 1024 px lišta 56 px s drawerem navigace.
+// Rozložení: sidebar 232 px; pod 1024 px kontextová lišta a FAB navigace.
 import { ArrowLeft, Blocks, Bot, History, Layers2, Menu as MenuIcon, Settings2, Workflow, X, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { API_BASE, enc, useApi } from "../api";
@@ -6,7 +6,7 @@ import { formatMoney, formatSpend } from "../format";
 import { t } from "../i18n";
 import { href, type Tab } from "../router";
 import type { Project, Spend } from "../types";
-import { btn, useDialog, useMedia } from "./ui";
+import { useDialog, useMedia } from "./ui";
 
 const NAV: [Tab, LucideIcon][] = [["scenare", Workflow], ["agenti", Bot], ["behy", History], ["skilly", Blocks], ["config", Settings2]];
 
@@ -16,7 +16,7 @@ export function Shell({ project, tab, back, offline, children }: { project?: str
     <div className="min-h-screen lg:flex">
       {desktop ? <Sidebar project={project} tab={tab} back={back || !!project} offline={offline} />
         : <TopBar project={project} tab={tab} back={back || !!project} offline={offline} />}
-      <main className="mx-auto w-full max-w-[1240px] min-w-0 px-4 pt-6 pb-16 md:px-6 lg:px-8 lg:pt-8">{children}</main>
+      <main className="mx-auto w-full max-w-[1240px] min-w-0 px-4 pt-6 pb-28 md:px-6 lg:px-8 lg:pt-8 lg:pb-16">{children}</main>
     </div>
   );
 }
@@ -39,61 +39,61 @@ export function Sidebar(props: NavProps) {
   );
 }
 
-/** Do 1023 px: lišta 56 px (značka, projekt, ☰) a drawer přes celou výšku se stejnou navigací (položky 48 px). */
+/** Do 1023 px: lišta s kontextem projektu a navigace nad FAB. */
 function TopBar(props: NavProps) {
   const [open, setOpen] = useState(false);
   const { project, offline } = props;
+  const close = () => setOpen(false);
+  const dialog = useDialog<HTMLDivElement>(close, open);
+  useEffect(() => {
+    if (!open) return;
+    dialog.ref.current?.querySelector<HTMLElement>("a")?.focus();
+    window.addEventListener("hashchange", close);
+    return () => window.removeEventListener("hashchange", close);
+  }, [open]);
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-line bg-sidebar px-4 md:px-6">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-sidebar px-4 md:px-6">
         <Brand />
         {project && <p className="min-w-0 flex-1 truncate text-sm font-semibold" title={project}>{project}</p>}
-        <button type="button" className={`${btn.iconGhost} ml-auto [&>svg]:size-5`} aria-label={t("shell.nav")} aria-expanded={open} aria-haspopup="dialog"
-          onClick={() => setOpen(true)}>
-          <MenuIcon aria-hidden />
-        </button>
       </header>
-      {offline && !open && (
+      {offline && (
         <p role="alert" data-testid="server-bar" className="border-b border-line bg-sidebar px-4 py-2 text-sm text-warning md:px-6">
           {t("server.offline", { host: API_BASE || location.host })}
         </p>
       )}
-      {open && <Drawer {...props} onClose={() => setOpen(false)} />}
+      {project && <>
+        {open && <div className="fixed inset-0 z-40 bg-canvas/60" onMouseDown={close} aria-hidden />}
+        {open && <div ref={dialog.ref} onKeyDown={dialog.onKeyDown} role="dialog" aria-modal="true" aria-label={t("shell.nav")} tabIndex={-1}
+          onClick={(e) => (e.target as HTMLElement).closest("a") && close()}
+          className="popover pop-enter fixed right-4 bottom-[calc(84px+env(safe-area-inset-bottom))] z-50 flex max-h-[calc(100dvh-108px)] w-[min(260px,calc(100vw-32px))] flex-col gap-1 overflow-y-auto p-2 focus:outline-none">
+          <a href="#/" className="flex h-12 shrink-0 items-center gap-3 rounded-[7px] px-3 text-sm font-medium text-fg-secondary hover:bg-surface-active hover:text-fg">
+            <ArrowLeft className="size-4" aria-hidden />{t("projects.title")}
+          </a>
+          <p className="truncate px-3 py-2 text-[13px] font-semibold text-fg-secondary" title={project}>{project}</p>
+          <nav aria-label={t("project.tabs")} className="flex flex-col gap-1">
+            {NAV.map(([k, Icon]) => <a key={k} href={href(project, k)} aria-current={k === props.tab ? "page" : undefined}
+              className={`flex h-12 shrink-0 items-center gap-3 rounded-[7px] px-3 text-sm font-medium ${k === props.tab ? "bg-surface-active text-fg" : "text-fg-secondary hover:bg-surface-active hover:text-fg"}`}>
+              <Icon className="size-4" aria-hidden />{t(`project.tab.${k}`)}
+            </a>)}
+          </nav>
+          <div className="border-t border-line px-3 pt-3 pb-2"><SpendToday project={project} /></div>
+        </div>}
+        <button type="button" className={`fixed right-4 bottom-[calc(16px+env(safe-area-inset-bottom))] ${open ? "z-50" : "z-30"} grid size-14 place-items-center rounded-full bg-accent text-ink shadow-[var(--shadow-pop)] transition-transform active:scale-95 motion-reduce:transition-none`}
+          aria-label={t("shell.nav")} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? <X className="size-6 motion-safe:animate-[fab-turn_150ms_ease-out]" aria-hidden /> : <MenuIcon className="size-6 motion-safe:animate-[fab-turn_150ms_ease-out]" aria-hidden />}
+        </button>
+      </>}
     </>
   );
 }
 
-function Drawer({ onClose, ...props }: NavProps & { onClose: () => void }) {
-  const dialog = useDialog<HTMLDivElement>(onClose);
-  // hashchange: odkaz v draweru (i na aktuální stránku) drawer zavře
-  useEffect(() => {
-    window.addEventListener("hashchange", onClose);
-    return () => window.removeEventListener("hashchange", onClose);
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-50 bg-canvas/70" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={dialog.ref} onKeyDown={dialog.onKeyDown} role="dialog" aria-modal="true" aria-label={t("shell.nav")} tabIndex={-1}
-        onClick={(e) => (e.target as HTMLElement).closest("a") && onClose()}
-        className="flex h-full w-[min(320px,100%)] flex-col gap-[22px] overflow-y-auto border-r border-line bg-sidebar px-5 pt-1.5 pb-7 focus:outline-none">
-        <div className="-mr-2 flex h-14 shrink-0 items-center justify-between">
-          <Brand />
-          <button type="button" className={`${btn.iconGhost} [&>svg]:size-5`} onClick={onClose} aria-label={t("common.close")} title={t("common.close")}>
-            <X aria-hidden />
-          </button>
-        </div>
-        <NavBody {...props} drawer />
-      </div>
-    </div>
-  );
-}
-
-function NavBody({ project, tab, back, offline, drawer = false }: NavProps & { drawer?: boolean }) {
-  const item = drawer ? "h-12" : "h-11";
+function NavBody({ project, tab, back, offline }: NavProps) {
   return (
     <>
-      {(back || drawer) && (
+      {back && (
         <div>
-          <a href="#/" className={`flex ${item} items-center gap-3 rounded-control px-3.5 text-sm font-medium text-fg-secondary hover:bg-surface-hover hover:text-fg`}>
+          <a href="#/" className="flex h-11 items-center gap-3 rounded-control px-3.5 text-sm font-medium text-fg-secondary hover:bg-surface-hover hover:text-fg">
             <ArrowLeft className="size-4" aria-hidden />{t("projects.title")}
           </a>
           {project && <div className="mt-[22px] h-px bg-line" aria-hidden />}
@@ -105,7 +105,7 @@ function NavBody({ project, tab, back, offline, drawer = false }: NavProps & { d
           <nav aria-label={t("project.tabs")} className="flex flex-col gap-1.5">
             {NAV.map(([k, Icon]) => (
               <a key={k} href={href(project, k)} aria-current={k === tab ? "page" : undefined}
-                className={`group flex ${item} shrink-0 items-center gap-3 rounded-control px-3.5 text-sm font-medium ${k === tab ? "bg-surface-active text-fg" : "text-fg-secondary hover:bg-surface-hover hover:text-fg"}`}>
+                className={`group flex h-11 shrink-0 items-center gap-3 rounded-control px-3.5 text-sm font-medium ${k === tab ? "bg-surface-active text-fg" : "text-fg-secondary hover:bg-surface-hover hover:text-fg"}`}>
                 <Icon className={`size-4 ${k === tab ? "text-fg" : "text-fg-muted group-hover:text-fg"}`} aria-hidden />{t(`project.tab.${k}`)}
               </a>
             ))}
@@ -113,7 +113,7 @@ function NavBody({ project, tab, back, offline, drawer = false }: NavProps & { d
           <div className="mt-auto"><SpendToday project={project} /></div>
         </>
       )}
-      {offline && !drawer && (
+      {offline && (
         <p role="alert" data-testid="server-bar" className={`w-full text-sm text-warning ${project ? "" : "mt-auto"}`}>
           {t("server.offline", { host: API_BASE || location.host })}
         </p>

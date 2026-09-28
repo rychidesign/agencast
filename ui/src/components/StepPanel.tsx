@@ -17,7 +17,7 @@ type Obj = Record<string, unknown>;
 export const panelIcon = "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50";
 
 /** PanelShell (návrh 05, změřeno z .pen): `surface` r16; hlavička p 20 s linkou (ikona 16, eyebrow mono 10 verzálky,
- *  titul 18 semibold, zavřít 44 ghost), tělo p 20, mezera polí 18. Do 1279 px (`SheetContext`) plnoobrazovkový sheet:
+ *  titul 18 semibold, zavřít 44 ghost), tělo p 20, mezera polí 18. Do 1279 px (`SheetContext`) spodní sheet:
  *  `role="dialog"`, fokus past, Esc zavře, tělo scrolluje, hlavička stojí. */
 export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   id: string; eyebrow: string; title: ReactNode; onClose: () => void; actions?: ReactNode; children: ReactNode;
@@ -25,9 +25,11 @@ export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   const sheet = useContext(SheetContext);
   const dialog = useDialog<HTMLElement>(onClose, sheet);
   return (
+    <>{sheet && <div className="fixed inset-0 z-40 bg-canvas/70" onMouseDown={onClose} aria-hidden />}
     <aside aria-labelledby={id} ref={dialog.ref} onKeyDown={dialog.onKeyDown}
       {...(sheet && { role: "dialog", "aria-modal": true, tabIndex: -1 })}
-      className={sheet ? "fixed inset-0 z-50 flex flex-col bg-surface focus:outline-none" : "rounded-panel bg-surface"}>
+      className={sheet ? "sheet-enter sheet-shadow fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[calc(100dvh-48px)] flex-col rounded-t-panel bg-surface focus:outline-none md:max-w-[720px]" : "rounded-panel bg-surface"}>
+      {sheet && <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-fg-muted/40" aria-hidden />}
       <div className="flex shrink-0 items-center gap-3 border-b border-line py-4 pr-3 pl-5">
         <PanelRight className="size-4 shrink-0 text-fg-secondary" aria-hidden />
         <div className="min-w-0 flex-1 space-y-[3px]">
@@ -39,8 +41,9 @@ export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
           <X className="size-4" aria-hidden />
         </button>
       </div>
-      <div className={sheet ? "min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 pb-10" : "p-5"}>{children}</div>
+      <div className={sheet ? "min-h-0 overflow-y-auto overscroll-contain p-5 pb-[calc(20px+env(safe-area-inset-bottom))]" : "p-5"}>{children}</div>
     </aside>
+    </>
   );
 }
 

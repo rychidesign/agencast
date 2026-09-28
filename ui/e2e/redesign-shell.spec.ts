@@ -58,7 +58,7 @@ test("R2 editor: hlavička s Uložit, Spustit a menu ⋯", async ({ page, projec
 test.describe("pod 1024 px", () => {
   test.use({ viewport: { width: 900, height: 800 } });
 
-  test("R3 sidebar jako horní lišta 56 px s drawerem", async ({ page, project }) => {
+  test("R3 sidebar jako horní lišta 56 px s FAB nabídkou", async ({ page, project }) => {
     await page.goto(`/#/p/${project.name}`);
     await expect(page.getByTestId("scenario-card-ukazka")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Části projektu" })).toHaveCount(0);
@@ -67,9 +67,13 @@ test.describe("pod 1024 px", () => {
     expect(bar.height).toBe(56);
     const h1 = (await page.getByRole("heading", { name: "Scénáře", level: 1 }).boundingBox())!;
     expect(bar.y + bar.height).toBeLessThanOrEqual(h1.y);
-    await page.getByRole("button", { name: "Navigace" }).click();
-    const nav = page.getByRole("dialog", { name: "Navigace" }).getByRole("navigation", { name: "Části projektu" });
-    for (const n of NAV) expect((await nav.getByRole("link", { name: n }).boundingBox())!.height).toBe(48);
+    const fab = page.getByRole("button", { name: "Navigace" });
+    await expect(fab).toHaveCSS("width", "56px");
+    await fab.click();
+    const menu = page.getByRole("dialog", { name: "Navigace" });
+    await expect.poll(async () => (await menu.boundingBox())!.y + (await menu.boundingBox())!.height).toBeLessThan((await fab.boundingBox())!.y);
+    const nav = menu.getByRole("navigation", { name: "Části projektu" });
+    for (const n of NAV) expect((await nav.getByRole("link", { name: n }).boundingBox())!.height).toBeCloseTo(48, 2);
     await expect(page.getByText("Dnes utraceno")).toBeVisible();
     await page.keyboard.press("Escape");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(900);

@@ -4,6 +4,7 @@
   --color-canvas: #0B1220;
   --color-sidebar: #0B1524;
   --color-surface: #172436;
+  --color-menu: #1E2C45;
   --color-surface-hover: #1D2D42;
   --color-surface-active: #253B50;
   --color-control: #31455F;
@@ -33,6 +34,8 @@
   /* karta v mřížce / seznamu (projekt, scénář, položka seznamu, kontejner kroků, filtry) — změřeno z .pen */
   --radius-tile: 14px;
   --radius-panel: 16px;
+  --shadow-pop: 20px 20px 40px rgba(20, 16, 48, 0.55);
+  --shadow-sheet: 0 -20px 40px rgba(20, 16, 48, 0.55);
 }
 
 /* sdílený gradient pozadí aplikace z návrhu („AppBackground“, změřeno z .pen); `fixed`, aby přilepená hlavička
@@ -45,6 +48,15 @@
 
 @layer components {
   .text-h1 { @apply text-[28px] leading-[42px] font-normal; }
+  .popover { background: var(--color-menu); border-radius: 12px; box-shadow: var(--shadow-pop), 0 2px 8px rgba(0, 0, 0, .35); outline: 0; }
+  .sheet-shadow { box-shadow: var(--shadow-sheet), 0 -2px 8px rgba(0, 0, 0, .35); }
+  @keyframes sheet-up { from { transform: translateY(16px); opacity: .85; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes pop-up { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes fab-turn { from { transform: rotate(-90deg); opacity: .6; } to { transform: rotate(0); opacity: 1; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .sheet-enter { animation: sheet-up 200ms ease-out; }
+    .pop-enter { animation: pop-up 150ms ease-out; }
+  }
 }
 
 @layer base {

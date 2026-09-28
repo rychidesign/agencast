@@ -3,7 +3,7 @@ import {
   Ban, Braces, Check, ChevronRight, CircleCheck, CircleSlash, CircleDashed, CircleDot, CircleX, Copy, Ellipsis, FileText, Inbox,
   TriangleAlert, type LucideIcon, Circle,
 } from "lucide-react";
-import { createContext, useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 
@@ -30,8 +30,32 @@ export function useMedia(query: string, fallback = false) {
   return useSyncExternalStore(subscribe, () => window.matchMedia?.(query).matches ?? fallback);
 }
 
-/** Panel jako plnoobrazovkový sheet (do 1279 px: vedle sloupce se nevejde). Nastavuje `PanelSlot`, čte `PanelShell`. */
+/** Panel jako spodní sheet do 1279 px. Nastavuje `PanelSlot`, čte `PanelShell`. */
 export const SheetContext = createContext(false);
+
+/** Umístí plovoucí nabídku do viewportu i u jeho okraje. */
+export function placePopover(panel: HTMLElement, anchor: HTMLElement, align: "left" | "right" = "right", matchWidth = false) {
+  const a = anchor.getBoundingClientRect();
+  if (matchWidth) panel.style.width = `${Math.min(a.width, window.innerWidth - 24)}px`;
+  const p = panel.getBoundingClientRect();
+  const width = Math.min(p.width, window.innerWidth - 24);
+  const left = Math.max(12, Math.min(align === "right" ? a.right - width : a.left, window.innerWidth - width - 12));
+  const below = a.bottom + 4 + p.height <= window.innerHeight - 12;
+  panel.style.left = `${left}px`;
+  panel.style.top = `${below ? a.bottom + 4 : Math.max(12, a.top - p.height - 4)}px`;
+  panel.style.maxHeight = `${window.innerHeight - 24}px`;
+}
+
+export function usePopoverPosition(open: boolean, panel: RefObject<HTMLElement | null>, anchor: RefObject<HTMLElement | null>, align: "left" | "right" = "right", matchWidth = false, sizeKey = 0) {
+  useLayoutEffect(() => {
+    if (!open || !panel.current || !anchor.current) return;
+    const update = () => panel.current && anchor.current && placePopover(panel.current, anchor.current, align, matchWidth);
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
+  }, [open, panel, anchor, align, matchWidth, sizeKey]);
+}
 
 /** Tab a Shift+Tab zůstávají uvnitř `root`. */
 export function trapTab(root: HTMLElement | null, e: React.KeyboardEvent) {
@@ -261,7 +285,10 @@ export interface MenuItem {
 export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label: string; ghost?: boolean }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
   const id = useId();
+  usePopoverPosition(open, popup, trigger);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => root.current?.contains(e.target as Node) || setOpen(false);
@@ -288,17 +315,18 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
   return (
     <div ref={root} className="relative" onKeyDown={onKey}>
       <button
+        ref={trigger}
         type="button" className={ghost ? btn.iconGhost : btn.icon} aria-label={label} aria-haspopup="menu" aria-expanded={open}
         aria-controls={id} onClick={(e) => (e.stopPropagation(), setOpen(!open))}
       >
         <Ellipsis className="size-5" aria-hidden />
       </button>
       {open && (
-        <div id={id} role="menu" className="absolute right-0 z-20 mt-1 w-60 rounded-[var(--radius-card)] bg-surface p-2 ring-1 ring-line">
+        <div ref={popup} id={id} role="menu" className="popover fixed z-[60] flex w-60 flex-col gap-1 overflow-y-auto p-2">
           {items.map((it) => (
             <button
               key={it.label} type="button" role="menuitem" tabIndex={-1} disabled={!!it.disabled} aria-disabled={!!it.disabled || undefined} title={it.disabled}
-              className={`flex h-10 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-sm hover:bg-surface-hover focus:bg-surface-hover disabled:opacity-50 ${it.danger ? "text-error" : "text-fg"}`}
+              className={`flex min-h-10 w-full items-center rounded-[7px] px-3 text-left text-sm hover:bg-surface-active focus:bg-surface-active disabled:opacity-50 ${it.danger ? "text-error" : "text-fg"}`}
               onClick={(e) => (e.stopPropagation(), setOpen(false), it.onSelect())}
             >
               {it.label}

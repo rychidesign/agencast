@@ -3,7 +3,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, ty
 import { Braces, Check, CircleX, Plus, X } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
-import { btn, trapTab } from "./ui";
+import { btn, trapTab, usePopoverPosition } from "./ui";
 
 const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:8px_8px] [&:is(select)]:bg-[position:calc(100%-25px)_55%,calc(100%-17px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-10";
 /** Pole (návrh `V3 / TextInput`, změřeno z .pen): 44 px, `nested`, r6, v klidu bez rámečku; fokus ring 2 `accent`
@@ -76,6 +76,8 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   const selection = useRef<{ start: number; end: number } | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const suggestionsRef = useRef<HTMLUListElement>(null);
+  const variableRef = useRef<HTMLButtonElement>(null);
   const [token, setToken] = useState<string | null>(null);
   // kurzor za doplněnou hodnotu hned po jejím vykreslení (rAF by předběhlo další úhoz)
   useLayoutEffect(() => {
@@ -90,6 +92,8 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   const menuId = `${a11y.id}-variables`;
   const matches = token ? candidates.filter((c) => c.startsWith(token) && c !== token).slice(0, 8) : [];
   const open = matches.length > 0;
+  usePopoverPosition(open, suggestionsRef, ref, "left", true, matches.length);
+  usePopoverPosition(variablesOpen, menu, variableRef);
   const variableGroups = [...new Set(candidates.map((c) => c.startsWith("inputs.") ? "inputs" : `steps.${c.split(".")[1]}`))]
     .map((key) => ({
       label: key === "inputs" ? t("form.variables.inputs") : t("form.variables.step", { id: key.slice("steps.".length) }),
@@ -192,7 +196,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   };
   const variableButton = (
     <button
-      type="button" className="grid size-11 shrink-0 place-items-center text-variable hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:size-[18px]"
+      ref={variableRef} type="button" className="grid size-11 shrink-0 place-items-center text-variable hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:size-[18px]"
       aria-label={t("form.variables.insert")} title={candidates.length ? t("form.variables.insert") : t("form.variables.none")}
       aria-haspopup="menu" aria-expanded={variablesOpen} aria-controls={menuId} disabled={!candidates.length}
       onClick={() => (setVariableActive(0), setVariablesOpen((isOpen) => !isOpen))}
@@ -212,11 +216,11 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     </button>
   );
   const suggestions = open && (
-    <ul id={listId} role="listbox" className="absolute left-0 z-30 mt-1 w-full rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
+    <ul ref={suggestionsRef} id={listId} role="listbox" className="popover fixed z-[60] overflow-y-auto p-2">
       {matches.map((c, i) => (
         <li key={c} id={`${listId}-${i}`} role="option" aria-selected={i === active}
           onMouseDown={(e) => (e.preventDefault(), accept(c))}
-          className={`flex h-8 cursor-pointer items-center rounded-[var(--radius-control)] px-3 text-variable ${mono} ${i === active ? "bg-surface-hover" : "hover:bg-surface-hover"}`}>
+          className={`flex h-10 cursor-pointer items-center rounded-[7px] px-3 text-variable ${mono} ${i === active ? "bg-surface-active" : "hover:bg-surface-active"}`}>
           {c}
         </li>
       ))}
@@ -224,7 +228,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   );
   const variableMenu = variablesOpen && (
     <div ref={menu} id={menuId} role="menu" onKeyDown={onVariableMenuKey}
-      className="absolute right-0 top-full z-40 mt-1 max-h-72 w-64 overflow-y-auto rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
+      className="popover fixed z-[60] max-h-72 w-64 overflow-y-auto p-2">
       {variableGroups.map((group) => (
         <div key={group.label} role="group" aria-label={group.label}>
           <div className="px-3 pt-2 pb-1 text-xs text-fg-muted">{group.label}</div>
@@ -232,7 +236,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
             const i = candidates.indexOf(candidate);
             return (
               <button key={candidate} type="button" role="menuitem" tabIndex={-1}
-                className={`flex min-h-10 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-variable ${mono} ${i === variableActive ? "bg-surface-hover" : "hover:bg-surface-hover"} pointer-coarse:min-h-11`}
+                className={`flex min-h-10 w-full items-center rounded-[7px] px-3 text-left text-variable ${mono} ${i === variableActive ? "bg-surface-active" : "hover:bg-surface-active"} pointer-coarse:min-h-11`}
                 onFocus={() => setVariableActive(i)} onClick={() => insertVariable(candidate)}>
                 {candidate}
               </button>
@@ -359,8 +363,10 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
+    const overflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
     (root.current?.querySelector<HTMLElement>("[data-autofocus]") ?? firstAction(root.current))?.focus();
-    return () => prev?.focus?.();
+    return () => { document.documentElement.style.overflow = overflow; prev?.focus?.(); };
   }, []);
   // fokusované tlačítko zmizelo (např. „Smazat“ po odmítnutí z API) → fokus zpět do dialogu, jinak nefunguje Esc ani Tab
   useEffect(() => {
@@ -373,11 +379,12 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
     } else if (e.key === "Tab") trapTab(root.current, e);
   };
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-canvas/70 p-4" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-canvas/70 md:items-center md:p-4" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
       {/* návrh „ModalShell“ (změřeno z .pen): r14, hlavička p24 s linkou (titul 22 + zavřít 44), obsah p24 gap 18,
           patička p 18 24 s linkou: Zrušit, pak akce */}
       <div ref={root} role="dialog" aria-modal="true" aria-labelledby={id} onKeyDown={onKey}
-        className="w-full max-w-lg rounded-tile bg-surface">
+        className="sheet-enter sheet-shadow flex max-h-[calc(100dvh-48px)] w-full max-w-lg flex-col rounded-t-tile bg-surface md:rounded-tile md:shadow-[var(--shadow-pop)]">
+        <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-fg-muted/40 md:hidden" aria-hidden />
         <div className="flex items-center gap-4 border-b border-line py-4 pr-4 pl-6">
           <h2 id={id} className="min-w-0 flex-1 text-[22px] leading-8 font-semibold">{title}</h2>
           {/* informační dialog (bez akcí) má jediné „Zavřít“ dole */}
@@ -387,8 +394,8 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
             </button>
           )}
         </div>
-        {children && <div className="space-y-[18px] p-6 text-sm text-fg-secondary">{children}</div>}
-        <div className={`flex flex-wrap justify-end gap-2.5 px-6 py-[18px] ${children ? "border-t border-line" : ""}`}>
+        {children && <div className="min-h-0 space-y-[18px] overflow-y-auto p-6 text-sm text-fg-secondary">{children}</div>}
+        <div className={`flex shrink-0 flex-wrap justify-end gap-2.5 px-6 pt-[18px] pb-[calc(18px+env(safe-area-inset-bottom))] ${children ? "border-t border-line" : ""}`}>
           <button type="button" className={btn.secondary} onClick={onCancel}>{cancelLabel}</button>
           {actions.map((a) => (
             <button key={a.label} type="button" data-action onClick={a.onSelect}

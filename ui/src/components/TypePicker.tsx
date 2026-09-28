@@ -26,11 +26,16 @@ export function TypePicker({ onPick, onClose, paste }: {
   const ref = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState("");
   const [active, setActive] = useState(0);
-  const [flip, setFlip] = useState(false);
   const items: Pick[] = [...(paste && !filter ? ["paste" as const] : []), ...filterTypes(filter)];
   useLayoutEffect(() => {
-    const r = ref.current?.getBoundingClientRect();
-    if (r && r.right > window.innerWidth) setFlip(true);
+    const panel = ref.current;
+    const anchor = panel?.parentElement?.getBoundingClientRect();
+    if (panel && anchor && window.innerWidth >= 768) {
+      const r = panel.getBoundingClientRect();
+      const left = anchor.right + 8 + r.width <= window.innerWidth - 12 ? anchor.right + 8 : anchor.left - r.width - 8;
+      panel.style.left = `${Math.max(12, Math.min(left, window.innerWidth - r.width - 12))}px`;
+      panel.style.top = `${Math.max(12, Math.min(anchor.top + anchor.height / 2 - r.height / 2, window.innerHeight - r.height - 12))}px`;
+    }
     ref.current?.focus();
   }, []);
   useEffect(() => {
@@ -61,7 +66,7 @@ export function TypePicker({ onPick, onClose, paste }: {
   return (
     <div ref={ref} role="listbox" tabIndex={-1} aria-label={t("picker.label")} onKeyDown={onKey}
       aria-activedescendant={items[active] ? `${id}-${items[active]}` : undefined}
-      className={`absolute top-1/2 z-30 w-80 -translate-y-1/2 rounded-card bg-surface p-2 text-fg shadow-2xl ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"} max-md:fixed max-md:inset-x-4 max-md:top-auto max-md:bottom-4 max-md:z-50 max-md:m-0 max-md:max-h-[70vh] max-md:w-auto max-md:translate-y-0 max-md:overflow-y-auto`}>
+      className="popover fixed z-[60] max-h-[calc(100dvh-24px)] w-80 max-w-[calc(100vw-24px)] overflow-y-auto p-2 text-fg focus:outline-none max-md:inset-x-4 max-md:bottom-4 max-md:max-h-[70vh] max-md:w-auto">
       {filter && <div className="px-3 py-1 font-mono text-xs text-fg-muted" aria-live="polite">{t("picker.filter", { filter })}</div>}
       {items.map((k, i) => {
         const g = k === "paste" ? -2 : PICKER_GROUPS.findIndex((gr) => gr.includes(k));

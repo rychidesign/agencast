@@ -199,8 +199,8 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
    „Přejmenovat“; `button "Další akce"` → `menuitem` Vrátit zpět (Ctrl+Z) · Kopírovat příkaz spuštění ·
    Běhy tohoto scénáře · Přejmenovat · Smazat; „Běhy tohoto scénáře“ → `#/p/demo/behy?scenar=ukazka`
    s předvybraným filtrem.
-4. Viewport 900 px: navigace je vodorovně v jedné řadě nad `h1`, položky ≥ 44 px, „Dnes utraceno“
-   skryté, `scrollWidth ≤ 900`.
+4. Viewport 900 px: lišta nahoře obsahuje značku a projekt; FAB „Navigace“ 56 px vpravo dole otevře
+   nabídku s projekty, položkami 48 px a dnešní útratou. Esc, klik mimo a výběr položky ji zavřou; `scrollWidth ≤ 900`.
 5. Každá sekce projektu má jedinou hlavičku (`h1` = název sekce) a v ⋯ „Další akce“ jako první
    „Načíst znovu“ (dřív ikona). Scénáře: „+ Nový scénář“; Agenti / Skilly: „+ Nový agent“ / „+ Nový
    skill“ + Uložit + ⋯ „Akce pro <jméno>“; Config: cesta projektu jako popis + Uložit. Druhé Uložit ani
@@ -231,7 +231,8 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 3. *Formulář nového projektu: jméno + cesta, nebo cesta odvozená?* — **Jméno + cesta, cesta předvyplněná z `projects_root` (`<projects_root>/<jméno>`) a editovatelná.** Přepínač „Založit nový“ / „Přidat existující“ v jednom dialogu.
 4. *Přejmenování s odkazy: mlčky, nebo se ptát?* — **Ptát se jednou: „Přepsat odkazy v N krocích?“** s výčtem kroků; potvrzení odešle dávku `rename_step` s `rename_refs: true`. Bez čtenářů bez dialogu.
 
-## Dialogy (0.16.1)
+## Dialogy (0.16.2)
 Dialog má hlavičku s titulem a křížkem „Zavřít“ (informační dialog bez akcí jen „Zavřít“ dole) a patičku
 „Zrušit“, pak akce. Fokus po otevření je na první akci (nebo na poli s `data-autofocus`), Tab cyklí uvnitř
-(z poslední akce na křížek), Esc a klik mimo zavřou. Test: `redesign-prvky.spec.ts` P3, `fidelity.spec.ts`.
+(z poslední akce na křížek), Esc a klik mimo zavřou. Na telefonu je dialog spodní sheet s kulatými horními rohy,
+stínem a viditelným pruhem stránky nad ním. Test: `redesign-prvky.spec.ts` P3, `fidelity.spec.ts`.

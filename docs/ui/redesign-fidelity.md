@@ -43,7 +43,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 - Segmentový přepínač (Form | YAML): obal `bg-nested` radius 9 padding 4 gap 4, **segment 44 px radius 7**, 13 px (změřeno z .pen), aktivní `bg-accent text-ink`, neaktivní `fg-muted`.
 - Záložky detailu běhu: výška 47, padding 12 18, mezera 28, text 13 medium (změřeno z .pen), aktivní `fg` s podtržením 2 px `accent`, neaktivní `fg-secondary`. Záložky v panelu kroku 13 regular, mezera 24.
 - Stavový čip: pilulka `bg-nested`, padding 7 10, mezera 8, ikona 14 px, **text mono 12 medium v barvě stavu** (změřeno z .pen). Pulzuje jen ikona „běží“ (pulzující text by neměl kontrast).
-- Menu ⋯: `bg-surface` radius 12, položky 40 px, 14 px; nebezpečná červeně.
+- Menu ⋯: `bg-menu` radius 12, padding 8, gap 4, bez rámečku se stínem `shadow-pop`; položky 40 px, radius 7, padding 10 12, 14 px; nebezpečná červeně.
 - Akordeon (Podmínka / Spolehlivost / Podrobnosti): řádek 52 px (padding 16), **šipka 16 vlevo**, titul 14 medium, hodnota mono 11 `fg-muted` vpravo (změřeno z .pen).
 - Blok kódu („CodeViewer“): `bg-surface` radius **16**, hlavička padding 14 18 s linkou (ikona 18 + název mono 13 + čip radius 6 s obrysem, mono 11), tělo `bg-nested` padding 18 0 s řádky 27 px (číslo mono 12 `fg-muted` šířka 26, mezera 14), patička padding 14 s popisem mono 11 vlevo a „Kopírovat“ s obrysem vpravo (změřeno z .pen). Jedna komponenta `CodeBlock` v `ui.tsx` pro Výstup/Prompt/Odpověď, soubory i bloky v Markdownu; `CodeView` (YAML jen ke čtení) a YAML editor mají stejnou hlavičku a řádek 27 px.
 - Modál („ModalShell“): radius 14, hlavička padding 24 s linkou (titul 22 semibold + zavřít 44), obsah padding 24 mezera 18, patička padding 18 24 s linkou, tlačítka vpravo **Zrušit, pak akce** (změřeno z .pen).
@@ -121,12 +121,14 @@ Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v k
 
 ## 12. Mobil a tablet (vlna G; návrh mobil nemá)
 
-- Do 1023 px lišta 56 px (`bg-sidebar`, hairline): značka, projekt (truncate), ☰ 44 px → drawer přes celou výšku
-  (z-50, „← Projekty“, položky 48 px, útrata dole; Esc, klik mimo, fokus zpět na ☰). Obsah p16, od 768 px p24.
+- Do 1023 px lišta 56 px (`bg-sidebar`, hairline): značka a projekt (truncate). Navigace je v nabídce nad FAB
+  56 px vpravo dole („← Projekty“, položky 48 px, útrata dole; Esc, klik mimo, fokus zpět na FAB). Obsah p16, od 768 px p24.
 - Do 767 px hlavička H1 24, popis 13, jen primární akce + ⋯ (sekundární akce jdou do ⋯, `PageHeader compact`),
   titul se láme (`overflow-wrap:anywhere`); pod 1024 px se hlavička nepřilepuje.
-- Do 1279 px je panel (krok, hlavička, spuštění, krok v běhu) plnoobrazovkový sheet (`role="dialog"`, fokus past,
-  Esc, po zavření fokus zpět na kartu). Do 767 px karta kroku 80 px bez čísla (kolečko 36), konektor 32 px s (+)
+- Do 1279 px je panel (krok, hlavička, spuštění, krok v běhu) spodní sheet s kulatými horními rohy a stínem,
+  max. výška `100dvh - 48px` (`role="dialog"`, fokus past, Esc, po zavření fokus zpět na kartu). Do 767 px karta kroku 80 px bez čísla (kolečko 36), konektor 32 px s (+)
   32 px a dotykovou plochou 44, sloupec přes celou šířku (koš jen v ⋯), TypePicker jako list u spodního okraje.
 - Běhy do 767 px bez záhlaví: karta o dvou řádcích (stav + jméno + stav textem; run_id, kdy, trvání · cena),
   chevron vpravo. Záložky detailu běhu s vodorovným posuvem. Agenti/Skilly pod 1100 px jako vodorovné čipy.
+- Vlna H podle uživatele: nabídky mají stín místo rámečku, panely a mobilní modály jsou spodní sheety,
+  mobilní a tabletová navigace používá FAB místo horního menu.

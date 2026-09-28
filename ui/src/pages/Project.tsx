@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { enc, useApi } from "../api";
 import { PageHeader } from "../components/PageHeader";
-import { btn, ErrorList, ErrorText, Loading, Skeleton, StatusChip, type MenuItem } from "../components/ui";
+import { btn, ErrorList, ErrorText, Loading, placePopover, Skeleton, StatusChip, type MenuItem } from "../components/ui";
 import { t } from "../i18n";
 import { href, type Tab } from "../router";
 import type { ErrorItem, Project } from "../types";
@@ -55,12 +55,14 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
         // by se samo zavřelo; během načítání proto ⋯ není (Běhy hlavičku nepředávají, mají ho vždy)
         menu={p || detail.error || tab === "behy" ? [{ label: t("common.reload"), onSelect: reload }, ...(x.menu ?? [])] : undefined}
         meta={<>{x.meta}{errors.length > 0 && (
-          <details className="relative text-sm" onKeyDown={(e) => e.key === "Escape" && (e.currentTarget.open = false)}
+          <details className="relative text-sm" onToggle={(e) => {
+            if (e.currentTarget.open) placePopover(e.currentTarget.querySelector<HTMLElement>("[data-popover]")!, e.currentTarget.querySelector("summary")!);
+          }} onKeyDown={(e) => e.key === "Escape" && (e.currentTarget.open = false)}
             onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && (e.currentTarget.open = false)}>
             <summary className="cursor-pointer list-none rounded-full [&::-webkit-details-marker]:hidden">
               <StatusChip status="failed">{t("validation.count", { n: errors.length })}</StatusChip>
             </summary>
-            <div tabIndex={-1} className="absolute z-20 mt-2 w-[36rem] max-w-[calc(100vw-2rem)] rounded-card bg-surface p-4 ring-1 ring-line focus:outline-none">
+            <div data-popover tabIndex={-1} className="popover fixed z-[60] w-[36rem] max-w-[calc(100vw-24px)] overflow-y-auto p-4 focus:outline-none">
               <ErrorList errors={errors} hrefFor={(e) => errorHref(project, e)} />
             </div>
           </details>

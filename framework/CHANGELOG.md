@@ -5,6 +5,13 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.16.2 — 2026-09-28 (nabídky, sheety a mobilní navigace)
+
+- Kontextové nabídky a popovery bez rámečku, se světlejší výplní a měkkým fialovým stínem.
+- Oprava uříznutého menu hlavičky editoru na telefonu: nabídky se drží ve viewportu.
+- Panely do 1279 px a modály na telefonu jako spodní sheety s kulatými horními rohy, stínem a viditelným okrajem stránky.
+- Mobilní a tabletová navigace v nabídce nad plovoucím tlačítkem FAB místo horního ☰ a draweru.
+
 ## 0.16.1 — 2026-09-28 (GUI věrně podle návrhu V3)
 
 Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny. Rozměry jsou změřené z `.pen`
