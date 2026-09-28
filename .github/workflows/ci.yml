@@ -34,8 +34,6 @@ jobs:
 
   wheel-smoke:
     runs-on: ubuntu-latest
-    env:
-      AGENCAST_CONFIG_DIR: ${{ runner.temp }}/cfg
     defaults:
       run:
         working-directory: framework
@@ -46,7 +44,9 @@ jobs:
           python-version: '3.12'
       - run: uv build
       - run: uv venv .smoke && uv pip install --python .smoke dist/*.whl
-      - run: |
+      - env:
+          AGENCAST_CONFIG_DIR: ${{ runner.temp }}/cfg
+        run: |
           .smoke/bin/agencast new project "$RUNNER_TEMP/demo" --example showcase
           .smoke/bin/agencast --project "$RUNNER_TEMP/demo" validate ig-post --offline
           .smoke/bin/agencast --project "$RUNNER_TEMP/demo" run ig-post -i tema=x --fake fake/ig-post.yaml
