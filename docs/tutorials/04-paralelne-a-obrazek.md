@@ -222,7 +222,7 @@ agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="vegansk�
 
 ```
 běh 20260925-151755-tutorial-04-paralelne-8c76: úspěch · 10,5 s · 0,0683 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151755-tutorial-04-paralelne-8c76/summary.md
+záznam: runs/20260925-151755-tutorial-04-paralelne-8c76/summary.md
 ```
 
 ```
@@ -251,7 +251,7 @@ Běh `20260925-151755-tutorial-04-paralelne-8c76` · 25. 9. 2026 15:17:55 UTC ·
 ## Výstup
 - nazev: „Ovesový Raj"
 - slogan: „Ovesový Raj - čistá vegan sladkost bez viny"
-- foto: file://~/orca/workspaces/multiagent-workflows/tutorials/outputs/20260925-151755-tutorial-04-paralelne-8c76-6f88f7d39aeab16913150e899dfe8070/foto.png
+- foto: outputs/20260925-151755-tutorial-04-paralelne-8c76-6f88f7d39aeab16913150e899dfe8070/foto.png
 ```
 
 Co z toho vyčteš:

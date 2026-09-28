@@ -1,25 +1,83 @@
-# multiagent-workflows
+# AgenCast
 
-Framework **AgenCast** (balík i příkaz `agencast`, do 0.2.5 `maw`) pro
-workflowy s LLM agenty psané v čitelných souborech (scénáře v YAML, agenti
-v Markdownu), s modely a Jev přes OpenRouter, běžící na vlastním serveru
-nebo na Modal.com a spouštěný webhookem.
+AgenCast is an open-source framework for defining and running LLM-agent workflows. Scenarios use YAML, agents use Markdown, and each run leaves a readable record.
 
-Stav: spec v1 schválená ([`docs/spec/`](docs/spec/)), návrh
-[`docs/DESIGN.md`](docs/DESIGN.md); jádro frameworku 0.3.0 v
-[`framework/`](framework/README.md) (všech 10 typů kroků v1, MCP,
-webhook `agencast serve`), tutoriály v [`docs/tutorials/`](docs/tutorials/).
+AgenCast je framework pro vývojáře a týmy, které chtějí skládat opakovatelné úlohy s LLM agenty ze souborů, které lze číst, verzovat a kontrolovat. Scénář popisuje průběh práce, agent jeho roli a nástroje.
 
+## Co umí
+
+- Scénáře v YAML, agenti a skilly v Markdownu.
+- Deset typů kroků: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail` a `output`.
+- `task` volá povolené nástroje MCP; `parallel`, `switch` a `call` skládají větve a scénáře.
+- Falešný poskytovatel spustí scénář bez sítě a bez ceny.
+- Každý běh ukládá `summary.md`, `callback.json` a samostatný `report.html`.
+- `agencast serve` přijímá webhooky a nabízí GUI pro registrované projekty.
+- Skilly pro kódovací agenty pomáhají scénáře spouštět i vytvářet.
+
+## Instalace
+
+Vyžaduje Python 3.12. S `uv` nainstalujte nástroj z klonu repozitáře:
+
+```bash
+uv tool install --editable framework
 ```
-framework/    jádro (CLI, engine, adaptéry, webhook)
-ui/           GUI (React) nad HTTP API agencast serve
-workflows/    vrstva uživatele: agents/, scenarios/, skills/, config
-docs/         návrh, specifikace formátů, changelog
-spikes/       časově omezené experimenty s REPORT.md
-skills/       skilly pro kódovací agenty (agencast-run, agencast-create)
+
+Nebo přímo z GitHubu:
+
+```bash
+uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
 ```
 
-Skilly [`skills/`](skills/README.md) naučí Claude Code, Codex a OMP
-AgenCast spouštět a psát; na hostu je nainstaluje `skills/install.sh`.
+## Rychlý start
 
-GUI v [`ui/`](ui/README.md) je tenká obálka nad HTTP API `agencast serve`, který ho po `npm run build` podává na `/`. Uživatelské cesty z [`docs/ui/uzivatelske-cesty.md`](docs/ui/uzivatelske-cesty.md) ověřují Playwright E2E testy (`cd ui && npm run e2e`).
+Vytvořte projekt, doplňte klíč OpenRouteru do `.env` a projděte nejprve kontroly bez ostrého volání:
+
+```bash
+agencast new project ~/muj-projekt
+cd ~/muj-projekt
+cp .env.example .env
+# Do .env nastavte OPENROUTER_API_KEY.
+agencast validate ukazka
+agencast run ukazka --dry-run
+agencast run ukazka --fake
+agencast run ukazka
+```
+
+## Struktura repozitáře
+
+| Cesta | Obsah |
+|---|---|
+| `framework/` | Python balík a příkaz `agencast` |
+| `ui/` | Zdrojový kód GUI |
+| `workflows/` | Příklady agentů, scénářů, skillů a konfigurace |
+| `docs/` | Specifikace, návrh a tutoriály |
+| `spikes/` | Časově omezené experimenty s nezpracovanými výsledky |
+| `skills/` | Skilly pro kódovací agenty |
+
+## Dokumentace
+
+- [Specifikace formátů](docs/spec/)
+- [Tutoriály](docs/tutorials/)
+- [Návrh frameworku](docs/DESIGN.md)
+- [README frameworku](framework/README.md)
+- [README GUI](ui/README.md)
+- [Skilly pro kódovací agenty](skills/)
+
+## GUI a server
+
+`agencast serve` umí běžet v režimu registru projektů. Na hostu nastavte
+`AGENCAST_TOKEN`, `AGENCAST_HOST` a `AGENCAST_PORT` v
+`~/.config/agencast/serve.env` (systemd `EnvironmentFile`). GUI vystavujte
+jen v privátní síti. Adresu zjistíte přečtením pouze hostu a portu:
+
+```bash
+grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env
+```
+
+Hodnotu tokenu nikdy nevypisujte.
+
+## Stav a licence
+
+Aktuální verze frameworku je **0.16.3** (řada 0.16.x); historii změn najdete
+v [changelogu](framework/CHANGELOG.md). Projekt je dostupný pod licencí
+[WTFPL verze 2](LICENSE).

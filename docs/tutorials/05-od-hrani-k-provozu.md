@@ -619,7 +619,7 @@ agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zm
 tomuhle certifikátu", takže spojení k OpenRouteru pak selže:
 
 ```
-transient: GET https://openrouter.ai/api/v1/models selhalo ([SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)) a platná cache ~/orca/workspaces/multiagent-workflows/tutorials/runs/_models.json není — kontrola modelů potřebuje síť
+transient: GET https://openrouter.ai/api/v1/models selhalo ([SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)) a platná cache runs/_models.json není — kontrola modelů potřebuje síť
 ```
 
 Po zkoušce: `unset SSL_CERT_FILE CALLBACK_SECRET`.

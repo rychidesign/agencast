@@ -198,7 +198,7 @@ agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="vegans
 ```
 v pořádku: tutorial-03-rozhodovani (9 kroků)
 běh 20260925-151444-tutorial-03-rozhodovani-f56a: úspěch · 0,0 s · 0,0003 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151444-tutorial-03-rozhodovani-f56a/summary.md
+záznam: runs/20260925-151444-tutorial-03-rozhodovani-f56a/summary.md
 ```
 
 `9 kroků` — počítají se i kroky uvnitř větví `switch`. Tabulka kroků
@@ -258,7 +258,7 @@ agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="vegans
 ```
 fail v kroku stop: Název Xyzqwrt Ovsprl není zapamatovatelný (zapamatovatelny = 0.12)
 běh 20260925-151455-tutorial-03-rozhodovani-967b: chyba · 0,0 s · 0,0002 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151455-tutorial-03-rozhodovani-967b/summary.md
+záznam: runs/20260925-151455-tutorial-03-rozhodovani-967b/summary.md
 ```
 
 A přesně tohle by dostalo n8n (soubor `callback.json` ve složce běhu):
@@ -296,7 +296,7 @@ agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="vegans
 
 ```
 běh 20260925-151536-tutorial-03-rozhodovani-b547: úspěch · 5,9 s · 0,0007 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151536-tutorial-03-rozhodovani-b547/summary.md
+záznam: runs/20260925-151536-tutorial-03-rozhodovani-b547/summary.md
 ```
 
 ```
@@ -423,7 +423,7 @@ cat runs/20260925-151532-tutorial-03-vyrazy-6194/steps/01-ukazky/output.json
 
 ```
 běh 20260925-151532-tutorial-03-vyrazy-6194: úspěch · 0,0 s · 0 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151532-tutorial-03-vyrazy-6194/summary.md
+záznam: runs/20260925-151532-tutorial-03-vyrazy-6194/summary.md
 {
   "round_2_5": 3,
   "round_minus_2_5": -3,
@@ -469,7 +469,7 @@ expression v kroku ukazky: set.deleni_vstupem: dělení nulou
   10 / inputs.delitel
        ^
 běh 20260925-151526-tutorial-03-vyrazy-9181: chyba · 0,0 s · 0 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151526-tutorial-03-vyrazy-9181/summary.md
+záznam: runs/20260925-151526-tutorial-03-vyrazy-9181/summary.md
 ```
 
 `validate` hodnotu vstupu předem nezná, proto chyba přišla až za běhu

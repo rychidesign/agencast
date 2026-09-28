@@ -1,4 +1,4 @@
-# multiagent-workflows — pokyny pro agenty
+# AgenCast — pokyny pro agenty
 
 Uživatel je rychidesign, komunikuje česky. **Odpovídej česky.** Dokumentaci
 i komentáře piš česky; názvy v kódu anglicky.

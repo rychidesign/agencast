@@ -6,7 +6,7 @@ description: Write or edit AgenCast agents (workflows/agents/<name>.md), scenari
 # Creating AgenCast agents and scenarios
 
 Command: `agencast` (on this host `~/.local/bin/agencast`; fallback
-`uv run --project ~/workspace/multiagent-workflows/framework agencast`).
+`uv run --project ~/workspace/agencast/framework agencast`).
 
 ## Before writing anything
 
@@ -130,18 +130,20 @@ run and reading results: skill `agencast-run`.
 
 ## GUI and registry
 
-The web GUI (`agencast serve` in registry mode, systemd user service
-`agencast.service`, only over Tailscale at `http://<tailscale-host>:8090`) edits
-the same files and shows **registered projects only**
+The web GUI (`agencast serve` in registry mode, typically a systemd service)
+edits the same files and shows **registered projects only**
 (`~/.config/agencast/projects.yaml`, `agencast projects list`). `new project`
 registers; an existing folder: `agencast projects add <root> [--name jmeno]`;
 `projects rm <jmeno>` removes from the registry only. `validate` never
 registers; a successful `run` does as a fallback. The GUI picks up a new
-registration on the next request. Never expose it publicly; the token is in
-`~/.config/agencast/serve.env` (do not print it).
+registration on the next request. Keep the GUI on a private network. Its
+address comes from `AGENCAST_HOST` and `AGENCAST_PORT` in
+`~/.config/agencast/serve.env`; read only those lines with
+`grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env`. The token
+`AGENCAST_TOKEN` is also configured there; never print it.
 
-Examples: `~/workspace/multiagent-workflows/workflows/agents/*.md`,
+Examples: `~/workspace/agencast/workflows/agents/*.md`,
 `…/workflows/scenarios/ig-post.yaml` (ask + jev + fail + image + output),
 `…/ukazka-task.yaml` (task with MCP), `…/ukazka-call.yaml` (call).
-Full format: `~/workspace/multiagent-workflows/docs/spec/agent.md`,
+Full format: `~/workspace/agencast/docs/spec/agent.md`,
 `…/docs/spec/scenario.md`, `…/docs/spec/skill.md`, `…/docs/spec/config.md`.

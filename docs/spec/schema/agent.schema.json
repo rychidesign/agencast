@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://multiagent-workflows.local/spec/v1/agent.schema.json",
+  "$id": "https://raw.githubusercontent.com/rychidesign/agencast/main/docs/spec/schema/agent.schema.json",
   "title": "Agent — YAML frontmatter, formát v1",
   "description": "Viz docs/spec/agent.md. Tělo souboru (instrukce) se validuje zvlášť: musí být neprázdné. Že klíče tools = mcp a oprávnění z mcp.yaml kontroluje validate.",
   "type": "object",

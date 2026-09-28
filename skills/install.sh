@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Symlinkuje skilly agencast-* do složek skillů Claude Code a Codexu.
-# OMP 18 čte obě složky sám (a ~/.agents/skills), vlastní složku nepotřebuje.
+# Symlinkuje skilly agencast-* do složek Claude Code, Codexu, OpenCode a OMP.
 # Idempotentní; --prefix <dir> místo $HOME (na test).
 set -euo pipefail
 
-src=~/workspace/multiagent-workflows/skills
+repo=$(cd "$(dirname "$0")/.." && pwd)
+src=$repo/skills
 home=$HOME
 if [[ ${1:-} == --prefix ]]; then home=${2:?--prefix potřebuje složku}; fi
 
-for dir in "$home/.claude/skills" "$home/.codex/skills"; do
+for dir in "$home/.claude/skills" "$home/.codex/skills" "$home/.config/opencode/skills" "$home/.omp/agent/managed-skills"; do
   mkdir -p "$dir"
   for name in agencast-run agencast-create; do
     if [[ -e $dir/$name && ! -L $dir/$name ]]; then

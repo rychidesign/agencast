@@ -11,10 +11,10 @@
    "calls": [
     {
      "name": "list_directory",
-     "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+     "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox\"}"
     }
    ],
-   "content": "Vypiš obsah adresáře ~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox.",
+   "content": "Vypiš obsah adresáře ~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox.",
    "ok": true,
    "why": ""
   },
@@ -267,7 +267,7 @@
    "calls": [
     {
      "name": "fs__list_directory",
-     "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+     "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox\"}"
     }
    ],
    "content": "",
@@ -284,7 +284,7 @@
    "calls": [
     {
      "name": "fs__xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-     "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+     "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox\"}"
     }
    ],
    "content": "",
@@ -301,7 +301,7 @@
    "calls": [
     {
      "name": "list_directory",
-     "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+     "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox\"}"
     }
    ],
    "content": "",
@@ -522,7 +522,7 @@
    "calls": [
     {
      "name": "fs.list_directory",
-     "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+     "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox\"}"
     }
    ],
    "content": "",
@@ -539,7 +539,7 @@
    "calls": [
     {
      "name": "fs__list_directory",
-     "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+     "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox\"}"
     }
    ],
    "content": "",
@@ -556,7 +556,7 @@
    "calls": [
     {
      "name": "fs__xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-     "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox\"}"
+     "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox\"}"
     }
    ],
    "content": "",
