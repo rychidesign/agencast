@@ -1,0 +1,53 @@
+name: CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: cd framework && uv sync --all-groups && uv run pytest -q
+      - run: uv run --project framework python docs/spec/tools/check.py
+
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: cd framework && uv sync --all-groups
+      - run: cd ui && npm ci && npm run typecheck && npx vitest run && npm run build
+      - run: cd ui && npx playwright install --with-deps chromium && npm run e2e
+
+  wheel-smoke:
+    runs-on: ubuntu-latest
+    env:
+      AGENCAST_CONFIG_DIR: ${{ runner.temp }}/cfg
+    defaults:
+      run:
+        working-directory: framework
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv build
+      - run: uv venv .smoke && uv pip install --python .smoke dist/*.whl
+      - run: |
+          .smoke/bin/agencast new project "$RUNNER_TEMP/demo" --example showcase
+          .smoke/bin/agencast --project "$RUNNER_TEMP/demo" validate ig-post --offline
+          .smoke/bin/agencast --project "$RUNNER_TEMP/demo" run ig-post -i tema=x --fake fake/ig-post.yaml
+      - run: unzip -l dist/*.whl | grep LICENSE

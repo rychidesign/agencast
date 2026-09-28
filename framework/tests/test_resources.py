@@ -82,3 +82,8 @@ def test_example_conflict_preserves_files(tmp_path):
     assert main(["new", "project", str(root), "--example", "showcase"]) == 2
     assert not (root / "workflows").exists()
     assert (root / ".env.example").read_text() == "keep"
+
+
+def test_distribution_license_matches_repository():
+    framework = Path(__file__).resolve().parents[1]
+    assert (framework / "LICENSE").read_bytes() == (framework.parent / "LICENSE").read_bytes()

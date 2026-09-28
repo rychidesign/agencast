@@ -36,7 +36,7 @@ agencast run ig-post -i tema="nová káva"             # live: real models, real
 
 - `-i key=value` per input; numbers, `true`/`false`, lists and objects as JSON
   (`-i tags='["a","b"]'`). Missing required input → `config: chybí povinný vstup 'tema' (string)`.
-- `--fake [fixture]` = fake provider, no network, no cost. Fixtures for the
+- `--fake [fixture]` = fake model provider, no model API key or model cost. Fixtures for the
   repo's own scenarios live in `fake/<scenario>.yaml`. Without a
   fixture the fake invents values (text placeholders, JSON per schema, Jev
   answers 0.5), so threshold checks may `fail` — expected, not a bug. Own fixture:
@@ -51,6 +51,13 @@ agencast run ig-post -i tema="nová káva"             # live: real models, real
   the GUI and prints one stderr line about it — not an error.
 - `--callback-url https://…` (HMAC-signed result) and `--request-key` are for
   webhook integrations; not needed from a terminal.
+
+`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
+Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
+`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
+`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
+Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
+a bez `--callback-url`, například `ig-post`.
 
 ## Reading the result
 
@@ -97,7 +104,7 @@ Exit code: 0 success, 1 run failed, 2 `config` error (nothing ran).
 The key is `OPENROUTER_API_KEY`, read from the environment or from `.env` in
 the project root. Missing → `config: chybí proměnná prostředí OPENROUTER_API_KEY`.
 Never print, cat, grep or log `.env` or key values. `validate --offline`,
-`--dry-run` and `--fake` need no key.
+`--dry-run` and `--fake` need no OpenRouter key; real MCP servers and callbacks may require their own secrets.
 
 ## Web GUI
 

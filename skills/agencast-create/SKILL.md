@@ -129,6 +129,13 @@ fixture invents values (Jev answers 0.5), so a threshold `fail` is expected.
 Then tell the user the files, the inputs and the exact `run` command; a live
 run and reading results: skill `agencast-run`.
 
+`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
+Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
+`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
+`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
+Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
+a bez `--callback-url`, například `ig-post`.
+
 ## GUI and registry
 
 The web GUI (`agencast serve` in registry mode, typically a systemd service)

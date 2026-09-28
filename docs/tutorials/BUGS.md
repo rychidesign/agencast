@@ -1,6 +1,6 @@
 # Chyby frameworku nalezené při psaní tutoriálů (maw 0.1.0)
 
-Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
+Archiv vývojových nálezů: do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu zachovávají historické jméno a příkazy.
 
 Všech šest je opraveno v maw 0.2.1 (větev `fix-tutorial-bugs`, viz
 `../../framework/CHANGELOG.md`); u každé položky je commit s opravou a testem.

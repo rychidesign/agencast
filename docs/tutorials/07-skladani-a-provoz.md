@@ -1,5 +1,7 @@
 # Díl 7 — Skládání a provoz: `call` a webhook
 
+Zmínky `maw` označují historický název AgenCast; výstupy a dobová omezení jsou archivní.
+
 Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
 
 **Čas:** asi 35 minut · **Útrata:** 0 USD s `--fake`; volitelný ostrý

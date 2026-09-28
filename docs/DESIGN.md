@@ -389,8 +389,10 @@ Všechno ostatní mohou psát ostatní lidé a agenti.
 - Po schválení uživatelem je závazná i `docs/spec/` (formáty v1). Rozpor
   spec × DESIGN hlásí worker koordinátorovi, nerozhoduje ho sám.
 - `version: 1` ve scénářích i agentech od prvního dne; changelog formátů.
-- **Konformační scénáře** s falešným poskytovatelem (bez sítě, zdarma)
-  běží před každou změnou frameworku. Bez nich R6 nefunguje.
+- **Konformační scénáře** s falešným poskytovatelem (modelová volání zdarma)
+  běží před každou změnou frameworku. Bez nich R6 nefunguje. `--fake` sám
+  nenahrazuje MCP v `task` ani callback; konformační testy je nahrazují zvlášť.
+  Offline uživatelský běh vyžaduje scénář bez `task` a bez `--callback-url`.
 - Závislosti zamčené v lockfile; update je vědomé rozhodnutí ve větvi
   s proběhlými konformačními testy.
 

@@ -1,7 +1,13 @@
 # Začínáme s AgenCast
 
-Potřebujete Python 3.12 a `uv`. Balíček obsahuje CLI, API, dokumentaci,
-skilly i příklady. Instalace přímo z GitHubu (bez GUI):
+Ověřeno na Linuxu a WSL s Pythonem 3.12; použijte `uv`.
+Pro sestavení GUI a ukázkové MCP přes `npx` potřebujete Node.js
+`^20.19.0 || >=22.12.0` (podle `ui/package.json`, ověřeno s Node 24).
+Nativní Windows není podporován (`fcntl` v `projects.py` a `task.py`);
+macOS není ověřen.
+
+Balíček obsahuje CLI, API, dokumentaci, skilly i příklady.
+Instalace přímo z GitHubu (bez GUI):
 
 ```bash
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
@@ -31,6 +37,13 @@ agencast run ig-post -i tema="nová káva" --fake fake/ig-post.yaml
 `--dry-run` vytvoří plán; přidané `--fake` vynechá i síťovou kontrolu modelů.
 Bez fixtury lze použít samotné `--fake`, ale vymyšlené odpovědi nemusí projít
 podmínkami scénáře. Kostru vyzkoušíte přes `agencast run ukazka --fake`.
+
+`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
+Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
+`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
+`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
+Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
+a bez `--callback-url`, například `ig-post`.
 
 Teprve pro ostrý běh zkopírujte `.env.example` do `.env` a doplňte
 `OPENROUTER_API_KEY`. Klíče nikdy necommitujte ani nevypisujte.

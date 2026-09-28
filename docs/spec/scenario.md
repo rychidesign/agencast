@@ -14,7 +14,8 @@ obyčejný text, `4:5` je text (ne číslo), datum `2026-09-25` je text.
 Stejný klíč dvakrát v jedné mapě je chyba `config` s číslem řádku.
 Čtou se jen soubory přímo ve `workflows/scenarios/`; podsložky se
 ignorují (hodí se třeba na archiv). Ukázky se ověřují stejným načítáním:
-[`tools/check.py`](tools/check.py).
+[`tools/check.py`](tools/check.py). Z kořene repozitáře jej spusťte příkazem
+`uv run --project framework python docs/spec/tools/check.py`.
 
 Značení: **návrh** = DESIGN.md to neřeší, jde o navržené výchozí chování
 ke schválení. Čísla § odkazují na `docs/DESIGN.md`.

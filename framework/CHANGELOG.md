@@ -5,7 +5,12 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
-## 0.17.0
+## 0.17.0 — 2026-09-28
+
+- Distribuce obsahuje text licence a README jako dlouhý popis balíčku; test hlídá shodu licencí.
+- Kontrola specifikace prochází oba projekty v `examples/`; CI kontroluje Python, GUI, E2E a instalovaný wheel.
+- Návody upřesňují `--fake`, MCP/callbacky, podporované prostředí a port GUI; protokoly běhů jsou v archivu.
+- Anglický rychlý start, komunitní pokyny bez závazků a aktuální stav rozhodnutí spec v1.
 
 - Balíček obsahuje skilly, český návod, specifikaci, tutoriály a oba příklady.
 - `skills list|path|install` zpřístupní a nainstaluje skilly; `docs [show <cesta>]` vypíše dokumentaci.

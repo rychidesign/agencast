@@ -11,7 +11,14 @@ agencast --project examples/showcase run ig-post -i tema="nová káva" --fake ex
 agencast --project examples/tutorial validate tutorial-07-skladani --offline
 ```
 
-Falešné běhy nepotřebují klíč ani síť. Pro ostré běhy zkopírujte `.env.example` do `.env` v daném projektu a doplňte klíč.
+`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
+Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
+`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
+`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
+Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
+a bez `--callback-url`, například `ig-post`.
+
+Pro ostré běhy zkopírujte `.env.example` do `.env` v daném projektu a doplňte klíč.
 `kontrola-tonu.yaml` je v obou projektech: tutoriál 7 na něm ukazuje skládání scénářů; udržujte kopie shodné.
 Instagram MCP v showcase používá ukázkovou adresu, před publikací vyžaduje vlastní server a konfiguraci.
 Vlastní obsah a klíče ukládejte mimo repozitář; konfigurace příkladů slouží k výuce.

@@ -253,7 +253,14 @@ Běh vůbec nezačne.
 
 ---
 
-## Krok 6 — `--fake`: běh zadarmo a bez sítě
+## Krok 6 — `--fake`: modelové odpovědi zadarmo
+
+`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
+Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
+`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
+`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
+Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
+a bez `--callback-url`, například `ig-post`.
 
 ```bash
 agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake

@@ -1,5 +1,7 @@
 # Díl 6 — Agent s nástroji: `task`, MCP server a skilly
 
+Zmínky `maw` označují historický název AgenCast; výstupy a dobová omezení jsou archivní.
+
 Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
 
 **Čas:** asi 30 minut · **Útrata:** jeden ostrý běh za ~0,014 USD

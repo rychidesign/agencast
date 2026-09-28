@@ -8,7 +8,7 @@ Soubory čte stejně, jak je bude číst framework (DESIGN §5.2, spec REVIEW B6
 YAML 1.2 core — booleany jen true/false, `4:5` a `yes` jsou text,
 duplicitní klíč je chyba s číslem řádku.
 
-Spuštění z kořene repozitáře:  uv run docs/spec/tools/check.py
+Spuštění z kořene repozitáře:  uv run --project framework python docs/spec/tools/check.py
 Součást specifikace, ne frameworku.
 """
 import json
@@ -102,33 +102,35 @@ def main():
         if not body.strip():
             errors.append(f"{label}: prázdné tělo")
 
-    wf = ROOT / "workflows"
-    for f in sorted((wf / "agents").glob("*.md")):
-        def g(f=f):
-            fm, body = split_frontmatter(f.read_text())
-            body_check(f.name, body)
-            if fm.get("name") != f.stem:
-                errors.append(f"{f.name}: name ≠ jméno souboru")
-            return fm
-        add(str(f.relative_to(ROOT)), "agent", g)
-    for f in sorted((wf / "skills").glob("*/SKILL.md")):
-        def g(f=f):
-            fm, body = split_frontmatter(f.read_text())
-            body_check(str(f), body)
-            if fm.get("name") != f.parent.name:
-                errors.append(f"{f}: name ≠ jméno složky")
-            return fm
-        add(str(f.relative_to(ROOT)), "skill", g)
-    for f in sorted((wf / "scenarios").glob("*.yaml")):
-        def g(f=f):
-            d = load(f.read_text())
-            if d.get("name") != f.stem:
-                errors.append(f"{f.name}: name ≠ jméno souboru")
-            return d
-        add(str(f.relative_to(ROOT)), "scenario", g)
-    add("workflows/config.example.yaml", "config", lambda: load((wf / "config.example.yaml").read_text()))
-    add("workflows/mcp.example.yaml", "mcp", lambda: load((wf / "mcp.example.yaml").read_text()))
-    add("workflows/commands.example.yaml", None, lambda: load((wf / "commands.example.yaml").read_text()))
+    for project in ("showcase", "tutorial"):
+        wf = ROOT / "examples" / project / "workflows"
+        for f in sorted((wf / "agents").glob("*.md")):
+            def g(f=f):
+                fm, body = split_frontmatter(f.read_text())
+                body_check(f.name, body)
+                if fm.get("name") != f.stem:
+                    errors.append(f"{f.name}: name ≠ jméno souboru")
+                return fm
+            add(str(f.relative_to(ROOT)), "agent", g)
+        for f in sorted((wf / "skills").glob("*/SKILL.md")):
+            def g(f=f):
+                fm, body = split_frontmatter(f.read_text())
+                body_check(str(f), body)
+                if fm.get("name") != f.parent.name:
+                    errors.append(f"{f}: name ≠ jméno složky")
+                return fm
+            add(str(f.relative_to(ROOT)), "skill", g)
+        for f in sorted((wf / "scenarios").glob("*.yaml")):
+            def g(f=f):
+                d = load(f.read_text())
+                if d.get("name") != f.stem:
+                    errors.append(f"{f.name}: name ≠ jméno souboru")
+                return d
+            add(str(f.relative_to(ROOT)), "scenario", g)
+    wf = ROOT / "examples/showcase/workflows"
+    for name, kind in (("config", "config"), ("mcp", "mcp"), ("commands", None)):
+        f = wf / f"{name}.example.yaml"
+        add(str(f.relative_to(ROOT)), kind, lambda f=f: load(f.read_text()))
 
     # Úryvky ze specifikace.
     for md in sorted(SPEC.glob("*.md")):

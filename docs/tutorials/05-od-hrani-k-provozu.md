@@ -1,5 +1,7 @@
 # Díl 5 — Od hraní k provozu
 
+Zmínky `maw` označují historický název AgenCast; výstupy a dobová omezení jsou archivní.
+
 Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
 
 **Čas:** asi 20 minut · **Útrata:** 0 USD (všechno s `--fake` nebo bez

@@ -22,7 +22,9 @@ React 18 + Vite + TypeScript + Tailwind; nic neparsuje ani nevaliduje samo.
   `types`, počty a `last_run` z přehledu; seznam běhů stránkuje přes `?scenario=&limit=&before=`. Co API chybí:
   `docs/ui/nalezy-api.md`, část 3.
 
-- **Vývoj:** `npm install`, pak `agencast serve --cors http://localhost:5173` a `npm run dev`
+- **Vývoj:** ve složce `ui/` spusťte `npm install`, pak v druhém terminálu
+  z kořene repozitáře `uv run --project framework agencast serve --port 8787 --cors http://localhost:5173`
+  (pro režim registru nastavte `AGENCAST_TOKEN`) a ve složce `ui/` spusťte `npm run dev`
   (GUI volá `http://127.0.0.1:8787`, jinou adresu dej do `VITE_AGENCAST_URL`).
 - **Build:** `npm run build` zapíše do `framework/src/agencast/ui/` (v `.gitignore`), `serve` ho podává na `/`.
 - **Token:** GUI se ho zeptá (`AGENCAST_TOKEN` v režimu registru, jinak `webhook.token_env`) a drží
