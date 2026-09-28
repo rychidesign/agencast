@@ -75,12 +75,12 @@ export function RunsTab({ project, header }: { project: string; header: SectionH
               placeholder={t("runs.search")} className={`${inputCls} pl-10`} />
           </div>
           <select value={state} onChange={(e) => setQuery({ stav: e.target.value || undefined })} aria-label={t("runs.filter.stateLabel")}
-            className={`${inputCls} w-[210px] max-sm:flex-1`}>
+            className={`${inputCls.replace("w-full", "w-[210px]")} max-sm:flex-1`}>
             <option value="">{t("runs.filter.allStates")}</option>
             {FILTERS.map((f) => <option key={f} value={f}>{t(`run.state.${f}`)}</option>)}
           </select>
           <select value={scenario} onChange={(e) => setQuery({ scenar: e.target.value || undefined })} aria-label={t("runs.filter.scenarioLabel")}
-            className={`${inputCls} w-[210px] max-sm:flex-1`}>
+            className={`${inputCls.replace("w-full", "w-[210px]")} max-sm:flex-1`}>
             <option value="">{t("runs.filter.allScenarios")}</option>
             {scenarios.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>

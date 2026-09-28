@@ -5,32 +5,40 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
-## 0.16.1 (nevydáno)
+## 0.16.1 — 2026-09-28 (GUI věrně podle návrhu V3)
 
-- Věrnost: sidebar podle návrhu V3 (232 px, značka 25/22 px, „← Projekty“ jako řádek 44 px s
-  oddělovačem, položky 44 px s mezerou 6, aktivní `surface-active`, pruh útraty na `track`).
-- Věrnost: hlavička stránky s H1 32 px semibold, popisem 14 a meta řádkem mono 13; ⋯ v hlavičce jako
-  ikonové tlačítko `bg-control` 48 × 48 (editor 40 × 40); obsah max. 1176 px, pod hlavičkou 24 px.
-- Věrnost: Projekty mají popis, cestu registru pod ním a ikonové „Načíst znovu“; karta projektu radius 16,
-  padding 24, název 20 px, čipy počtů a útrata „dnes 1,20 USD“ (dvě desetinná místa).
-- Věrnost: Běhy s filtrační kartou (hledání podle scénáře a run_id, stav, scénář), záhlavím sloupců a řádky
-  jako karty 80 px s run_id pod jménem, stavem v barvě a „Načíst další“ s ikonou; čip „N běží · M ve frontě“
-  v hlavičce. Cena běhu a kroku vždy se čtyřmi desetinnými místy („0,0000 USD“, ne „0“ ani „0,000013128“).
-- Věrnost: detail běhu s titulem mono 32 a ↗, run_id pod ním, čipem stavu, „32,4 s · 0,0812 USD“,
-  tlačítkem „Otevřít scénář“, kartou VSTUPY a záložkami přes celou šířku se „sledovat běh“ vpravo.
-- Věrnost: editor má Spustit jako primární a Uložit jako sekundární tlačítko s ikonou; token serveru a
-  neexistující adresa (404) podle návrhu (karta 420 px, přepínač zobrazení tokenu; velké „404“).
-- Věrnost: Agenti a Skilly mají seznam 200 px s kartami položek a editor v kartě; skilly a MCP
-  servery agenta jsou řádky s checkboxy, instrukce mají delší Markdown pole a použití tvoří odkazy.
-- Věrnost: Config má formulář v kartě, sekce ve dvojicích sloupců, vnořené karty aliasů,
-  stavové řádky proměnných a MCP servery označené „Pouze čtení“.
-- Věrnost: tokeny pro ovládací prvky, aktivní plochu a progress podle návrhu V3.
-- Věrnost: tlačítka, pole, přepínač, záložky, čipy, menu, akordeon a prázdné stavy mají rozměry a barvy návrhu.
-- Věrnost: YAML editor, čtecí bloky kódu a konfliktový pruh mají hlavičky, číslování a patičky podle návrhu.
-- Věrnost: karta scénáře podle návrhu — rádius 16, padding 24, min. výška 290; typy kroků jako prosté ikony 16 px bez koleček a šipek (řetěz se už nezalamuje), název 20 px, popis na 2 řádky, meta mono „7 kroků · 3 agenti“ + čip „volatelný“, dole čip běhu a „Otevřít ↗“ (`docs/ui/redesign-fidelity.md` §5).
-- Věrnost: karta kroku 96 px — číslo vlevo mimo kolečko, kolečko 40 px s ikonou typu, řádek „ask · navrh“ mono malými, titul 16 px (u ask/task/image úryvek promptu), třetí řádek mono s agentem / modelem · poměrem a podmínkou „když …“; ⋯ uvnitř pilulky; výběr `surface-active` + prstenec 1 px; v běhu vpravo „12,4 s · 0,0210 USD“ nad stavem (§6).
-- Věrnost: hlavičková karta, kontejnery (obal r16 p16, sbalení vpravo, větve r12 s kartami 72 px), (+) na konektoru v `control`, „+ Přidat krok“ a „+ output“ jako sekundární tlačítka, TypePicker s položkami 40 px; sloupec 640, panel 420, mezera 32 (§6).
-- Věrnost: panely — padding 24, eyebrow mono 11, titul 20, zavřít ghost 32; „Typ kroku“ ukazuje „ask · jedno volání agenta“; panel spuštění s kartami režimu 72 px, limity jako řádky s oddělovači, varováním v `warning/10` a tlačítky Zrušit + Spustit; panel kroku v běhu se stavovým čipem, podtrženými záložkami, blokem kódu (hlavička, čísla řádků, Kopírovat) a řádky souborů 44 px s ↗ (§7).
+Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny. Rozměry jsou změřené z `.pen`
+(exporty HTML/PNG), kde se lišily od prvního odhadu v `docs/ui/redesign-fidelity.md`, platí `.pen`.
+
+- Věrnost: sdílený gradient pozadí aplikace; H1 stránky 28 px regular, titul editoru mono 27, titul detailu
+  běhu mono 26; tlačítka a ikonová tlačítka 44 px (radius 10), pole 44 px (radius 6), nebezpečné tlačítko
+  plnou barvou; aktivní plocha `surface-active` `#253B50` (sidebar, vybraná karta, položka seznamu).
+- Věrnost: sidebar 232 px (značka 25/22 px, „← Projekty“ s oddělovačem, položky 44 px), útrata dole s pruhem.
+- Věrnost: Projekty — cesta registru pod hlavičkou, ikonové „Načíst znovu“, karta projektu r14 p22 s mezerami
+  20, ⋯ bez výplně v horním řádku (nedostupný projekt tam má čip), čipy počtů mono 11, útrata „dnes 1,20 USD“.
+- Věrnost: Scénáře — karta r14 p24 v. 292, ikony typů 18 px bez koleček a šipek, název 18, meta mono 11,
+  čip běhu a „Otevřít ↗“.
+- Věrnost: Běhy — filtry v kartě r14 s obrysem (hledání, stav, scénář po 210 px), záhlaví mono 10, řádky
+  72 px r8, čip „N běží · M ve frontě“; ceny vždy se čtyřmi desetinnými místy („0,0000 USD“).
+- Věrnost: editor — přepínač Form | YAML jako segmenty 44 px, SaveNote jako stavový čip, karta hlavičky jako
+  obdélník r14 s titulem 21 px, karty kroků p16 (typ mono 11, titul 15, detail mono 12, kolečko 40 v barvě
+  typu), výběr jen plochou, konektor 44 px s (+) 44 px, kontejnery r14 se záhlavím 15 / mono 10, větve r8
+  vedle sebe; sloupec do 676 px, panel 440, mezera 28.
+- Věrnost: panely — hlavička s linkou (ikona, eyebrow mono 10, titul 18, zavřít 44), tělo p20, akordeon se
+  šipkou vlevo; panel spuštění s kartami režimu r8 p14, limity 12 px; panel kroku v běhu 520 px.
+- Věrnost: detail běhu — vstupy jako karta r8 p14, záložky 13 px, karty kroků s „12,4 s · 0,0210 USD“ ve třetím
+  řádku a stavem vpravo; fronta s pořadím a prázdným stavem 380 px; dry-run s plánem v kartě; Soubory se
+  stromem 300 px a náhledem Markdownu (Náhled | Kód).
+- Věrnost: jeden `CodeBlock` pro výstupy, prompty, odpovědi, soubory a bloky v Markdownu (hlavička 18/13 s čipem,
+  řádky 27 px, Kopírovat s obrysem); YAML editor s řádky 27 px; konfliktní lišta s levým pruhem a „Načíst
+  z disku“ jako nebezpečnou akcí; modál s hlavičkou (titul 22, zavřít) a patičkou Zrušit + akce.
+- Věrnost: Agenti a Skilly — seznam 240 px (položky r14 p16, ikona 22), editor v kartě r16 s poli po 18 px,
+  štítky „Popis“ a „Model“, skilly a MCP jako řádky s checkboxy 18 px, u skillu náhled Markdownu.
+- Věrnost: Config v kartě r16, sekce ve dvou sloupcích, aliasy jako vnořené karty r10.
+- Opraveno: čísla řádků v YAML editoru se rozcházela s řádky textu (`text-xs` přebíjel výšku řádku);
+  pulzující text čipu „běží“ padal pod kontrast 4,5:1 (pulzuje jen ikona); skeleton uvnitř karty byl
+  neviditelný; selecty filtru běhů se roztahovaly přes celou šířku.
+- Přístupnost: „+ Přidat …“ v panelech má ikonu a přístupné jméno bez „+“ („Přidat otázku“).
 
 ## 0.16.0 — 2026-09-28 (GUI podle návrhu V3: sidebar, jednotné hlavičky, tokeny)
 

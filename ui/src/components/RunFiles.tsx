@@ -43,7 +43,7 @@ export function FileViewer({ project, runId, path, name = path, preview = false 
   if (text.error) return <ErrorText error={text.error} />;
   if (text.data === undefined) return <Loading rows={4} />;
   if (preview && isMarkdown(path)) return (
-    <section className="overflow-hidden rounded-panel bg-surface ring-1 ring-line">
+    <section className="overflow-hidden rounded-panel bg-surface">
       <CodeHead icon={Eye} name={name} chip={t("files.preview")} />
       <div className="p-6"><Markdown text={text.data} /></div>
     </section>
@@ -76,8 +76,8 @@ function TreeNode({ tree, prefix, current }: { tree: Tree; prefix: string; curre
         return sub ? (
           <li key={name}>
             <details open={!!current?.startsWith(`${path}/`) || prefix === ""}>
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-[6px] px-2.5 font-mono text-xs text-fg hover:bg-surface-hover [&::-webkit-details-marker]:hidden">
-                <ChevronDown className="size-3.5 shrink-0 text-fg-muted" aria-hidden /><Folder className="size-4 shrink-0 text-fg-muted" aria-hidden />{name}
+              <summary className="flex min-h-[34px] cursor-pointer list-none items-center gap-2 rounded-[6px] px-2.5 pointer-coarse:min-h-11 font-mono text-xs text-fg hover:bg-surface-hover [&::-webkit-details-marker]:hidden">
+                <ChevronDown className="size-3.5 shrink-0 text-fg-muted transition-transform [details:not([open])>summary>&]:-rotate-90" aria-hidden /><Folder className="size-4 shrink-0 text-fg-muted" aria-hidden />{name}
               </summary>
               <TreeNode tree={sub} prefix={`${path}/`} current={current} />
             </details>
@@ -85,7 +85,7 @@ function TreeNode({ tree, prefix, current }: { tree: Tree; prefix: string; curre
         ) : (
           <li key={name}>
             <button type="button" onClick={() => setQuery({ soubor: path })} title={path} aria-current={current === path ? "true" : undefined}
-              className={`flex min-h-11 w-full items-center gap-2 rounded-[6px] px-2.5 text-left font-mono text-xs ${current === path ? "bg-surface-active text-fg" : "text-fg hover:bg-surface-hover"}`}>
+              className={`flex min-h-[34px] w-full items-center gap-2 rounded-[6px] px-2.5 text-left font-mono text-xs pointer-coarse:min-h-11 ${current === path ? "bg-surface-active text-fg" : "text-fg hover:bg-surface-hover"}`}>
               <File className="size-4 shrink-0 text-fg-muted" aria-hidden /><span className="truncate">{name}</span>
             </button>
           </li>

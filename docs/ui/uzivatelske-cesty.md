@@ -66,7 +66,7 @@ Cíl: vlastní scénář „napiš a zkontroluj“. Stav: `demo` s `pisatel`.
 1. `#/p/demo` → klik `button "Nový scénář"` (primární v hlavičce sekce) → dialog: `textbox "Jméno"` (nápověda „Stane se i jménem souboru.“), `textbox "popis"`; `clanek` + „Napíše a ohodnotí článek“ → Vytvořit.
 2. → `#/p/demo/scenare/clanek?krok=_hlavicka`; hlavička `h1 "clanek"` + popis; panel `complementary` s eyebrow „HLAVIČKA“, `textbox "popis"` = zadaný text, sekce „Vstupy“ (řádek `tema`, `checkbox "povinný"` nezaškrtnutý, `textbox "Výchozí hodnota tema"` = `káva`) a „Výstupy“ (`text`). Karty: `[data-step-card=""]` „1 vstup: tema · 1 výstup: text“, „Krok 1: ask napis“ (hodnota `pisatel: „Napiš dvě věty…“`), „Krok 2: output vystup“ („text“). Disk: `scenarios/clanek.yaml` s `description: Napíše a ohodnotí článek`.
 3. Klik druhé `button "Vložit krok sem"` (mezi napis a vystup; navrženo `add-after-napis`) → `listbox "Typ nového kroku"`; napsat `j` → zbývá `option "jev levné rozhodnutí Jev"`; Enter → nová karta „Krok 2: jev jev_1“ s šedým „doplň v panelu“, panel „KROK 2“, `combobox "Typ kroku"` = jev, `aria-live` „Přidán krok jev_1.“, URL `?krok=jev_1`, `save-status` „Neuloženo“.
-4. `combobox "State"` → `{{ steps.` → našeptávač `listbox` nabízí jen `steps.napis.text` (Enter doplní); klik „+ Přidat otázku“ → řádek `q_1`: `textbox "Jméno"`, `combobox "Typ otázky q_1"`, `combobox "Otázka"`; přejmenovat na `ok`, otázka „Je text česky a bez chyb?“.
+4. `combobox "State"` → `{{ steps.` → našeptávač `listbox` nabízí jen `steps.napis.text` (Enter doplní); klik `button "Přidat otázku"` (sekundární tlačítko s ikonou +) → řádek `q_1`: `textbox "Jméno"`, `combobox "Typ otázky q_1"`, `combobox "Otázka"`; přejmenovat na `ok`, otázka „Je text česky a bez chyb?“.
 5. Karta „Krok 3: output vystup“ → panel, `combobox "text"` = `{{ steps.napis.text }}`; sbalené řádky „Podmínka vždy“, „Podrobnosti kroku vystup“ (`aria-expanded`).
 6. `button "Uložit"` → „Uloženo ✓“, `POST …/scenarios/clanek/batch` 200. Disk: pořadí id `[napis, jev_1, vystup]`, blok `jev: {state, questions: {ok: {type: noul, instructions: …}}}`, komentáře šablony zachované. Karta `clanek` v přehledu: titul `clanek`, podtitul „Napíše a ohodnotí článek“, meta „3 kroky · pisatel“, bez názvu `.yaml`; řetězec ikon `aria-label "Typy kroků: ask, jev, output"`.
 
@@ -81,7 +81,7 @@ Cíl: pochopit, co je špatně, a opravit to bez terminálu. Stav: `demo/ukazka`
 
 ### C6 Spuštění běhu s formulářem vstupů (dry-run, ostrý, živý) **[hotovo; po 202 čte GUI 15 s i stav `dry_run` (hack `?spusteno=1`, nález 15 — v 0.8.0 už není třeba)]**
 Cíl: spustit scénář a vidět, že běží. Stav: `ukazka` + fixture `dlouhy.yaml` (krok `pomalu` se `sleep: 4`).
-1. Editor `ukazka` → `button "Spustit"` → panel eyebrow „SPUSTIT BĚH“, `textbox "tema"` předvyplněný `káva`, nápověda „string · O čem psát“, `group "Režim běhu"` se dvěma kartami (radio uvnitř, klik kamkoli na kartu vybírá, vybraná má ring), `radio "Dry-run"` zaškrtnuté (nápověda „Jen plán… zdarma.“), vpravo `button "Spustit dry-run"`; tlačítko „Zrušit“ v panelu není (zavírá ✕ a Esc).
+1. Editor `ukazka` → `button "Spustit"` → panel eyebrow „SPUSTIT BĚH“, `textbox "tema"` předvyplněný `káva`, nápověda „string · O čem psát“, `group "Režim běhu"` se dvěma kartami (radio uvnitř, klik kamkoli na kartu vybírá, vybraná má ring), `radio "Dry-run"` zaškrtnuté (nápověda „Jen plán… zdarma.“), vpravo `button "Zrušit"` (zavře panel jako ✕ a Esc) a `button "Spustit dry-run"`; limity jen u ostrého běhu (PN2).
 2. Vymazat tema, `checkbox "povinný"` je ve fixture zapnutý (varianta scénáře bez default) → odeslat → pod polem „Povinný vstup.“, žádný POST.
 3. `tema` = „nová káva“, Spustit dry-run → `POST /projects/demo/runs {dry_run: true}` 200 → `#/p/demo/behy/<run_id>`, `run-state` „jen plán (dry-run)“, text „Tohle je jen plán (dry-run) — běh neproběhl.“, vykreslený `plan.md`. Disk: `demo/runs/<run_id>/plan.md`, `inputs.json` (`{"tema":"nová káva"}`), bez `events.jsonl`.
 4. Znovu Spustit, `radio "Ostrý běh"` → `dl "Limity běhu"`: „na běh 1,00 USD“, „čas běhu 1h“, „dnes utraceno 0 / 5,00 USD“ (spend ignoruje falešné běhy); s neuloženou změnou navíc varování s ikonou „Máš neuložené změny — běh použije verzi na disku.“ → `button "Spustit ostrý běh"` → 202 → `…?spusteno=1`.
@@ -106,7 +106,7 @@ Cíl: poznat, kde a proč běh skončil. Stav: fixture `chyba.yaml`: `napis → 
 ### C9 Konflikt souboru (změna na disku během editace) **[hotovo]**
 Cíl: neztratit ani svou, ani cizí změnu. Stav: editor `ukazka`, karta `napis` vybraná.
 1. Změnit Prompt (Neuloženo). Test přes `fs.appendFile` přidá do `ukazka.yaml` komentář `# ručně`.
-2. Do 5 s (nebo po `window.dispatchEvent(new Event("focus"))`) → `conflict-bar` „Soubor se na disku změnil.“ s tlačítky „Zobrazit rozdíl“, „Načíst z disku a zahodit moje změny“, „Ponechat moje“; Uložit disabled.
+2. Do 5 s (nebo po `window.dispatchEvent(new Event("focus"))`) → `conflict-bar` „Soubor se na disku změnil.“ s tlačítky „Zobrazit rozdíl“, „Načíst z disku a zahodit moje změny“ (nebezpečné, červené) a „Ponechat moje“ pod textem; Uložit disabled.
 3. „Zobrazit rozdíl“ → dialog „Rozdíl proti disku“, poznámka „− je verze, ze které vycházíš, + …“, řádek `+ # ručně` zeleně → Zavřít.
 4. „Ponechat moje“ → pruh zmizí, Uložit → dialog „Přepsat verzi na disku?“ → „Přepsat verzi na disku“ → `PATCH` s aktuálním etag → „Uloženo ✓“; disk má `# ručně` i nový prompt.
 5. Varianta bez lokálních změn: úprava na disku → tiché znovunačtení, `save-status` „Načteno z disku (HH:MM)“, karta ukazuje nový text. Varianta po obnovení stránky s rozpracovaným draftem ke staré verzi → pruh „Rozpracované změny v prohlížeči patří ke starší verzi souboru.“
@@ -230,3 +230,8 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 2. *Jeden `serve --fake` na celý běh testů, nebo na worker?* — **Jeden `serve` na Playwright worker** s vlastním portem a vlastním `AGENCAST_CONFIG_DIR`; každý test si založí vlastní projekt (jménem podle testu), aby se zápisy nekřížily. Varianty chování falešného poskytovatele přes různá id kroků v jednom skriptu.
 3. *Formulář nového projektu: jméno + cesta, nebo cesta odvozená?* — **Jméno + cesta, cesta předvyplněná z `projects_root` (`<projects_root>/<jméno>`) a editovatelná.** Přepínač „Založit nový“ / „Přidat existující“ v jednom dialogu.
 4. *Přejmenování s odkazy: mlčky, nebo se ptát?* — **Ptát se jednou: „Přepsat odkazy v N krocích?“** s výčtem kroků; potvrzení odešle dávku `rename_step` s `rename_refs: true`. Bez čtenářů bez dialogu.
+
+## Dialogy (0.16.1)
+Dialog má hlavičku s titulem a křížkem „Zavřít“ (informační dialog bez akcí jen „Zavřít“ dole) a patičku
+„Zrušit“, pak akce. Fokus po otevření je na první akci (nebo na poli s `data-autofocus`), Tab cyklí uvnitř
+(z poslední akce na křížek), Esc a klik mimo zavřou. Test: `redesign-prvky.spec.ts` P3, `fidelity.spec.ts`.

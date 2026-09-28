@@ -1,6 +1,6 @@
 // Editační prvky (§3 inventář): pole se štítkem, výraz/šablona s našeptávačem, JSON, modál rozhodnutí.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
-import { Braces, Plus } from "lucide-react";
+import { Braces, Plus, X } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn } from "./ui";
@@ -278,6 +278,10 @@ export interface ModalAction {
 }
 
 /** Modál rozhodnutí: fokus na první akci, Esc = zrušit, Tab zůstává uvnitř. */
+/** Fokus dostane první akce dialogu (ne Zrušit ani křížek) — jako před přeskupením patičky. */
+const firstAction = (root: HTMLElement | null) =>
+  root?.querySelector<HTMLElement>("[data-action]") ?? root?.querySelector<HTMLElement>("button:not([data-close])");
+
 export function Modal({ title, children, actions, onCancel, cancelLabel = t("common.cancel") }: {
   title: string; children?: ReactNode; actions: ModalAction[]; onCancel: () => void; cancelLabel?: string;
 }) {
@@ -285,12 +289,12 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    (root.current?.querySelector<HTMLElement>("[data-autofocus]") ?? root.current?.querySelector<HTMLElement>("button"))?.focus();
+    (root.current?.querySelector<HTMLElement>("[data-autofocus]") ?? firstAction(root.current))?.focus();
     return () => prev?.focus?.();
   }, []);
   // fokusované tlačítko zmizelo (např. „Smazat“ po odmítnutí z API) → fokus zpět do dialogu, jinak nefunguje Esc ani Tab
   useEffect(() => {
-    if (!root.current?.contains(document.activeElement)) root.current?.querySelector<HTMLElement>("button")?.focus();
+    if (!root.current?.contains(document.activeElement)) firstAction(root.current)?.focus();
   });
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -306,18 +310,28 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
   };
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-canvas/70 p-4" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+      {/* návrh „ModalShell“ (změřeno z .pen): r14, hlavička p24 s linkou (titul 22 + zavřít 44), obsah p24 gap 18,
+          patička p 18 24 s linkou: Zrušit, pak akce */}
       <div ref={root} role="dialog" aria-modal="true" aria-labelledby={id} onKeyDown={onKey}
-        className="w-full max-w-lg space-y-4 rounded-[var(--radius-panel)] bg-surface p-6">
-        <h2 id={id} className="text-lg font-semibold">{title}</h2>
-        {children && <div className="space-y-3 text-sm text-fg-secondary">{children}</div>}
-        <div className="flex flex-wrap justify-end gap-2">
+        className="w-full max-w-lg rounded-tile bg-surface">
+        <div className="flex items-center gap-4 border-b border-line py-4 pr-4 pl-6">
+          <h2 id={id} className="min-w-0 flex-1 text-[22px] leading-8 font-semibold">{title}</h2>
+          {/* informační dialog (bez akcí) má jediné „Zavřít“ dole */}
+          {actions.length > 0 && (
+            <button type="button" data-close className={btn.icon} onClick={onCancel} aria-label={t("common.close")} title={t("common.close")}>
+              <X className="size-4" aria-hidden />
+            </button>
+          )}
+        </div>
+        {children && <div className="space-y-[18px] p-6 text-sm text-fg-secondary">{children}</div>}
+        <div className={`flex flex-wrap justify-end gap-2.5 px-6 py-[18px] ${children ? "border-t border-line" : ""}`}>
+          <button type="button" className={btn.secondary} onClick={onCancel}>{cancelLabel}</button>
           {actions.map((a) => (
-            <button key={a.label} type="button" onClick={a.onSelect}
+            <button key={a.label} type="button" data-action onClick={a.onSelect}
               className={a.danger ? btn.danger : a.primary ? btn.primary : btn.secondary}>
               {a.label}
             </button>
           ))}
-          <button type="button" className={btn.secondary} onClick={onCancel}>{cancelLabel}</button>
         </div>
       </div>
     </div>

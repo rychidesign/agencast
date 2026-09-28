@@ -124,7 +124,8 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
         onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
         className={`flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-24 gap-3.5 p-4 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
       >
-        {!head && <span className={`w-4 shrink-0 text-center font-mono text-[11px] in-data-branch:hidden ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}</span>}
+        {/* pořadí jen v editoru; karta v běhu ho nemá (návrh 12) */}
+        {!head && !ctx.run && <span className={`w-4 shrink-0 text-center font-mono text-[11px] in-data-branch:hidden ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}</span>}
         {/* kontejner: prostá ikona 20 px; karta: kolečko 40 px (ve větvi 30) s plochou barvy typu */}
         <span className={`grid shrink-0 place-items-center rounded-full ${head ? "" : "size-10 bg-type/7 in-data-branch:size-[30px]"}`}>
           {status ? <StatusIcon status={status} label="" className={head ? "size-5" : "size-4"} />

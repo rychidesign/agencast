@@ -27,13 +27,14 @@ test("P3 modál drží Tab uvnitř", async ({ page, project }) => {
   await page.getByRole("button", { name: `Akce pro ${project.name}` }).click();
   await page.getByRole("menuitem", { name: "Odebrat z registru" }).click();
   const dialog = page.getByRole("dialog", { name: `Odebrat „${project.name}“ z registru?` });
+  // fokus na akci (poslední v patičce: Zrušit, akce — návrh ModalShell); Tab z posledního skočí na první (křížek) a zpět
   const first = dialog.getByRole("button").first();
   const last = dialog.getByRole("button").last();
-  await expect(first).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
   await expect(last).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(first).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(last).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });

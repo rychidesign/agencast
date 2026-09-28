@@ -78,3 +78,10 @@ it("blok kódu čísluje řádky a kopíruje původní text", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Kopírovat" }));
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(text));
 });
+
+it("čip „běží“: pulzuje jen ikona, text drží kontrast (vlna F)", () => {
+  render(<StatusChip status="running">běží</StatusChip>);
+  const chip = screen.getByText("běží");
+  expect(chip.className).not.toContain("animate-pulse");
+  expect(chip.querySelector("svg")!.getAttribute("class")).toContain("motion-safe:animate-pulse");
+});

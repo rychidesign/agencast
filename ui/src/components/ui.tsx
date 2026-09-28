@@ -88,10 +88,12 @@ export function Loading({ rows = 3, pill = false }: { rows?: number; pill?: bool
 }
 
 /** Prázdný stav (návrh 15, změřeno z .pen): `surface` r12 p28 gap 14, ikona 28, titul 18 semibold, popis 13. */
-export function EmptyState({ text, hint, cli, tall = false }: { text: string; hint?: string; cli?: string; /** 380 px jako v návrhu (fronta). */ tall?: boolean }) {
+export function EmptyState({ text, hint, cli, tall = false, icon: Icon = Inbox }: {
+  text: string; hint?: string; cli?: string; /** 380 px jako v návrhu (fronta). */ tall?: boolean; icon?: LucideIcon;
+}) {
   return (
     <div className={`flex flex-col items-center justify-center gap-3.5 rounded-[var(--radius-card)] bg-surface p-7 text-center ${tall ? "min-h-[380px]" : ""}`}>
-      <Inbox className="size-7 text-running" aria-hidden />
+      <Icon className="size-7 text-running" aria-hidden />
       <p className="text-lg leading-[26px] font-semibold text-fg">{text}</p>
       {hint && <p className="text-[13px] leading-[19px] text-fg-secondary">{hint}</p>}
       {cli && <CliLine cmd={cli} className="mt-1 w-full max-w-lg text-left" />}

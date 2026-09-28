@@ -1,7 +1,7 @@
 // `YamlEditor` (§3, §4.5): textarea nad zvýrazněným textem, čísla řádků,
 // chybné řádky a seznam chyb s odkazem na řádek. `ConflictBar` a rozdíl (§4.6).
 import { useEffect, useId, useRef, useState } from "react";
-import { FileCode2, TriangleAlert } from "lucide-react";
+import { Check, FileCode2, GitCompareArrows, RotateCcw, TriangleAlert } from "lucide-react";
 import { t } from "../i18n";
 import { lineDiff, type Conflict } from "../textfile";
 import type { ErrorItem } from "../types";
@@ -63,7 +63,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
       </div>
       <div ref={box} className="max-h-[calc(100vh-14rem)] overflow-auto bg-nested font-mono text-[13px] leading-[27px]">
         <div className="flex min-w-max">
-          <div aria-hidden className="min-w-[58px] py-4 pr-3.5 pl-4 text-right font-mono text-xs text-fg-muted select-none">
+          <div aria-hidden className="min-w-[58px] py-4 pr-3.5 pl-4 text-right font-mono text-xs leading-[27px] text-fg-muted select-none">
             {lines.map((_, i) => (
               <div key={i} data-testid={bad.has(i + 1) ? `yaml-line-${i + 1}` : undefined}
                 className={bad.has(i + 1) ? "-ml-4 border-l-2 border-error bg-error/10 pl-[14px] text-error" : flash && i + 1 >= flash[0] && i + 1 <= flash[1] ? "-ml-4 border-l-2 border-accent bg-surface-active pl-[14px] text-fg-secondary" : ""}>{i + 1}</div>
@@ -121,9 +121,9 @@ export function ConflictBar({ conflict, onDiff, onReload, onKeep, inHeader = fal
         <p className="text-[13px] leading-5 text-fg-secondary">{t(conflict.stale ? "conflict.stale" : "conflict.changed")}</p>
       </div>
       <div className="flex flex-wrap gap-3">
-        <button type="button" className={btn.secondary} onClick={onDiff}>{t("conflict.diff")}</button>
-        <button type="button" className={btn.danger} onClick={onReload}>{t("conflict.reload")}</button>
-        <button type="button" className={btn.secondary} onClick={onKeep}>{t("conflict.keep")}</button>
+        <button type="button" className={btn.secondary} onClick={onDiff}><GitCompareArrows className="size-4" aria-hidden />{t("conflict.diff")}</button>
+        <button type="button" className={btn.danger} onClick={onReload}><RotateCcw className="size-4" aria-hidden />{t("conflict.reload")}</button>
+        <button type="button" className={btn.secondary} onClick={onKeep}><Check className="size-4" aria-hidden />{t("conflict.keep")}</button>
       </div>
     </div>
   );

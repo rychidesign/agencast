@@ -1,5 +1,5 @@
 // §2.5 Detail běhu (fidelity §8: titul mono 32 + ↗, run_id pod ním, VSTUPY jako karta): karty se stavem, časem a cenou; záložky Kroky · Souhrn · Report · Soubory; živý běh (§4.8).
-import { ArrowUpRight, ExternalLink, FileText } from "lucide-react";
+import { ArrowUpRight, Clock, ExternalLink, FileText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { enc, getText, useApi } from "../api";
 import { Markdown } from "../components/Markdown";
@@ -141,8 +141,8 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
         {run && tab === "kroky" && (
           state === "queued" ? (
             <div className="space-y-6">
-              {run.queue_position != null && <p className="font-mono text-xs text-neutral">{t("runs.queued", { n: run.queue_position })}</p>}
-              <EmptyState tall text={t("run.queuedHint")} hint={t("run.queuedWhen")} />
+              {run.queue_position != null && <p className="flex items-center gap-3 font-mono text-xs text-neutral"><Clock className="size-4" aria-hidden />{t("runs.queued", { n: run.queue_position })}</p>}
+              <EmptyState tall icon={Clock} text={t("run.queuedHint")} hint={t("run.queuedWhen")} />
             </div>
           ) : state === "dry_run" ? (
             // návrh 16: řádek stavu 12 `neutral`, plán v kartě `surface` r12 p24 s eyebrow
