@@ -1,6 +1,6 @@
 // Sloupec karet kroků (§2.3, §2.4) — stejný pro editor a prohlížeč běhu (§2.5).
-// Editor přidává `ctx.edit`: konektory s +, koš a ⋯ vně pilulky, klávesy (§4.1–4.3, §6).
-import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Plus, Trash2, TriangleAlert } from "lucide-react";
+// Editor přidává `ctx.edit`: konektory s +, nabídku ⋯ a klávesy (§4.1–4.3, §6).
+import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Plus, TriangleAlert } from "lucide-react";
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { Anchor, ListRef } from "../edit";
 import { formatCost, formatDuration } from "../format";
@@ -113,7 +113,7 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
     e.stopPropagation();
   };
   const head = shape === "head";
-  const pr = head ? (edit ? "pr-28" : "pr-14") : edit ? "pr-16" : "";
+  const pr = head || edit ? "pr-14" : ""; // místo pro ⋯ uvnitř karty
   // návrh 05 (změřeno z .pen): pilulka p 16, gap 14, výška 96; vybraná = plocha `surface-active` bez rámečku
   const plane = head ? "rounded-card" : `rounded-full ${dim ? "border border-dashed border-line" : selected ? "bg-surface-active" : "bg-surface"}`;
   return (
@@ -122,7 +122,7 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
         onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
-        className={`flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-24 gap-3.5 p-4 max-md:min-h-20 max-md:py-2.5 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
+        className={`lg:scroll-mt-[calc(var(--page-header-h,5rem)+0.25rem)] flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-24 gap-3.5 p-4 max-md:min-h-20 max-md:py-2.5 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
       >
         {/* pořadí jen v editoru; karta v běhu ho nemá (návrh 12) */}
         {!head && !ctx.run && <span className={`w-4 shrink-0 text-center font-mono text-[11px] in-data-branch:hidden max-md:hidden ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}</span>}
@@ -159,8 +159,7 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
   );
 }
 
-/** ⋯ vpravo v pilulce (fidelity §6) a koš vně pilulky (§2.3): koš při hoveru a `focus-within`, na dotyku trvale ztlumeně.
- *  Svisle na střed pilulky (96 px, ve větvi 72 px) — řádky karty mají výpustku, výška je pevná i s chybou pod kartou. */
+/** ⋯ vpravo v pilulce (fidelity §6), svisle na střed karty (96 px, ve větvi 50 px). */
 function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?: Anchor }) {
   const [picker, setPicker] = useState<Anchor | null>(null);
   const pickerAnchor = useRef<HTMLDivElement>(null);
@@ -177,23 +176,10 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
     { label: t("edit.delete"), onSelect: () => edit.remove(step) },
   ];
   return (
-    <>
-      <div className="absolute top-12 right-3 -translate-y-1/2 max-md:top-10 in-data-branch:top-[25px] in-data-branch:right-1">
-        <Menu ghost items={items} label={t("common.menuFor", { name: step.id })} />
-      </div>
-      {/* koš 24 px + 2 px se vejde do mezery 28 px mezi sloupcem a panelem (návrh 05); na mobilu sloupec přes celou šířku, Smazat je v ⋯ */}
-      <div className="absolute top-12 left-full ml-0.5 flex -translate-y-1/2 max-md:top-10 max-md:translate-y-0 in-data-branch:top-[25px] items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60 pointer-coarse:group-focus-within:opacity-100">
-        <button type="button" onClick={() => edit.remove(step)} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
-          className="grid size-6 place-items-center rounded-full bg-error/15 text-error hover:bg-error/25 pointer-coarse:size-11 max-md:hidden">
-          <Trash2 className="size-3.5" aria-hidden />
-        </button>
-        {picker && (
-          <div ref={pickerAnchor} className="relative">
-            <TypePicker anchor={pickerAnchor} paste={edit.cut_?.id} onClose={() => setPicker(null)} onPick={(p) => (setPicker(null), edit.add(picker, p))} />
-          </div>
-        )}
-      </div>
-    </>
+    <div ref={pickerAnchor} className="absolute top-12 right-3 -translate-y-1/2 max-md:top-10 in-data-branch:top-[25px] in-data-branch:right-1">
+      <Menu ghost items={items} label={t("common.menuFor", { name: step.id })} />
+      {picker && <TypePicker anchor={pickerAnchor} paste={edit.cut_?.id} onClose={() => setPicker(null)} onPick={(p) => (setPicker(null), edit.add(picker, p))} />}
+    </div>
   );
 }
 
@@ -371,7 +357,7 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
   return (
     // návrh 05 (změřeno z .pen): obdélníková karta r14 p22 gap 16, ikona 24, titul 21 semibold, pod ním vstupy/výstupy mono 13
     <button type="button" data-step-card="" aria-pressed={selected} onClick={(e) => (onSelect(), !selected && focusPanel(e))}
-      className={`flex w-full flex-col gap-4 rounded-tile p-[22px] text-left transition-colors hover:bg-surface-hover ${selected ? "bg-surface-active ring-1 ring-accent/70" : "bg-surface"}`}>
+      className={`lg:scroll-mt-[calc(var(--page-header-h,5rem)+0.25rem)] flex w-full flex-col gap-4 rounded-tile p-[22px] text-left transition-colors hover:bg-surface-hover ${selected ? "bg-surface-active ring-inset ring-1 ring-accent/70" : "bg-surface"}`}>
       <span className="flex items-center gap-3">
         <AlignJustify className="size-6 shrink-0 text-type" strokeWidth={1.5} aria-hidden />
         <span className="text-[21px] leading-[30px] font-semibold text-fg uppercase">{t("step.header")}</span>

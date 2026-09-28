@@ -73,7 +73,7 @@ export function TypePicker({ onPick, onClose, paste, anchor }: {
   return createPortal(
     <div ref={ref} role="listbox" tabIndex={-1} aria-label={t("picker.label")} onKeyDown={onKey}
       aria-activedescendant={items[active] ? `${id}-${items[active]}` : undefined}
-      className="popover pop-enter fixed z-[60] max-h-[calc(100dvh-24px)] w-80 max-w-[calc(100vw-24px)] overflow-y-auto p-2 text-fg focus:outline-none max-md:inset-x-4 max-md:bottom-4 max-md:max-h-[70vh] max-md:w-auto">
+      className="popover pop-enter fixed z-[60] max-h-[calc(100dvh-24px)] w-80 max-w-[calc(100vw-24px)] scroll-quiet overflow-y-auto p-2 text-fg focus:outline-none max-md:inset-x-4 max-md:bottom-4 max-md:max-h-[70vh] max-md:w-auto">
       {filter && <div className="px-3 py-1 font-mono text-xs text-fg-muted" aria-live="polite">{t("picker.filter", { filter })}</div>}
       {items.map((k, i) => {
         const g = k === "paste" ? -2 : PICKER_GROUPS.findIndex((gr) => gr.includes(k));

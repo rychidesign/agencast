@@ -58,11 +58,12 @@ export function closeOnEsc(selected: string | undefined) {
 export function PanelSlot({ children, wide = false }: { children: ReactNode; /** Panel kroku v běhu (návrh 12: 520 px). */ wide?: boolean }) {
   // Vedle sloupce od 1280 px (návrh 05, změřeno z .pen: sloupec do 676, mezera 28, panel 440); užší = plnoobrazovkový
   // sheet (PanelShell), nikdy přes sloupec ani přes hlavičku stránky. Panel vedle sloupce (z-20) leží pod přilepenou
-  // hlavičkou (z-30), aby ho menu ⋯ z hlavičky překrylo.
+  // hlavičkou (z-30), aby ho menu ⋯ z hlavičky překrylo. Žlábek tenkého posuvníku má v Chromiu 10 px:
+  // o tolik je širší scroll kontejner, aby samotný panel zůstal na návrhových 440/520 px.
   const sheet = useMedia("(max-width: 1279px)");
   if (sheet) return <SheetContext.Provider value>{children}</SheetContext.Provider>;
   return (
-    <div className={`sticky top-[calc(var(--page-header-h,5rem)+1rem)] z-20 max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] shrink-0 self-start overflow-auto rounded-panel ${wide ? "w-[520px]" : "w-[440px]"}`}>
+    <div className={`scroll-quiet sticky top-[calc(var(--page-header-h,5rem)+1rem)] z-20 -mr-[10px] mt-4 max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] shrink-0 self-start overflow-auto rounded-panel ${wide ? "w-[530px]" : "w-[450px]"}`}>
       {children}
     </div>
   );

@@ -41,7 +41,7 @@ export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
           <X className="size-4" aria-hidden />
         </button>
       </div>
-      <div className={sheet ? "min-h-0 overflow-y-auto overscroll-contain p-5 pb-[calc(20px+env(safe-area-inset-bottom))]" : "p-5"}>{children}</div>
+      <div className={sheet ? "scroll-quiet min-h-0 overflow-y-auto overscroll-contain p-5 pb-[calc(20px+env(safe-area-inset-bottom))]" : "p-5"}>{children}</div>
     </aside>
     </>
   );

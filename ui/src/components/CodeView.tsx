@@ -38,7 +38,7 @@ export function CodeView({ text, file, errors = [], focus }: {
     <div>
       <div className="overflow-hidden rounded-[var(--radius-panel)] bg-surface">
         <CodeHead icon={FileCode2} name={file} chip={t("code.readOnly")} />
-        <div ref={ref} className="overflow-auto bg-nested py-4 font-mono text-[13px] leading-[27px] focus-visible:ring-2 focus-visible:ring-accent" tabIndex={0} role="region" aria-label={file}>
+        <div ref={ref} className="scroll-quiet overflow-auto bg-nested py-4 font-mono text-[13px] leading-[27px] focus-visible:ring-2 focus-visible:ring-accent" tabIndex={0} role="region" aria-label={file}>
           <table className="border-collapse">
             <tbody>
               {lines.map((l, i) => {

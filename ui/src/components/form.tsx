@@ -223,7 +223,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     </button>
   );
   const suggestions = open && (
-    <ul ref={suggestionsRef} id={listId} role="listbox" className="popover pop-enter fixed z-[60] overflow-y-auto p-2">
+    <ul ref={suggestionsRef} id={listId} role="listbox" className="popover pop-enter fixed z-[60] scroll-quiet overflow-y-auto p-2">
       {matches.map((c, i) => (
         <li key={c} id={`${listId}-${i}`} role="option" aria-selected={i === active}
           onMouseDown={(e) => (e.preventDefault(), accept(c))}
@@ -235,7 +235,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   );
   const variableMenu = variablesOpen && (
     <div ref={menu} id={menuId} role="menu" onKeyDown={onVariableMenuKey}
-      className="popover pop-enter fixed z-[60] max-h-72 w-64 overflow-y-auto p-2">
+      className="popover pop-enter fixed z-[60] max-h-72 w-64 scroll-quiet overflow-y-auto p-2">
       {variableGroups.map((group) => (
         <div key={group.label} role="group" aria-label={group.label}>
           <div className="px-3 pt-2 pb-1 text-xs text-fg-muted">{group.label}</div>
@@ -403,7 +403,7 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
             </button>
           )}
         </div>
-        {children && <div className="min-h-0 space-y-[18px] overflow-y-auto p-6 text-sm text-fg-secondary">{children}</div>}
+        {children && <div className="min-h-0 space-y-[18px] scroll-quiet overflow-y-auto p-6 text-sm text-fg-secondary">{children}</div>}
         <div className={`flex shrink-0 flex-wrap justify-end gap-2.5 px-6 pt-[18px] pb-[calc(18px+env(safe-area-inset-bottom))] ${children ? "border-t border-line" : ""}`}>
           <button type="button" className={btn.secondary} onClick={onCancel}>{cancelLabel}</button>
           {actions.map((a) => (

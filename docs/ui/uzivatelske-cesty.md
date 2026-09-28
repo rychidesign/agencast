@@ -116,7 +116,7 @@ Cíl: přeskládat scénář a nerozbít odkazy. Stav: `clanek` z C4 (`napis, je
 1. Fokus karty `jev_1` (klik), `Alt+↑` → `aria-label` „Krok 1: jev jev_1“, `napis` je „Krok 2“; menu ⋯ „Další akce“ v hlavičce → `menuitem "Vrátit zpět (Ctrl+Z)"` (nebo Ctrl+Z) vrátí; menu `"Akce pro jev_1"` má `menuitem` „Posunout nahoru (Alt+↑)“, „Posunout dolů (Alt+↓)“, „Vyjmout (Ctrl+X)“, „Vložit krok nad“, „Vložit krok pod“, „Smazat (Delete)“.
 2. `Ctrl+X` na `jev_1` → `aria-live` „Krok jev_1 vyjmut — vlož ho tlačítkem + na novém místě.“, karta 50 % s „— vyjmuto“, všechna (+) trvale vidět; klik + nad `napis` → první `option` „Vložit „jev_1“ sem“ → Enter → „Krok jev_1 vložen.“, pořadí `[jev_1, napis, vystup]`; validace u karty `jev_1` hlásí `steps.napis` níže (po Uložit 422 „krok 'napis' … níže/neexistuje“) → Ctrl+Z.
 3. Delete na `napis` (čte ho `jev_1` i `vystup`) → dialog „Smazat krok „napis“?“ s textem „Krok „napis“ čtou jev_1, vystup. Uložení projde, jen když jejich odkazy upravíš nebo je smažeš taky.“ → „Smazat i tak“ → `aria-live` „Krok napis smazán. Vrátit zpět: Ctrl+Z.“; Uložit → 422 s hláškou u `vystup`, disk beze změny. Cíl (dávka): úprava čtenářů + smazání v jedné dávce, zapíše se vše nebo nic.
-4. Delete na `jev_1` (nikdo nečte) → hned pryč, bez dialogu; Uložit → `DELETE …/steps/1` → disk má `[napis, vystup]`. Smazání kontejneru s kroky → dialog „Smaže i N kroků uvnitř.“ Karta `output` nemá Posunout/Vyjmout/Vložit pod; `Krok Hlavička` koš nemá.
+4. Delete na `jev_1` (nikdo nečte) → hned pryč, bez dialogu; stejné mazání spustí ⋯ → „Smazat (Delete)“ nebo koš v hlavičce panelu. Uložit → `DELETE …/steps/1` → disk má `[napis, vystup]`. Smazání kontejneru s kroky → dialog „Smaže i N kroků uvnitř.“ Karta `output` nemá Posunout/Vyjmout/Vložit pod; u karet není samostatný koš.
 
 ### C11 `parallel` a `switch` **[hotovo — nová větev musí začít novým krokem (nález 13); přejmenování/mazání větví jen v YAML]**
 Cíl: „vedle sebe = zároveň, pod sebou = jedna z možností“. Stav: `clanek`.
@@ -141,11 +141,11 @@ Stav: složka `$TMP/cizi` vytvořená `agencast new project` **bez** registru (`
 1. `#/` → `button "Akce pro cizi"` → `menuitem "Odebrat z registru"` → dialog „Odebrat „cizi“ z registru?“ s větou, že soubory zůstanou → potvrdit.
 2. → karta zmizí bez reloadu, registr bez položky, `$TMP/cizi/workflows/` netknuté; přímý `#/p/cizi` → `role=alert` s 404 textem + odkaz „Projekty“. Odebrání nedostupného projektu funguje stejně (karta „nedostupný“ má menu).
 
-### C15 Klávesnicová cesta bez myši **[hotovo; koš a ⋯ jsou `opacity-0` do fokusu — Playwright je vidí, čtenář jen přes Tab]**
+### C15 Klávesnicová cesta bez myši **[hotovo; ⋯ je přístupné přes Tab]**
 Cíl: celý C4 jen klávesami. Stav: `demo`.
 1. `#/` Tab → odkaz `demo` (Enter) → `h1 "Scénáře"` → Tab přes `nav "Části projektu"` v sidebaru → „Nový scénář“ Enter → dialog (fokus v „Jméno“, Tab uvnitř cyklí, Esc zavře) → jméno, Enter = Vytvořit.
 2. V editoru: Tab na `[data-step-card=""]`, `↓` → `napis` (`document.activeElement` = karta), Enter → panel (`?krok=napis`), fokus v panelu; Esc → panel pryč, fokus zpět na kartě `napis`.
-3. Tab z karty → `"Akce pro napis"` → koš `"Smazat krok napis"` → (+) `"Vložit krok sem"` (fokus ho zviditelní); Enter na + → `listbox` má fokus, psaní filtruje (`aria-live` „filtr: j“), Enter vybere, Esc vrátí fokus na +.
+3. Tab z karty → `"Akce pro napis"` → (+) `"Vložit krok sem"` (fokus ho zviditelní); Enter na + → `listbox` má fokus, psaní filtruje (`aria-live` „filtr: j“), Enter vybere, Esc vrátí fokus na +. Mazání je v ⋯ nebo na klávese Delete.
 4. `Delete` na kartě = smazání s dialogem (fokus na první tlačítko), `Alt+↓` posun, `Ctrl+X` vyjmout, `Ctrl+Z` zpět, `Ctrl+S` uložit (ne uvnitř textarea u Ctrl+Z); menu ⋯: Enter otevře, `↓` cyklí `menuitem`, Esc vrátí fokus na tlačítko.
 5. Kontrola: každý fokusovaný prvek má viditelný ring (`focus-visible`), pořadí Tab = pořadí dokumentu, `aria-live` texty přítomné v DOM (Playwright `getByRole("status")` / `[aria-live]`).
 
@@ -153,7 +153,7 @@ Cíl: celý C4 jen klávesami. Stav: `demo`.
 Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 1. `#/p/demo/scenare/ukazka` → karty v jednom sloupci, `document.documentElement.scrollWidth <= 375`; hlavička editoru se zalomí (Form/YAML, stav, Uložit vidět bez horizontálního scrollu).
 2. Klik na kartu → `complementary` má `boundingBox` u spodní hrany (`y + height ≈ 667 - 16`), výška ≤ 70 % (≤ 467 px), překrývá karty (list), stín; Esc / `button "Zavřít"` ho schová.
-3. `pointer: coarse`: koš `"Smazat krok napis"` je viditelný trvale (opacity 0,6), cíl tlačítek ≥ 44 px (změřit `+` 28 px → **nesplní**, zaznamenat jako nález, ne selhání testu).
+3. `pointer: coarse`: mazání kroku je v ⋯ a v panelu; cíl tlačítek ≥ 44 px (změřit `+` 28 px → **nesplní**, zaznamenat jako nález, ne selhání testu).
 4. `#/p/demo/agenti` a `#/p/demo/behy` → bez přetečení šířky: `nav "Agenti"` nad `h2` editoru, tabulka běhů ve scroll kontejneru (`region "Běhy"`).
 5. Spuštění z mobilu: panel „SPUSTIT BĚH“ jako list, `textbox "tema"` font ≥ 16 px (jinak iOS zoom), tlačítko „Spustit dry-run“ na plnou šířku.
 6. Tablet (768 a 1024 px, ruční kontrola vlny C): pod 1024 px horní lišta místo sidebaru; editor scénáře má panel jako list přes sloupec (od 1024 px odsazený od sidebaru) se zavíracím křížkem, vedle sloupce až od 1280 px; řádek aliasu v Configu se zalomí bez přetečení.

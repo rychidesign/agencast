@@ -49,6 +49,18 @@
 
 @layer components {
   .text-h1 { @apply text-[28px] leading-[42px] font-normal; }
+  @media (hover: hover) and (pointer: fine) {
+    .scroll-quiet {
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+      scrollbar-gutter: stable;
+    }
+    .scroll-quiet:hover, .scroll-quiet:focus-within { scrollbar-color: var(--color-control) transparent; }
+    .scroll-quiet::-webkit-scrollbar { width: 8px; height: 8px; }
+    .scroll-quiet::-webkit-scrollbar-track { background: transparent; }
+    .scroll-quiet::-webkit-scrollbar-thumb { border-radius: 4px; background: transparent; }
+    .scroll-quiet:hover::-webkit-scrollbar-thumb, .scroll-quiet:focus-within::-webkit-scrollbar-thumb { background: var(--color-control); }
+  }
   /* jediný měkký stín (uživatel: x/y 20, blur 40); hranu nad kartou drží světlejší výplň `menu`, ne druhý stín */
   .popover { background: var(--color-menu); border-radius: 12px; box-shadow: var(--shadow-pop); outline: 0; }
   .sheet-shadow { box-shadow: var(--shadow-sheet); }

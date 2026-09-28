@@ -371,12 +371,11 @@ test("C10 přesun a smazání kroku s ochranou odkazů", async ({ page, project 
   await expect(saveStatus(page)).toHaveText(/^Uloženo ✓/);
   expect(project.yaml<Scn>("scenarios/clanek.yaml").steps.map((s) => s.id)).toEqual(["vystup"]);
 
-  // output: bez posunu, vyjmutí a vložení pod; hlavička bez koše
+  // output: bez posunu, vyjmutí a vložení pod; karta nemaže mimo ⋯
   await page.getByRole("button", { name: "Akce pro vystup" }).click();
   await expect(page.getByRole("menuitem")).toHaveText(["Vložit krok nad", "Smazat (Delete)"]);
   await page.keyboard.press("Escape");
-  // koše ve sloupci (panel vystup zůstal otevřený a má vlastní)
-  await expect(page.getByRole("region", { name: "Kroky scénáře" }).getByRole("button", { name: /^Smazat krok / })).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Kroky scénáře" }).getByRole("button", { name: /^Smazat krok / })).toHaveCount(0);
 });
 
 test("C11 parallel a switch", async ({ page, project, server }) => {
@@ -562,8 +561,6 @@ test("C15 klávesnicová cesta bez myši", async ({ page, project }) => {
 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Akce pro napis" })).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Smazat krok napis" })).toBeFocused();
   await page.keyboard.press("Tab");
   const plus = page.getByTestId("add-after-napis");
   await expect(plus).toBeFocused();

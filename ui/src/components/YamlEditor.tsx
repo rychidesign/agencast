@@ -61,7 +61,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
         <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-fg">{file}</span>
         <span className="rounded-[6px] bg-nested px-[9px] py-[5px] font-mono text-[11px] leading-4 text-fg-secondary ring-1 ring-line">{file.endsWith(".md") ? "Markdown" : "YAML"}</span>
       </div>
-      <div ref={box} className="max-h-[calc(100vh-14rem)] overflow-auto bg-nested font-mono text-[13px] leading-[27px]">
+      <div ref={box} className="max-h-[calc(100vh-14rem)] scroll-quiet overflow-auto bg-nested font-mono text-[13px] leading-[27px]">
         <div className="flex min-w-max">
           <div aria-hidden className="min-w-[58px] py-4 pr-3.5 pl-4 text-right font-mono text-xs leading-[27px] text-fg-muted select-none">
             {lines.map((_, i) => (
@@ -136,7 +136,7 @@ export function DiffModal({ title, before, after, onClose, note }: { title: stri
   return (
     <Modal title={title} onCancel={onClose} actions={[]} cancelLabel={t("common.close")}>
       {note && <p>{note}</p>}
-      <pre className="max-h-[60vh] overflow-auto rounded-[var(--radius-control)] bg-nested p-3 font-mono text-[13px] leading-5">
+      <pre className="max-h-[60vh] scroll-quiet overflow-auto rounded-[var(--radius-control)] bg-nested p-3 font-mono text-[13px] leading-5">
         {diff.every((d) => d.op === " ") && <span className="text-fg-muted">{t("conflict.same")}</span>}
         {diff.map((d, i) => near(i) && (
           <div key={i} className={d.op === "+" ? "bg-success/10 text-success" : d.op === "-" ? "bg-error/10 text-error" : "text-fg-muted"}>

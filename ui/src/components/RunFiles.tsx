@@ -102,7 +102,7 @@ export function FilesTab({ project, runId, files, current }: { project: string; 
   const shown = current && files.includes(current) ? current : undefined;
   return (
     <div className="grid grid-cols-[300px_1fr] items-start gap-6 max-lg:grid-cols-1">
-      <nav aria-label={t("run.tab.soubory")} className="max-h-[75vh] overflow-auto rounded-[10px] bg-surface p-3">
+      <nav aria-label={t("run.tab.soubory")} className="max-h-[75vh] scroll-quiet overflow-auto rounded-[10px] bg-surface p-3">
         <TreeNode tree={buildTree(files)} prefix="" current={current} />
       </nav>
       <div className="min-w-0 space-y-6 rounded-card bg-surface p-6">

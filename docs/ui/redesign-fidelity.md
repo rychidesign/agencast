@@ -73,7 +73,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 - Sloupec kroků do **676**, panel **440**, mezera **28** (změřeno z .pen: 1144 − 440 − 28). Konektor: výška **44**, šipka 16 px `fg-muted`; (+) kolečko **44 px** `bg-surface`, na hover `control`.
 - **Karta kroku** (pilulka, radius 999, `bg-surface`, výška **96**, padding **16**, gap **14**; změřeno z .pen): vlevo pořadové číslo mono 11 `fg-muted` (jen v editoru), pak **kolečko 40 px s plochou `type/7` a ikonou typu 16 px `text-type`**, pak texty (mezera 4): řádek typu **mono 11 `text-type` malými** „ask · navrh“, titul **15/22 semibold** `fg`, třetí řádek **mono 12 `fg-secondary`** (u `ask`/`task` agent + úryvek promptu, u `image` model · poměr, podmínka „když …“); vpravo ⋯ bez výplně. V běhu je ve třetím řádku „12,4 s · 0,0210 USD“ a vpravo stav 11 px.
 - Vybraná karta: jen plocha `bg-surface-active` (bez rámečku, změřeno z .pen). Hover `bg-surface-hover`.
-- Hlavičková karta: **obdélník** `bg-surface` radius 14 padding 22 mezera 16, ikona `AlignJustify` 24 px `text-type`, titul „HLAVIČKA“ 21 semibold, pod ním vstupy · výstupy mono 13 `fg-secondary`; vybraná má navíc prstenec 1 px `accent` (změřeno z .pen).
+- Hlavičková karta: **obdélník** `bg-surface` radius 14 padding 22 mezera 16, ikona `AlignJustify` 24 px `text-type`, titul „HLAVIČKA“ 21 semibold, pod ním vstupy · výstupy mono 13 `fg-secondary`; vybraná má navíc vnitřní prstenec 1 px `accent`, aby ho nepřekryla přilepená hlavička stránky.
 - Kontejnery (parallel/switch/call): obal `bg-surface` radius **14** padding 16; záhlaví = ikona 20 bez kolečka, titul 15/22, mono 10 `fg-muted` „3 · parallel · varianty“, šipka sbalit 16 vpravo; větve `bg-nested` radius **8** padding 12 se štítkem mono 11 `text-variable`, paralelní větve vedle sebe; karty ve větvi padding 10, kolečko 30, titul 13 (změřeno z .pen).
 - Tlačítka pod sloupcem: „+ Přidat krok“ a „+ output“ sekundární 44 px vedle sebe na střed.
 - TypePicker: `bg-surface` radius 12, položky 40 px: klíčové slovo mono 13 `fg` + popis 13 `fg-muted` (u aktivní `fg-secondary` kvůli kontrastu na `surface-active`).
@@ -81,6 +81,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 ## 7. Panel (`StepPanel.tsx`, `RunPanel.tsx`, `RunStepPanel.tsx`)
 
 - `bg-surface` radius 16; **hlavička** padding 20 s linkou dole: ikona panelu 16, eyebrow mono 10 `fg-muted` verzálky, titul 18/26 semibold, zavřít ghost 44; **tělo** padding 20, mezera polí 18 (změřeno z .pen). Šířka 440 (panel kroku v běhu **520**).
+- Scrollující panel, sheet, bloky kódu a dlouhé seznamy mají na desktopu tenký posuvník s průhledným palcem; při hoveru nebo fokusu má barvu `control`, rezervovaný žlábek drží šířku obsahu. Dotykové ovládání zůstává nativní.
 - Pole podle §2 (výška 44, štítky 13 medium). Select „Typ kroku“ ukazuje „ask · jedno volání agenta“ (mono klíč + popis). Vstupy a výstupy v panelu hlavičky jsou vnořené karty `nested` r8 p14, „+ Přidat …“ je sekundární tlačítko.
 - Panel spuštění: eyebrow „SPUSTIT BĚH“, mezery 20; štítek „REŽIM BĚHU“ 11 px verzálky; karty režimu `bg-nested` radius 8 padding 14 (řádek s radiem 20 px 44 px, popis 12), vybraná ring 1 `accent`; „Limity“ jako řádky 32 px s oddělovači (štítek 12 `fg-secondary`, hodnota mono 12 `fg`); varování `warning/10` r8 p12 text 12; vpravo „Zrušit“ + „Spustit dry-run“ (změřeno z .pen).
 - Panel kroku v běhu: řádek stavu = čip stavu + mono 11 „12,4 s · 0,0210 USD“; záložky 13 px; obsah = blok kódu (viz §2) a řádek souboru `bg-nested` r8 p12 výška 52 (cesta mono 12 + ↗).
@@ -111,7 +112,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 Doplněno ve vlně F (záměrná zjednodušení a rozhodnutí z dřívějších vln, `.pen` je nepřebíjí): panel kroku má
 titul = id kroku mono (návrh ukazuje lidský název), bez pole „id“ (přejmenování je v ⋯) a bez patičky
 „Uloženo / Hotovo“ (G2); panel spuštění má šířku 440 jako ostatní (návrh 480) a limity jen u ostrého běhu
-(PN2); karty kroků v běhu nemají ⋯ (žádná akce); koš zůstává vně pilulky (§2.3 navrh-gui); hláška „Běh
+(PN2); karty kroků v běhu nemají ⋯ (žádná akce); mazání kroku je v ⋯ editoru, panelu a na Delete (§2.3 navrh-gui); hláška „Běh
 skončil: …“ jen pro čtečku (G10); drobečky jen „← Scénáře“ / „← Běhy“ (G5); YAML dvoubarevně podle
 navrh-gui §4.5; zvýraznění kroku v YAML jen bliknutím; skill se edituje jako Markdown (bez polí Název / Popis
 / Soubor a lišty formátování; API ukládá SKILL.md jen celý), pod editorem je náhled; stav fronty neutrálně
@@ -128,7 +129,7 @@ Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v k
   titul se láme (`overflow-wrap:anywhere`); pod 1024 px se hlavička nepřilepuje.
 - Do 1279 px je panel (krok, hlavička, spuštění, krok v běhu) spodní sheet s kulatými horními rohy a stínem,
   max. výška `100dvh - 48px` (`role="dialog"`, fokus past, Esc, po zavření fokus zpět na kartu). Do 767 px karta kroku 80 px bez čísla (kolečko 36), konektor 32 px s (+)
-  32 px a dotykovou plochou 44, sloupec přes celou šířku (koš jen v ⋯), TypePicker jako list u spodního okraje.
+  32 px a dotykovou plochou 44, sloupec přes celou šířku (mazání jen v ⋯ nebo panelu), TypePicker jako list u spodního okraje.
 - Běhy do 767 px bez záhlaví: karta o dvou řádcích (stav + jméno + stav textem; run_id, kdy, trvání · cena),
   chevron vpravo. Záložky detailu běhu s vodorovným posuvem. Agenti/Skilly pod 1100 px jako vodorovné čipy.
 - Vlna H podle uživatele: nabídky mají stín místo rámečku, panely a mobilní modály jsou spodní sheety,

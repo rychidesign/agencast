@@ -65,9 +65,9 @@ test("C16 editor na mobilu: karta 80 px, panel kroku jako spodní sheet", async 
   const h1 = page.getByRole("heading", { level: 1 });
   expect(parseFloat(await h1.evaluate((el) => getComputedStyle(el.firstElementChild ?? el).fontSize))).toBe(24);
 
-  // sloupec přes celou šířku (koš vně pilulky jen od 768 px, Smazat je v ⋯); cíle ≥ 44 px,
+  // sloupec přes celou šířku (Smazat je v ⋯); cíle ≥ 44 px,
   // (+) v konektoru 40 px má dotykovou plochu 44 přes ::before
-  await expect(page.getByRole("button", { name: "Smazat krok napis" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Smazat krok napis" })).toHaveCount(0);
   expect((await napis.boundingBox())!.width).toBe(W - 32);
   for (const target of [page.getByRole("button", { name: "Akce pro napis" }), page.getByRole("button", { name: "Další akce" })])
     expect(await minSide(target), await target.getAttribute("aria-label") ?? "").toBeGreaterThanOrEqual(44);

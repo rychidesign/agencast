@@ -51,7 +51,7 @@ function ValidationPopover({ errors, project }: { errors: ErrorItem[]; project: 
     </button>
     {open && createPortal(<div ref={popup} id={id} role="dialog" tabIndex={-1} aria-label={t("validation.count", { n: errors.length })}
       onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOpen(false); trigger.current?.focus(); } }}
-      className="popover pop-enter fixed z-[60] w-[36rem] max-w-[calc(100vw-24px)] overflow-y-auto p-4 focus:outline-none">
+      className="popover pop-enter fixed z-[60] w-[36rem] max-w-[calc(100vw-24px)] scroll-quiet overflow-y-auto p-4 focus:outline-none">
       <ErrorList errors={errors} hrefFor={(e) => errorHref(project, e)} />
     </div>, document.body)}
   </>;

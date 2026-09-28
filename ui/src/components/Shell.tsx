@@ -32,7 +32,7 @@ const Brand = () => (
 /** Fidelity §3: 232 px, padding 28 20, značka 25/22 px, „← Projekty“ 44 px, oddělovač, položky 44 px, dole útrata. */
 export function Sidebar(props: NavProps) {
   return (
-    <div className="sticky top-0 flex h-screen w-[232px] shrink-0 flex-col gap-[22px] overflow-y-auto border-r border-line bg-sidebar px-5 py-7">
+    <div className="sticky top-0 flex h-screen w-[232px] shrink-0 flex-col gap-[22px] scroll-quiet overflow-y-auto border-r border-line bg-sidebar px-5 py-7">
       <Brand />
       <NavBody {...props} />
     </div>
@@ -66,7 +66,7 @@ function TopBar(props: NavProps) {
         {open && <div className="fixed inset-0 z-40 bg-canvas/60" onMouseDown={close} aria-hidden />}
         {open && <div ref={dialog.ref} onKeyDown={dialog.onKeyDown} role="dialog" aria-modal="true" aria-label={t("shell.nav")} tabIndex={-1}
           onClick={(e) => (e.target as HTMLElement).closest("a") && close()}
-          className="popover pop-enter fixed right-4 bottom-[calc(84px+env(safe-area-inset-bottom))] z-50 flex max-h-[calc(100dvh-108px)] w-[min(260px,calc(100vw-32px))] flex-col gap-1 overflow-y-auto p-2 focus:outline-none">
+          className="popover pop-enter fixed right-4 bottom-[calc(84px+env(safe-area-inset-bottom))] z-50 flex max-h-[calc(100dvh-108px)] w-[min(260px,calc(100vw-32px))] flex-col gap-1 scroll-quiet overflow-y-auto p-2 focus:outline-none">
           <a href="#/" className="flex h-12 shrink-0 items-center gap-3 rounded-[7px] px-3 text-sm font-medium text-fg-secondary hover:bg-surface-active hover:text-fg">
             <ArrowLeft className="size-4" aria-hidden />{t("projects.title")}
           </a>
