@@ -82,7 +82,7 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
 
 ```json
 {
-  "name": "thtd", "root": "~/workspace/agencast/thtd",
+  "name": "thtd", "root": "~/projekty/thtd",
   "models": {"chytry": "anthropic/claude-haiku-4.5"},
   "limits": {"run_budget_usd": 1.0, "run_timeout": "1h", "max_call_depth": 3},
   "scenarios": [{"name": "ig-post", "etag": "9f2c…", "description": "…", "inputs": {…}, "outputs": {…},

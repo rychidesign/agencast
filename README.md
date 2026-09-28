@@ -78,6 +78,6 @@ Hodnotu tokenu nikdy nevypisujte.
 
 ## Stav a licence
 
-Aktuální verze frameworku je **0.16.3** (řada 0.16.x); historii změn najdete
+Aktuální verze frameworku je **0.16.4** (řada 0.16.x); historii změn najdete
 v [changelogu](framework/CHANGELOG.md). Projekt je dostupný pod licencí
 [WTFPL verze 2](LICENSE).
