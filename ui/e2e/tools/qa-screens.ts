@@ -6,7 +6,7 @@ import { chromium, type Browser, type BrowserContextOptions, type Page } from "@
 import fs from "node:fs";
 
 const URL = process.env.QA_URL ?? "http://127.0.0.1:28950";
-const OUT = "/tmp/agencast-qa";
+const OUT = process.env.QA_OUT ?? "/tmp/agencast-qa";
 const only = process.argv[2];
 const H = { Authorization: "Bearer test-token" };
 const api = async (p: string) => (await fetch(URL + p, { headers: H })).json();

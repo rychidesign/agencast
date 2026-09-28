@@ -25,16 +25,17 @@ export function runInputs(specs: Record<string, IoSpec>, values: Record<string, 
 }
 
 const Warning = ({ text }: { text: string }) => (
-  <p className="flex items-start gap-3 rounded-card bg-warning/10 px-4 py-3 text-[13px] text-warning"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{text}</p>
+  <p className="flex items-start gap-3 rounded-control bg-warning/10 p-3 text-xs leading-[19px] text-warning"><TriangleAlert className="size-4 shrink-0" aria-hidden />{text}</p>
 );
 
-const eyebrow = "font-mono text-[11px] tracking-[0.08em] text-fg-muted uppercase";
+// návrh 10 (změřeno z .pen): eyebrow 11 verzálky, karty režimu `nested` r8 p14, řádky limitů 32 px (12 px), mezery 20
+const eyebrow = "text-[11px] leading-[17px] tracking-[0.08em] text-fg-muted uppercase";
 
-/** Řádek limitu: štítek 13 `fg-secondary` vlevo, hodnota mono 13 vpravo, oddělovač pod (fidelity §7). */
+/** Řádek limitu: štítek 12 `fg-secondary` vlevo, hodnota mono 12 vpravo, oddělovač pod. */
 const Limit = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="flex items-center justify-between gap-4 border-b border-line py-3 text-[13px]">
+  <div className="flex min-h-8 items-center justify-between gap-3 border-b border-line py-1.5 text-xs">
     <dt className="text-fg-secondary">{label}</dt>
-    <dd className="text-right font-mono tabular-nums">{children}</dd>
+    <dd className="text-right font-mono text-fg tabular-nums">{children}</dd>
   </div>
 );
 
@@ -82,15 +83,17 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
         <fieldset className="space-y-3">
           <legend className={`mb-3 ${eyebrow}`}>{t("runForm.mode")}</legend>
           {([[true, "runForm.dry", "runForm.dryHelp"], [false, "runForm.live", "runForm.liveHelp"]] as const).map(([value, label, help]) => (
-            <label key={label} className={`flex min-h-18 cursor-pointer items-start gap-3 rounded-card bg-nested px-4 py-3.5 text-sm ${dry === value ? "ring-1 ring-accent" : "hover:bg-surface-hover"}`}>
-              <input type="radio" name="mode" checked={dry === value} onChange={() => setDry(value)} className="mt-0.5 size-4 accent-accent" />
-              <span>{t(label)}<span className="mt-1 block text-xs text-fg-secondary">{t(help)}</span></span>
+            <label key={label} className={`block cursor-pointer space-y-1 rounded-control bg-nested p-3.5 ${dry === value ? "ring-1 ring-accent" : "hover:bg-surface-hover"}`}>
+              <span className="flex min-h-11 items-center gap-2.5 text-[13px] text-fg-secondary">
+                <input type="radio" name="mode" checked={dry === value} onChange={() => setDry(value)} className="size-5 accent-accent" />{t(label)}
+              </span>
+              <span className="block text-xs leading-[18px] text-fg-secondary">{t(help)}</span>
             </label>
           ))}
         </fieldset>
         {!dry && (
           <div>
-            <p className={eyebrow} aria-hidden>{t("runForm.limitsTitle")}</p>
+            <p className={`mb-2 ${eyebrow}`} aria-hidden>{t("runForm.limitsTitle")}</p>
             <dl aria-label={t("runForm.limits")}>
               <Limit label={t("runForm.runBudget")}>{typeof l.run_budget_usd === "number" ? `${formatMoney(l.run_budget_usd)} USD` : "–"}</Limit>
               {typeof l.run_image_budget_usd === "number" && <Limit label={t("runForm.imageBudget")}>{formatMoney(l.run_image_budget_usd)} USD</Limit>}

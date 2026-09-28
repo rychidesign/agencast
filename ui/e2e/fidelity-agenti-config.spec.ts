@@ -13,8 +13,10 @@ test("F4A věrnost: agent a skill mají karty, výběr skillu se uloží", async
 
   await page.goto(`/#/p/${project.name}/agenti/pisatel`);
   const nav = page.getByRole("navigation", { name: "Agenti" });
-  await expect(nav).toHaveCSS("width", "200px");
-  await expect(nav.getByRole("link", { name: "pisatel" })).toHaveCSS("min-height", "48px");
+  // návrh 06 (změřeno z .pen): seznam 240 px, položka p 16 r 14
+  await expect(nav).toHaveCSS("width", "240px");
+  await expect(nav.getByRole("link", { name: "pisatel" })).toHaveCSS("padding-top", "16px");
+  await expect(nav.getByRole("link", { name: "pisatel" })).toHaveCSS("border-radius", "14px");
   const card = page.getByTestId("agent-editor-card");
   await expect(card).toHaveCSS("border-radius", "16px");
   await expect(card.getByRole("radiogroup", { name: "Zobrazení" })).toBeVisible();
@@ -42,7 +44,7 @@ test("F4C věrnost: Config má kartu, dvě kolony a aliasy vnořené", async ({ 
   expect(positions[0]!.y).toBe(positions[1]!.y);
   expect(positions[0]!.x).toBeLessThan(positions[1]!.x);
   const alias = card.getByRole("button", { name: "Smazat alias chytry" }).locator("xpath=../..");
-  await expect(alias).toHaveCSS("border-radius", "12px");
+  await expect(alias).toHaveCSS("border-radius", "10px");
   await expect(alias.getByRole("button", { name: /Smazat alias/ })).toBeDisabled();
   await expect(card.getByRole("button", { name: "+ alias" })).toContainText("Přidat alias");
   await expect(page.getByRole("button", { name: "Uložit" })).toHaveCount(1);

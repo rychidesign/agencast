@@ -5,7 +5,7 @@ set -euo pipefail
 PORT=${1:-28950}
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)
 BIN=$REPO/framework/.venv/bin/agencast
-S=/tmp/agencast-qa/srv
+S=${QA_SRV:-/tmp/agencast-qa/srv}
 pkill -f "agencast serve --fake $S/fake.yaml" 2>/dev/null || true
 rm -rf "$S" && mkdir -p "$S/cfg" "$S/projekty"
 printf 'projects_root: %s\nprojects: []\n' "$S/projekty" > "$S/cfg/projects.yaml"

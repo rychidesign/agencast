@@ -21,7 +21,6 @@ export function ProjectsPage() {
   return (
     <>
       <PageHeader title={t("projects.title")} description={t("projects.description")}
-        detail={list.data && <span title={t("projects.registry", { path: list.data.registry })}>{list.data.registry}</span>}
         actions={<>
           <button type="button" className={headerIconBtn} onClick={reload} aria-label={t("common.reload")} title={t("common.reload")}>
             <RefreshCw aria-hidden />
@@ -29,17 +28,20 @@ export function ProjectsPage() {
           <button type="button" className={btn.primary} onClick={() => setAdding(true)} disabled={!list.data}>
             <Plus className="size-4" aria-hidden />{t("projects.add")}
           </button>
-        </>} />
+        </>}>
+        {/* cesta registru jako samostatný řádek pod hlavičkou (návrh 02, změřeno z .pen: mono 12, mezera 24) */}
+        {list.data && <p className="truncate font-mono text-xs leading-[18px] text-fg-muted" title={t("projects.registry", { path: list.data.registry })}>{list.data.registry}</p>}
+      </PageHeader>
       {list.error && list.error.status !== 0 && <ErrorText error={list.error} />}
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-5">
-        {list.loading && !list.data && [0, 1].map((i) => <li key={i}><Skeleton className="h-[260px] rounded-panel" /></li>)}
+        {list.loading && !list.data && [0, 1].map((i) => <li key={i}><Skeleton className="h-[260px] rounded-tile" /></li>)}
         {list.data?.projects.map((p) => (
           <ProjectCard key={`${p.name}-${gen}`} project={p} onRemove={writable ? () => setRemoving(p) : undefined} />
         ))}
         {list.data && !list.data.projects.length && (
           <li className="col-span-full">
             <button type="button" onClick={() => setAdding(true)}
-              className="flex min-h-[260px] w-full flex-col items-center justify-center gap-3 rounded-panel border border-dashed border-line p-5 text-fg-secondary hover:bg-surface-hover hover:text-fg">
+              className="flex min-h-[260px] w-full flex-col items-center justify-center gap-3 rounded-tile border border-dashed border-line p-5 text-fg-secondary hover:bg-surface-hover hover:text-fg">
               <FolderPlus className="size-6" aria-hidden />
               <span className="text-sm">{t("projects.add")}</span>
             </button>
@@ -66,31 +68,34 @@ function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: ()
     { label: t("projects.copyPath"), onSelect: () => navigator.clipboard.writeText(project.root) },
     ...(onRemove ? [{ label: t("projects.remove"), onSelect: onRemove, danger: true }] : []),
   ];
-  // Fidelity §4: radius 16, padding 24, min. výška 260; název 20, čipy počtů, oddělovač, stav běhu + útrata.
+  // Návrh 02 (změřeno z .pen): radius 14, padding 22, min. výška 260, mezery 20; horní řádek = čip nedostupnosti (G6) a ⋯,
+  // pak název 20, cesta, čipy počtů, oddělovač, stav běhu + útrata.
   return (
     <li data-testid={`project-card-${project.name}`}
-      className={`relative flex min-h-[260px] flex-col gap-4 rounded-panel p-6 ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line"}`}>
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="min-w-0 pt-1 text-xl font-semibold break-words">
-          <a href={open} className="after:absolute after:inset-0 after:rounded-panel">{project.name}</a>
-        </h2>
-        <div className="relative z-10 -mt-1 -mr-2"><Menu items={menu} label={t("common.menuFor", { name: project.name })} /></div>
-      </div>
-      <p className="-mt-2 truncate font-mono text-xs text-fg-muted" title={project.root}>{project.root}</p>
-      {!project.available ? (
-        <div className="mt-auto space-y-2 text-[13px] text-fg-secondary">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-nested px-3 py-1.5 font-mono text-xs">
+      className={`relative flex min-h-[260px] flex-col gap-5 rounded-tile p-[22px] ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line"}`}>
+      <div className="-my-[7px] flex min-h-11 items-center justify-between gap-2">
+        {project.available ? <span /> : (
+          <span className="inline-flex items-center gap-2 rounded-full bg-nested px-2.5 py-[7px] text-xs font-medium text-fg-secondary">
             <CircleSlash className="size-3.5" aria-hidden />{t("projects.unavailable")}
           </span>
-          <p>{project.reason ?? t("projects.unavailable")}</p>
-        </div>
+        )}
+        <div className="relative z-10 -mr-3"><Menu ghost items={menu} label={t("common.menuFor", { name: project.name })} /></div>
+      </div>
+      <div className="space-y-2">
+        <h2 className="min-w-0 text-xl leading-[29px] font-semibold break-words">
+          <a href={open} className="after:absolute after:inset-0 after:rounded-tile">{project.name}</a>
+        </h2>
+        <p className="truncate font-mono text-xs text-fg-muted" title={project.root}>{project.root}</p>
+      </div>
+      {!project.available ? (
+        <p className="mt-auto text-[13px] break-words text-fg-secondary">{project.reason ?? t("projects.unavailable")}</p>
       ) : (
         <>
-          <p className="flex flex-wrap gap-2 font-mono text-xs text-fg-secondary">
-            <span className="rounded-md bg-nested px-2.5 py-1">{t("count.scenarios", { n: project.counts.scenarios })}</span>
-            <span className="rounded-md bg-nested px-2.5 py-1">{t("count.agents", { n: project.counts.agents })}</span>
+          <p className="flex flex-wrap gap-2 font-mono text-[11px] leading-4 text-fg-secondary">
+            <span className="rounded-[6px] bg-nested px-[9px] py-[5px]">{t("count.scenarios", { n: project.counts.scenarios })}</span>
+            <span className="rounded-[6px] bg-nested px-[9px] py-[5px]">{t("count.agents", { n: project.counts.agents })}</span>
           </p>
-          <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5">
             <LastRun run={project.last_run} />
             <span className="font-mono text-xs text-fg-secondary">{t("spend.today", { usd: formatSpend(project.spend_today_usd) })}</span>
           </div>

@@ -5,7 +5,7 @@
   --color-sidebar: #0B1524;
   --color-surface: #172436;
   --color-surface-hover: #1D2D42;
-  --color-surface-active: #1B2A3D;
+  --color-surface-active: #253B50;
   --color-control: #31455F;
   --color-control-hover: #3B5170;
   --color-track: #25374A;
@@ -23,20 +23,28 @@
   --color-neutral: #A5B2C5;
   --color-variable: #D6A2FF;
   --color-type: #8BDCDF;
+  --color-danger: #492937;
+  --color-danger-hover: #5A3142;
   --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
   --radius-control: 8px;
   --radius-button: 10px;
   --radius-card: 12px;
+  /* karta v mřížce / seznamu (projekt, scénář, položka seznamu, kontejner kroků, filtry) — změřeno z .pen */
+  --radius-tile: 14px;
   --radius-panel: 16px;
 }
 
+/* sdílený gradient pozadí aplikace z návrhu („AppBackground“, změřeno z .pen); `fixed`, aby přilepená hlavička
+   se stejnou třídou navazovala bez švu */
+@utility bg-app {
+  background-color: var(--color-canvas);
+  background-image: linear-gradient(-112.6deg, #1A2833 11%, #0C1A26 48%, #132430 89%);
+  background-attachment: fixed;
+}
+
 @layer components {
-  .text-h1 { @apply text-[32px] leading-tight font-semibold tracking-[-0.5px]; }
-  .text-editor-title { @apply font-mono text-[32px] leading-tight font-semibold tracking-[-0.5px]; }
-  .text-panel-title { @apply text-xl font-semibold; }
-  .text-eyebrow { @apply font-mono text-[11px] tracking-[0.08em] text-fg-muted uppercase; }
-  .text-meta { @apply font-mono text-xs text-fg-muted; }
+  .text-h1 { @apply text-[28px] leading-[42px] font-normal; }
 }
 
 @layer base {
@@ -45,7 +53,7 @@
     color-scheme: dark;
   }
   body {
-    @apply bg-canvas text-fg font-sans antialiased;
+    @apply bg-app text-fg font-sans antialiased;
   }
   /* Tailwind 4 vrací tlačítkům výchozí kurzor; klikací prvky mají ruku, neaktivní ne */
   button:not(:disabled, [aria-disabled="true"]), [role="button"], summary, select:not(:disabled),

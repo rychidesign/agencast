@@ -16,12 +16,12 @@ export function TypeIcon({ type, className = "size-4" }: { type: StepType | null
   return <Icon className={className} strokeWidth={1.5} aria-hidden />;
 }
 
-/** Řetězec ikon typů na kartě scénáře: prosté ikony 16 px bez koleček a šipek, nejvýš 5, pak „+N“ (fidelity §5). */
+/** Řetězec ikon typů na kartě scénáře: prosté ikony 18 px (gap 10, změřeno z .pen) bez koleček a šipek, nejvýš 5, pak „+N“. */
 export function IconChain({ types, max = 5 }: { types: (StepType | null)[]; max?: number }) {
   const shown = types.slice(0, max);
   const rest = types.length - shown.length;
   return (
-    <ol className="flex h-8 items-center gap-3 text-type" aria-label={t("scenario.chain", { types: types.join(", ") })}>
+    <ol className="flex h-8 items-center gap-2.5 text-type [&_svg]:size-[18px]" aria-label={t("scenario.chain", { types: types.join(", ") })}>
       {shown.map((type, i) => (
         <li key={i} title={type ?? "?"}><TypeIcon type={type} /></li>
       ))}

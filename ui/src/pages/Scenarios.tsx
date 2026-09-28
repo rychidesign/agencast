@@ -44,7 +44,7 @@ export function ScenariosTab({ project, header, onChanged }: { project: Project;
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-5">
         {!project.scenarios.length && <li>
           <button type="button" onClick={() => setCreating(true)}
-            className="flex min-h-[290px] w-full flex-col items-center justify-center gap-3 rounded-panel border border-dashed border-line p-6 text-fg-secondary hover:bg-surface-hover hover:text-fg">
+            className="flex min-h-[292px] w-full flex-col items-center justify-center gap-3 rounded-tile border border-dashed border-line p-6 text-fg-secondary hover:bg-surface-hover hover:text-fg">
             <Plus className="size-6" aria-hidden />
             <span className="text-sm">{t("scenarios.new")}</span>
           </button>
@@ -85,22 +85,23 @@ function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; 
     { label: t("scenarios.validate"), onSelect: onValidate },
   ];
   return (
-    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-[290px] flex-col gap-5 rounded-panel bg-surface p-6 hover:bg-surface-hover">
-      <div className="flex items-center gap-3">
+    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-[292px] flex-col gap-[18px] rounded-tile bg-surface p-6 hover:bg-surface-hover">
+      {/* návrh 03 (změřeno z .pen): řádek ikon 32 px, ⋯ 32 px ghost (klikací plocha 44), titul 18/26, meta mono 11 */}
+      <div className="flex h-8 items-center gap-3">
         <div className="min-w-0 flex-1 overflow-hidden"><IconChain types={s.types} /></div>
-        <div className="relative z-10 -mr-2"><Menu items={menu} label={t("common.menuFor", { name: s.name })} /></div>
+        <div className="relative z-10 -mr-3"><Menu ghost items={menu} label={t("common.menuFor", { name: s.name })} /></div>
       </div>
       <div className="space-y-2">
-        <h2 className="text-xl leading-snug font-semibold break-words">
-          <a href={open} className="after:absolute after:inset-0 after:rounded-panel">{s.name}</a>
+        <h2 className="text-lg leading-[26px] font-semibold break-words">
+          <a href={open} className="after:absolute after:inset-0 after:rounded-tile">{s.name}</a>
         </h2>
         {s.description && <p className="line-clamp-2 text-sm text-fg-secondary" title={s.description}>{s.description}</p>}
-        <p className="flex flex-wrap items-center gap-2 font-mono text-xs text-fg-muted">
+        <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] leading-4 text-fg-secondary">
           <span>{[t("count.steps", { n: s.steps_count }), agents.length ? t("count.agents", { n: agents.length }) : ""].filter(Boolean).join(" · ")}</span>
           {s.callable && <span className="rounded-full bg-nested px-2 py-0.5 text-type">{t("scenario.callable")}</span>}
         </p>
       </div>
-      <div className="mt-auto flex items-center justify-between gap-3">
+      <div className="mt-auto flex items-center justify-between gap-3 pt-0.5">
         <span className="relative z-10 min-w-0">
           {s.errors.length > 0 ? (
             <StatusChip status="failed">{t("validation.count", { n: s.errors.length })}</StatusChip>
@@ -109,8 +110,8 @@ function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; 
           )}
         </span>
         {/* celá karta je odkaz (titul); „Otevřít ↗“ je jen vizuální výzva, ne druhý odkaz */}
-        <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-fg" aria-hidden>
-          {t("common.open")}<ArrowUpRight className="size-4 text-fg-secondary" />
+        <span className="inline-flex shrink-0 items-center gap-2 text-[13px] text-fg" aria-hidden>
+          {t("common.open")}<ArrowUpRight className="size-4" />
         </span>
       </div>
     </li>

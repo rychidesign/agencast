@@ -1,5 +1,5 @@
 // §2.5 Detail běhu (fidelity §8: titul mono 32 + ↗, run_id pod ním, VSTUPY jako karta): karty se stavem, časem a cenou; záložky Kroky · Souhrn · Report · Soubory; živý běh (§4.8).
-import { ArrowUpRight, ExternalLink } from "lucide-react";
+import { ArrowUpRight, ExternalLink, FileText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { enc, getText, useApi } from "../api";
 import { Markdown } from "../components/Markdown";
@@ -83,8 +83,8 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
       <PageHeader sticky
         back={<BackLink href={href(project, "behy")}>{t("project.tab.behy")}</BackLink>}
         title={run && (
-          <a href={href(project, "scenare", runScenario(run))} className="inline-flex items-center gap-3 font-mono hover:underline">
-            {runScenario(run)}<ArrowUpRight className="size-6 shrink-0" aria-hidden />
+          <a href={href(project, "scenare", runScenario(run))} className="inline-flex items-center gap-3 font-mono text-[26px] leading-[39px] hover:underline">
+            {runScenario(run)}<ArrowUpRight className="size-5 shrink-0" aria-hidden />
           </a>
         )}
         detail={runId}
@@ -98,7 +98,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
           )}
           {run.fake && <span className="rounded-full bg-nested px-3 py-1.5 font-mono text-xs text-fg-secondary">{t("run.fake")}</span>}
           {(run.duration_s != null || run.cost_usd != null) && (
-            <span className="font-mono text-xs whitespace-nowrap text-fg-secondary">
+            <span className="font-mono text-[13px] whitespace-nowrap text-fg-secondary">
               {run.duration_s != null && <span data-testid="run-duration">{formatDuration(run.duration_s)}</span>}
               {run.duration_s != null && run.cost_usd != null && " · "}
               {run.cost_usd != null && <span data-testid="run-cost">{formatCost(run.cost_usd)} USD</span>}
@@ -109,9 +109,10 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
           </a>
         </>}>
         {inputEntries.length > 0 && (
-          <p className="flex min-h-12 w-full items-center gap-3 truncate rounded-card bg-nested px-4 py-2 font-mono text-[13px]"
+          // návrh 12 (změřeno z .pen): `nested` r8 p14 gap 12, štítek 10 verzálky, hodnoty mono 12
+          <p className="flex w-full items-center gap-3 truncate rounded-control bg-nested p-3.5 font-mono text-xs leading-[18px] text-fg-secondary"
             title={inputEntries.map(([k, v]) => `${k} = ${show(v)}`).join("\n")}>
-            <span className="text-[11px] tracking-[0.08em] text-fg-muted uppercase">{t("run.inputs")}</span>
+            <span className="font-sans text-[10px] leading-[15px] tracking-[0.08em] text-fg-muted uppercase">{t("run.inputs")}</span>
             <span className="truncate">{inputEntries.map(([k, v]) => `${k} = „${show(v)}“`).join(" · ")}</span>
           </p>
         )}
@@ -121,8 +122,8 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
             <TabLinks label={t("run.tabs")} active={tab}
               tabs={RUN_TABS.map((k) => ({ key: k, label: t(`run.tab.${k}`), href: href(project, "behy", runId, { zalozka: k === "kroky" ? undefined : k }) }))} />
             {live && (
-              <label className="ml-auto inline-flex items-center gap-2 text-sm text-fg-secondary">
-                <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> {t("run.follow")}
+              <label className="ml-auto inline-flex min-h-11 items-center gap-2.5 text-[13px] text-fg-secondary">
+                <input type="checkbox" className="size-5" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> {t("run.follow")}
               </label>
             )}
           </div>
@@ -136,23 +137,32 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
 
       <div>
         {loaded.error && loaded.error.status !== 0 && <ErrorText error={loaded.error} />}
-        {!run && !loaded.error && <div className="mx-auto max-w-[640px] pt-6"><Loading rows={4} pill /></div>}
+        {!run && !loaded.error && <div className="mx-auto max-w-[676px]"><Loading rows={4} pill /></div>}
         {run && tab === "kroky" && (
-          state === "queued" ? <EmptyState text={t("run.queuedHint")} />
-          : state === "dry_run" ? (
-            <div className="space-y-3 pt-4">
-              <p className="text-sm text-fg-secondary">{t("run.dryRun")}</p>
-              <Summary path={`${runPath}/files/plan.md`} has={!!run.files?.includes("plan.md")} />
+          state === "queued" ? (
+            <div className="space-y-6">
+              {run.queue_position != null && <p className="font-mono text-xs text-neutral">{t("runs.queued", { n: run.queue_position })}</p>}
+              <EmptyState tall text={t("run.queuedHint")} hint={t("run.queuedWhen")} />
+            </div>
+          ) : state === "dry_run" ? (
+            // návrh 16: řádek stavu 12 `neutral`, plán v kartě `surface` r12 p24 s eyebrow
+            <div className="space-y-6">
+              <p className="flex items-center gap-3 text-xs text-neutral"><FileText className="size-4" aria-hidden />{t("run.dryRun")}</p>
+              <section className="space-y-5 rounded-card bg-surface p-6" aria-labelledby="plan-title">
+                <p id="plan-title" className="text-[11px] tracking-[0.08em] text-fg-muted uppercase">{t("run.planTitle")}</p>
+                <Summary path={`${runPath}/files/plan.md`} has={!!run.files?.includes("plan.md")} />
+              </section>
             </div>
           ) : (
-            <div className="flex justify-center gap-6 pt-6">
-              <section className="w-full max-w-[640px]" aria-label={t("step.list")} onKeyDown={onColumnKey}>
+            // návrh 12 (změřeno z .pen): sloupec do 676, mezera 28, panel kroku 520
+            <div className="flex justify-center gap-7">
+              <section className="w-full max-w-[676px] min-w-0" aria-label={t("step.list")} onKeyDown={onColumnKey}>
                 {!run.tree?.length ? <p className="mb-4 text-sm text-fg-muted">{t("run.scenarioMissing", { name: runScenario(run) })}</p>
                   : run.tree_source === "current" && <p className="mb-4 text-[13px] text-fg-muted">{t("run.treeCurrent")}</p>}
                 <StepList steps={steps} ctx={ctx} />
               </section>
               {selected && sel && (
-                <PanelSlot>
+                <PanelSlot wide>
                   <RunStepPanel key={`${selected}:${sel.rs?.status}`} project={project} runId={runId} path={selected} rs={sel.rs}
                     kind={sel.step?.type ?? sel.rs?.kind ?? null} onClose={() => setQuery({ krok: undefined })} />
                 </PanelSlot>
@@ -160,9 +170,9 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
             </div>
           )
         )}
-        {run && tab === "souhrn" && <div className="mx-auto max-w-4xl pt-4"><Summary key={run.status} path={`${runPath}/files/summary.md`} has={!!run.files?.includes("summary.md")} /></div>}
-        {run && tab === "report" && (run.files?.includes("report.html") ? <div className="pt-4"><ReportTab key={run.status} project={project} runId={runId} /></div> : <EmptyState text={t("run.noFile")} />)}
-        {run && tab === "soubory" && <div className="pt-4"><FilesTab project={project} runId={runId} files={run.files ?? []} current={query.get("soubor") ?? undefined} /></div>}
+        {run && tab === "souhrn" && <div className="mx-auto max-w-4xl"><Summary key={run.status} path={`${runPath}/files/summary.md`} has={!!run.files?.includes("summary.md")} /></div>}
+        {run && tab === "report" && (run.files?.includes("report.html") ? <div><ReportTab key={run.status} project={project} runId={runId} /></div> : <EmptyState text={t("run.noFile")} />)}
+        {run && tab === "soubory" && <div><FilesTab project={project} runId={runId} files={run.files ?? []} current={query.get("soubor") ?? undefined} /></div>}
       </div>
     </div>
   );

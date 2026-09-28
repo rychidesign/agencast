@@ -4,7 +4,7 @@ import { chromium, type Page } from "@playwright/test";
 import fs from "node:fs";
 
 const URL = process.env.QA_URL ?? "http://127.0.0.1:28950";
-const OUT = "/tmp/agencast-qa/flows";
+const OUT = (process.env.QA_OUT ?? "/tmp/agencast-qa") + "/flows";
 const H = { Authorization: "Bearer test-token", "Content-Type": "application/json" };
 fs.mkdirSync(OUT, { recursive: true });
 const log: string[] = [];

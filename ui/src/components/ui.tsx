@@ -7,13 +7,15 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 
+// Rozměry změřené z .pen (obrazovky 1440): tlačítko 44 px, padding 0 18, radius 10; ikonové 44 × 44.
 export const btn = {
-  primary: "inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-accent px-[18px] text-sm font-semibold text-ink hover:bg-fg disabled:opacity-50 pointer-coarse:h-11",
-  secondary: "inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-control px-[18px] text-sm font-semibold text-fg hover:bg-control-hover disabled:opacity-50 pointer-coarse:h-11",
-  danger: "inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-error/15 px-[18px] text-sm font-semibold text-error hover:bg-error/25 disabled:opacity-50 pointer-coarse:h-11",
-  ghost: "inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius-button)] px-[18px] text-sm font-semibold text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50 pointer-coarse:h-11",
-  icon: "grid size-10 place-items-center rounded-[var(--radius-button)] bg-control text-fg hover:bg-control-hover disabled:opacity-50 pointer-coarse:size-11",
-  iconLg: "grid size-12 place-items-center rounded-[var(--radius-button)] bg-control text-fg hover:bg-control-hover disabled:opacity-50",
+  primary: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-accent px-[18px] text-sm font-semibold whitespace-nowrap text-ink hover:bg-fg disabled:opacity-50",
+  secondary: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-control px-[18px] text-sm font-semibold whitespace-nowrap text-fg hover:bg-control-hover disabled:opacity-50",
+  danger: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-danger px-[18px] text-sm font-semibold whitespace-nowrap text-error hover:bg-danger-hover disabled:opacity-50",
+  ghost: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] px-[18px] text-sm font-semibold whitespace-nowrap text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50",
+  icon: "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] bg-control text-fg hover:bg-control-hover disabled:opacity-50",
+  /** ⋯ na kartách (návrh: bez výplně, plocha až při hoveru / otevření). */
+  iconGhost: "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg hover:bg-control aria-expanded:bg-control disabled:opacity-50 [&>svg]:size-[18px]",
 };
 
 // --- stav ---------------------------------------------------------------------------------
@@ -21,11 +23,14 @@ export const btn = {
 export type Status =
   | "succeeded" | "failed" | "skipped" | "running" | "queued" | "warning" | "cancelled" | "interrupted" | "dry-run" | "none";
 
+// Pulzuje jen ikona běžícího stavu — pulzující text by v půlce animace neměl kontrast 4,5:1.
+const pulse = (s: Status) => (s === "running" ? " motion-safe:animate-pulse" : "");
+
 const STATUS: Record<Status, { icon: LucideIcon; color: string }> = {
   succeeded: { icon: CircleCheck, color: "text-success" },
   failed: { icon: CircleX, color: "text-error" },
   skipped: { icon: CircleDashed, color: "text-neutral" },
-  running: { icon: CircleDot, color: "text-running motion-safe:animate-pulse" },
+  running: { icon: CircleDot, color: "text-running" },
   queued: { icon: CircleDashed, color: "text-neutral" },
   warning: { icon: TriangleAlert, color: "text-warning" },
   cancelled: { icon: Ban, color: "text-warning" },
@@ -39,7 +44,7 @@ export function StatusIcon({ status, label, className = "size-4" }: { status: St
   const { icon: Icon, color } = STATUS[status];
   return (
     <>
-      <Icon className={`${className} shrink-0 ${color}`} aria-hidden />
+      <Icon className={`${className} shrink-0 ${color}${pulse(status)}`} aria-hidden />
       <span className="sr-only">{label}</span>
     </>
   );
@@ -49,7 +54,7 @@ export function StatusBadge({ status, children }: { status: Status; children: Re
   const { icon: Icon, color } = STATUS[status];
   return (
     <span className="inline-flex items-center gap-1.5">
-      <Icon className={`size-4 shrink-0 ${color}`} aria-hidden />
+      <Icon className={`size-4 shrink-0 ${color}${pulse(status)}`} aria-hidden />
       <span>{children}</span>
     </span>
   );
@@ -59,8 +64,8 @@ export function StatusBadge({ status, children }: { status: Status; children: Re
 export function StatusChip({ status, children }: { status: Status; children: ReactNode }) {
   const { icon: Icon, color } = STATUS[status];
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full bg-nested px-3 py-1.5 font-mono text-xs whitespace-nowrap ${color}`}>
-      <Icon className={`size-3.5 shrink-0 ${color}`} aria-hidden />{children}
+    <span className={`inline-flex items-center gap-2 rounded-full bg-nested px-2.5 py-[7px] font-mono text-xs font-medium whitespace-nowrap ${color}`}>
+      <Icon className={`size-3.5 shrink-0 ${color}${pulse(status)}`} aria-hidden />{children}
     </span>
   );
 }
@@ -68,7 +73,8 @@ export function StatusChip({ status, children }: { status: Status; children: Rea
 // --- načítání a prázdné stavy ---------------------------------------------------------------
 
 export function Skeleton({ className = "h-5 w-full" }: { className?: string }) {
-  return <div className={`rounded-[var(--radius-control)] bg-surface motion-safe:animate-pulse ${className}`} aria-hidden />;
+  // `surface-hover`: viditelné na pozadí stránky i uvnitř karty (`surface`)
+  return <div className={`rounded-[var(--radius-control)] bg-surface-hover motion-safe:animate-pulse ${className}`} aria-hidden />;
 }
 
 export function Loading({ rows = 3, pill = false }: { rows?: number; pill?: boolean }) {
@@ -81,11 +87,13 @@ export function Loading({ rows = 3, pill = false }: { rows?: number; pill?: bool
   );
 }
 
-export function EmptyState({ text, cli }: { text: string; cli?: string }) {
+/** Prázdný stav (návrh 15, změřeno z .pen): `surface` r12 p28 gap 14, ikona 28, titul 18 semibold, popis 13. */
+export function EmptyState({ text, hint, cli, tall = false }: { text: string; hint?: string; cli?: string; /** 380 px jako v návrhu (fronta). */ tall?: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-[var(--radius-panel)] bg-surface p-8 text-center text-sm text-fg-secondary">
+    <div className={`flex flex-col items-center justify-center gap-3.5 rounded-[var(--radius-card)] bg-surface p-7 text-center ${tall ? "min-h-[380px]" : ""}`}>
       <Inbox className="size-7 text-running" aria-hidden />
-      <p>{text}</p>
+      <p className="text-lg leading-[26px] font-semibold text-fg">{text}</p>
+      {hint && <p className="text-[13px] leading-[19px] text-fg-secondary">{hint}</p>}
       {cli && <CliLine cmd={cli} className="mt-1 w-full max-w-lg text-left" />}
     </div>
   );
@@ -145,29 +153,43 @@ export function CliLine({ cmd, className = "" }: { cmd: string; className?: stri
   );
 }
 
-/** Čitelný výstup kroku s čísly řádků a kopií celého textu. */
-export function CodeBlock({ text: source, title, file, language }: { text: string; title?: string; file?: string; language?: string }) {
+/** Kopírovat v patičce bloku kódu: průhledné s obrysem (návrh 12 „Code actions“). */
+export const copyBtn = "inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--radius-button)] px-3.5 text-sm font-semibold text-fg ring-1 ring-fg-muted/70 hover:bg-control";
+
+/** Hlavička bloku kódu: ikona 18 + název mono 13 + čip (r6, obrys), p 14 18 s linkou (návrh 12, změřeno z .pen). */
+export function CodeHead({ icon: Icon = Braces, name, chip }: { icon?: LucideIcon; name: string; chip: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 border-b border-line px-[18px] py-3.5">
+      <Icon className="size-[18px] shrink-0 text-fg-secondary" aria-hidden />
+      <span className="min-w-0 flex-1 truncate font-mono text-[13px] leading-[19px] text-fg" title={name}>{name}</span>
+      <span className="shrink-0 rounded-[6px] bg-nested px-[9px] py-[5px] font-mono text-[11px] leading-4 text-fg-secondary ring-1 ring-line">{chip}</span>
+    </div>
+  );
+}
+
+/** Blok kódu („CodeViewer“, návrh 12): `surface` r16, hlavička, tělo `nested` s čísly řádků (řádek 27 px), patička
+ *  s popisem vlevo a Kopírovat vpravo. Dlouhé řádky se zalamují (výstupy modelu jsou próza). */
+export function CodeBlock({ text: source, title, file, language, foot }: {
+  text: string; title?: string; file?: string; /** Text čipu v hlavičce (výchozí „Pouze čtení“). */ language?: string; foot?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const name = title ?? file ?? t("code.output");
   const lines = source.replace(/\n$/, "").split("\n");
   return (
-    <section className="overflow-hidden rounded-[var(--radius-card)] bg-surface ring-1 ring-line">
-      <div className="flex h-10 items-center gap-2 border-b border-line px-4">
-        <Braces className="size-4 text-fg-secondary" aria-hidden />
-        <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-fg">{name}</span>
-        <span className="rounded-md bg-nested px-2 py-1 font-mono text-[11px] text-fg-secondary">{language ?? t("code.readOnly")}</span>
-      </div>
-      <div className="overflow-auto bg-nested p-4 font-mono text-[13px] leading-6" role="region" aria-label={name} tabIndex={0}>
-        <table className="border-collapse"><tbody>{lines.map((line, i) => (
-          <tr key={i}><td className="pr-4 text-right align-top font-mono text-xs text-fg-muted select-none">{i + 1}</td><td className="whitespace-pre text-fg-secondary">{line || " "}</td></tr>
+    <section className="overflow-hidden rounded-[var(--radius-panel)] bg-surface">
+      <CodeHead name={name} chip={language ?? t("code.readOnly")} />
+      <div className="max-h-[60vh] overflow-auto bg-nested py-[18px] font-mono text-[13px] leading-[19px] focus-visible:ring-2 focus-visible:ring-accent" role="region" aria-label={name} tabIndex={0}>
+        <table className="w-full border-collapse"><tbody>{lines.map((line, i) => (
+          <tr key={i}><td className="w-[58px] py-1 pr-3.5 pl-4 text-right align-top font-mono text-xs leading-[19px] text-fg-muted select-none">{i + 1}</td><td className="py-1 pr-4 whitespace-pre-wrap break-words text-fg-secondary">{line || " "}</td></tr>
         ))}</tbody></table>
       </div>
-      <div className="flex justify-end border-t border-line px-3 py-2">
-        <button type="button" className={btn.secondary} onClick={async () => {
+      <div className="flex items-center justify-between gap-3 p-3.5">
+        <span className="min-w-0 truncate font-mono text-[11px] text-fg-muted">{foot}</span>
+        <button type="button" className={copyBtn} onClick={async () => {
           await navigator.clipboard.writeText(source);
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
-        }}><Copy className="size-4" aria-hidden />{copied ? t("common.copied") : t("common.copy")}</button>
+        }}>{copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}{copied ? t("common.copied") : t("common.copy")}</button>
       </div>
     </section>
   );
@@ -182,7 +204,8 @@ export interface MenuItem {
   disabled?: string;
 }
 
-export function Menu({ items, label, large = false }: { items: MenuItem[]; label: string; large?: boolean }) {
+/** ⋯ menu; `ghost` = bez výplně (karty). */
+export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label: string; ghost?: boolean }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -211,7 +234,7 @@ export function Menu({ items, label, large = false }: { items: MenuItem[]; label
   return (
     <div ref={root} className="relative" onKeyDown={onKey}>
       <button
-        type="button" className={large ? btn.iconLg : btn.icon} aria-label={label} aria-haspopup="menu" aria-expanded={open}
+        type="button" className={ghost ? btn.iconGhost : btn.icon} aria-label={label} aria-haspopup="menu" aria-expanded={open}
         aria-controls={id} onClick={(e) => (e.stopPropagation(), setOpen(!open))}
       >
         <Ellipsis className="size-5" aria-hidden />
@@ -237,11 +260,11 @@ export function Menu({ items, label, large = false }: { items: MenuItem[]; label
 
 export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: string; href: string }[]; active: string; label: string }) {
   return (
-    <nav aria-label={label} className="flex flex-wrap gap-4 border-b border-line">
+    <nav aria-label={label} className="flex flex-wrap gap-x-7 border-b border-line">
       {tabs.map((tab) => (
         <a
           key={tab.key} href={tab.href} aria-current={tab.key === active ? "page" : undefined}
-          className={`flex h-10 items-center border-b-2 px-1 text-sm font-medium ${tab.key === active ? "border-accent text-fg" : "border-transparent text-fg-secondary hover:text-fg"}`}
+          className={`-mb-px flex h-12 items-center border-b-2 px-[18px] text-[13px] font-medium ${tab.key === active ? "border-accent text-fg" : "border-transparent text-fg-secondary hover:text-fg"}`}
         >
           {tab.label}
         </a>
@@ -250,18 +273,18 @@ export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: 
   );
 }
 
-/** Segmentová pilulka Form / `<>` YAML (§3 `FormYamlToggle`). */
+/** Segmentový přepínač Form / `<>` YAML (§3 `FormYamlToggle`; návrh 05, změřeno z .pen: obal r9 p4, segment 44 px r7, 13 px). */
 export function Toggle<K extends string>({ value, options, onChange, label }: {
   value: K; options: { key: K; label: ReactNode; /** Důvod, proč přepnout nejde (tooltip i text pro čtečku). */ disabled?: string }[];
   onChange: (k: K) => void; label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex gap-1 rounded-full bg-nested p-1">
+    <div role="radiogroup" aria-label={label} className="inline-flex gap-1 rounded-[9px] bg-nested p-1">
       {options.map((o) => (
         <button
           key={o.key} type="button" role="radio" aria-checked={o.key === value} aria-disabled={!!o.disabled || undefined}
           title={o.disabled} aria-description={o.disabled} onClick={() => !o.disabled && onChange(o.key)}
-          className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm ${o.key === value ? "bg-accent font-semibold text-ink" : o.disabled ? "cursor-not-allowed text-fg-muted opacity-50" : "text-fg-secondary hover:text-fg"}`}
+          className={`inline-flex h-11 items-center gap-2 rounded-[7px] px-3.5 text-[13px] ${o.key === value ? "bg-accent text-ink" : o.disabled ? "cursor-not-allowed text-fg-muted opacity-50" : "text-fg-muted hover:text-fg"}`}
         >
           {o.label}
         </button>
@@ -279,11 +302,11 @@ export function Collapsible({ title, value, children }: { title: string; value: 
     <div>
       <button
         type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}
-        className="flex h-12 w-full items-center gap-3 text-left text-[15px] text-fg"
+        className="flex min-h-[52px] w-full items-center gap-2.5 py-4 text-left text-sm text-fg"
       >
+        <ChevronRight className={`size-4 shrink-0 text-fg-secondary transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
         <span className="flex-1 font-medium">{title}</span>
-        <span className="max-w-[55%] truncate font-mono text-xs text-fg-muted" title={typeof value === "string" ? value : undefined}>{value}</span>
-        <ChevronRight className={`size-4 text-fg-muted transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
+        <span className="max-w-[55%] truncate font-mono text-[11px] text-fg-muted" title={typeof value === "string" ? value : undefined}>{value}</span>
       </button>
       {open && <div id={id} className="pb-4">{children}</div>}
     </div>

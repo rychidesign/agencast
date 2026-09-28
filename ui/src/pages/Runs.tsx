@@ -61,25 +61,26 @@ export function RunsTab({ project, header }: { project: string; header: SectionH
     <>
       {header({
         meta: (nRunning > 0 || nQueued > 0) && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-nested px-3 py-1.5 font-mono text-xs text-running" aria-live="polite">
+          <span className="inline-flex items-center gap-2 rounded-full bg-nested px-2.5 py-[7px] font-mono text-xs font-medium text-running" aria-live="polite">
             <Activity className="size-3.5" aria-hidden />{t("runs.live", { running: nRunning, queued: nQueued })}
           </span>
         ),
       })}
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2.5 rounded-panel bg-surface p-3 ring-1 ring-line">
+        {/* návrh 04 (změřeno z .pen): filtry radius 14, padding 12, mezera 10, selecty 210 px; řádek 72 px, radius 8 */}
+        <div className="flex flex-wrap gap-2.5 rounded-tile bg-surface p-3 ring-1 ring-line">
           <div className="relative min-w-[min(16rem,100%)] flex-[2]">
-            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-muted" aria-hidden />
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-[18px] -translate-y-1/2 text-fg-muted" aria-hidden />
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t("runs.search")}
               placeholder={t("runs.search")} className={`${inputCls} pl-10`} />
           </div>
           <select value={state} onChange={(e) => setQuery({ stav: e.target.value || undefined })} aria-label={t("runs.filter.stateLabel")}
-            className={`${inputCls} min-w-[min(11rem,100%)] flex-1`}>
+            className={`${inputCls} w-[210px] max-sm:flex-1`}>
             <option value="">{t("runs.filter.allStates")}</option>
             {FILTERS.map((f) => <option key={f} value={f}>{t(`run.state.${f}`)}</option>)}
           </select>
           <select value={scenario} onChange={(e) => setQuery({ scenar: e.target.value || undefined })} aria-label={t("runs.filter.scenarioLabel")}
-            className={`${inputCls} min-w-[min(11rem,100%)] flex-1`}>
+            className={`${inputCls} w-[210px] max-sm:flex-1`}>
             <option value="">{t("runs.filter.allScenarios")}</option>
             {scenarios.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -92,7 +93,7 @@ export function RunsTab({ project, header }: { project: string; header: SectionH
             <table className="w-full min-w-[46rem] border-separate border-spacing-y-2 text-sm">
               <caption className="sr-only">{t("project.tab.behy")}</caption>
               <thead>
-                <tr className="font-mono text-[11px] tracking-[0.08em] text-fg-muted uppercase [&>th]:pb-1 [&>th]:font-normal">
+                <tr className="font-mono text-[10px] text-fg-muted uppercase [&>th]:pb-1 [&>th]:font-normal">
                   <th className="pr-4 pl-[58px] text-left">{t("runs.col.scenarioId")}</th>
                   <th className="pr-4 text-left">{t("runs.col.state")}</th>
                   <th className="pr-4 text-left">{t("runs.col.when")}</th>
@@ -133,23 +134,23 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
   const duration = r.duration_s != null ? formatDuration(r.duration_s) : state === "running" ? formatElapsed(when) : "–";
   return (
     <tr data-testid={`run-row-${r.run_id}`} title={r.run_id}
-      className="relative h-20 [&>td]:bg-surface hover:[&>td]:bg-surface-hover">
-      <td className="rounded-l-card py-3 pr-4 pl-5">
+      className="relative h-[72px] [&>td]:bg-surface hover:[&>td]:bg-surface-hover">
+      <td className="rounded-l-control py-3 pr-4 pl-5">
         <div className="flex items-center gap-[18px]">
           <StatusIcon status={RUN_STATUS[state]} label="" className="size-5" />
           <div className="min-w-0">
-            <a href={href(project, "behy", r.run_id)} className="block truncate text-[15px] font-semibold text-fg after:absolute after:inset-0">
+            <a href={href(project, "behy", r.run_id)} className="block truncate text-sm font-semibold text-fg after:absolute after:inset-0">
               {runScenario(r) || r.run_id}
             </a>
-            <p className="mt-1 truncate font-mono text-xs text-fg-muted">{r.run_id}{note && ` · ${note}`}</p>
+            <p className="mt-1 truncate font-mono text-[11px] leading-4 text-fg-muted">{r.run_id}{note && ` · ${note}`}</p>
           </div>
         </div>
       </td>
-      <td className={`pr-4 whitespace-nowrap ${STATE_COLOR[state]}`}>{reason ? t("run.failedIn", { reason }) : t(`run.state.${state}`)}</td>
-      <td className="pr-4 font-mono text-xs whitespace-nowrap text-fg-secondary" title={utcTitle(when)}>{what}</td>
+      <td className={`w-[145px] pr-4 text-xs whitespace-nowrap ${STATE_COLOR[state]}`}>{reason ? t("run.failedIn", { reason }) : t(`run.state.${state}`)}</td>
+      <td className="w-[145px] pr-4 font-mono text-[11px] whitespace-nowrap text-fg-secondary" title={utcTitle(when)}>{what}</td>
       <td className="pr-4 text-right font-mono text-xs whitespace-nowrap text-fg-secondary">{duration}</td>
       <td className="pr-4 text-right font-mono text-xs whitespace-nowrap text-fg-secondary">{r.cost_usd != null ? `${formatCost(r.cost_usd)} USD` : "–"}</td>
-      <td className="w-10 rounded-r-card pr-5"><ChevronRight className="size-4 text-fg-secondary" aria-hidden /></td>
+      <td className="w-10 rounded-r-control pr-5"><ChevronRight className="size-4 text-fg-secondary" aria-hidden /></td>
     </tr>
   );
 }

@@ -76,16 +76,17 @@ test.describe("pod 1024 px", () => {
   });
 });
 
-test("R4 věrnost návrhu: sidebar, hlavička, karta projektu, řádek běhu (fidelity §1, §3, §4, §8)", async ({ page, project, server }) => {
+// Hodnoty změřené z .pen (vlna F; fidelity §1, §3, §4, §8 opravené podle návrhu)
+test("R4 věrnost návrhu: sidebar, hlavička, karta projektu, řádek běhu (změřeno z .pen)", async ({ page, project, server }) => {
   await page.goto("/");
   const h1 = page.getByRole("heading", { name: "Projekty", level: 1 });
-  await expect(h1).toHaveCSS("font-size", "32px");
-  await expect(h1).toHaveCSS("font-weight", "600");
+  await expect(h1).toHaveCSS("font-size", "28px");
+  await expect(h1).toHaveCSS("font-weight", "400");
   await expect(page.getByText("Spravuj projekty, scénáře a běhy agentů na jednom místě.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Načíst znovu" })).toHaveCSS("width", "48px");
+  await expect(page.getByRole("button", { name: "Načíst znovu" })).toHaveCSS("width", "44px");
   const card = page.getByTestId(`project-card-${project.name}`);
-  await expect(card).toHaveCSS("border-top-left-radius", "16px");
-  await expect(card).toHaveCSS("padding-left", "24px");
+  await expect(card).toHaveCSS("border-top-left-radius", "14px");
+  await expect(card).toHaveCSS("padding-left", "22px");
   await expect(card.getByRole("heading", { level: 2 })).toHaveCSS("font-size", "20px");
 
   const id = await startRun(server, project.name, "ukazka", { inputs: { tema: "káva" } });
@@ -94,14 +95,14 @@ test("R4 věrnost návrhu: sidebar, hlavička, karta projektu, řádek běhu (fi
   const nav = page.getByRole("navigation", { name: "Části projektu" });
   expect((await nav.locator("xpath=..").boundingBox())!.width).toBe(232);
   for (const link of await nav.getByRole("link").all()) expect((await link.boundingBox())!.height).toBe(44);
-  await expect(nav.getByRole("link", { name: "Běhy" })).toHaveCSS("background-color", "rgb(27, 42, 61)"); // surface-active
+  await expect(nav.getByRole("link", { name: "Běhy" })).toHaveCSS("background-color", "rgb(37, 59, 80)"); // surface-active #253B50
   const row = page.getByTestId(`run-row-${id}`);
-  expect((await row.boundingBox())!.height).toBe(80);
+  expect((await row.boundingBox())!.height).toBe(72);
   await expect(row).toContainText(id);
   await expect(page.getByRole("columnheader", { name: "Scénář / run_id" })).toBeVisible();
 
   await page.goto(`/#/p/${project.name}/behy/${id}`);
   const title = page.getByRole("heading", { level: 1 }).getByRole("link", { name: "ukazka" });
-  await expect(title).toHaveCSS("font-size", "32px");
+  await expect(title).toHaveCSS("font-size", "26px");
   await expect(title).toHaveCSS("font-family", /JetBrains Mono/);
 });

@@ -1,6 +1,6 @@
 // Panel kroku (§2.3): typ nahoře jako select, pole typu, dole sbalené Podmínka / Spolehlivost /
 // Podrobnosti kroku. Změny jdou do rozpracovaného stromu (edit.ts), na disk až tlačítkem Uložit.
-import { Trash2, X } from "lucide-react";
+import { PanelRight, Trash2, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { flat, isObj, outputFields, visibleBefore, type Header, type WStep } from "../edit";
 import { t, tOr } from "../i18n";
@@ -14,25 +14,27 @@ import { btn, Collapsible, ErrorList } from "./ui";
 type Obj = Record<string, unknown>;
 
 /** Ikonové tlačítko hlavičky panelu: 32 px ghost (fidelity §7), na dotyku 44 px. */
-export const panelIcon = "grid size-8 shrink-0 place-items-center rounded-[var(--radius-control)] text-fg-muted hover:bg-surface-hover hover:text-fg disabled:opacity-50 pointer-coarse:size-11";
+export const panelIcon = "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50";
 
-/** PanelShell (fidelity §7): `surface` r16, padding 24, eyebrow mono 11 verzálky, titul 20 semibold. */
+/** PanelShell (návrh 05, změřeno z .pen): `surface` r16; hlavička p 20 s linkou (ikona 16, eyebrow mono 10 verzálky,
+ *  titul 18 semibold, zavřít 44 ghost), tělo p 20, mezera polí 18. */
 export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   id: string; eyebrow: string; title: ReactNode; onClose: () => void; actions?: ReactNode; children: ReactNode;
 }) {
   return (
-    <aside aria-labelledby={id} className="rounded-panel bg-surface p-6">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <div id={id} className="font-mono text-[11px] tracking-[0.08em] text-fg-muted uppercase">{eyebrow}</div>
-          <div className="truncate text-xl font-semibold">{title}</div>
+    <aside aria-labelledby={id} className="rounded-panel bg-surface">
+      <div className="flex items-center gap-3 border-b border-line py-4 pr-3 pl-5">
+        <PanelRight className="size-4 shrink-0 text-fg-secondary" aria-hidden />
+        <div className="min-w-0 flex-1 space-y-[3px]">
+          <div id={id} className="font-mono text-[10px] leading-[15px] tracking-[0.08em] text-fg-muted uppercase">{eyebrow}</div>
+          <div className="truncate text-lg leading-[26px] font-semibold">{title}</div>
         </div>
         {actions}
         <button type="button" className={panelIcon} onClick={onClose} aria-label={t("common.close")} title={t("common.close")}>
           <X className="size-4" aria-hidden />
         </button>
       </div>
-      {children}
+      <div className="p-5">{children}</div>
     </aside>
   );
 }
@@ -104,7 +106,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
           <Trash2 className="size-4" aria-hidden />
         </button>
       }>
-      <div className="space-y-5">
+      <div className="space-y-[18px]">
         <ErrorList errors={loose} />
         <FormField label={t("panel.type")}>
           {(a) => (
@@ -497,11 +499,12 @@ export function HeaderPanel({ name, header, errors, onClose, change }: {
       <FormField label={t(`panel.${which}`)} errors={fe(which).filter((e) => e.field === which)}
         action={<AddPill label={t(which === "inputs" ? "panel.addInput" : "panel.addOutput")} onClick={add} />}>
         {() => (
-          <ul className="divide-y divide-line">
+          // každý vstup / výstup jako vnořená karta (návrh 09: `nested` r8 p14)
+          <ul className="space-y-3">
             {Object.entries(map).map(([name, spec]) => {
               const put = (s: IoSpec, key: string) => write({ ...map, [name]: s }, `${which}:${name}:${key}`);
               return (
-                <li key={name} className="space-y-2 py-3 first:pt-0">
+                <li key={name} className="space-y-2 rounded-control bg-nested p-3.5">
                   <div className="flex items-center gap-2">
                     <KeyInput name={name} taken={Object.keys(map)} label={t("panel.keyName")}
                       onRename={(to) => write(renameKey(map, name, to) as Record<string, IoSpec>, "rename")} />
@@ -550,7 +553,7 @@ export function HeaderPanel({ name, header, errors, onClose, change }: {
   };
   return (
     <PanelShell id="step-panel-title" eyebrow={t("panel.header")} title={<span className="font-mono">{name}</span>} onClose={onClose}>
-      <div className="space-y-5">
+      <div className="space-y-[18px]">
         <ErrorList errors={errors.filter((e) => !e.field || !/^(description|inputs|outputs|callable)/.test(e.field))} />
         <FormField label={t("agent.description")} help={t("help.description")} errors={fe("description")} required>
           {(a) => <input {...a} className={inputCls} value={header.description} onChange={(e) => change((h) => ({ ...h, description: e.target.value }), "desc")} />}

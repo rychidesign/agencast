@@ -26,19 +26,20 @@ test("PN2 panel spuštění: režim se volí kartou, limity jen u ostrého běhu
   await expect(panel.getByRole("radio", { name: /Ostrý běh/ })).toBeChecked();
   await expect(panel.getByLabel("Limity běhu")).toBeVisible();
   await expect(panel.getByRole("button", { name: "Spustit ostrý běh" })).toBeVisible();
-  // fidelity §7: Zrušit + Spustit vpravo, limity jako řádky s oddělovači, padding panelu 24
-  await expect(panel).toHaveCSS("padding-top", "24px");
+  // .pen (návrh 10): Zrušit + Spustit vpravo, limity jako řádky s oddělovači, hlavička panelu s linkou, tělo p 20
+  await expect(panel.locator(":scope > div").first()).toHaveCSS("border-bottom-width", "1px");
+  await expect(panel.locator(":scope > div").nth(1)).toHaveCSS("padding-top", "20px");
   await expect(panel.getByLabel("Limity běhu").locator("div").first()).toHaveCSS("border-bottom-width", "1px");
   await panel.getByRole("button", { name: "Zrušit" }).click();
   await expect(page.getByRole("complementary")).toHaveCount(0);
 });
 
-test("PN5 věrnost §7: eyebrow mono 11 a select typu s popisem", async ({ page, project }) => {
+test("PN5 věrnost (změřeno z .pen): eyebrow mono 10 a select typu s popisem", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenare/ukazka`);
   await page.getByRole("button", { name: /Krok 1: ask napis/ }).click();
   const panel = page.getByRole("complementary", { name: "KROK 1 · ask" });
   await expect(panel.getByRole("combobox", { name: "Typ kroku" }).locator("option:checked")).toHaveText("ask · jedno volání agenta");
-  await expect(panel.getByText("KROK 1 · ask")).toHaveCSS("font-size", "11px");
+  await expect(panel.getByText("KROK 1 · ask")).toHaveCSS("font-size", "10px");
 });
 
 test("PN3 editor agenta: Uložit jen nahoře, Přejmenovat a Smazat v ⋯, bez nadpisu a cesty ve formuláři", async ({ page, project }) => {

@@ -7,8 +7,8 @@ import { t } from "../i18n";
 import { setQuery } from "../router";
 import type { RunEvent, RunStep, RunStepDetail, StepType } from "../types";
 import { PanelShell } from "./StepPanel";
-import { CodeBlock, FileViewer, runFilePath } from "./RunFiles";
-import { ErrorText, Loading, StatusChip, type Status } from "./ui";
+import { FileViewer, runFilePath } from "./RunFiles";
+import { CodeBlock, ErrorText, Loading, StatusChip, type Status } from "./ui";
 
 type PanelTab = "prompt" | "response" | "output" | "calls" | "tools" | "image" | "files";
 
@@ -39,7 +39,7 @@ function ResponseView({ path, name }: { path: string; name: string }) {
     const msg = body?.choices?.[0]?.message;
     shown = typeof msg?.content === "string" && msg.content ? msg.content : JSON.stringify(msg ?? body, null, 2);
   } catch { /* není JSON — ukážeme text */ }
-  return <CodeBlock name={name} text={shown} badge={t("code.readOnlyBadge")} />;
+  return <CodeBlock title={name} text={shown} />;
 }
 
 /** Odpovědi Jev s pravděpodobností jako pruh (0–1), jiné hodnoty textem. */
@@ -138,7 +138,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
   let body: ReactNode = <Empty />;
   if (active === "prompt" && files.includes(dir + "prompt.md")) body = <FileViewer project={project} runId={runId} path={dir + "prompt.md"} name="prompt.md" />;
   if (active === "output" && d?.output != null)
-    body = <CodeBlock name="output.json" text={JSON.stringify(d.output, null, 2)} badge={t("code.readOnlyBadge")} foot={`JSON · ${t("code.readOnly")}`} />;
+    body = <CodeBlock title="output.json" text={JSON.stringify(d.output, null, 2)} foot={`JSON · ${t("code.readOnly")}`} />;
   if (active === "response")
     body = kind === "jev" ? <JevAnswers answers={rs?.answers} />
       : responses.length ? <ResponseView path={runFilePath(project, runId, responses.at(-1)!)} name={responses.at(-1)!.slice(dir.length)} /> : <Empty />;
@@ -153,9 +153,9 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
       <ul className="space-y-2">
         {files.map((f) => (
           <li key={f}>
-            <button type="button" className="flex h-11 w-full items-center gap-3 rounded-control bg-nested px-3 text-left hover:bg-surface-hover" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>
+            <button type="button" className="flex h-[52px] w-full items-center gap-3 rounded-control bg-nested p-3 text-left hover:bg-surface-hover" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>
               <FileText className="size-4 shrink-0 text-fg-secondary" aria-hidden />
-              <span className="truncate font-mono text-[13px]">{f.slice(dir.length)}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg-secondary">{f.slice(dir.length)}</span>
               <ExternalLink className="size-4 shrink-0 text-fg-secondary" aria-hidden />
             </button>
           </li>
@@ -167,7 +167,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
     <PanelShell id="run-step-title" eyebrow={`${rs?.nn ? t("panel.step", { n: rs.nn }) : ""} · ${kind ?? "?"}`.replace(/^ · /, "")}
       title={<span className="font-mono">{path}</span>} onClose={onClose}>
       <div className="space-y-5">
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-fg-muted">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-fg-secondary">
           <StatusChip status={status}>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</StatusChip>
           {(rs?.duration_s != null || rs?.cost_usd != null) && (
             <span className="tabular-nums">{[rs.duration_s != null && formatDuration(rs.duration_s), rs.cost_usd != null && `${formatCost(rs.cost_usd)} USD`].filter(Boolean).join(" · ")}</span>
@@ -188,7 +188,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
             <div role="tablist" aria-label={t("rpanel.tabs")} className="flex flex-wrap gap-x-6 border-b border-line">
                 {tabs.map((k) => (
                   <button key={k} type="button" role="tab" aria-selected={k === active} onClick={() => setTab(k)}
-                    className={`-mb-px h-10 border-b-2 text-sm font-medium pointer-coarse:h-11 ${k === active ? "border-accent text-fg" : "border-transparent text-fg-secondary hover:text-fg"}`}>
+                    className={`-mb-px h-11 border-b-2 text-[13px] ${k === active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg"}`}>
                     {t(TAB_KEY[k])}{k === "calls" ? ` (${rs.calls?.length ?? 0})` : ""}
                   </button>
                 ))}

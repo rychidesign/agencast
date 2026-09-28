@@ -39,7 +39,6 @@
   "project.tab.behy": "Běhy",
   "validation.count": "{n, plural, one {# chyba} few {# chyby} other {# chyb}}",
   "scenarios.new": "Nový scénář",
-  "scenarios.empty": "Projekt zatím nemá žádný scénář.",
   "scenarios.runsOf": "Běhy tohoto scénáře",
   "scenarios.copyRun": "Kopírovat příkaz spuštění",
   "scenario.callable": "volatelný",
@@ -334,8 +333,6 @@
   "agenti.new": "Nový agent",
   "skilly.new": "Nový skill",
   "agent.modelHelp": "Alias z config.yaml, nikdy konkrétní id modelu.",
-  "agent.addSkill": "přidat skill",
-  "agent.removeSkill": "Odebrat skill {name}",
   "agent.mcpHelp": "Nabízí jen servery, kde je agent v agents v mcp.yaml (určuje vlastník).",
   "agent.toolsFree": "server nástroje neomezuje — seznam nástrojů uprav v Markdown režimu",
   "agent.turnsRequired": "Povinné: agent má MCP server.",
@@ -399,7 +396,6 @@
   "agent.markdownHelp": "Podporuje Markdown",
   "config.removeAliasShort": "Smazat alias",
   "config.addAliasButton": "Přidat alias",
-  "config.readOnly": "Pouze čtení",
   "config.transport": "Transport",
   "projects.description": "Spravuj projekty, scénáře a běhy agentů na jednom místě.",
   "app.notFoundHelp": "Vrať se na přehled projektů a pokračuj odtud.",
@@ -420,5 +416,8 @@
   "edit.addStep": "Přidat krok",
   "picker.output": "výstup scénáře",
   "runForm.limitsTitle": "Limity",
-  "code.readOnlyBadge": "Pouze čtení"
+  "run.queuedWhen": "Průběh se zobrazí po spuštění běhu.",
+  "run.planTitle": "Plán běhu",
+  "files.preview": "Náhled",
+  "files.code": "Kód"
 }

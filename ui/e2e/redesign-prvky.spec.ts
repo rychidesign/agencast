@@ -63,9 +63,11 @@ test("P5 základní ovládání drží rozměry návrhu", async ({ page, project
   await page.goto("/");
   const add = page.getByRole("button", { name: "Přidat projekt" }).first();
   await expect(add).toBeVisible();
-  expect(await add.evaluate((el) => ({ height: el.getBoundingClientRect().height, radius: getComputedStyle(el).borderRadius }))).toEqual({ height: 40, radius: "10px" });
-  const menu = page.getByRole("button", { name: "Další akce" });
-  expect(await menu.evaluate((el) => el.getBoundingClientRect().width)).toBe(40);
+  // .pen: tlačítka na obrazovkách 44 px, radius 10; ⋯ karty ghost s klikací plochou 44
+  expect(await add.evaluate((el) => ({ height: el.getBoundingClientRect().height, radius: getComputedStyle(el).borderRadius }))).toEqual({ height: 44, radius: "10px" });
+  const menu = page.getByRole("button", { name: `Akce pro ${project.name}` });
+  expect(await menu.evaluate((el) => el.getBoundingClientRect().width)).toBe(44);
+  await expect(menu).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 
   await page.goto(`/#/p/${project.name}/config`);
   const field = page.locator("input:not([type=checkbox])").first();

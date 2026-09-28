@@ -1,11 +1,12 @@
 // §2.7 Agenti a §2.9 Skilly — seznam vlevo, editor vpravo. Agent: formulář frontmatteru + instrukce
 // (`PUT …/agents/<a>`), nebo celý soubor jako Markdown (`files/`). Skill: celý SKILL.md (`PUT …/skills/<n>`).
-import { ArrowUpRight, BookOpen, Bot, CodeXml, Plus } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bot, CircleX, CodeXml, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ApiError, enc, send } from "../api";
 import { FormField, inputCls, Modal, NameDialog } from "../components/form";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
-import { btn, EmptyState, ErrorList, ErrorText, Loading, StatusChip, Toggle } from "../components/ui";
+import { Markdown } from "../components/Markdown";
+import { btn, EmptyState, ErrorList, ErrorText, Loading, StatusChip, Toggle, type Status } from "../components/ui";
 import { isObj, mergePatch } from "../edit";
 import { t } from "../i18n";
 import { href, navigate, type Tab } from "../router";
@@ -20,16 +21,20 @@ function MasterDetail({ project, tab, items, current, children }: {
   project: Project; tab: Tab; items: { name: string; errors: ErrorItem[] }[]; current?: string; children: ReactNode;
 }) {
   return (
-    <div className="grid gap-6 min-[1100px]:grid-cols-[200px_minmax(0,1fr)] min-[1100px]:gap-8">
+    // návrh 06 (změřeno z .pen): seznam 240 px, položky `surface` r14 p16 gap 14, ikona 22, výběr = `surface-active`
+    <div className="grid gap-6 min-[1100px]:grid-cols-[240px_minmax(0,1fr)]">
       <nav aria-label={t(`project.tab.${tab}`)}>
         <ul className="space-y-2">
           {items.map((it) => (
             <li key={it.name}>
               <a href={href(project.name, tab, it.name)} aria-current={it.name === current ? "page" : undefined}
-                className={`flex min-h-12 items-center gap-3 rounded-[10px] px-3 font-mono text-sm text-fg-secondary hover:text-fg ${it.name === current ? "bg-surface-active text-fg ring-1 ring-accent" : "bg-surface hover:bg-surface-hover"}`}>
-                {tab === "agenti" ? <Bot className="size-4 shrink-0 text-fg-muted" aria-hidden /> : <BookOpen className="size-4 shrink-0 text-fg-muted" aria-hidden />}
-                <span className="min-w-0 flex-1 truncate" title={it.name}>{it.name}</span>
-                {it.errors.length > 0 && <span className="shrink-0 rounded-full bg-error/15 px-1.5 py-0.5 text-[11px] text-error">{it.errors.length}</span>}
+                className={`flex items-center gap-3.5 rounded-tile p-4 font-mono text-sm font-semibold text-fg ${it.name === current ? "bg-surface-active" : "bg-surface hover:bg-surface-hover"}`}>
+                {tab === "agenti" ? <Bot className="size-[22px] shrink-0 text-type" aria-hidden /> : <BookOpen className="size-[22px] shrink-0 text-type" aria-hidden />}
+                <span className="min-w-0 flex-1 space-y-[3px]">
+                  <span className="block truncate leading-5" title={it.name}>{it.name}</span>
+                  {it.errors.length > 0 && <span className="block text-[11px] leading-4 font-normal text-error">{t("validation.count", { n: it.errors.length })}</span>}
+                </span>
+                {it.errors.length > 0 && <CircleX className="size-4 shrink-0 text-error" aria-hidden />}
               </a>
             </li>
           ))}
@@ -49,9 +54,11 @@ export function SaveNote({ dirty, state, errors = 0, onJump }: { dirty: boolean;
     : state.kind === "saved" ? t("save.saved", { at: state.at })
     : state.kind === "reloaded" ? t("save.reloaded", { at: state.at })
     : t("save.clean");
+  // čip jako v návrhu 05 („Uloženo ✓ 14:02“ zeleně, „Neuloženo“ žlutě); barva i ikona podle stavu
+  const status: Status = state.kind === "failed" ? "failed" : dirty ? "warning" : state.kind === "saving" ? "none" : "succeeded";
   return (
-    <span className="inline-flex items-center gap-2 font-mono text-xs" aria-live="polite">
-      <span data-testid="save-status" className={state.kind === "failed" ? "text-error" : dirty ? "text-warning" : state.kind === "saved" || state.kind === "reloaded" ? "text-success" : "text-fg-muted"}>{text}</span>
+    <span className="inline-flex items-center gap-2" aria-live="polite">
+      <StatusChip status={status}><span data-testid="save-status">{text}</span></StatusChip>
       {errors > 0 && (onJump
         ? <button type="button" onClick={onJump} className="hover:underline"><StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip></button>
         : <StatusChip status="failed">{t("validation.count", { n: errors })}</StatusChip>)}
@@ -215,8 +222,8 @@ function AgentEditor({ project, name, header, newButton, onChanged }: {
         onSave={() => void save()} onRename={requestRename} onDelete={() => setDeleting(true)} />
       <MasterDetail project={project} tab="agenti" items={project.agents} current={name}>
       <div className="space-y-4">
-      <h2 className="truncate font-mono text-xl font-semibold" title={name}>{name}</h2>
-      <div className="space-y-7 rounded-2xl bg-surface p-6" data-testid="agent-editor-card">
+      <h2 className="truncate font-mono text-2xl leading-9" title={name}>{name}</h2>
+      <div className="space-y-[18px] rounded-panel bg-surface p-6" data-testid="agent-editor-card">
       <div className="flex flex-wrap items-center gap-4">
         <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
           options={[{ key: "form", label: t("code.form"), disabled: mode === "text" && text.errors.some((e) => e.line) ? t("code.fixYaml", { n: text.errors.find((e) => e.line)!.line! }) : undefined },
@@ -293,14 +300,12 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
   };
   const known = ["description", "model", "skills", "mcp", "tools", "limits"];
   return (
-    <div className="space-y-7">
+    // pole po 18 px, nadpisy sekcí 16 semibold s odsazením 10 nad (návrh 06, změřeno z .pen)
+    <div className="space-y-[18px] [&>section]:pt-2.5">
       <ErrorList errors={errors.filter((e) => !e.field || !known.some((k) => e.field === k || e.field!.startsWith(`${k}.`)))} />
-      <div className="[&_label]:text-base [&_label]:font-semibold">
       <FormField label={t("agent.description")} errors={fe("description")} required>
         {(a) => <input {...a} className={inputCls} value={String(fm.description ?? "")} onChange={(e) => setFm("description", e.target.value)} />}
       </FormField>
-      </div>
-      <div className="[&_label]:text-base [&_label]:font-semibold">
       <FormField label={t("agent.model")} help={t("agent.modelHelp")} errors={fe("model")} required>
         {(a) => (
           <select {...a} className={inputCls} value={String(fm.model ?? "")} onChange={(e) => setFm("model", e.target.value)}>
@@ -310,17 +315,16 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
           </select>
         )}
       </FormField>
-      </div>
       <section className="space-y-3">
         <h3 className="text-base font-semibold">{t("agent.skills")}</h3>
         <ErrorList errors={fe("skills")} />
-        <ul className="rounded-xl bg-nested p-2" aria-label={t("agent.skills")}>
+        <ul className="rounded-[10px] bg-nested px-3.5 py-1.5" aria-label={t("agent.skills")}>
           {[...project.skills.map((s) => s.name), ...skills.filter((s) => !project.skills.some((known) => known.name === s))].map((s) => (
             <li key={s}>
-              <label className="flex min-h-10 items-center gap-3 rounded-lg px-2 font-mono text-sm hover:bg-surface-active">
-                <input type="checkbox" className="size-4 accent-accent" checked={skills.includes(s)}
+              <label className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
+                <input type="checkbox" className="size-[18px] accent-accent" checked={skills.includes(s)}
                   onChange={(e) => setFm("skills", e.target.checked ? [...skills, s] : skills.filter((x) => x !== s))} />
-                <span className="min-w-0 flex-1 truncate">{s}</span><span className="text-[11px] text-fg-muted">SKILL.md</span>
+                <span className="min-w-0 flex-1 truncate">{s}</span><span className="font-mono text-[11px] text-fg-muted">SKILL.md</span>
               </label>
             </li>
           ))}
@@ -331,14 +335,14 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
         <h3 className="text-base font-semibold">{t("agent.mcp")}</h3>
         <p className="text-xs text-fg-muted">{t("agent.mcpHelp")}</p>
         <ErrorList errors={[...fe("mcp"), ...fe("tools")]} />
-          <ul className="rounded-xl bg-nested p-2">
+          <ul className="rounded-[10px] bg-nested px-3.5 py-1.5">
             {project.mcp_servers.map((s) => {
               const allowed = !!s.agents?.includes(name);
               const on = mcp.includes(s.name);
               return (
                 <li key={s.name}>
-                  <label className="flex min-h-10 items-center gap-3 rounded-lg px-2 font-mono text-sm hover:bg-surface-active">
-                    <input type="checkbox" className="size-4 accent-accent" checked={on} disabled={!allowed && !on} onChange={(e) => toggleServer(s.name, e.target.checked, s.tools)} />
+                  <label className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
+                    <input type="checkbox" className="size-[18px] accent-accent" checked={on} disabled={!allowed && !on} onChange={(e) => toggleServer(s.name, e.target.checked, s.tools)} />
                     <span className="min-w-0 flex-1 truncate">{s.name}</span>
                     {!allowed && <span className="font-sans text-xs text-fg-muted">{t("agent.mcpNotAllowed")}</span>}
                     <span className="font-mono text-[11px] text-fg-muted">{s.tools?.length ?? 0} {t("agent.toolsCount")}</span>
@@ -348,8 +352,8 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
                       {(s.tools ?? tools[s.name] ?? []).map((tool) => {
                         const cur = tools[s.name] ?? [];
                         return (
-                          <label key={tool} className="flex min-h-10 items-center gap-3 rounded-lg px-2 font-mono text-[13px] hover:bg-surface-active">
-                            <input type="checkbox" className="size-4 accent-accent" checked={cur.includes(tool)}
+                          <label key={tool} className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
+                            <input type="checkbox" className="size-[18px] accent-accent" checked={cur.includes(tool)}
                               onChange={(e) => setFm("tools", { ...tools, [s.name]: e.target.checked ? [...cur, tool] : cur.filter((x) => x !== tool) })} />
                             <span className="min-w-0 flex-1 truncate">{tool}</span>
                           </label>
@@ -388,13 +392,13 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
       <section className="space-y-3">
         <div className="[&_label]:text-base [&_label]:font-semibold">
           <FormField label={t("agent.instructions")} errors={fe("body")} required>
-            {(a) => <div className="overflow-hidden rounded-xl bg-nested"><textarea {...a} rows={Math.min(24, Math.max(12, value.body.split("\n").length + 1))} className={`${inputCls} resize-y rounded-none font-mono text-[13px] leading-5 ring-0`}
+            {(a) => <div className="overflow-hidden rounded-[10px] bg-nested"><textarea {...a} rows={Math.min(24, Math.max(12, value.body.split("\n").length + 1))} className={`${inputCls} resize-y rounded-none font-mono text-[13px] leading-5 ring-0`}
               value={value.body} onChange={(e) => onChange({ ...value, body: e.target.value })} /><p className="border-t border-line px-3 py-2 text-xs text-fg-muted">{t("agent.markdownHelp")}</p></div>}
           </FormField>
         </div>
       </section>
       <section className="space-y-3">{usedBy.length > 0 && <h3 className="text-base font-semibold">{t("agent.usedBy")}</h3>}
-        {usedBy.length ? usedBy.map(([s, step]) => <a key={`${s}/${step}`} className="flex min-h-11 items-center justify-between gap-3 rounded-lg bg-nested px-3 font-mono text-[13px] text-fg-secondary hover:text-fg" href={href(project.name, "scenare", s, { krok: step })}>{s} / {step}<ArrowUpRight className="size-4 shrink-0" aria-hidden /></a>) : <p className="text-sm text-fg-muted">{t("agent.usedBy")}: –</p>}
+        {usedBy.length ? usedBy.map(([s, step]) => <a key={`${s}/${step}`} className="flex min-h-11 items-center justify-between gap-3 rounded-control bg-nested px-3 font-mono text-[13px] text-fg-secondary hover:text-fg" href={href(project.name, "scenare", s, { krok: step })}>{s} / {step}<ArrowUpRight className="size-4 shrink-0" aria-hidden /></a>) : <p className="text-sm text-fg-muted">{t("agent.usedBy")}: –</p>}
       </section>
     </div>
   );
@@ -455,14 +459,20 @@ function SkillEditor({ project, name, header, newButton, onChanged }: {
         canSave={text.dirty && !text.conflict && !text.validating && !syntax} onSave={() => void save()} onDelete={() => setDeleting(true)} />
       <MasterDetail project={project} tab="skilly" items={project.skills} current={name}>
       <div className="space-y-4">
-      <h2 className="truncate font-mono text-xl font-semibold" title={name}>{name}</h2>
-      <div className="space-y-7 rounded-2xl bg-surface p-6" data-testid="skill-editor-card">
+      <h2 className="truncate font-mono text-2xl leading-9" title={name}>{name}</h2>
+      <div className="space-y-[18px] rounded-panel bg-surface p-6 [&>section]:pt-2.5" data-testid="skill-editor-card">
       <div className="flex flex-wrap items-center gap-4"><span className="font-mono text-sm text-fg-secondary">Markdown · SKILL.md</span><SaveNote dirty={text.dirty} state={text.state} errors={text.errors.length} /></div>
       {ui.bar}
       {text.loadError && <ErrorText error={text.loadError} />}
       {text.doc ? <YamlEditor text={text.text} onChange={text.setText} file={path} errors={text.errors} /> : !text.loadError && <Loading rows={5} />}
+      {/* náhled těla bez frontmatteru (návrh 07 „Náhled“) */}
+      {text.doc && (
+        <section className="space-y-3"><h3 className="text-base font-semibold">{t("files.preview")}</h3>
+          <div className="rounded-panel bg-nested p-6"><Markdown text={text.text.replace(/^---\n[\s\S]*?\n---\n?/, "")} /></div>
+        </section>
+      )}
       <section className="space-y-3"><h3 className="text-base font-semibold">{t("skill.usedBy")}</h3>
-        {usedBy.length ? usedBy.map((a) => <a key={a} className="flex min-h-11 items-center justify-between gap-3 rounded-lg bg-nested px-3 font-mono text-[13px] text-fg-secondary hover:text-fg" href={href(project.name, "agenti", a)}>{a}<ArrowUpRight className="size-4 shrink-0" aria-hidden /></a>) : <p className="text-sm text-fg-muted">–</p>}
+        {usedBy.length ? usedBy.map((a) => <a key={a} className="flex min-h-11 items-center justify-between gap-3 rounded-control bg-nested px-3 font-mono text-[13px] text-fg-secondary hover:text-fg" href={href(project.name, "agenti", a)}>{a}<ArrowUpRight className="size-4 shrink-0" aria-hidden /></a>) : <p className="text-sm text-fg-muted">–</p>}
       </section>
       </div>
       </div>

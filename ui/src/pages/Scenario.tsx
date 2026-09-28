@@ -55,11 +55,11 @@ export function closeOnEsc(selected: string | undefined) {
   };
 }
 
-export function PanelSlot({ children }: { children: ReactNode }) {
+export function PanelSlot({ children, wide = false }: { children: ReactNode; /** Panel kroku v běhu (návrh 12: 520 px). */ wide?: boolean }) {
   return (
-    // Vedle sloupce až od 1280 px (sidebar 232 + sloupec 640 + mezera 32 + panel 420, fidelity §6); užší = přes sloupec dole, vždy se zavíracím křížkem.
+    // Vedle sloupce až od 1280 px (návrh 05, změřeno z .pen: sloupec do 676, mezera 28, panel 440); užší = přes sloupec dole, vždy se zavíracím křížkem.
     // List (z-40) leží nad přilepenou hlavičkou (z-30); panel vedle sloupce (z-20) pod ní, aby ho menu ⋯ z hlavičky překrylo.
-    <div className="fixed inset-x-4 bottom-4 z-40 max-h-[70vh] overflow-auto rounded-panel shadow-2xl lg:left-[calc(232px+1rem)] xl:sticky xl:top-[calc(var(--page-header-h,5rem)+1rem)] xl:z-20 xl:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] xl:w-[420px] xl:shrink-0 xl:self-start xl:shadow-none">
+    <div className={`fixed inset-x-4 bottom-4 z-40 max-h-[70vh] overflow-auto rounded-panel shadow-2xl lg:left-[calc(232px+1rem)] xl:sticky xl:top-[calc(var(--page-header-h,5rem)+1rem)] xl:z-20 xl:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] ${wide ? "xl:w-[520px]" : "xl:w-[440px]"} xl:shrink-0 xl:self-start xl:shadow-none`}>
       {children}
     </div>
   );
@@ -297,8 +297,8 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
       {missing ? <PageHeader back={<BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink>}
         title={<span className="font-mono">{scenario}</span>} /> : <PageHeader sticky
         back={<><BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink><Trail project={project} trail={trail} /></>}
-        title={<span className="font-mono">{scenario}</span>}
-        description={work?.header.description}
+        title={<span className="font-mono text-[27px] leading-[41px]">{scenario}</span>}
+        description={work?.header.description && <span className="text-[13px] leading-5">{work.header.description}</span>}
         actions={<>
           <button type="button" className={btn.primary} onClick={() => (setRunning(true), setQuery({ krok: undefined }))} disabled={!p || !work}>
             <Play className="size-4" aria-hidden />{t("runForm.open")}
@@ -326,18 +326,18 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
       </p>}
       <div>
         {form.loadError && form.loadError.status !== 0 && <ErrorText error={form.loadError} />}
-        {!work && !form.loadError && <div className="mx-auto max-w-[640px] pt-6"><Loading rows={4} pill /></div>}
+        {!work && !form.loadError && <div className="mx-auto max-w-[676px]"><Loading rows={4} pill /></div>}
         {yaml && (
           text.doc ? (
-            <div className="pt-4">
+            <div>
               <YamlEditor text={text.text} onChange={text.setText} file={file} errors={text.errors} onCaretLine={setCaretLine}
                 focus={selected && selected !== HEADER_KEY ? stepLines(text.text, selected) : undefined} />
             </div>
           ) : text.loadError ? <ErrorText error={text.loadError} /> : <Loading rows={8} />
         )}
         {work && !yaml && (
-          <div className="flex justify-center gap-8 pt-6">
-            <section className="w-full max-w-[640px] max-sm:pr-9 pointer-coarse:max-w-[688px] pointer-coarse:pr-12" aria-label={t("step.list")} onKeyDown={onColumnKey}>
+          <div className="flex justify-center gap-7">
+            <section className="w-full max-w-[676px] min-w-0 max-sm:pr-9 pointer-coarse:pr-12" aria-label={t("step.list")} onKeyDown={onColumnKey}>
               <HeaderCard inputs={work.header.inputs} outputs={work.header.outputs} selected={selected === HEADER_KEY} onSelect={() => select(HEADER_KEY)} />
               <Connector ctx={ctx} at={{ list: { parent: null, key: [] } }} />
               <StepList steps={steps} ctx={ctx} />

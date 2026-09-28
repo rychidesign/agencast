@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy, FileCode2 } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
-import { btn, ErrorList } from "./ui";
+import { CodeHead, copyBtn, ErrorList } from "./ui";
 
 /** Klíč světle, komentář ztlumeně — nic víc (§4.5: žádné barvy). */
 export function Line({ text }: { text: string }) {
@@ -36,13 +36,9 @@ export function CodeView({ text, file, errors = [], focus }: {
   }, [focus]);
   return (
     <div>
-      <div className="overflow-hidden rounded-[var(--radius-card)] bg-surface ring-1 ring-line">
-        <div className="flex h-10 items-center gap-2 border-b border-line px-4">
-          <FileCode2 className="size-4 text-fg-secondary" aria-hidden />
-          <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-fg">{file}</span>
-          <span className="rounded-md bg-nested px-2 py-1 font-mono text-[11px] text-fg-secondary">{t("code.readOnly")}</span>
-        </div>
-        <div ref={ref} className="overflow-auto bg-nested p-4 font-mono text-[13px] leading-6 focus-visible:ring-2 focus-visible:ring-accent" tabIndex={0} role="region" aria-label={file}>
+      <div className="overflow-hidden rounded-[var(--radius-panel)] bg-surface">
+        <CodeHead icon={FileCode2} name={file} chip={t("code.readOnly")} />
+        <div ref={ref} className="overflow-auto bg-nested py-4 font-mono text-[13px] leading-[27px] focus-visible:ring-2 focus-visible:ring-accent" tabIndex={0} role="region" aria-label={file}>
           <table className="border-collapse">
             <tbody>
               {lines.map((l, i) => {
@@ -50,17 +46,17 @@ export function CodeView({ text, file, errors = [], focus }: {
                 const hi = focus && n >= focus[0] && n <= focus[1];
                 return (
                   <tr key={i} data-line={n} className={bad.has(n) ? "border-l-2 border-error bg-error/10" : hi ? "border-l-2 border-accent bg-surface-active" : ""}>
-                    <td className="pr-4 text-right align-top font-mono text-xs text-fg-muted select-none">{n}</td>
-                    <td className="whitespace-pre"><Line text={l} /></td>
+                    <td className={`w-[58px] pr-3.5 pl-4 text-right align-top font-mono text-xs select-none ${hi ? "text-fg-secondary" : "text-fg-muted"}`}>{n}</td>
+                    <td className="pr-4 whitespace-pre"><Line text={l} /></td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-2">
-          <p className="text-xs text-fg-muted">{t("code.hint", { file: `workflows/${file}` })}</p>
-          <button type="button" className={btn.secondary} onClick={async () => {
+        <div className="flex flex-wrap items-center justify-between gap-2 p-3.5">
+          <p className="font-mono text-[11px] text-fg-muted">{t("code.hint", { file: `workflows/${file}` })}</p>
+          <button type="button" className={copyBtn} onClick={async () => {
             await navigator.clipboard.writeText(text);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);

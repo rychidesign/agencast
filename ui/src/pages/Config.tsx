@@ -97,7 +97,7 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
       {header({
         actions: <button type="button" className={btn.primary} disabled={!canSave} onClick={() => void save()} title="Ctrl+S">{t("common.save")}</button>,
       })}
-      <div className="space-y-7 rounded-2xl bg-surface p-6" data-testid="config-editor-card">
+      <div className="space-y-6 rounded-panel bg-surface p-6" data-testid="config-editor-card">
       {project && <p className="break-all font-mono text-[13px] text-fg-muted" title={project.root}>{project.root}</p>}
       <div className="flex flex-wrap items-center gap-4">
         <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
@@ -181,7 +181,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
         {envField(t("config.keyFrom"), "openrouter", "api_key_env")}
       </Section>
       <Section title={t("config.jevModel")}>
-        <div className="space-y-2 rounded-xl bg-nested p-4">
+        <div className="space-y-2 rounded-[10px] bg-nested p-4">
           <p className="font-mono text-[13px] text-fg">{String(jev ?? "jev-1.13")}</p>
           <p className="text-xs text-fg-muted">{t("config.yamlOnly")}</p>
         </div>
@@ -197,7 +197,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
             const users = usage(alias);
             const setM = (k: string, v: unknown) => put("models", { ...models, [alias]: clean(m, k, v) });
             return (
-              <li key={alias} className="space-y-4 rounded-xl bg-nested p-4">
+              <li key={alias} className="space-y-4 rounded-[10px] bg-nested p-4">
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(120px,1fr)_minmax(220px,2fr)_minmax(100px,0.7fr)_minmax(110px,0.7fr)]">
                   <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">{t("config.alias")}</span><div className="flex min-h-11 min-w-0 items-center">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
                     : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
@@ -288,16 +288,16 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
         </div>
       </Section>
       <Section title={t("config.env")}>
-        <ul className="rounded-xl bg-nested p-2 text-sm">
-          {Object.keys(env ?? {}).map((k) => <li key={k} className="flex min-h-10 flex-wrap items-center justify-between gap-3 rounded-lg px-2 hover:bg-surface-active"><span className="break-all font-mono text-[13px]">{k}</span><EnvVar name={k} env={env} /></li>)}
+        <ul className="rounded-[10px] bg-nested p-2 text-sm">
+          {Object.keys(env ?? {}).map((k) => <li key={k} className="flex min-h-10 flex-wrap items-center justify-between gap-3 rounded-control px-2 hover:bg-surface-active"><span className="break-all font-mono text-[13px]">{k}</span><EnvVar name={k} env={env} /></li>)}
         </ul>
       </Section>
       </div>
       <Section title={t("config.mcp")}>
         <ul className="space-y-2">
           {project?.mcp_servers.map((s) => (
-            <li key={s.name} className="space-y-3 rounded-xl bg-nested p-4">
-              <div className="flex items-center justify-between gap-3"><span className="text-[15px] font-semibold">{s.name}</span><span className="rounded-full bg-surface px-2 py-1 font-mono text-[11px] text-fg-secondary">{t("config.readOnly")}</span></div>
+            <li key={s.name} className="space-y-3 rounded-[10px] bg-nested p-4">
+              <div className="flex items-center justify-between gap-3"><span className="text-[15px] font-semibold">{s.name}</span><span className="shrink-0 rounded-full bg-surface px-2.5 py-1 font-mono text-xs text-fg-secondary">{t("code.readOnly")}</span></div>
               <div className="grid gap-3 font-mono text-xs text-fg-muted sm:grid-cols-3">
                 <p>{t("config.transport")}<br /><span className="text-fg-secondary">{s.type}</span></p>
                 <p>{t("config.mcpAgents")}<br /><span className="text-fg-secondary">{s.agents?.join(", ") || "–"}</span></p>

@@ -85,20 +85,20 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
   // nedošlo i přeskočeno (nevybraný případ, `when`) je ztlumené (§3 CaseSection); důvod nese hodnota karty.
   // Ztlumení = čárkovaný obrys bez plochy a tlumený text, ne průhlednost (ta by shodila kontrast pod 4,5:1).
   const dim = ctx.run && (!rs || rs.status === "skipped");
+  // běh (návrh 12, změřeno z .pen): třetí řádek = trvání · cena (u kontejnerů a call za popisem), vpravo stav 11 px
   let right: ReactNode = null;
+  let runDetail: ReactNode = null;
   if (ctx.run) {
     const secs = rs?.status === "running" && rs.started_at ? (ctx.run.now - Date.parse(rs.started_at)) / 1000 : rs?.duration_s;
-    right = (
-      <span className="flex shrink-0 flex-col items-end gap-1 text-xs text-fg-muted">
-        {rs && rs.status !== "skipped" && (
-          <span className="font-mono tabular-nums">
-            <span data-testid={`step-duration-${key}`}>{formatDuration(secs)}</span>
-            {rs.cost_usd != null && <> · <span data-testid={`step-cost-${key}`}>{formatCost(rs.cost_usd)} USD</span></>}
-          </span>
-        )}
-        <span>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</span>
+    const keep = step.type === "parallel" || step.type === "switch" || step.type === "call" ? lines.detail : "";
+    runDetail = rs && rs.status !== "skipped" ? (
+      <span className="tabular-nums">
+        {keep && `${keep} · `}
+        <span data-testid={`step-duration-${key}`}>{formatDuration(secs)}</span>
+        {rs.cost_usd != null && <> · <span data-testid={`step-cost-${key}`}>{formatCost(rs.cost_usd)} USD</span></>}
       </span>
-    );
+    ) : keep || null;
+    right = <span className={`shrink-0 text-[11px] ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</span>;
   }
   const edit = ctx.edit;
   const isCut = !!edit?.cut_ && uidOf(edit.cut_) === uidOf(step);
@@ -112,32 +112,34 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
     e.preventDefault();
     e.stopPropagation();
   };
-  const pr = shape === "head" ? (edit ? "pr-28 pointer-coarse:pr-32" : "pr-14") : edit ? "pr-16 pointer-coarse:pr-20" : "";
-  const plane = shape === "head" ? "rounded-card" : `rounded-full ${dim ? "border border-dashed border-line" : selected ? "bg-surface-active" : "bg-surface"}`;
+  const head = shape === "head";
+  const pr = head ? (edit ? "pr-28" : "pr-14") : edit ? "pr-16" : "";
+  // návrh 05 (změřeno z .pen): pilulka p 16, gap 14, výška 96; vybraná = plocha `surface-active` bez rámečku
+  const plane = head ? "rounded-card" : `rounded-full ${dim ? "border border-dashed border-line" : selected ? "bg-surface-active" : "bg-surface"}`;
   return (
     // otevřené ⋯ / TypePicker leží v kontextu vrstvení karty (transform) → karta s fokusem nad sousedy
     <div className={edit ? "group relative focus-within:z-10" : ""}>
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
         onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
-        className={`flex min-h-24 w-full items-center gap-4 px-6 py-5 text-left transition-colors in-data-branch:min-h-18 in-data-branch:gap-3 in-data-branch:py-3 in-data-branch:pl-3 hover:bg-surface-hover ${plane} ${
-          selected ? "ring-1 ring-accent" : ""
-        } ${pr} ${isCut ? "opacity-50" : ""}`}
+        className={`flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-24 gap-3.5 p-4 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
       >
-        <span className="w-4 shrink-0 text-center font-mono text-xs text-fg-muted in-data-branch:hidden">{step.nn}</span>
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-nested">
-          {status ? <StatusIcon status={status} label="" className="size-[18px]" />
-            : <TypeIcon type={step.type} className={`size-[18px] ${dim ? "text-fg-muted" : "text-type"}`} />}
+        {!head && <span className={`w-4 shrink-0 text-center font-mono text-[11px] in-data-branch:hidden ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}</span>}
+        {/* kontejner: prostá ikona 20 px; karta: kolečko 40 px (ve větvi 30) s plochou barvy typu */}
+        <span className={`grid shrink-0 place-items-center rounded-full ${head ? "" : "size-10 bg-type/7 in-data-branch:size-[30px]"}`}>
+          {status ? <StatusIcon status={status} label="" className={head ? "size-5" : "size-4"} />
+            : <TypeIcon type={step.type} className={`${head ? "size-5" : "size-4"} ${dim ? "text-fg-muted" : "text-type"}`} />}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className={`flex items-center gap-1.5 font-mono text-xs ${dim ? "text-fg-muted" : "text-type"}`}>
-            <span className="truncate">{step.type ?? "?"} · {step.id}</span>
+        <span className={`flex min-w-0 flex-1 flex-col gap-1 ${head ? "flex-col-reverse" : ""}`}>
+          <span className={`flex items-center gap-1.5 font-mono ${head ? "text-[10px] leading-[15px] text-fg-muted" : `text-[11px] leading-4 ${dim ? "text-fg-muted" : "text-type"}`}`}>
+            <span className="truncate">{head && `${step.nn} · `}{step.type ?? "?"} · {step.id}{head && detail ? ` · ${detail}` : ""}</span>
             {errors.length > 0 && <span className="size-1.5 shrink-0 rounded-full bg-error" aria-hidden />}
           </span>
-          <span className={`block truncate text-base ${title && !dim ? "font-semibold text-fg" : "font-normal text-fg-muted"}`} title={title || undefined}>
+          <span className={`block truncate text-[15px] leading-[22px] in-data-branch:text-[13px] in-data-branch:leading-[19px] ${title && !dim ? "font-semibold text-fg" : "font-normal text-fg-muted"}`} title={title || undefined}>
             {title || t("step.value.empty")}
           </span>
-          {detail && <span className="block truncate font-mono text-xs text-fg-muted" title={detail}>{detail}</span>}
+          {ctx.run ? runDetail && !head && <span className="block truncate font-mono text-xs leading-[17px] text-fg-secondary">{runDetail}</span>
+            : detail && !head && <span className="block truncate font-mono text-xs leading-[17px] text-fg-secondary" title={detail}>{detail}</span>}
         </span>
         {right}
       </button>
@@ -174,12 +176,13 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
   ];
   return (
     <>
-      <div className="absolute top-12 right-4 -translate-y-1/2 in-data-branch:top-9 in-data-branch:right-2">
-        <Menu items={items} label={t("common.menuFor", { name: step.id })} />
+      <div className="absolute top-12 right-3 -translate-y-1/2 in-data-branch:top-[25px] in-data-branch:right-1">
+        <Menu ghost items={items} label={t("common.menuFor", { name: step.id })} />
       </div>
-      <div className="absolute top-12 left-full ml-1 flex -translate-y-1/2 in-data-branch:top-9 items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60 pointer-coarse:group-focus-within:opacity-100">
+      {/* koš 24 px + 2 px se vejde do mezery 28 px mezi sloupcem a panelem (návrh 05) */}
+      <div className="absolute top-12 left-full ml-0.5 flex -translate-y-1/2 in-data-branch:top-[25px] items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60 pointer-coarse:group-focus-within:opacity-100">
         <button type="button" onClick={() => edit.remove(step)} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
-          className="grid size-7 place-items-center rounded-full bg-error/15 text-error hover:bg-error/25 pointer-coarse:size-11">
+          className="grid size-6 place-items-center rounded-full bg-error/15 text-error hover:bg-error/25 pointer-coarse:size-11">
           <Trash2 className="size-3.5" aria-hidden />
         </button>
         {picker && (
@@ -197,7 +200,7 @@ export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afte
   const edit = ctx.edit;
   if (!edit) return <Arrow />;
   return (
-    <div className="group/conn relative flex h-10 items-center justify-center pointer-coarse:h-12">
+    <div className="group/conn relative flex h-11 items-center justify-center">
       <ArrowDown className={`absolute size-4 text-fg-muted group-focus-within/conn:opacity-0 group-hover/conn:opacity-0 pointer-coarse:opacity-0 ${edit.cut_ ? "opacity-0" : ""}`} aria-hidden />
       <AddButton label={afterId ? t("edit.addAfter", { id: afterId }) : t("edit.addStart")} testid={afterId && `add-after-${afterId}`}
         paste={edit.cut_?.id} always={!!edit.cut_} onPick={(p) => edit.add(at, p)} />
@@ -207,7 +210,7 @@ export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afte
 
 function Arrow() {
   return (
-    <div className="flex h-10 items-center justify-center text-fg-muted" aria-hidden>
+    <div className="flex h-11 items-center justify-center text-fg-muted" aria-hidden>
       <ArrowDown className="size-4" />
     </div>
   );
@@ -218,30 +221,31 @@ const fromRun = (rs: RunStep, i: number): Step => ({
   nn: i + 1, address: [], id: rs.step.split("/").pop()!, type: rs.kind, when: null, fields: {}, refs: [],
 });
 
-/** Kontejner (fidelity §6): obal `surface` r16 p16, hlavní karta jako běžná, sbalení šipkou vpravo (vnitřek zmizí, zůstane počet kroků). */
+/** Kontejner (návrh 05, změřeno z .pen): obal `surface` r14 p16 gap 16, hlavička = ikona 20 + titul 15 + mono 10
+ *  („3 · parallel · varianty“), sbalení šipkou vpravo (vnitřek zmizí, zůstane počet kroků). */
 function Container({ step, ctx, above, inner, children }: {
   step: Step; ctx: ListCtx; above?: Anchor; inner: Step[]; children: ReactNode;
 }) {
   const [open, setOpen] = useState(true);
   const Icon = open ? ChevronDown : ChevronRight;
   return (
-    <div className="relative space-y-4 rounded-panel bg-surface p-4">
+    <div className="relative space-y-4 rounded-tile bg-surface p-4">
       <StepCard step={step} ctx={ctx} shape="head" above={above} />
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
         aria-label={t(open ? "step.collapse" : "step.expand", { id: step.id })}
-        className={`absolute top-16 z-10 grid size-8 -translate-y-1/2 place-items-center rounded-full text-fg-muted hover:bg-surface-hover hover:text-fg pointer-coarse:size-11 ${ctx.edit ? "right-[68px]" : "right-8"}`}>
-        <Icon className="size-5" aria-hidden />
+        className={`absolute top-[43px] z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full text-fg-muted hover:bg-surface-hover hover:text-fg ${ctx.edit ? "right-[64px]" : "right-5"}`}>
+        <Icon className="size-4" aria-hidden />
       </button>
       {open ? <div>{children}</div>
-        : <p className="px-6 font-mono text-xs text-fg-muted">{t("count.steps", { n: flatten(inner).length })}</p>}
+        : <p className="px-4 font-mono text-xs text-fg-muted">{t("count.steps", { n: flatten(inner).length })}</p>}
     </div>
   );
 }
 
 function Branch({ label, testid, children }: { label: string; testid?: string; children: ReactNode }) {
   return (
-    <section className="min-w-0 rounded-card bg-nested p-3" aria-label={label} data-testid={testid} data-branch="">
-      <h4 className="mb-3 font-mono text-xs text-fg-muted">{label}</h4>
+    <section className="min-w-0 rounded-control bg-nested p-3" aria-label={label} data-testid={testid} data-branch="">
+      <h4 className="mb-3 font-mono text-[11px] leading-4 text-variable">{label}</h4>
       {children}
     </section>
   );
@@ -304,7 +308,7 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
       const inner = { ...ctx, run: { ...ctx.run, prefix: `${path}/` } };
       return (
         <Container step={step} ctx={ctx} inner={children}>
-          <div className="px-6">{open}</div>
+          <div className="px-4">{open}</div>
           <Branch label={target}><StepList steps={children} ctx={inner} /></Branch>
         </Container>
       );
@@ -312,7 +316,7 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
     return (
       <div>
         <StepCard step={step} ctx={ctx} above={above} />
-        {open && <div className="mt-1 ml-20">{open}</div>}
+        {open && <div className="mt-1 ml-[74px]">{open}</div>}
       </div>
     );
   }
@@ -339,7 +343,7 @@ export function StepList({ steps, ctx, list = MAIN }: { steps: Step[]; ctx: List
       })}
       {edit && last?.type !== "output" && (
         // hlavní seznam: „+ Přidat krok“ a „+ output“ jako sekundární tlačítka (fidelity §6); větve mají (+)
-        <li className={`flex items-center justify-center gap-3 ${main ? "pt-4" : "h-14"}`}>
+        <li className={`flex items-center justify-center gap-3 ${main ? "pt-6" : "h-14"}`}>
           <AddButton always text={main ? t("edit.addStep") : undefined} label={t("edit.addEnd")} paste={edit.cut_?.id} onPick={(p) => edit.add(end, p)} />
           {main && edit.addOutput && (
             <button type="button" onClick={edit.addOutput} className={btn.secondary}>
@@ -363,16 +367,14 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
     outputs: o.length ? `${t("count.outputs", { n: o.length })}: ${o.join(", ")}` : t("step.header.noOutputs"),
   });
   return (
+    // návrh 05 (změřeno z .pen): obdélníková karta r14 p22 gap 16, ikona 24, titul 21 semibold, pod ním vstupy/výstupy mono 13
     <button type="button" data-step-card="" aria-pressed={selected} onClick={(e) => (onSelect(), !selected && focusPanel(e))}
-      className={`flex min-h-24 w-full items-center gap-4 rounded-full px-6 py-5 text-left transition-colors hover:bg-surface-hover ${selected ? "bg-surface-active ring-1 ring-accent" : "bg-surface"}`}>
-      <span className="w-4 shrink-0" aria-hidden />
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-nested text-type">
-        <AlignJustify className="size-[18px]" strokeWidth={1.5} aria-hidden />
+      className={`flex w-full flex-col gap-4 rounded-tile p-[22px] text-left transition-colors hover:bg-surface-hover ${selected ? "bg-surface-active ring-1 ring-accent/70" : "bg-surface"}`}>
+      <span className="flex items-center gap-3">
+        <AlignJustify className="size-6 shrink-0 text-type" strokeWidth={1.5} aria-hidden />
+        <span className="text-[21px] leading-[30px] font-semibold text-fg uppercase">{t("step.header")}</span>
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-mono text-xs text-type uppercase">{t("step.header")}</span>
-        <span className="block truncate text-base font-semibold text-fg" title={value}>{value}</span>
-      </span>
+      <span className="block truncate font-mono text-[13px] leading-[19px] text-fg-secondary" title={value}>{value}</span>
     </button>
   );
 }

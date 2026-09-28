@@ -48,14 +48,17 @@ describe("titul a třetí řádek karty podle typu (fidelity §6)", () => {
 describe("StepCard", () => {
   const ctx: ListCtx = { project: "p", onSelect: () => {}, errors: new Map() };
 
+  // rozměry změřené z .pen (návrh 05): typ mono 11 `type`, titul 15 semibold, třetí řádek mono 12 `fg-secondary`,
+  // kolečko 40 px s plochou barvy typu
   it.each(CASES.map(([s, title, detail]) => [s.type, s, title, detail] as const))("%s: řádek typ · id malými, titul, třetí řádek", (type, s, title, detail) => {
     render(<StepCard step={s} ctx={ctx} />);
     const card = screen.getByRole("button");
-    expect(screen.getByText(`${type} · ${type}_1`).parentElement!.className).toContain("font-mono text-xs text-type");
-    expect(screen.getByText(title).className).toContain("text-base font-semibold");
-    if (detail) expect(screen.getByText(detail).className).toContain("font-mono text-xs text-fg-muted");
+    expect(screen.getByText(`${type} · ${type}_1`).parentElement!.className).toContain("font-mono text-[11px] leading-4 text-type");
+    expect(screen.getByText(title).className).toContain("text-[15px] leading-[22px]");
+    expect(screen.getByText(title).className).toContain("font-semibold");
+    if (detail) expect(screen.getByText(detail).className).toContain("font-mono text-xs leading-[17px] text-fg-secondary");
     expect(card.className).toContain("min-h-24");
-    expect(card.querySelector(".size-10.rounded-full.bg-nested svg.text-type")).toBeTruthy();
+    expect(card.querySelector(".size-10.rounded-full.bg-type\\/7 svg.text-type")).toBeTruthy();
   });
 
   it("zástupný text, podmínka ve třetím řádku a chyba validace", () => {
@@ -67,17 +70,19 @@ describe("StepCard", () => {
     expect(screen.getByText("agent „fotograf“ neexistuje")).toBeTruthy();
   });
 
-  it("vybraná karta i hlavička: surface-active a prstenec 1 px accent bez offsetu", () => {
+  it("vybraná karta = plocha surface-active (bez rámečku), vybraná hlavička navíc prstenec (návrh 05 / 09)", () => {
     render(<>
       <StepCard step={step("ask", { ask: {} })} ctx={{ ...ctx, selected: "ask_1" }} />
       <HeaderCard inputs={null} outputs={null} selected onSelect={() => {}} />
     </>);
-    for (const card of screen.getAllByRole("button")) {
-      expect(card.className).toContain("bg-surface-active");
-      expect(card.className).toContain("ring-1 ring-accent");
-      expect(card.className).not.toContain("ring-offset");
-      expect(card.getAttribute("aria-pressed")).toBe("true");
+    const [card, header] = screen.getAllByRole("button");
+    for (const c of [card, header]) {
+      expect(c.className).toContain("bg-surface-active");
+      expect(c.className).not.toContain("ring-offset");
+      expect(c.getAttribute("aria-pressed")).toBe("true");
     }
+    expect(card.className).not.toContain("ring-1");
+    expect(header.className).toContain("ring-1 ring-accent");
   });
 });
 

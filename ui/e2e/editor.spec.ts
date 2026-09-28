@@ -141,7 +141,7 @@ test("C4 nový scénář se dvěma kroky a output", async ({ page, project }) =>
   await state.press("Enter");
   await state.pressSequentially(" }}");
   await expect(state).toHaveValue("{{ steps.napis.text }}");
-  await panel.getByRole("button", { name: "+ Přidat otázku" }).click();
+  await panel.getByRole("button", { name: "Přidat otázku" }).click();
   await expect(panel.getByRole("combobox", { name: "Typ otázky q_1" })).toBeVisible();
   const key = panel.getByRole("textbox", { name: "Jméno" });
   await key.fill("ok");
@@ -463,7 +463,7 @@ test("C11 parallel a switch", async ({ page, project, server }) => {
   await picker.press("s");
   await picker.press("e");
   await picker.press("Enter");
-  await panel.getByRole("button", { name: "+ Přidat hodnotu" }).click();
+  await panel.getByRole("button", { name: "Přidat hodnotu" }).click();
   await panel.getByRole("combobox").last().fill("inputs.tema");
   await page.getByRole("button", { name: "Uložit" }).click();
   await expect(saveStatus(page)).toHaveText(/^Uloženo ✓/);

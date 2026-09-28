@@ -78,7 +78,7 @@ export function TypePicker({ onPick, onClose, paste }: {
               ) : (
                 <>
                   <span className="w-16 shrink-0 font-mono text-fg">{k}</span>
-                  <span className="truncate text-fg-muted">{t(`picker.${k}`)}</span>
+                  <span className={`truncate ${i === active ? "text-fg-secondary" : "text-fg-muted"}`}>{t(`picker.${k}`)}</span>
                 </>
               )}
             </div>
@@ -90,7 +90,7 @@ export function TypePicker({ onPick, onClose, paste }: {
   );
 }
 
-/** `AddButton` (§3): (+) 28 px `control`; mezi kartami se ukazuje při hoveru/fokusu místo šipky, na konci trvale.
+/** `AddButton` (§3): (+) 44 px kolečko (návrh 05); mezi kartami se ukazuje při hoveru/fokusu místo šipky, na konci trvale.
  *  S `text` je to sekundární tlačítko „+ Přidat krok“ pod hlavním sloupcem (fidelity §6). */
 export function AddButton({ label, onPick, paste, always = false, testid, text }: {
   label: string; onPick: (p: Pick) => void; paste?: string; always?: boolean; testid?: string; text?: string;
@@ -106,7 +106,7 @@ export function AddButton({ label, onPick, paste, always = false, testid, text }
       <button ref={btnRef} type="button" aria-label={label} title={label} aria-haspopup="listbox" aria-expanded={open} data-testid={testid}
         onClick={() => setOpen(!open)}
         className={text ? `${btn.secondary} ${paste ? "ring-1 ring-accent" : ""}`
-          : `grid size-7 place-items-center rounded-full bg-control text-fg hover:bg-control-hover focus-visible:ring-2 focus-visible:ring-accent pointer-coarse:size-11 ${paste ? "ring-1 ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
+          : `grid size-11 place-items-center rounded-full bg-surface text-fg hover:bg-control focus-visible:ring-2 focus-visible:ring-accent ${paste ? "ring-1 ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
         <Plus className="size-4" aria-hidden />{text}
       </button>
       {open && <TypePicker paste={paste} onClose={close} onPick={(p) => (setOpen(false), onPick(p))} />}

@@ -1,13 +1,13 @@
 // Editační prvky (§3 inventář): pole se štítkem, výraz/šablona s našeptávačem, JSON, modál rozhodnutí.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
-import { Braces } from "lucide-react";
+import { Braces, Plus } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn } from "./ui";
 
 const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:8px_8px] [&:is(select)]:bg-[position:calc(100%-25px)_55%,calc(100%-17px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-10";
 export const inputCls =
-  `w-full min-h-11 rounded-[var(--radius-control)] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-line focus:outline-none focus:ring-2 focus:ring-accent aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:text-base [&:is(textarea)]:p-3 ${selectArrow}`;
+  `w-full min-h-11 rounded-[6px] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-line focus:outline-none focus:ring-2 focus:ring-accent aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:text-base [&:is(textarea)]:p-3 ${selectArrow}`;
 const mono = "font-mono text-[13px]";
 
 /** Pole se štítkem nad sebou (§6): `aria-describedby` na nápovědu i chybu. */
@@ -38,10 +38,10 @@ export function FormField({ label, help, errors = [], required, children, action
   );
 }
 
-/** Drobná pilulka „+ Přidat …“ vpravo od štítku sekce (§3 Button). */
+/** „+ Přidat …“ vpravo od štítku sekce: sekundární tlačítko (návrh 09, změřeno z .pen). */
 export const AddPill = ({ label, onClick }: { label: string; onClick: () => void }) => (
-  <button type="button" onClick={onClick} className="rounded-full bg-nested px-2.5 py-0.5 text-xs text-fg-secondary hover:bg-surface-hover pointer-coarse:min-h-11">
-    + {label}
+  <button type="button" onClick={onClick} className={btn.secondary}>
+    <Plus className="size-4" aria-hidden />{label}
   </button>
 );
 
@@ -179,7 +179,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
         ? <textarea {...props} className={`${inputCls} ${mono} [&:is(textarea)]:pr-12`} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
         : <input {...props} className={`${inputCls} ${mono} pr-12`} />}
       <button
-        type="button" className={`absolute right-0.5 grid size-10 place-items-center rounded-[var(--radius-control)] bg-control text-variable hover:bg-control-hover pointer-coarse:size-11 ${multiline ? "top-1" : "top-1/2 -translate-y-1/2"} disabled:cursor-not-allowed disabled:opacity-40`}
+        type="button" className={`absolute right-0 grid size-11 place-items-center rounded-[6px] text-variable hover:bg-control [&>svg]:size-[18px] ${multiline ? "top-0" : "top-1/2 -translate-y-1/2"} disabled:cursor-not-allowed disabled:opacity-40`}
         aria-label={t("form.variables.insert")} title={candidates.length ? t("form.variables.insert") : t("form.variables.none")}
         aria-haspopup="menu" aria-expanded={variablesOpen} aria-controls={menuId} disabled={!candidates.length}
         onClick={() => (setVariableActive(0), setVariablesOpen((isOpen) => !isOpen))}
