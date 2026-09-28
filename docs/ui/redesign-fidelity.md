@@ -39,7 +39,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 
 - Primární: výška **44 px** (změřeno z .pen: všechna tlačítka na obrazovkách 44; komponenta v knihovně 40), padding 0 18, radius **10**, `bg-accent text-ink` 14 px semibold, ikona 16 px. Sekundární: totéž s `bg-control text-fg`. Nebezpečná: výplň `#492937` (`bg-danger`) s `text-error` (změřeno z .pen). Ghost (jen text) jen v menu.
 - Ikonové tlačítko: **44 × 44** i v hlavičce (změřeno z .pen), radius 10, `bg-control`, ikona 18–20 px `fg`. ⋯ na kartách (projekt, scénář, krok) je **bez výplně** (klikací plocha 44, ikona 18), plocha `control` až při hoveru a otevření (změřeno z .pen).
-- Pole: výška **44 px**, radius **6** (změřeno z .pen), `bg-nested`, ring 1 `line`, text 14 px, placeholder `fg-muted`; fokus ring 2 `accent`; mono varianta 13 px. Textarea padding 12. Select má chevron `fg-muted` vpravo. Tlačítko `{}` v poli s proměnnými je bez výplně, 44 × 44, `text-variable`.
+- Pole: výška **44 px**, radius **6** (změřeno z .pen), `bg-nested`, **v klidu bez rámečku** (stroke v `.pen` průhledný; vlna G), text 14 px, placeholder `fg-muted`; fokus ring 2 `accent` bez odsazení, neplatné ring 2 `error`; mono varianta 13 px. Textarea padding 12. Select má chevron `fg-muted` vpravo. Tlačítko `{}` v poli s proměnnými je uvnitř boxu, bez výplně, 44 × 44, `text-variable`. Víceřádková šablona a JSON (`V3 / CodeInput`): box `nested` r8, toolbar (štítek 13 + „šablona“/„JSON“ mono 11 `text-type` + `{}`) s linkou, editor p16, patička se stavem a „Ctrl + mezerník pro nabídku“.
 - Segmentový přepínač (Form | YAML): obal `bg-nested` radius 9 padding 4 gap 4, **segment 44 px radius 7**, 13 px (změřeno z .pen), aktivní `bg-accent text-ink`, neaktivní `fg-muted`.
 - Záložky detailu běhu: výška 47, padding 12 18, mezera 28, text 13 medium (změřeno z .pen), aktivní `fg` s podtržením 2 px `accent`, neaktivní `fg-secondary`. Záložky v panelu kroku 13 regular, mezera 24.
 - Stavový čip: pilulka `bg-nested`, padding 7 10, mezera 8, ikona 14 px, **text mono 12 medium v barvě stavu** (změřeno z .pen). Pulzuje jen ikona „běží“ (pulzující text by neměl kontrast).
@@ -118,3 +118,15 @@ navrh-gui §4.5; zvýraznění kroku v YAML jen bliknutím; skill se edituje jak
 
 
 Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v kartách formulářů; bez druhého Uložit a druhého přepínače; bez sloupce s časem navíc; bez „Přidat projekt“ karty v neprázdném seznamu; bez filtru období v bězích; Přejmenovat / Smazat / Vrátit zpět v menu ⋯; typy kroků jen ask, task, jev, image, parallel, switch, call, set, fail, output.
+
+## 12. Mobil a tablet (vlna G; návrh mobil nemá)
+
+- Do 1023 px lišta 56 px (`bg-sidebar`, hairline): značka, projekt (truncate), ☰ 44 px → drawer přes celou výšku
+  (z-50, „← Projekty“, položky 48 px, útrata dole; Esc, klik mimo, fokus zpět na ☰). Obsah p16, od 768 px p24.
+- Do 767 px hlavička H1 24, popis 13, jen primární akce + ⋯ (sekundární akce jdou do ⋯, `PageHeader compact`),
+  titul se láme (`overflow-wrap:anywhere`); pod 1024 px se hlavička nepřilepuje.
+- Do 1279 px je panel (krok, hlavička, spuštění, krok v běhu) plnoobrazovkový sheet (`role="dialog"`, fokus past,
+  Esc, po zavření fokus zpět na kartu). Do 767 px karta kroku 80 px bez čísla (kolečko 36), konektor 32 px s (+)
+  32 px a dotykovou plochou 44, sloupec přes celou šířku (koš jen v ⋯), TypePicker jako list u spodního okraje.
+- Běhy do 767 px bez záhlaví: karta o dvou řádcích (stav + jméno + stav textem; run_id, kdy, trvání · cena),
+  chevron vpravo. Záložky detailu běhu s vodorovným posuvem. Agenti/Skilly pod 1100 px jako vodorovné čipy.

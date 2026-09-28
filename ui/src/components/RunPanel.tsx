@@ -3,7 +3,7 @@
 import { Play, TriangleAlert, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
-import { formatCost, formatMoney } from "../format";
+import { formatMoney, formatSpend } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
 import type { IoSpec, Project, Spend } from "../types";
@@ -99,7 +99,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
               {typeof l.run_image_budget_usd === "number" && <Limit label={t("runForm.imageBudget")}>{formatMoney(l.run_image_budget_usd)} USD</Limit>}
               <Limit label={t("runForm.timeout")}>{String(l.run_timeout ?? "–")}</Limit>
               <Limit label={t("runForm.daily")}>
-                {spend.data ? `${formatCost(spend.data.total_usd)}` : "…"}
+                {spend.data ? formatSpend(spend.data.total_usd) : "…"}
                 {typeof l.daily_budget_usd === "number" ? ` / ${formatMoney(l.daily_budget_usd)} USD` : " USD"}
               </Limit>
             </dl>

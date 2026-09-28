@@ -58,20 +58,20 @@ test("R2 editor: hlavička s Uložit, Spustit a menu ⋯", async ({ page, projec
 test.describe("pod 1024 px", () => {
   test.use({ viewport: { width: 900, height: 800 } });
 
-  test("R3 sidebar jako horní lišta", async ({ page, project }) => {
+  test("R3 sidebar jako horní lišta 56 px s drawerem", async ({ page, project }) => {
     await page.goto(`/#/p/${project.name}`);
-    const nav = page.getByRole("navigation", { name: "Části projektu" });
-    await expect(nav).toBeVisible();
-    // hlavičku po načtení projektu přebírá záložka (nový uzel), měřit až po načtení karet
     await expect(page.getByTestId("scenario-card-ukazka")).toBeVisible();
-    const h1 = (await page.getByRole("heading", { name: "Scénáře", level: 1 }).boundingBox())!;
-    const boxes = await Promise.all(NAV.map(async (n) => (await nav.getByRole("link", { name: n }).boundingBox())!));
-    for (const b of boxes) {
-      expect(Math.abs(b.y - boxes[0].y)).toBeLessThanOrEqual(1); // vodorovně v jedné řadě
-      expect(b.y + b.height).toBeLessThanOrEqual(h1.y); // nad obsahem
-      expect(b.height).toBeGreaterThanOrEqual(44);
-    }
+    await expect(page.getByRole("navigation", { name: "Části projektu" })).toHaveCount(0);
     await expect(page.getByText("Dnes utraceno")).toBeHidden();
+    const bar = (await page.locator("header").first().boundingBox())!;
+    expect(bar.height).toBe(56);
+    const h1 = (await page.getByRole("heading", { name: "Scénáře", level: 1 }).boundingBox())!;
+    expect(bar.y + bar.height).toBeLessThanOrEqual(h1.y);
+    await page.getByRole("button", { name: "Navigace" }).click();
+    const nav = page.getByRole("dialog", { name: "Navigace" }).getByRole("navigation", { name: "Části projektu" });
+    for (const n of NAV) expect((await nav.getByRole("link", { name: n }).boundingBox())!.height).toBe(48);
+    await expect(page.getByText("Dnes utraceno")).toBeVisible();
+    await page.keyboard.press("Escape");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(900);
   });
 });

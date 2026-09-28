@@ -8,8 +8,8 @@ export function formatCost(usd: number | null | undefined): string {
   return usd.toFixed(4).replace(".", ",");
 }
 
-/** Útrata za den na kartě projektu: dvě místa, drobné nenulové částky pod 0,01 čtyři (`1,20`, `0,0032`). */
-export const formatSpend = (usd: number) => (usd && usd < 0.01 ? formatCost(usd) : usd.toFixed(2).replace(".", ","));
+/** Útrata za den (karta projektu, sidebar, panel spuštění): vždy dvě místa (`0,00`, `1,20`); ceny běhů a kroků mají čtyři. */
+export const formatSpend = (usd: number) => usd.toFixed(2).replace(".", ",");
 
 /** Limit nebo rozpočet z configu (ne cena běhu): dvě desetinná místa. */
 export const formatMoney = (usd: number) =>

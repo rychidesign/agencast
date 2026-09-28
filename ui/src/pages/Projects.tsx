@@ -21,8 +21,9 @@ export function ProjectsPage() {
   return (
     <>
       <PageHeader title={t("projects.title")} description={t("projects.description")}
+        compact={[{ label: t("common.reload"), onSelect: reload }]}
         actions={<>
-          <button type="button" className={headerIconBtn} onClick={reload} aria-label={t("common.reload")} title={t("common.reload")}>
+          <button type="button" className={`${headerIconBtn} max-md:hidden`} onClick={reload} aria-label={t("common.reload")} title={t("common.reload")}>
             <RefreshCw aria-hidden />
           </button>
           <button type="button" className={btn.primary} onClick={() => setAdding(true)} disabled={!list.data}>
@@ -72,7 +73,7 @@ function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: ()
   // pak název 20, cesta, čipy počtů, oddělovač, stav běhu + útrata.
   return (
     <li data-testid={`project-card-${project.name}`}
-      className={`relative flex min-h-[260px] flex-col gap-5 rounded-tile p-[22px] ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line"}`}>
+      className={`relative flex min-h-[260px] flex-col gap-5 rounded-tile p-[22px] max-md:min-h-0 max-md:p-5 ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line"}`}>
       <div className="-my-[7px] flex min-h-11 items-center justify-between gap-2">
         {project.available ? <span /> : (
           <span className="inline-flex items-center gap-2 rounded-full bg-nested px-2.5 py-[7px] text-xs font-medium text-fg-secondary">

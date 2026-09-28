@@ -31,7 +31,7 @@ export function errorHref(project: string, e: ErrorItem): string | undefined {
 
 /** Hlavička sekce (G1): záložka do ní doplní akce, ⋯ a druhý řádek; „Načíst znovu“ je v ⋯ vždy první. */
 export type SectionHeader = (x?: {
-  description?: ReactNode; meta?: ReactNode; actions?: ReactNode; menu?: MenuItem[]; menuLabel?: string; children?: ReactNode;
+  description?: ReactNode; meta?: ReactNode; actions?: ReactNode; compact?: MenuItem[]; menu?: MenuItem[]; menuLabel?: string; children?: ReactNode;
 }) => ReactNode;
 
 export function ProjectPage({ project, tab, item }: { project: string; tab: Tab; item?: string }) {
@@ -50,7 +50,7 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
     );
   const header: SectionHeader = (x = {}) => (
     <>
-      <PageHeader title={t(`project.tab.${tab}`)} description={x.description} actions={x.actions} menuLabel={x.menuLabel}
+      <PageHeader title={t(`project.tab.${tab}`)} description={x.description} actions={x.actions} compact={x.compact} menuLabel={x.menuLabel}
         // než se projekt načte, kreslí hlavičku stránka a po načtení ji převezme záložka (nový uzel) → otevřené ⋯
         // by se samo zavřelo; během načítání proto ⋯ není (Běhy hlavičku nepředávají, mají ho vždy)
         menu={p || detail.error || tab === "behy" ? [{ label: t("common.reload"), onSelect: reload }, ...(x.menu ?? [])] : undefined}

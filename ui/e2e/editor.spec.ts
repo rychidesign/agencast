@@ -349,7 +349,8 @@ test("C10 přesun a smazání kroku s ochranou odkazů", async ({ page, project 
   expect(project.read("scenarios/clanek.yaml")).toBe(original);
 
   // úprava čtenářů + smazání v jedné dávce
-  await card(page, "jev_1").click();
+  // panel jev_1 je otevřený od začátku (Esc v menu ⋯ zavřel jen menu, ne panel)
+  await expect(card(page, "jev_1")).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("combobox", { name: "State" }).fill("{{ inputs.tema }}");
   await card(page, "vystup").click();
   await page.getByRole("combobox", { name: "text" }).fill("{{ inputs.tema }}");
@@ -374,7 +375,8 @@ test("C10 přesun a smazání kroku s ochranou odkazů", async ({ page, project 
   await page.getByRole("button", { name: "Akce pro vystup" }).click();
   await expect(page.getByRole("menuitem")).toHaveText(["Vložit krok nad", "Smazat (Delete)"]);
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("button", { name: /^Smazat krok / })).toHaveCount(1);
+  // koše ve sloupci (panel vystup zůstal otevřený a má vlastní)
+  await expect(page.getByRole("region", { name: "Kroky scénáře" }).getByRole("button", { name: /^Smazat krok / })).toHaveCount(1);
 });
 
 test("C11 parallel a switch", async ({ page, project, server }) => {

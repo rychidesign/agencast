@@ -312,7 +312,7 @@ describe("spuštění z GUI", () => {
     fireEvent.change(within(panel).getByRole("textbox", { name: /tema/ }), { target: { value: "káva" } });
     await act(async () => void fireEvent.click(within(panel).getByRole("radio", { name: /Ostrý běh/ })));
     expect(within(panel).getByText("1,00 USD")).toBeTruthy();
-    expect(await within(panel).findByText(/0,4200/)).toBeTruthy();
+    expect(await within(panel).findByText(/0,42 \/ /)).toBeTruthy();
     await act(async () => void fireEvent.click(within(panel).getByRole("button", { name: "Spustit ostrý běh" })));
     expect(calls).toEqual([{ method: "POST", url: "/projects/p/runs", body: { scenario: "s", inputs: { tema: "káva" } } }]);
     expect(location.hash).toBe("#/p/p/behy/20260926-120000-s-ab12");

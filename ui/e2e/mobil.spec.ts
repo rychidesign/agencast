@@ -1,61 +1,131 @@
-// Cesta C16 (docs/ui/uzivatelske-cesty.md): mobilní šířka 375 px, panel jako list, `pointer: coarse`.
-import type { Page } from "@playwright/test";
+// Cesta C16 (docs/ui/uzivatelske-cesty.md) a vlna G: mobil 390 × 844 (iPhone 13), `pointer: coarse`.
+// Lišta 56 px s drawerem navigace, panel jako plnoobrazovkový sheet, běhy jako karty, nikde vodorovné přetečení.
+import type { Locator, Page } from "@playwright/test";
 import { expect, startRun, test, waitRun } from "./fixtures";
 
-test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+const W = 390, H = 844;
+test.use({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
 
-const noOverflow = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+const noOverflow = async (page: Page) =>
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(0);
+const minSide = async (target: Locator) => {
+  const b = (await target.boundingBox())!;
+  return Math.min(b.width, b.height);
+};
 
-test("C16 mobilní šířka 375 px (panel jako list)", async ({ page, project, server }) => {
+test("G1 drawer navigace: lišta 56 px, ☰ otevře drawer, Esc a klik mimo zavřou", async ({ page, project }) => {
+  await page.goto(`/#/p/${project.name}/scenare`);
+  const bar = page.locator("header").first();
+  expect((await bar.boundingBox())!.height).toBe(56);
+  await expect(page.getByRole("navigation", { name: "Části projektu" })).toHaveCount(0); // žádné vodorovné záložky
+  const burger = page.getByRole("button", { name: "Navigace" });
+  expect(await minSide(burger)).toBeGreaterThanOrEqual(44);
+  await burger.tap();
+  const drawer = page.getByRole("dialog", { name: "Navigace" });
+  await expect(drawer).toBeVisible();
+  expect((await drawer.boundingBox())!.height).toBe(H);
+  await expect(drawer.getByRole("link", { name: "Projekty" })).toBeVisible();
+  const agents = drawer.getByRole("link", { name: "Agenti" });
+  expect((await agents.boundingBox())!.height).toBe(48);
+  expect(await minSide(drawer.getByRole("button", { name: "Zavřít" }))).toBeGreaterThanOrEqual(44);
+  await expect(drawer.getByTestId("spend-today")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(burger).toBeFocused();
+  // klik mimo drawer
+  await burger.tap();
+  await page.mouse.click(W - 10, H / 2);
+  await expect(drawer).toBeHidden();
+  // odkaz v draweru naviguje a drawer zavře
+  await burger.tap();
+  await agents.tap();
+  await expect(drawer).toBeHidden();
+  await expect(page).toHaveURL(/\/agenti/);
+  await noOverflow(page);
+});
+
+test("C16 editor na mobilu: karta 80 px, panel kroku jako sheet přes celou obrazovku", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenare/ukazka`);
   expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
   const napis = page.locator('[data-step-card="napis"]');
   await expect(napis).toBeVisible();
+  expect((await napis.boundingBox())!.height).toBe(80);
   await noOverflow(page);
-  const save = await page.getByRole("button", { name: "Uložit" }).boundingBox();
-  expect(save!.x + save!.width).toBeLessThanOrEqual(375);
+  // jen primární akce + ⋯; Uložit je v ⋯
+  await expect(page.getByRole("button", { name: "Spustit", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Uložit" })).toBeHidden();
   await expect(page.getByRole("radiogroup", { name: "Zobrazení" })).toBeInViewport();
+  const h1 = page.getByRole("heading", { level: 1 });
+  expect(parseFloat(await h1.evaluate((el) => getComputedStyle(el.firstElementChild ?? el).fontSize))).toBe(24);
+
+  // sloupec přes celou šířku (koš vně pilulky jen od 768 px, Smazat je v ⋯); cíle ≥ 44 px,
+  // (+) v konektoru 32 px má dotykovou plochu 44 přes ::before
+  await expect(page.getByRole("button", { name: "Smazat krok napis" })).toBeHidden();
+  expect((await napis.boundingBox())!.width).toBe(W - 32);
+  for (const target of [page.getByRole("button", { name: "Akce pro napis" }), page.getByRole("button", { name: "Další akce" })])
+    expect(await minSide(target), await target.getAttribute("aria-label") ?? "").toBeGreaterThanOrEqual(44);
+  const add = page.getByTestId("add-after-napis");
+  const a = (await add.boundingBox())!;
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-testid]")?.getAttribute("data-testid"),
+    [a.x + a.width / 2, a.y - 5])).toBe("add-after-napis");
 
   await napis.tap();
-  const panel = page.getByRole("complementary");
-  const box = (await panel.locator("xpath=..").boundingBox())!;
-  expect(Math.abs(box.y + box.height - (667 - 16))).toBeLessThanOrEqual(2);
-  expect(box.height).toBeLessThanOrEqual(667 * 0.7 + 1);
-  await panel.getByRole("button", { name: "Zavřít" }).tap();
-  await expect(panel).toBeHidden();
+  const sheet = page.getByRole("dialog", { name: /KROK 1/ });
+  await expect(sheet).toBeVisible();
+  expect(await sheet.boundingBox()).toEqual({ x: 0, y: 0, width: W, height: H });
+  expect(await minSide(sheet.getByRole("button", { name: "Zavřít" }))).toBeGreaterThanOrEqual(44);
+  // fokus zůstává v sheetu
+  for (let i = 0; i < 30; i++) await page.keyboard.press("Tab");
+  expect(await sheet.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(napis).toBeFocused();
+  await napis.tap();
+  await sheet.getByRole("button", { name: "Zavřít" }).tap();
+  await expect(sheet).toBeHidden();
+  await expect(napis).toBeFocused();
 
-  // dotyk: koš trvale ztlumeně, cíle ≥ 44 px
-  const trash = page.getByRole("button", { name: "Smazat krok napis" });
-  await expect(trash).toHaveCSS("opacity", "1"); // prvek sám; ztlumení nese obal ovládání
-  await expect(trash.locator("xpath=..")).toHaveCSS("opacity", "0.6");
-  for (const target of [trash, page.getByRole("button", { name: "Akce pro napis" }), page.getByTestId("add-after-napis"), page.getByRole("button", { name: "Uložit" })]) {
-    const b = (await target.boundingBox())!;
-    expect(Math.min(b.width, b.height), await target.getAttribute("aria-label") ?? "Uložit").toBeGreaterThanOrEqual(44);
-  }
-  await noOverflow(page);
-
-  // seznam agentů nad editorem, tabulka běhů ve scroll kontejneru
-  await page.goto(`/#/p/${project.name}/agenti`);
-  const nav = (await page.getByRole("navigation", { name: "Agenti" }).boundingBox())!;
-  const h2 = (await page.getByRole("heading", { name: "pisatel", level: 2 }).boundingBox())!;
-  expect(nav.y + nav.height).toBeLessThanOrEqual(h2.y);
-  await noOverflow(page);
-  const id = await startRun(server, project.name, "ukazka", { dry_run: true });
-  await waitRun(server, project.name, id, ["dry_run"]);
-  await page.goto(`/#/p/${project.name}/behy`);
-  await expect(page.getByTestId(`run-row-${id}`)).toBeAttached();
-  await noOverflow(page);
-  const region = page.getByRole("region", { name: "Běhy" });
-  expect(await region.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
-
-  // spuštění z mobilu: panel jako list, pole 16 px, tlačítko na plnou šířku
-  await page.goto(`/#/p/${project.name}/scenare/ukazka`);
+  // spuštění z mobilu: sheet, pole 16 px, tlačítko na plnou šířku
   await page.getByRole("button", { name: "Spustit", exact: true }).tap();
-  const run = page.getByRole("complementary");
-  await expect(run).toContainText("SPUSTIT BĚH");
+  const run = page.getByRole("dialog", { name: "SPUSTIT BĚH" });
+  await expect(run).toBeVisible();
   const tema = run.getByRole("textbox", { name: "tema" });
   expect(parseFloat(await tema.evaluate((el) => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
   const form = (await run.locator("form").boundingBox())!;
   const submit = (await run.getByRole("button", { name: "Spustit dry-run" }).boundingBox())!;
   expect(Math.abs(submit.width - form.width)).toBeLessThanOrEqual(1);
+  await noOverflow(page);
+});
+
+test("G2 běhy jako karty, agenti jako čipy, config — bez přetečení", async ({ page, project, server }) => {
+  await page.goto(`/#/p/${project.name}/agenti`);
+  const nav = (await page.getByRole("navigation", { name: "Agenti" }).boundingBox())!;
+  const h2 = (await page.getByRole("heading", { name: "pisatel", level: 2 }).boundingBox())!;
+  expect(nav.y + nav.height).toBeLessThanOrEqual(h2.y);
+  expect(nav.height).toBeLessThanOrEqual(56);
+  await noOverflow(page);
+
+  const id = await startRun(server, project.name, "ukazka", { dry_run: true });
+  await waitRun(server, project.name, id, ["dry_run"]);
+  await page.goto(`/#/p/${project.name}/behy`);
+  const row = page.getByTestId(`run-row-${id}`);
+  await expect(row).toBeVisible();
+  await expect(page.getByRole("columnheader").first()).toBeHidden();
+  const region = page.getByRole("region", { name: "Běhy" });
+  expect(await region.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
+  const card = (await row.boundingBox())!;
+  expect(card.width).toBe(W - 32);
+  // 1. řádek jméno + stav, 2. řádek run_id
+  const name = (await row.getByRole("link").boundingBox())!;
+  const runId = (await row.getByText(id, { exact: true }).boundingBox())!;
+  expect(runId.y).toBeGreaterThan(name.y + name.height - 2);
+  await noOverflow(page);
+
+  await page.goto(`/#/p/${project.name}/behy/${id}`);
+  await expect(page.getByRole("navigation", { name: "Části běhu" })).toBeVisible();
+  await noOverflow(page);
+
+  await page.goto(`/#/p/${project.name}/config`);
+  await expect(page.getByTestId("config-editor-card")).toBeVisible();
+  await noOverflow(page);
 });

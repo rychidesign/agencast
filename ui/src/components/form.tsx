@@ -1,31 +1,42 @@
 // Editační prvky (§3 inventář): pole se štítkem, výraz/šablona s našeptávačem, JSON, modál rozhodnutí.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
-import { Braces, Plus, X } from "lucide-react";
+import { Braces, Check, CircleX, Plus, X } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
-import { btn } from "./ui";
+import { btn, trapTab } from "./ui";
 
 const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:8px_8px] [&:is(select)]:bg-[position:calc(100%-25px)_55%,calc(100%-17px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-10";
+/** Pole (návrh `V3 / TextInput`, změřeno z .pen): 44 px, `nested`, r6, v klidu bez rámečku; fokus ring 2 `accent`
+ *  bez odsazení, neplatné ring 2 `error`. */
 export const inputCls =
-  `w-full min-h-11 rounded-[6px] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-line focus:outline-none focus:ring-2 focus:ring-accent aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:text-base [&:is(textarea)]:p-3 ${selectArrow}`;
+  `w-full min-h-11 rounded-[6px] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-0 aria-invalid:ring-2 aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:text-base [&:is(textarea)]:p-3 ${selectArrow}`;
 const mono = "font-mono text-[13px]";
 
-/** Pole se štítkem nad sebou (§6): `aria-describedby` na nápovědu i chybu. */
-export function FormField({ label, help, errors = [], required, children, action }: {
-  label: string; help?: ReactNode; errors?: (ErrorItem | string)[]; required?: boolean; action?: ReactNode;
-  children: (a11y: { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean }) => ReactNode;
+/** Vlastnosti pole od `FormField`; `label` jen u `boxed` (štítek v toolbaru `CodeBox`). */
+export type A11y = { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean; label?: ReactNode };
+
+/** Pole se štítkem nad sebou (§6): `aria-describedby` na nápovědu i chybu. `boxed` = štítek kreslí pole samo
+ *  (víceřádkový `CodeInput`, `JsonInput`). */
+export function FormField({ label, help, errors = [], required, children, action, boxed = false }: {
+  label: string; help?: ReactNode; errors?: (ErrorItem | string)[]; required?: boolean; action?: ReactNode; boxed?: boolean;
+  children: (a11y: A11y) => ReactNode;
 }) {
   const id = useId();
   const described = [help && `${id}-help`, errors.length && `${id}-err`].filter(Boolean).join(" ") || undefined;
+  const labelEl = (
+    <label htmlFor={id} className="text-[13px] font-medium text-fg-secondary">
+      {label}{required && <span className="text-fg-muted"> *</span>}
+    </label>
+  );
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-[13px] font-medium text-fg-secondary">
-          {label}{required && <span className="text-fg-muted"> *</span>}
-        </label>
-        {action}
-      </div>
-      {children({ id, "aria-describedby": described, "aria-invalid": errors.length > 0 || undefined })}
+      {!boxed && (
+        <div className="flex items-center justify-between gap-2">
+          {labelEl}
+          {action}
+        </div>
+      )}
+      {children({ id, "aria-describedby": described, "aria-invalid": errors.length > 0 || undefined, ...(boxed && { label: labelEl }) })}
       {help && <p id={`${id}-help`} className="text-xs text-fg-muted">{help}</p>}
       {errors.length > 0 && (
         <div id={`${id}-err`} className="space-y-1">
@@ -56,9 +67,9 @@ export function tokenAt(text: string, caret: number, template: boolean): string 
 }
 
 /** `ExprInput` / `TemplateInput` (§3): mono pole; `candidates` = `inputs.x`, `steps.<id>.<pole>` z kroků nad. */
-export function CodeInput({ value, onChange, candidates, template = false, multiline = false, a11y, placeholder }: {
+export function CodeInput({ value, onChange, candidates, template = false, multiline = false, a11y: { label, ...a11y }, placeholder }: {
   value: string; onChange: (v: string) => void; candidates: string[]; template?: boolean; multiline?: boolean;
-  a11y: { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean }; placeholder?: string;
+  a11y: A11y; placeholder?: string;
 }) {
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
   const caretAt = useRef<number | null>(null);
@@ -142,6 +153,12 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     }
   };
   const onKey = (e: KeyboardEvent) => {
+    if (e.ctrlKey && e.key === " " && candidates.length) {
+      e.preventDefault();
+      setVariableActive(0);
+      setVariablesOpen(true);
+      return;
+    }
     if (!open) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
@@ -173,59 +190,110 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
       refresh(e.target.value, e.target.selectionStart);
     },
   };
-  return (
+  const variableButton = (
+    <button
+      type="button" className="grid size-11 shrink-0 place-items-center text-variable hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:size-[18px]"
+      aria-label={t("form.variables.insert")} title={candidates.length ? t("form.variables.insert") : t("form.variables.none")}
+      aria-haspopup="menu" aria-expanded={variablesOpen} aria-controls={menuId} disabled={!candidates.length}
+      onClick={() => (setVariableActive(0), setVariablesOpen((isOpen) => !isOpen))}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setVariableActive(0);
+          setVariablesOpen((isOpen) => !isOpen);
+        } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !variablesOpen) {
+          e.preventDefault();
+          setVariableActive(0);
+          setVariablesOpen(true);
+        }
+      }}
+    >
+      <Braces aria-hidden />
+    </button>
+  );
+  const suggestions = open && (
+    <ul id={listId} role="listbox" className="absolute left-0 z-30 mt-1 w-full rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
+      {matches.map((c, i) => (
+        <li key={c} id={`${listId}-${i}`} role="option" aria-selected={i === active}
+          onMouseDown={(e) => (e.preventDefault(), accept(c))}
+          className={`flex h-8 cursor-pointer items-center rounded-[var(--radius-control)] px-3 text-variable ${mono} ${i === active ? "bg-surface-hover" : "hover:bg-surface-hover"}`}>
+          {c}
+        </li>
+      ))}
+    </ul>
+  );
+  const variableMenu = variablesOpen && (
+    <div ref={menu} id={menuId} role="menu" onKeyDown={onVariableMenuKey}
+      className="absolute right-0 top-full z-40 mt-1 max-h-72 w-64 overflow-y-auto rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
+      {variableGroups.map((group) => (
+        <div key={group.label} role="group" aria-label={group.label}>
+          <div className="px-3 pt-2 pb-1 text-xs text-fg-muted">{group.label}</div>
+          {group.items.map((candidate) => {
+            const i = candidates.indexOf(candidate);
+            return (
+              <button key={candidate} type="button" role="menuitem" tabIndex={-1}
+                className={`flex min-h-10 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-variable ${mono} ${i === variableActive ? "bg-surface-hover" : "hover:bg-surface-hover"} pointer-coarse:min-h-11`}
+                onFocus={() => setVariableActive(i)} onClick={() => insertVariable(candidate)}>
+                {candidate}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+  if (!multiline) return (
+    // `V3 / VariableInput`: jeden box 44 px, `{}` uvnitř vpravo bez výplně a bez rámečku
     <div ref={root} className="relative">
-      {multiline
-        ? <textarea {...props} className={`${inputCls} ${mono} [&:is(textarea)]:pr-12`} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
-        : <input {...props} className={`${inputCls} ${mono} pr-12`} />}
-      <button
-        type="button" className={`absolute right-0 grid size-11 place-items-center rounded-[6px] text-variable hover:bg-control [&>svg]:size-[18px] ${multiline ? "top-0" : "top-1/2 -translate-y-1/2"} disabled:cursor-not-allowed disabled:opacity-40`}
-        aria-label={t("form.variables.insert")} title={candidates.length ? t("form.variables.insert") : t("form.variables.none")}
-        aria-haspopup="menu" aria-expanded={variablesOpen} aria-controls={menuId} disabled={!candidates.length}
-        onClick={() => (setVariableActive(0), setVariablesOpen((isOpen) => !isOpen))}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setVariableActive(0);
-            setVariablesOpen((isOpen) => !isOpen);
-          } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !variablesOpen) {
-            e.preventDefault();
-            setVariableActive(0);
-            setVariablesOpen(true);
-          }
-        }}
-      >
-        <Braces className="size-4" aria-hidden />
-      </button>
-      {open && (
-        <ul id={listId} role="listbox" className="absolute left-0 z-30 mt-1 w-full rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
-          {matches.map((c, i) => (
-            <li key={c} id={`${listId}-${i}`} role="option" aria-selected={i === active}
-              onMouseDown={(e) => (e.preventDefault(), accept(c))}
-              className={`flex h-8 cursor-pointer items-center rounded-[var(--radius-control)] px-3 text-variable ${mono} ${i === active ? "bg-surface-hover" : "hover:bg-surface-hover"}`}>
-              {c}
-            </li>
-          ))}
-        </ul>
-      )}
-      {variablesOpen && (
-        <div ref={menu} id={menuId} role="menu" onKeyDown={onVariableMenuKey}
-          className="absolute right-0 top-full z-40 mt-1 max-h-72 w-64 overflow-y-auto rounded-[var(--radius-card)] bg-surface p-1 ring-1 ring-line">
-          {variableGroups.map((group) => (
-            <div key={group.label} role="group" aria-label={group.label}>
-              <div className="px-3 pt-2 pb-1 text-xs text-fg-muted">{group.label}</div>
-              {group.items.map((candidate) => {
-                const i = candidates.indexOf(candidate);
-                return (
-                  <button key={candidate} type="button" role="menuitem" tabIndex={-1}
-                    className={`flex min-h-10 w-full items-center rounded-[var(--radius-control)] px-3 text-left text-variable ${mono} ${i === variableActive ? "bg-surface-hover" : "hover:bg-surface-hover"} pointer-coarse:min-h-11`}
-                    onFocus={() => setVariableActive(i)} onClick={() => insertVariable(candidate)}>
-                    {candidate}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+      <input {...props} className={`${inputCls} ${mono} pr-12`} />
+      <div className="absolute top-0 right-0">{variableButton}{variableMenu}</div>
+      {suggestions}
+    </div>
+  );
+  const opened = (value.match(/\{\{/g) ?? []).length, closed = (value.match(/\}\}/g) ?? []).length;
+  return (
+    <div ref={root}>
+      <CodeBox label={label} kind={t(template ? "form.kind.template" : "form.kind.expr")} invalid={!!a11y["aria-invalid"]}
+        tools={<div className="relative -my-3 -mr-3">{variableButton}{variableMenu}</div>}
+        status={template && value.includes("{{") ? (opened === closed ? ["ok", t("form.template.ok")] : ["bad", t("form.template.bad")]) : undefined}
+        shortcut={candidates.length ? t("form.variables.shortcut") : undefined}>
+        <div className="relative">
+          <textarea {...props} className={codeArea} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
+          {suggestions}
+        </div>
+      </CodeBox>
+    </div>
+  );
+}
+
+/** Editor uvnitř `CodeBox`: bez vlastní výplně a prstence (fokus nese box). */
+const codeArea = `block w-full resize-y bg-transparent p-4 ${mono} leading-5 text-fg placeholder:text-fg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 pointer-coarse:text-base`;
+
+/** Víceřádkové pole (návrh `V3 / CodeInput`, změřeno z .pen): box `nested` r8 bez rámečku; toolbar p 12 16 s linkou
+ *  (štítek 13 `fg-secondary`, vpravo jazyk mono 11 `text-type` + nástroje), editor p 16, patička p 10 16 s linkou
+ *  (stav 12 s ikonou 14, vpravo zkratka mono 11 `fg-muted`). Fokus ring 2 `accent` na celém boxu. */
+function CodeBox({ label, kind, tools, status, shortcut, invalid, children }: {
+  label?: ReactNode; kind: string; tools?: ReactNode; status?: ["ok" | "bad", string]; shortcut?: string; invalid?: boolean; children: ReactNode;
+}) {
+  return (
+    // DOM: editor, pak toolbar (Tab z pole jde na `{}` jako u jednořádkového); vizuálně toolbar nahoře (`order-first`)
+    <div className={`relative flex flex-col rounded-control bg-nested ${invalid ? "ring-2 ring-error" : "has-[textarea:focus]:ring-2 has-[textarea:focus]:ring-accent"}`}>
+      {children}
+      <div className="order-first flex min-h-11 items-center justify-between gap-4 border-b border-line px-4 py-3">
+        <div className="min-w-0">{label}</div>
+        <div className="flex items-center gap-3.5">
+          <span className="font-mono text-[11px] font-medium text-type">{kind}</span>
+          {tools}
+        </div>
+      </div>
+      {(status || shortcut) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-2.5">
+          {status && (
+            <span className={`inline-flex items-center gap-2 font-mono text-xs whitespace-nowrap ${status[0] === "ok" ? "text-success" : "text-error"}`}>
+              {status[0] === "ok" ? <Check className="size-3.5" aria-hidden /> : <CircleX className="size-3.5" aria-hidden />}{status[1]}
+            </span>
+          )}
+          {shortcut && <span className="ml-auto font-mono text-[11px] whitespace-nowrap text-fg-muted">{shortcut}</span>}
         </div>
       )}
     </div>
@@ -235,9 +303,8 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
 // --- JSON pro vnořené hodnoty (schema, tools, default, criteria) ----------------------------
 
 /** Mapa nebo seznam jako JSON text; nevalidní JSON se nezapíše a ukáže chybu. Prázdné = pole se smaže. */
-export function JsonInput({ value, onChange, a11y, onError }: {
-  value: unknown; onChange: (v: unknown) => void; a11y: { id: string; "aria-describedby"?: string };
-  onError?: (msg: string | null) => void;
+export function JsonInput({ value, onChange, a11y: { label, ...a11y }, onError }: {
+  value: unknown; onChange: (v: unknown) => void; a11y: A11y; onError?: (msg: string | null) => void;
 }) {
   const show = (v: unknown) => (v === undefined ? "" : JSON.stringify(v, null, 2));
   const [text, setText] = useState(show(value));
@@ -248,23 +315,26 @@ export function JsonInput({ value, onChange, a11y, onError }: {
     last.current = value;
   }, [value]);
   return (
-    <textarea
-      {...a11y} aria-invalid={bad || undefined} spellCheck={false} value={text}
-      rows={Math.min(10, Math.max(2, text.split("\n").length))} className={`${inputCls} ${mono}`}
-      onChange={(e) => {
-        setText(e.target.value);
-        try {
-          const v = e.target.value.trim() ? JSON.parse(e.target.value) : undefined;
-          setBad(false);
-          onError?.(null);
-          last.current = v;
-          onChange(v);
-        } catch {
-          setBad(true);
-          onError?.(t("form.badJson"));
-        }
-      }}
-    />
+    <CodeBox label={label} kind="JSON" invalid={bad || !!a11y["aria-invalid"]}
+      status={text.trim() ? (bad ? ["bad", t("form.json.bad")] : ["ok", t("form.json.ok")]) : undefined}>
+      <textarea
+        {...a11y} aria-invalid={bad || a11y["aria-invalid"] || undefined} spellCheck={false} value={text}
+        rows={Math.min(10, Math.max(2, text.split("\n").length))} className={codeArea}
+        onChange={(e) => {
+          setText(e.target.value);
+          try {
+            const v = e.target.value.trim() ? JSON.parse(e.target.value) : undefined;
+            setBad(false);
+            onError?.(null);
+            last.current = v;
+            onChange(v);
+          } catch {
+            setBad(true);
+            onError?.(t("form.badJson"));
+          }
+        }}
+      />
+    </CodeBox>
   );
 }
 
@@ -300,13 +370,7 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
     if (e.key === "Escape") {
       e.stopPropagation();
       onCancel();
-    } else if (e.key === "Tab") {
-      const all = [...(root.current?.querySelectorAll<HTMLElement>(":is(button, input, textarea, select):not(:disabled), a[href]") ?? [])];
-      const i = all.indexOf(document.activeElement as HTMLElement);
-      const j = e.shiftKey ? (i <= 0 ? all.length - 1 : i - 1) : (i + 1) % all.length;
-      e.preventDefault();
-      all[j]?.focus();
-    }
+    } else if (e.key === "Tab") trapTab(root.current, e);
   };
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-canvas/70 p-4" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>

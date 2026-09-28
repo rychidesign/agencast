@@ -85,7 +85,7 @@ function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; 
     { label: t("scenarios.validate"), onSelect: onValidate },
   ];
   return (
-    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-[292px] flex-col gap-[18px] rounded-tile bg-surface p-6 hover:bg-surface-hover">
+    <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-[292px] flex-col gap-[18px] rounded-tile bg-surface p-6 hover:bg-surface-hover max-md:min-h-0 max-md:p-5">
       {/* návrh 03 (změřeno z .pen): řádek ikon 32 px, ⋯ 32 px ghost (klikací plocha 44), titul 18/26, meta mono 11 */}
       <div className="flex h-8 items-center gap-3">
         <div className="min-w-0 flex-1 overflow-hidden"><IconChain types={s.types} /></div>

@@ -97,7 +97,7 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
       {header({
         actions: <button type="button" className={btn.primary} disabled={!canSave} onClick={() => void save()} title="Ctrl+S">{t("common.save")}</button>,
       })}
-      <div className="space-y-6 rounded-panel bg-surface p-6" data-testid="config-editor-card">
+      <div className="space-y-6 rounded-panel bg-surface p-6 max-md:p-4" data-testid="config-editor-card">
       {project && <p className="break-all font-mono text-[13px] text-fg-muted" title={project.root}>{project.root}</p>}
       <div className="flex flex-wrap items-center gap-4">
         <Toggle label={t("code.mode")} value={mode} onChange={switchMode}

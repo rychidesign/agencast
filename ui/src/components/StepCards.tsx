@@ -122,16 +122,16 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
         onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
-        className={`flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-24 gap-3.5 p-4 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
+        className={`flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-24 gap-3.5 p-4 max-md:min-h-20 max-md:py-2.5 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
       >
         {/* pořadí jen v editoru; karta v běhu ho nemá (návrh 12) */}
-        {!head && !ctx.run && <span className={`w-4 shrink-0 text-center font-mono text-[11px] in-data-branch:hidden ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}</span>}
+        {!head && !ctx.run && <span className={`w-4 shrink-0 text-center font-mono text-[11px] in-data-branch:hidden max-md:hidden ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}</span>}
         {/* kontejner: prostá ikona 20 px; karta: kolečko 40 px (ve větvi 30) s plochou barvy typu */}
-        <span className={`grid shrink-0 place-items-center rounded-full ${head ? "" : "size-10 bg-type/7 in-data-branch:size-[30px]"}`}>
+        <span className={`grid shrink-0 place-items-center rounded-full ${head ? "" : "size-10 bg-type/7 max-md:size-9 in-data-branch:size-[30px]"}`}>
           {status ? <StatusIcon status={status} label="" className={head ? "size-5" : "size-4"} />
             : <TypeIcon type={step.type} className={`${head ? "size-5" : "size-4"} ${dim ? "text-fg-muted" : "text-type"}`} />}
         </span>
-        <span className={`flex min-w-0 flex-1 flex-col gap-1 ${head ? "flex-col-reverse" : ""}`}>
+        <span className={`flex min-w-0 flex-1 flex-col gap-1 max-md:gap-0.5 ${head ? "flex-col-reverse" : ""}`}>
           <span className={`flex items-center gap-1.5 font-mono ${head ? "text-[10px] leading-[15px] text-fg-muted" : `text-[11px] leading-4 ${dim ? "text-fg-muted" : "text-type"}`}`}>
             <span className="truncate">{head && `${step.nn} · `}{step.type ?? "?"} · {step.id}{head && detail ? ` · ${detail}` : ""}</span>
             {errors.length > 0 && <span className="size-1.5 shrink-0 rounded-full bg-error" aria-hidden />}
@@ -177,13 +177,13 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
   ];
   return (
     <>
-      <div className="absolute top-12 right-3 -translate-y-1/2 in-data-branch:top-[25px] in-data-branch:right-1">
+      <div className="absolute top-12 right-3 -translate-y-1/2 max-md:top-10 in-data-branch:top-[25px] in-data-branch:right-1">
         <Menu ghost items={items} label={t("common.menuFor", { name: step.id })} />
       </div>
-      {/* koš 24 px + 2 px se vejde do mezery 28 px mezi sloupcem a panelem (návrh 05) */}
-      <div className="absolute top-12 left-full ml-0.5 flex -translate-y-1/2 in-data-branch:top-[25px] items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60 pointer-coarse:group-focus-within:opacity-100">
+      {/* koš 24 px + 2 px se vejde do mezery 28 px mezi sloupcem a panelem (návrh 05); na mobilu sloupec přes celou šířku, Smazat je v ⋯ */}
+      <div className="absolute top-12 left-full ml-0.5 flex -translate-y-1/2 max-md:top-10 max-md:translate-y-0 in-data-branch:top-[25px] items-center gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-60 pointer-coarse:group-focus-within:opacity-100">
         <button type="button" onClick={() => edit.remove(step)} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
-          className="grid size-6 place-items-center rounded-full bg-error/15 text-error hover:bg-error/25 pointer-coarse:size-11">
+          className="grid size-6 place-items-center rounded-full bg-error/15 text-error hover:bg-error/25 pointer-coarse:size-11 max-md:hidden">
           <Trash2 className="size-3.5" aria-hidden />
         </button>
         {picker && (
@@ -201,7 +201,7 @@ export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afte
   const edit = ctx.edit;
   if (!edit) return <Arrow />;
   return (
-    <div className="group/conn relative flex h-11 items-center justify-center">
+    <div className="group/conn relative flex h-11 items-center justify-center max-md:h-8">
       <ArrowDown className={`absolute size-4 text-fg-muted group-focus-within/conn:opacity-0 group-hover/conn:opacity-0 pointer-coarse:opacity-0 ${edit.cut_ ? "opacity-0" : ""}`} aria-hidden />
       <AddButton label={afterId ? t("edit.addAfter", { id: afterId }) : t("edit.addStart")} testid={afterId && `add-after-${afterId}`}
         paste={edit.cut_?.id} always={!!edit.cut_} onPick={(p) => edit.add(at, p)} />
@@ -211,7 +211,7 @@ export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afte
 
 function Arrow() {
   return (
-    <div className="flex h-11 items-center justify-center text-fg-muted" aria-hidden>
+    <div className="flex h-11 items-center justify-center text-fg-muted max-md:h-8" aria-hidden>
       <ArrowDown className="size-4" />
     </div>
   );

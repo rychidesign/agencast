@@ -55,7 +55,7 @@ test("C6 spuštění běhu s formulářem vstupů (dry-run, ostrý, živý)", as
   await panel.getByRole("radio", { name: /Ostrý běh/ }).check();
   const limits = panel.getByRole("definition");
   await expect(panel.getByLabel("Limity běhu")).toBeVisible();
-  await expect(limits).toHaveText(["1,00 USD", "0,30 USD", "1h", "0,0000 USD"]); // formatCost: čtyři místa (fidelity §8)
+  await expect(limits).toHaveText(["1,00 USD", "0,30 USD", "1h", "0,00 USD"]); // denní útrata: dvě místa (vlna G), ceny běhů čtyři
   await expect(panel.getByText("Máš neuložené změny — běh použije verzi na disku.")).toBeVisible();
   const live = page.waitForResponse((r) => r.url().endsWith(`/projects/${project.name}/runs`) && r.request().method() === "POST");
   page.once("dialog", (d) => void d.accept());

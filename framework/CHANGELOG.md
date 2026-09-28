@@ -38,6 +38,20 @@ Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny. R
 - Opraveno: čísla řádků v YAML editoru se rozcházela s řádky textu (`text-xs` přebíjel výšku řádku);
   pulzující text čipu „běží“ padal pod kontrast 4,5:1 (pulzuje jen ikona); skeleton uvnitř karty byl
   neviditelný; selecty filtru běhů se roztahovaly přes celou šířku.
+- Pole: v klidu bez rámečku, jen výplň `nested` (návrh `V3 / TextInput`); fokus ring 2 `accent` bez odsazení,
+  neplatné ring 2 `error`. Pole s proměnnými je jeden box s `{}` uvnitř (bez výplně); víceřádková šablona
+  a JSON mají toolbar (štítek, „šablona“ / „JSON“, `{}`), editor p16 a patičku se stavem („Platný JSON“,
+  „Neuzavřená proměnná“) a nápovědou „Ctrl + mezerník pro nabídku“ (zkratka nabídku proměnných otevře).
+- Mobil: do 1023 px lišta 56 px (značka, projekt, ☰) s drawerem navigace přes celou výšku (Esc, klik mimo,
+  položky 48 px, útrata dole) místo přetékajících záložek; hlavička H1 24, jen primární akce + ⋯, titul se
+  nikdy neuřízne; obsah p16 (tablet p24), karty v jednom sloupci bez pevné výšky.
+- Mobil: panel kroku, hlavičky, spuštění i kroku v běhu je do 1279 px plnoobrazovkový sheet (`role="dialog"`,
+  fokus past, Esc, po zavření fokus zpět na kartu), nikdy přes sloupec ani hlavičku; karta kroku 80 px bez
+  čísla, konektor 32 px s dotykovou plochou (+) 44 px.
+- Mobil: běhy jako karty o dvou řádcích bez záhlaví sloupců; záložky detailu běhu s vodorovným posuvem;
+  seznam agentů a skillů pod 1100 px jako vodorovné čipy; Config a editor agenta s menším odsazením karty.
+- Opraveno: denní útrata všude se dvěma místy („dnes 0,00 USD“, sidebar i panel spuštění), ceny běhů a kroků se
+  čtyřmi; Esc v menu ⋯ zavře jen menu, ne panel pod ním.
 - Přístupnost: „+ Přidat …“ v panelech má ikonu a přístupné jméno bez „+“ („Přidat otázku“).
 
 ## 0.16.0 — 2026-09-28 (GUI podle návrhu V3: sidebar, jednotné hlavičky, tokeny)

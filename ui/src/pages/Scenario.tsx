@@ -12,7 +12,7 @@ import { Connector, HeaderCard, onColumnKey, StepList, uidOf, type EditCtx, type
 import { HeaderPanel, StepPanel } from "../components/StepPanel";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
 import { BackLink, PageHeader } from "../components/PageHeader";
-import { ErrorText, Loading, Toggle, btn, type MenuItem } from "../components/ui";
+import { ErrorText, Loading, SheetContext, Toggle, btn, useMedia, type MenuItem } from "../components/ui";
 import {
   adopt, blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
 } from "../edit";
@@ -56,10 +56,13 @@ export function closeOnEsc(selected: string | undefined) {
 }
 
 export function PanelSlot({ children, wide = false }: { children: ReactNode; /** Panel kroku v běhu (návrh 12: 520 px). */ wide?: boolean }) {
+  // Vedle sloupce od 1280 px (návrh 05, změřeno z .pen: sloupec do 676, mezera 28, panel 440); užší = plnoobrazovkový
+  // sheet (PanelShell), nikdy přes sloupec ani přes hlavičku stránky. Panel vedle sloupce (z-20) leží pod přilepenou
+  // hlavičkou (z-30), aby ho menu ⋯ z hlavičky překrylo.
+  const sheet = useMedia("(max-width: 1279px)");
+  if (sheet) return <SheetContext.Provider value>{children}</SheetContext.Provider>;
   return (
-    // Vedle sloupce až od 1280 px (návrh 05, změřeno z .pen: sloupec do 676, mezera 28, panel 440); užší = přes sloupec dole, vždy se zavíracím křížkem.
-    // List (z-40) leží nad přilepenou hlavičkou (z-30); panel vedle sloupce (z-20) pod ní, aby ho menu ⋯ z hlavičky překrylo.
-    <div className={`fixed inset-x-4 bottom-4 z-40 max-h-[70vh] overflow-auto rounded-panel shadow-2xl lg:left-[calc(232px+1rem)] xl:sticky xl:top-[calc(var(--page-header-h,5rem)+1rem)] xl:z-20 xl:max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] ${wide ? "xl:w-[520px]" : "xl:w-[440px]"} xl:shrink-0 xl:self-start xl:shadow-none`}>
+    <div className={`sticky top-[calc(var(--page-header-h,5rem)+1rem)] z-20 max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] shrink-0 self-start overflow-auto rounded-panel ${wide ? "w-[520px]" : "w-[440px]"}`}>
       {children}
     </div>
   );
@@ -297,16 +300,17 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
       {missing ? <PageHeader back={<BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink>}
         title={<span className="font-mono">{scenario}</span>} /> : <PageHeader sticky
         back={<><BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink><Trail project={project} trail={trail} /></>}
-        title={<span className="font-mono text-[27px] leading-[41px]">{scenario}</span>}
+        title={<span className="font-mono md:text-[27px] md:leading-[41px]">{scenario}</span>}
         description={work?.header.description && <span className="text-[13px] leading-5">{work.header.description}</span>}
         actions={<>
           <button type="button" className={btn.primary} onClick={() => (setRunning(true), setQuery({ krok: undefined }))} disabled={!p || !work}>
             <Play className="size-4" aria-hidden />{t("runForm.open")}
           </button>
-          <button type="button" className={btn.secondary} onClick={() => void save()} disabled={!canSave} title="Ctrl+S">
+          <button type="button" className={`${btn.secondary} max-md:hidden`} onClick={() => void save()} disabled={!canSave} title="Ctrl+S">
             <Save className="size-4" aria-hidden />{t("common.save")}
           </button>
         </>}
+        compact={[{ label: t("common.save"), onSelect: () => void save(), disabled: canSave ? undefined : t("edit.nothingToSave") }]}
         menu={menu}>
         <Toggle label={t("code.mode")} value={yaml ? "yaml" : "form"} onChange={(m) => void switchMode(m)}
           options={[
@@ -337,7 +341,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
         )}
         {work && !yaml && (
           <div className="flex justify-center gap-7">
-            <section className="w-full max-w-[676px] min-w-0 max-sm:pr-9 pointer-coarse:pr-12" aria-label={t("step.list")} onKeyDown={onColumnKey}>
+            <section className="w-full max-w-[676px] min-w-0 md:pointer-coarse:pr-12" aria-label={t("step.list")} onKeyDown={onColumnKey}>
               <HeaderCard inputs={work.header.inputs} outputs={work.header.outputs} selected={selected === HEADER_KEY} onSelect={() => select(HEADER_KEY)} />
               <Connector ctx={ctx} at={{ list: { parent: null, key: [] } }} />
               <StepList steps={steps} ctx={ctx} />

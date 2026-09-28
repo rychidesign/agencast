@@ -89,10 +89,11 @@ export function RunsTab({ project, header }: { project: string; header: SectionH
         {runs.loading && !runs.data && <div role="status" aria-label={t("common.loading")}><Skeleton className="h-[264px] rounded-card" /></div>}
         {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scénář>"}`} />}
         {shown.length > 0 && (
-          <div className="relative -my-2 overflow-x-auto" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
-            <table className="w-full min-w-[46rem] border-separate border-spacing-y-2 text-sm">
+          <div className="relative -my-2 overflow-x-auto max-md:my-0" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
+            <table className="w-full border-separate border-spacing-y-2 text-sm max-md:block md:min-w-[46rem]">
+              {/* do 767 px bez záhlaví: každý běh je karta o dvou řádcích (stav nahoře, run_id a meta pod ním) */}
               <caption className="sr-only">{t("project.tab.behy")}</caption>
-              <thead>
+              <thead className="max-md:hidden">
                 <tr className="font-mono text-[10px] text-fg-muted uppercase [&>th]:pb-1 [&>th]:font-normal">
                   <th className="pr-4 pl-[58px] text-left">{t("runs.col.scenarioId")}</th>
                   <th className="pr-4 text-left">{t("runs.col.state")}</th>
@@ -102,7 +103,7 @@ export function RunsTab({ project, header }: { project: string; header: SectionH
                   <th><span className="sr-only">{t("common.open")}</span></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="max-md:block max-md:space-y-2">
                 {shown.map((r) => <RunRow key={r.run_id} project={project} run={r} />)}
               </tbody>
             </table>
@@ -134,23 +135,23 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
   const duration = r.duration_s != null ? formatDuration(r.duration_s) : state === "running" ? formatElapsed(when) : "–";
   return (
     <tr data-testid={`run-row-${r.run_id}`} title={r.run_id}
-      className="relative h-[72px] [&>td]:bg-surface hover:[&>td]:bg-surface-hover">
-      <td className="rounded-l-control py-3 pr-4 pl-5">
-        <div className="flex items-center gap-[18px]">
-          <StatusIcon status={RUN_STATUS[state]} label="" className="size-5" />
-          <div className="min-w-0">
-            <a href={href(project, "behy", r.run_id)} className="block truncate text-sm font-semibold text-fg after:absolute after:inset-0">
+      className="relative h-[72px] md:[&>td]:bg-surface md:hover:[&>td]:bg-surface-hover max-md:flex max-md:h-auto max-md:flex-wrap max-md:items-baseline max-md:gap-x-2 max-md:gap-y-1 max-md:rounded-card max-md:bg-surface max-md:py-3.5 max-md:pr-11 max-md:pl-12 max-md:hover:bg-surface-hover">
+      <td className="rounded-l-control py-3 pr-4 pl-5 max-md:contents">
+        <div className="flex items-center gap-[18px] max-md:contents">
+          <StatusIcon status={RUN_STATUS[state]} label="" className="size-5 max-md:absolute max-md:top-[15px] max-md:left-4" />
+          <div className="min-w-0 max-md:contents">
+            <a href={href(project, "behy", r.run_id)} className="block truncate text-sm font-semibold text-fg after:absolute after:inset-0 max-md:min-w-0 max-md:flex-1 max-md:text-[15px]">
               {runScenario(r) || r.run_id}
             </a>
-            <p className="mt-1 truncate font-mono text-[11px] leading-4 text-fg-muted">{r.run_id}{note && ` · ${note}`}</p>
+            <p className="mt-1 truncate font-mono text-[11px] leading-4 text-fg-muted max-md:order-1 max-md:mt-0 max-md:basis-full">{r.run_id}{note && ` · ${note}`}</p>
           </div>
         </div>
       </td>
-      <td className={`w-[145px] pr-4 text-xs whitespace-nowrap ${STATE_COLOR[state]}`}>{reason ? t("run.failedIn", { reason }) : t(`run.state.${state}`)}</td>
-      <td className="w-[145px] pr-4 font-mono text-[11px] whitespace-nowrap text-fg-secondary" title={utcTitle(when)}>{what}</td>
-      <td className="pr-4 text-right font-mono text-xs whitespace-nowrap text-fg-secondary">{duration}</td>
-      <td className="pr-4 text-right font-mono text-xs whitespace-nowrap text-fg-secondary">{r.cost_usd != null ? `${formatCost(r.cost_usd)} USD` : "–"}</td>
-      <td className="w-10 rounded-r-control pr-5"><ChevronRight className="size-4 text-fg-secondary" aria-hidden /></td>
+      <td className={`w-[145px] pr-4 text-xs whitespace-nowrap max-md:w-auto max-md:max-w-[45%] max-md:truncate max-md:pr-0 ${STATE_COLOR[state]}`}>{reason ? t("run.failedIn", { reason }) : t(`run.state.${state}`)}</td>
+      <td className="w-[145px] pr-4 font-mono text-[11px] whitespace-nowrap text-fg-secondary max-md:order-2 max-md:w-auto max-md:pr-0" title={utcTitle(when)}>{what}</td>
+      <td className={`pr-4 text-right font-mono text-xs whitespace-nowrap text-fg-secondary max-md:order-3 max-md:pr-0 max-md:text-[11px] max-md:before:content-['·_'] ${duration === "–" ? "max-md:hidden" : ""}`}>{duration}</td>
+      <td className={`pr-4 text-right font-mono text-xs whitespace-nowrap text-fg-secondary max-md:order-4 max-md:pr-0 max-md:text-[11px] max-md:before:content-['·_'] ${r.cost_usd == null ? "max-md:hidden" : ""}`}>{r.cost_usd != null ? `${formatCost(r.cost_usd)} USD` : "–"}</td>
+      <td className="w-10 rounded-r-control pr-5 max-md:absolute max-md:top-1/2 max-md:right-4 max-md:w-auto max-md:-translate-y-1/2 max-md:pr-0"><ChevronRight className="size-4 text-fg-secondary" aria-hidden /></td>
     </tr>
   );
 }

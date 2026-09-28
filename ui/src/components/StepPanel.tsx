@@ -1,7 +1,7 @@
 // Panel kroku (§2.3): typ nahoře jako select, pole typu, dole sbalené Podmínka / Spolehlivost /
 // Podrobnosti kroku. Změny jdou do rozpracovaného stromu (edit.ts), na disk až tlačítkem Uložit.
 import { PanelRight, Trash2, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useContext, useEffect, useState, type ReactNode } from "react";
 import { flat, isObj, outputFields, visibleBefore, type Header, type WStep } from "../edit";
 import { t, tOr } from "../i18n";
 import { href } from "../router";
@@ -9,7 +9,7 @@ import { readBy, readsFrom } from "../steps";
 import type { ErrorItem, IoSpec, Project, StepType } from "../types";
 import { AddPill, CodeInput, FormField, inputCls, JsonInput } from "./form";
 import { PICKER_GROUPS } from "./TypePicker";
-import { btn, Collapsible, ErrorList } from "./ui";
+import { btn, Collapsible, ErrorList, SheetContext, useDialog } from "./ui";
 
 type Obj = Record<string, unknown>;
 
@@ -17,24 +17,29 @@ type Obj = Record<string, unknown>;
 export const panelIcon = "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50";
 
 /** PanelShell (návrh 05, změřeno z .pen): `surface` r16; hlavička p 20 s linkou (ikona 16, eyebrow mono 10 verzálky,
- *  titul 18 semibold, zavřít 44 ghost), tělo p 20, mezera polí 18. */
+ *  titul 18 semibold, zavřít 44 ghost), tělo p 20, mezera polí 18. Do 1279 px (`SheetContext`) plnoobrazovkový sheet:
+ *  `role="dialog"`, fokus past, Esc zavře, tělo scrolluje, hlavička stojí. */
 export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   id: string; eyebrow: string; title: ReactNode; onClose: () => void; actions?: ReactNode; children: ReactNode;
 }) {
+  const sheet = useContext(SheetContext);
+  const dialog = useDialog<HTMLElement>(onClose, sheet);
   return (
-    <aside aria-labelledby={id} className="rounded-panel bg-surface">
-      <div className="flex items-center gap-3 border-b border-line py-4 pr-3 pl-5">
+    <aside aria-labelledby={id} ref={dialog.ref} onKeyDown={dialog.onKeyDown}
+      {...(sheet && { role: "dialog", "aria-modal": true, tabIndex: -1 })}
+      className={sheet ? "fixed inset-0 z-50 flex flex-col bg-surface focus:outline-none" : "rounded-panel bg-surface"}>
+      <div className="flex shrink-0 items-center gap-3 border-b border-line py-4 pr-3 pl-5">
         <PanelRight className="size-4 shrink-0 text-fg-secondary" aria-hidden />
         <div className="min-w-0 flex-1 space-y-[3px]">
           <div id={id} className="font-mono text-[10px] leading-[15px] tracking-[0.08em] text-fg-muted uppercase">{eyebrow}</div>
-          <div className="truncate text-lg leading-[26px] font-semibold">{title}</div>
+          <div className={`text-lg leading-[26px] font-semibold ${sheet ? "[overflow-wrap:anywhere]" : "truncate"}`}>{title}</div>
         </div>
         {actions}
         <button type="button" className={panelIcon} onClick={onClose} aria-label={t("common.close")} title={t("common.close")}>
           <X className="size-4" aria-hidden />
         </button>
       </div>
-      <div className="p-5">{children}</div>
+      <div className={sheet ? "min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 pb-10" : "p-5"}>{children}</div>
     </aside>
   );
 }
@@ -131,7 +136,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
             <Collapsible title={t("panel.reliability")} value={filled.length ? filled.join(", ") : t("panel.default")}>
               <div className="space-y-3">
                 {reliability.map((k) => (
-                  <FormField key={k} label={tOr(`field.${k}`, k)} help={tOr(`help.${k}`, "")} errors={fieldErrors(k)}>
+                  <FormField key={k} label={tOr(`field.${k}`, k)} help={tOr(`help.${k}`, "")} errors={fieldErrors(k)} boxed={k === "default"}>
                     {(a) =>
                       k === "on_error" ? (
                         <select {...a} className={inputCls} value={String(step.fields.on_error ?? "")} onChange={(e) => setField(k, e.target.value)}>
@@ -238,7 +243,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
     ctx.change((s) => ({ ...s, fields: { ...s.fields, [type]: set(isObj(s.fields[type]) ? (s.fields[type] as Obj) : {}, k, v) } }), `b:${k}`);
   const str = (k: string) => (typeof body[k] === "string" ? (body[k] as string) : "");
   const tpl = (k: string, label: string, multiline = true, placeholder?: string) => (
-    <FormField label={label} errors={errors(`${type}.${k}`)} required>
+    <FormField label={label} errors={errors(`${type}.${k}`)} required boxed={multiline}>
       {(a) => <CodeInput a11y={a} template multiline={multiline} value={str(k)} candidates={candidates} placeholder={placeholder} onChange={(v) => setBody(k, v)} />}
     </FormField>
   );
@@ -254,7 +259,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
     </FormField>
   );
   const json = (k: string, label: string, help?: string) => (
-    <FormField label={label} help={help} errors={errors(`${type}.${k}`)}>
+    <FormField label={label} help={help} errors={errors(`${type}.${k}`)} boxed>
       {(a) => <JsonInput a11y={a} value={body[k]} onChange={(v) => setBody(k, v)} />}
     </FormField>
   );
@@ -318,7 +323,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
                 </FormField>
                 {q.type !== "noul" && q.type !== undefined && (
                   <FormField label={t("field.criteria")} help={q.type === "choice" ? t("help.criteriaChoice", { ex: '{"moznost": "popis"}' }) : t("help.criteriaScore", { ex: '["stupeň 0", "stupeň 1"]' })}
-                    errors={errors(`jev.questions.${name}.criteria`)}>
+                    errors={errors(`jev.questions.${name}.criteria`)} boxed>
                     {(a) => <JsonInput a11y={a} value={q.criteria} onChange={(v) => setQ(set(q, "criteria", v))} />}
                   </FormField>
                 )}
@@ -386,7 +391,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
       );
     case "fail":
       return (
-        <FormField label={t("field.message")} errors={errors("fail")} required>
+        <FormField label={t("field.message")} errors={errors("fail")} required boxed>
           {(a) => <CodeInput a11y={a} template multiline value={typeof step.fields.fail === "string" ? step.fields.fail : ""} candidates={candidates}
             onChange={(v) => ctx.change((s) => ({ ...s, fields: { ...s.fields, fail: v } }), "b:fail")} />}
         </FormField>

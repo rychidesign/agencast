@@ -83,8 +83,8 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
       <PageHeader sticky
         back={<BackLink href={href(project, "behy")}>{t("project.tab.behy")}</BackLink>}
         title={run && (
-          <a href={href(project, "scenare", runScenario(run))} className="inline-flex items-center gap-3 font-mono text-[26px] leading-[39px] hover:underline">
-            {runScenario(run)}<ArrowUpRight className="size-5 shrink-0" aria-hidden />
+          <a href={href(project, "scenare", runScenario(run))} className="font-mono hover:underline md:text-[26px] md:leading-[39px]">
+            {runScenario(run)}<ArrowUpRight className="ml-3 inline size-5 shrink-0 align-[-2px]" aria-hidden />
           </a>
         )}
         detail={runId}
@@ -104,7 +104,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
               {run.cost_usd != null && <span data-testid="run-cost">{formatCost(run.cost_usd)} USD</span>}
             </span>
           )}
-          <a className={btn.secondary} href={href(project, "scenare", runScenario(run))}>
+          <a className={`${btn.secondary} max-md:hidden`} href={href(project, "scenare", runScenario(run))}>
             <ExternalLink className="size-4" aria-hidden />{t("run.openScenario")}
           </a>
         </>}>

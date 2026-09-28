@@ -18,7 +18,7 @@ describe("cena: čtyři desetinná místa (fidelity §8)", () => {
     [0, "0,00"],
     [1.2, "1,20"],
     [0.032425, "0,03"],
-    [0.0032, "0,0032"],
+    [0.0032, "0,00"],
   ])("útrata %s → %s", (usd, text) => expect(formatSpend(usd)).toBe(text));
 });
 

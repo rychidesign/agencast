@@ -61,7 +61,7 @@ export function TypePicker({ onPick, onClose, paste }: {
   return (
     <div ref={ref} role="listbox" tabIndex={-1} aria-label={t("picker.label")} onKeyDown={onKey}
       aria-activedescendant={items[active] ? `${id}-${items[active]}` : undefined}
-      className={`absolute top-1/2 z-30 w-80 -translate-y-1/2 rounded-card bg-surface p-2 text-fg shadow-2xl ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"}`}>
+      className={`absolute top-1/2 z-30 w-80 -translate-y-1/2 rounded-card bg-surface p-2 text-fg shadow-2xl ring-1 ring-line focus:outline-none ${flip ? "right-full mr-2" : "left-full ml-2"} max-md:fixed max-md:inset-x-4 max-md:top-auto max-md:bottom-4 max-md:z-50 max-md:m-0 max-md:max-h-[70vh] max-md:w-auto max-md:translate-y-0 max-md:overflow-y-auto`}>
       {filter && <div className="px-3 py-1 font-mono text-xs text-fg-muted" aria-live="polite">{t("picker.filter", { filter })}</div>}
       {items.map((k, i) => {
         const g = k === "paste" ? -2 : PICKER_GROUPS.findIndex((gr) => gr.includes(k));
@@ -106,7 +106,7 @@ export function AddButton({ label, onPick, paste, always = false, testid, text }
       <button ref={btnRef} type="button" aria-label={label} title={label} aria-haspopup="listbox" aria-expanded={open} data-testid={testid}
         onClick={() => setOpen(!open)}
         className={text ? `${btn.secondary} ${paste ? "ring-1 ring-accent" : ""}`
-          : `grid size-11 place-items-center rounded-full bg-surface text-fg hover:bg-control focus-visible:ring-2 focus-visible:ring-accent ${paste ? "ring-1 ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
+          : `relative grid size-11 place-items-center rounded-full bg-surface max-md:size-8 max-md:before:absolute max-md:before:-inset-1.5 max-md:before:content-[''] text-fg hover:bg-control focus-visible:ring-2 focus-visible:ring-accent ${paste ? "ring-1 ring-accent" : ""} ${always || open ? "" : "opacity-0 group-hover/conn:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-60"}`}>
         <Plus className="size-4" aria-hidden />{text}
       </button>
       {open && <TypePicker paste={paste} onClose={close} onPick={(p) => (setOpen(false), onPick(p))} />}

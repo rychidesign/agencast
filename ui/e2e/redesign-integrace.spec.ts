@@ -35,8 +35,9 @@ for (const w of [768, 1024]) {
       await noOverflow(page, w);
     }
     await page.goto(`/#/p/${project.name}/scenare/ukazka?krok=napis`);
-    const panel = page.getByRole("complementary");
-    await expect(panel).toBeInViewport();
+    // pod 1280 px je panel plnoobrazovkový sheet (vlna G), nikdy přes sloupec
+    const panel = page.getByRole("dialog", { name: /KROK 1/ });
+    expect(await panel.boundingBox()).toEqual({ x: 0, y: 0, width: w, height: 900 });
     await panel.getByRole("button", { name: "Zavřít" }).click();
     await expect(panel).toBeHidden();
     await noOverflow(page, w);

@@ -33,6 +33,7 @@ async function screens(): Promise<Screen[]> {
     { name: "nedostupny-projekt", hash: "#/p/stary" },
     { name: "demo-scenare", hash: "#/p/demo" },
     { name: "demo-scenare-menu", hash: "#/p/demo", act: click("Další akce") },
+    { name: "demo-navigace", hash: "#/p/demo/behy", act: click("Navigace") },
     { name: "demo-scenare-kartamenu", hash: "#/p/demo", act: click("Akce pro ukazka") },
     { name: "demo-scenare-novy", hash: "#/p/demo", act: click(/Nový scénář/) },
     { name: "demo-agenti", hash: "#/p/demo/agenti/pisatel" },
@@ -100,6 +101,8 @@ const PROFILES: Record<string, BrowserContextOptions> = {
   "768": { viewport: { width: 768, height: 1024 } },
   "768-dotyk": { viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true },
   "1440-reduced": { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" },
+  "390": { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
+  "430": { viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true },
 };
 
 const findings: string[] = [];
@@ -132,7 +135,7 @@ async function shoot(browser: Browser, profile: string, s: Screen) {
   const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   if (over > 0) findings.push(`${tag} vodorovné přetečení o ${over} px`);
   await page.screenshot({ path: `${dir}/${s.name}.png`, fullPage: !s.act });
-  if (profile === "1440" || profile === "768") {
+  if (["1440", "768", "390"].includes(profile)) {
     const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     const v = r.violations.map((x) => ({ id: x.id, impact: x.impact ?? "", help: x.help, nodes: x.nodes.slice(0, 4).map((n) => n.target.join(" ")) }));
     if (v.length) axeAll[`${profile}/${s.name}`] = v;

@@ -16,7 +16,7 @@ import type { SectionHeader } from "./Project";
 
 type Obj = Record<string, unknown>;
 
-/** Seznam souborů sekce vlevo, editor vpravo; pod 1100 px seznam nad editorem. */
+/** Seznam souborů sekce vlevo, editor vpravo; pod 1100 px seznam nad editorem jako vodorovné čipy s posuvem. */
 function MasterDetail({ project, tab, items, current, children }: {
   project: Project; tab: Tab; items: { name: string; errors: ErrorItem[] }[]; current?: string; children: ReactNode;
 }) {
@@ -24,15 +24,15 @@ function MasterDetail({ project, tab, items, current, children }: {
     // návrh 06 (změřeno z .pen): seznam 240 px, položky `surface` r14 p16 gap 14, ikona 22, výběr = `surface-active`
     <div className="grid gap-6 min-[1100px]:grid-cols-[240px_minmax(0,1fr)]">
       <nav aria-label={t(`project.tab.${tab}`)}>
-        <ul className="space-y-2">
+        <ul className="space-y-2 max-[1099px]:flex max-[1099px]:gap-2 max-[1099px]:space-y-0 max-[1099px]:overflow-x-auto max-[1099px]:pb-1">
           {items.map((it) => (
-            <li key={it.name}>
+            <li key={it.name} className="max-[1099px]:shrink-0">
               <a href={href(project.name, tab, it.name)} aria-current={it.name === current ? "page" : undefined}
-                className={`flex items-center gap-3.5 rounded-tile p-4 font-mono text-sm font-semibold text-fg ${it.name === current ? "bg-surface-active" : "bg-surface hover:bg-surface-hover"}`}>
-                {tab === "agenti" ? <Bot className="size-[22px] shrink-0 text-type" aria-hidden /> : <BookOpen className="size-[22px] shrink-0 text-type" aria-hidden />}
+                className={`flex items-center gap-3.5 rounded-tile p-4 font-mono text-sm font-semibold text-fg max-[1099px]:h-11 max-[1099px]:gap-2 max-[1099px]:rounded-full max-[1099px]:px-4 max-[1099px]:py-0 ${it.name === current ? "bg-surface-active" : "bg-surface hover:bg-surface-hover"}`}>
+                {tab === "agenti" ? <Bot className="size-[22px] shrink-0 text-type max-[1099px]:size-4" aria-hidden /> : <BookOpen className="size-[22px] shrink-0 text-type max-[1099px]:size-4" aria-hidden />}
                 <span className="min-w-0 flex-1 space-y-[3px]">
                   <span className="block truncate leading-5" title={it.name}>{it.name}</span>
-                  {it.errors.length > 0 && <span className="block text-[11px] leading-4 font-normal text-error">{t("validation.count", { n: it.errors.length })}</span>}
+                  {it.errors.length > 0 && <span className="block text-[11px] leading-4 font-normal text-error max-[1099px]:sr-only">{t("validation.count", { n: it.errors.length })}</span>}
                 </span>
                 {it.errors.length > 0 && <CircleX className="size-4 shrink-0 text-error" aria-hidden />}
               </a>
@@ -91,17 +91,18 @@ export function useConflictUi(f: Pick<FileDraft<unknown>, "conflict" | "reloadFr
 }
 
 /** Hlavička editoru souboru (G1–G4): „+ Nový …“ a Uložit; ⋯ Přejmenovat, Smazat. */
-function EditorBar({ header, name, newButton, ready, canSave, onSave, onRename, onDelete }: {
-  header: SectionHeader; name: string; newButton: ReactNode; ready: boolean;
+function EditorBar({ header, name, tab, onNew, ready, canSave, onSave, onRename, onDelete }: {
+  header: SectionHeader; name: string; tab: "agenti" | "skilly"; onNew: () => void; ready: boolean;
   canSave: boolean; onSave: () => void; onRename?: () => void; onDelete: () => void;
 }) {
   // bez otisku souboru (ještě se načítá) přejmenovat ani smazat nejde
   const wait = ready ? undefined : t("common.loading");
   return header({
     actions: <>
-      {newButton}
+      <span className="contents max-md:hidden"><NewButton tab={tab} onClick={onNew} /></span>
       <button type="button" className={btn.primary} onClick={onSave} disabled={!canSave} title="Ctrl+S">{t("common.save")}</button>
     </>,
+    compact: [{ label: t(`${tab}.new`), onSelect: onNew }],
     menuLabel: t("common.menuFor", { name }),
     menu: [
       ...(onRename ? [{ label: t("rename.button"), onSelect: onRename, disabled: wait }] : []),
@@ -153,8 +154,8 @@ interface AgentForm {
   body: string;
 }
 
-function AgentEditor({ project, name, header, newButton, onChanged }: {
-  project: Project; name: string; header: SectionHeader; newButton: ReactNode; onChanged: () => void;
+function AgentEditor({ project, name, header, onNew, onChanged }: {
+  project: Project; name: string; header: SectionHeader; onNew: () => void; onChanged: () => void;
 }) {
   const path = `agents/${name}.md`;
   const url = `/projects/${enc(project.name)}/agents/${enc(name)}`;
@@ -217,13 +218,13 @@ function AgentEditor({ project, name, header, newButton, onChanged }: {
         if (active.dirty) void save();
       }
     }}>
-      <EditorBar header={header} name={name} newButton={newButton} ready={!!active.doc}
+      <EditorBar header={header} name={name} tab="agenti" onNew={onNew} ready={!!active.doc}
         canSave={active.dirty && !active.conflict && !(mode === "text" && (text.validating || text.errors.some((e) => e.line)))}
         onSave={() => void save()} onRename={requestRename} onDelete={() => setDeleting(true)} />
       <MasterDetail project={project} tab="agenti" items={project.agents} current={name}>
       <div className="space-y-4">
-      <h2 className="truncate font-mono text-2xl leading-9" title={name}>{name}</h2>
-      <div className="space-y-[18px] rounded-panel bg-surface p-6" data-testid="agent-editor-card">
+      <h2 className="font-mono text-2xl leading-9 [overflow-wrap:anywhere]">{name}</h2>
+      <div className="space-y-[18px] rounded-panel bg-surface p-6 max-md:p-4" data-testid="agent-editor-card">
       <div className="flex flex-wrap items-center gap-4">
         <Toggle label={t("code.mode")} value={mode} onChange={switchMode}
           options={[{ key: "form", label: t("code.form"), disabled: mode === "text" && text.errors.some((e) => e.line) ? t("code.fixYaml", { n: text.errors.find((e) => e.line)!.line! }) : undefined },
@@ -392,7 +393,7 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
       <section className="space-y-3">
         <div className="[&_label]:text-base [&_label]:font-semibold">
           <FormField label={t("agent.instructions")} errors={fe("body")} required>
-            {(a) => <div className="overflow-hidden rounded-[10px] bg-nested"><textarea {...a} rows={Math.min(24, Math.max(12, value.body.split("\n").length + 1))} className={`${inputCls} resize-y rounded-none font-mono text-[13px] leading-5 ring-0`}
+            {(a) => <div className="overflow-hidden rounded-[10px] bg-nested"><textarea {...a} rows={Math.min(24, Math.max(12, value.body.split("\n").length + 1))} className={`${inputCls} resize-y rounded-none font-mono text-[13px] leading-5`}
               value={value.body} onChange={(e) => onChange({ ...value, body: e.target.value })} /><p className="border-t border-line px-3 py-2 text-xs text-fg-muted">{t("agent.markdownHelp")}</p></div>}
           </FormField>
         </div>
@@ -411,7 +412,7 @@ export function AgentsTab({ project, header, selected, onChanged }: { project: P
     <>
       {current ? (
         <AgentEditor key={current} project={project} name={current} header={header} onChanged={onChanged}
-          newButton={<NewButton tab="agenti" onClick={() => setCreating(true)} />} />
+          onNew={() => setCreating(true)} />
       ) : (
         <>
           {header({ actions: <NewButton tab="agenti" primary onClick={() => setCreating(true)} /> })}
@@ -434,8 +435,8 @@ export function AgentsTab({ project, header, selected, onChanged }: { project: P
 
 // --- skill -------------------------------------------------------------------------------------
 
-function SkillEditor({ project, name, header, newButton, onChanged }: {
-  project: Project; name: string; header: SectionHeader; newButton: ReactNode; onChanged: () => void;
+function SkillEditor({ project, name, header, onNew, onChanged }: {
+  project: Project; name: string; header: SectionHeader; onNew: () => void; onChanged: () => void;
 }) {
   const path = `skills/${name}/SKILL.md`;
   const url = `/projects/${enc(project.name)}/skills/${enc(name)}`;
@@ -455,12 +456,12 @@ function SkillEditor({ project, name, header, newButton, onChanged }: {
         if (text.dirty) void save();
       }
     }}>
-      <EditorBar header={header} name={name} newButton={newButton} ready={!!text.doc}
+      <EditorBar header={header} name={name} tab="skilly" onNew={onNew} ready={!!text.doc}
         canSave={text.dirty && !text.conflict && !text.validating && !syntax} onSave={() => void save()} onDelete={() => setDeleting(true)} />
       <MasterDetail project={project} tab="skilly" items={project.skills} current={name}>
       <div className="space-y-4">
-      <h2 className="truncate font-mono text-2xl leading-9" title={name}>{name}</h2>
-      <div className="space-y-[18px] rounded-panel bg-surface p-6 [&>section]:pt-2.5" data-testid="skill-editor-card">
+      <h2 className="font-mono text-2xl leading-9 [overflow-wrap:anywhere]">{name}</h2>
+      <div className="space-y-[18px] rounded-panel bg-surface p-6 max-md:p-4 [&>section]:pt-2.5" data-testid="skill-editor-card">
       <div className="flex flex-wrap items-center gap-4"><span className="font-mono text-sm text-fg-secondary">Markdown · SKILL.md</span><SaveNote dirty={text.dirty} state={text.state} errors={text.errors.length} /></div>
       {ui.bar}
       {text.loadError && <ErrorText error={text.loadError} />}
@@ -497,7 +498,7 @@ export function SkillsTab({ project, header, selected, onChanged }: { project: P
     <>
       {current ? (
         <SkillEditor key={current} project={project} name={current} header={header} onChanged={onChanged}
-          newButton={<NewButton tab="skilly" onClick={() => setCreating(true)} />} />
+          onNew={() => setCreating(true)} />
       ) : (
         <>
           {header({ actions: <NewButton tab="skilly" primary onClick={() => setCreating(true)} /> })}

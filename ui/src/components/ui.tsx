@@ -3,7 +3,7 @@ import {
   Ban, Braces, Check, ChevronRight, CircleCheck, CircleSlash, CircleDashed, CircleDot, CircleX, Copy, Ellipsis, FileText, Inbox,
   TriangleAlert, type LucideIcon, Circle,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 
@@ -17,6 +17,57 @@ export const btn = {
   /** ⋯ na kartách (návrh: bez výplně, plocha až při hoveru / otevření). */
   iconGhost: "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg hover:bg-control aria-expanded:bg-control disabled:opacity-50 [&>svg]:size-[18px]",
 };
+
+// --- rozložení a dialogy ----------------------------------------------------------------------
+
+/** Media query jako stav; bez `matchMedia` (jsdom) platí `fallback`. */
+export function useMedia(query: string, fallback = false) {
+  const subscribe = useCallback((cb: () => void) => {
+    const m = window.matchMedia?.(query);
+    m?.addEventListener("change", cb);
+    return () => m?.removeEventListener("change", cb);
+  }, [query]);
+  return useSyncExternalStore(subscribe, () => window.matchMedia?.(query).matches ?? fallback);
+}
+
+/** Panel jako plnoobrazovkový sheet (do 1279 px: vedle sloupce se nevejde). Nastavuje `PanelSlot`, čte `PanelShell`. */
+export const SheetContext = createContext(false);
+
+/** Tab a Shift+Tab zůstávají uvnitř `root`. */
+export function trapTab(root: HTMLElement | null, e: React.KeyboardEvent) {
+  const all = [...(root?.querySelectorAll<HTMLElement>(":is(button, input, textarea, select):not(:disabled), a[href], [tabindex='0']") ?? [])]
+    .filter((el) => el.offsetParent !== null || el === document.activeElement);
+  if (!all.length) return;
+  const i = all.indexOf(document.activeElement as HTMLElement);
+  e.preventDefault();
+  all[e.shiftKey ? (i <= 0 ? all.length - 1 : i - 1) : (i + 1) % all.length]?.focus();
+}
+
+/** Dialog přes obrazovku (drawer, sheet panelu): fokus dovnitř, Tab uvnitř, Esc zavře, po zavření fokus zpět. */
+export function useDialog<T extends HTMLElement>(onClose: () => void, active = true) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (!active) return;
+    const prev = document.activeElement as HTMLElement | null;
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
+    // stránka pod dialogem přes celou obrazovku se nescrolluje
+    const root = document.documentElement, overflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = overflow;
+      if (prev?.isConnected) prev.focus();
+    };
+  }, [active]);
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!active || e.defaultPrevented) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+    } else if (e.key === "Tab") trapTab(ref.current, e);
+  };
+  return { ref, onKeyDown };
+}
 
 // --- stav ---------------------------------------------------------------------------------
 
@@ -221,7 +272,8 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
   const onKey = (e: React.KeyboardEvent) => {
     const all = [...(root.current?.querySelectorAll<HTMLElement>("[role=menuitem]:not([aria-disabled=true])") ?? [])];
     const i = all.indexOf(document.activeElement as HTMLElement);
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && open) {
+      e.preventDefault(); // Esc zavře jen menu, ne panel nebo sheet pod ním
       setOpen(false);
       root.current?.querySelector<HTMLElement>("button")?.focus();
     } else if (e.key === "Tab" && open) {
@@ -262,11 +314,11 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
 
 export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: string; href: string }[]; active: string; label: string }) {
   return (
-    <nav aria-label={label} className="flex flex-wrap gap-x-7 border-b border-line">
+    <nav aria-label={label} className="flex max-w-full min-w-0 flex-wrap gap-x-7 border-b border-line max-md:flex-nowrap max-md:gap-x-2 max-md:overflow-x-auto">
       {tabs.map((tab) => (
         <a
           key={tab.key} href={tab.href} aria-current={tab.key === active ? "page" : undefined}
-          className={`-mb-px flex h-12 items-center border-b-2 px-[18px] text-[13px] font-medium ${tab.key === active ? "border-accent text-fg" : "border-transparent text-fg-secondary hover:text-fg"}`}
+          className={`-mb-px flex h-12 shrink-0 items-center border-b-2 px-[18px] text-[13px] font-medium max-md:px-3 ${tab.key === active ? "border-accent text-fg" : "border-transparent text-fg-secondary hover:text-fg"}`}
         >
           {tab.label}
         </a>
