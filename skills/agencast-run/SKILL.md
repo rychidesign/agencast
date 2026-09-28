@@ -10,36 +10,14 @@ A **project** is any folder containing `workflows/` with `config.yaml`,
 walking up from the current directory, or takes `--project <root>`; a scenario
 is given by name (`ig-post`) or as an absolute path to its `.yaml`.
 
-New project with a sample agent and scenario: `agencast new project <dir>`
-(also `new agent|scenario <name>`).
+Creating a project, agent or scenario, registering a project for the GUI,
+`rename` and `migrate`: skill `agencast-create`. Known projects:
+`agencast projects list`. A successful `run` registers the project itself.
 
-## Registry and GUI
-
-Known projects live in `~/.config/agencast/projects.yaml`: `agencast projects list`.
-Only `new project` and a **successful `run`** register a project; `validate` does not.
-An existing folder is registered by hand:
-
-```bash
-agencast projects add <root> [--name jmeno]   # name defaults to the folder name
-agencast projects rm <jmeno>                  # registry only, files stay
-```
-
-The web GUI (`agencast serve` in registry mode, systemd user service
-`agencast.service`, reachable only over Tailscale at `http://<tailscale-host>:8090`)
-shows **registered projects only**, picks up a new registration on the next
-request (no restart), and edits the same files as the CLI — files are the single
-source of truth. Never expose it publicly; the token is in
-`~/.config/agencast/serve.env` (do not print it).
-
-## Rename and migrate
-
-```bash
-agencast rename scenario <old> <new>   # also `rename agent`; rewrites references
-agencast migrate <file>                # scenario, config or agent .md → current format version
-```
-
-Never rename by moving files: `name` must equal the file name and `call`/`agent`
-references would break. When `validate` reports an old format version, run `migrate`.
+Runs can also be started and inspected in the web GUI (`agencast.service`, only
+over Tailscale at `http://<tailscale-host>:8090`; token in
+`~/.config/agencast/serve.env`, never print it). It reads and writes the same
+files as the CLI.
 
 Command: `agencast` (on this host `~/.local/bin/agencast`). If missing, use
 `uv run --project ~/workspace/multiagent-workflows/framework agencast`.

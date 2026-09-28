@@ -10,11 +10,29 @@ project; subfolders are ignored. `name` must equal the file name without
 extension (lowercase, digits, `-`). Unknown fields are errors, not ignored.
 Never edit `config.yaml`, `mcp.yaml`, `commands.yaml` — owner only; ask.
 
-Start from a template: `agencast new agent <name>` / `agencast new scenario <name>`
-(never overwrites). Rename with `agencast rename scenario|agent <old> <new>`, which
-rewrites references — renaming the file by hand breaks `name` and `call`/`agent` links.
-The web GUI edits the same files; a project appears there only when registered
-(`agencast projects add <root>`, see skill `agencast-run`).
+## New project, registration, rename, migrate
+
+```bash
+agencast new project <dir>                  # skeleton with a sample agent + scenario, registers it
+agencast new agent <name>                   # workflows/agents/<name>.md from a template (never overwrites)
+agencast new scenario <name>                # workflows/scenarios/<name>.yaml
+agencast projects add <root> [--name jmeno] # register an existing folder (name = folder name)
+agencast projects rm <jmeno>                # registry only, files stay
+agencast rename scenario|agent <old> <new>  # rewrites references
+agencast migrate <file>                     # scenario, config or agent .md → current format version
+```
+
+Registry = `~/.config/agencast/projects.yaml` (`agencast projects list`). Only
+`new project`, `projects add` and a successful `run` register; `validate` does not.
+The web GUI (`agencast serve` in registry mode, systemd user service
+`agencast.service`, only over Tailscale at `http://<tailscale-host>:8090`) shows
+**registered projects only**, sees a new registration on the next request (no
+restart) and edits the same files as the CLI — files are the single source of
+truth. Never expose it publicly; the token is in `~/.config/agencast/serve.env`
+(do not print it).
+
+Never rename by moving files: `name` must equal the file name and `call`/`agent`
+references would break. When `validate` reports an old format version, run `migrate`.
 
 ## Minimal agent — `workflows/agents/greeter.md`
 
