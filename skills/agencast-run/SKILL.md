@@ -12,7 +12,8 @@ is given by name (`ig-post`) or as an absolute path to its `.yaml`.
 
 Creating a project, agent or scenario, registering a project for the GUI,
 `rename` and `migrate`: skill `agencast-create`. Known projects:
-`agencast projects list`. A successful `run` registers the project itself.
+`agencast projects list`. A successful `run` registers the project itself, so
+after the first successful run it shows up in the GUI without any further step.
 
 Runs can also be started and inspected in the web GUI (`agencast.service`, only
 over Tailscale at `http://<tailscale-host>:8090`; token in
