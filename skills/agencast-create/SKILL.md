@@ -10,6 +10,12 @@ project; subfolders are ignored. `name` must equal the file name without
 extension (lowercase, digits, `-`). Unknown fields are errors, not ignored.
 Never edit `config.yaml`, `mcp.yaml`, `commands.yaml` — owner only; ask.
 
+Start from a template: `agencast new agent <name>` / `agencast new scenario <name>`
+(never overwrites). Rename with `agencast rename scenario|agent <old> <new>`, which
+rewrites references — renaming the file by hand breaks `name` and `call`/`agent` links.
+The web GUI edits the same files; a project appears there only when registered
+(`agencast projects add <root>`, see skill `agencast-run`).
+
 ## Minimal agent — `workflows/agents/greeter.md`
 
 ```markdown
