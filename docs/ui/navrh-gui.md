@@ -447,7 +447,7 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 **Tokeny (V3).** Závazné názvy a hodnoty barev, písem a rádiusů jsou v [plánu redesignu, §1](redesign-plan.md#1-tokeny-kontrakt-pro-vsechny). Pravidla G7, G8 a G15 platí nad referenčními exporty.
 
 - **Žebřík ploch:** stránka `bg-app` (gradient z .pen nad `canvas`), karta a panel `bg-surface`, hover `bg-surface-hover`, pole, čipy a větve `bg-nested` s případným `ring-line`. Vybraná karta má `ring-2 ring-accent` bez offsetu. Bez průhledných ploch a `backdrop-blur`.
-- Boxy sdružující pole mají plochu `group` (`#253B50`), samotná pole zůstávají `nested` (`#0D192A`). Checkboxy a radia mají prázdnou plochu `control`, vybranou `accent` a tmavou fajfku nebo tečku.
+- Boxy sdružující pole mají plochu `group` (`#121E30`, mezi kartou a polem), samotná pole zůstávají `nested` (`#0D192A`). Checkboxy a radia mají prázdnou plochu `control`, vybranou `accent` a tmavou fajfku nebo tečku.
 - **Barva:** primární text `fg`, popisky `fg-secondary`, meta `fg-muted`, ikony typů `type`; stav běhu má ikonu a text s barvami `success`, `error`, `running`, `warning` a `neutral`. Pulz jen `motion-safe`.
 - **Tvary:** pilulka kroku `rounded-full` s kruhem 40 px, kontejner/karta scénáře `rounded-tile`, panel `rounded-panel`, ovládací prvky `rounded-control`; malé (+) kruh 28 px s `ring-line`.
 - **Text v pilulce:** typ 11 px uppercase, id mono 13 px `fg-secondary`, hodnota 14 px semibold `fg`, meta 13 px `fg-muted`. Mono i pro výrazy, `run_id`, ceny a YAML.

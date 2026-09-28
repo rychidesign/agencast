@@ -99,7 +99,7 @@ test.describe("sheet a vnořená pole", () => {
     await expect(sheet).toHaveCSS("opacity", "1");
     const field = sheet.getByRole("textbox", { name: "Výchozí hodnota tema" });
     const colors = await field.evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.closest("li.bg-group")!).backgroundColor]);
-    expect(colors).toEqual(["rgb(13, 25, 42)", "rgb(37, 59, 80)"]);
+    expect(colors).toEqual(["rgb(13, 25, 42)", "rgb(18, 30, 48)"]);
     const cb = sheet.getByRole("checkbox", { name: "povinný" });
     await expect(cb).toHaveCSS("background-color", "rgb(49, 69, 95)");
     await page.screenshot({ path: `${shots}/390-header-sheet.png` });
@@ -183,7 +183,7 @@ test.describe("desktop fields and controls", () => {
     await page.goto(`/#/p/${project.name}/config`);
     const field = page.locator("li.bg-group input").first();
     await expect(field).toHaveCSS("background-color", "rgb(13, 25, 42)");
-    await expect(field.locator("xpath=ancestor::li[1]")).toHaveCSS("background-color", "rgb(37, 59, 80)");
+    await expect(field.locator("xpath=ancestor::li[1]")).toHaveCSS("background-color", "rgb(18, 30, 48)");
     await cleanPage(page);
     await page.screenshot({ path: `${shots}/1440-config.png` });
 

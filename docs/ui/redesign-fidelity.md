@@ -21,7 +21,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 | `--color-control` | `#31455F` | výplň sekundárního tlačítka a ikonového tlačítka (`V3 / Button / secondary`, `V3 / IconButton`) |
 | `--color-control-hover` | `#3B5170` | hover sekundárního tlačítka |
 | `--color-surface-active` | `#253B50` (změřeno z .pen; odhad byl `#1B2A3D`) | aktivní položka sidebaru a seznamu, vybraná karta kroku |
-| `--color-group` | `#253B50` | box sdružující pole; samotná pole zůstávají `nested` |
+| `--color-group` | `#121E30` (mezi kartou `surface` a polem `nested`) | box sdružující pole; samotná pole zůstávají `nested` |
 | `--color-track` | `#25374A` | dráha progress baru |
 | `--radius-button` | `10px` | tlačítka |
 | `--radius-tile` | `14px` (změřeno z .pen) | karta projektu, scénáře, položka seznamu, kontejner kroků, filtry běhů, modál |
@@ -138,6 +138,6 @@ Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v k
 - Vlna I: nabídky ⋯, proměnných, našeptávač a výběr typu se vykreslují přes portál do `body`, takže souřadnice
   `fixed` patří viewportu i v transformovaných kartách a sheetech. Konektor mezi kartami má 48 px, (+) 40 px,
   tedy 4 px volného místa nahoře i dole, také ve větvích.
-- Vlna K: boxy sdružující pole mají `group` `#253B50`, pole zůstávají `nested` `#0D192A` a posuvníky sheetů i nabídek jsou skryté.
+- Vlna K: boxy sdružující pole mají `group` `#121E30`, pole zůstávají `nested` `#0D192A` a posuvníky sheetů i nabídek jsou skryté.
 - Vlna I: checkboxy/radia jsou na všech plochách vykreslené jednotně (prázdné `control`, vybrané `accent` s tmavou značkou). Čtení API opakuje jednou po 1,5 s
   a po obnovení připojení či zviditelnění stránky hned obnovuje data i kontrolu konfliktu.
