@@ -172,7 +172,7 @@ před `output`** (`output` smí být jen jeden, jako poslední krok).
 
 ## Krok 3 — fixtura pro Jev
 
-`../../framework/tests/golden/tutorial-03-rozhodovani.yaml`:
+`fake/tutorial-03-rozhodovani.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-03-rozhodovani.
@@ -194,7 +194,7 @@ Pro `slogan_vazny` odpověď nepotřebuješ — při `ton: hravy` se nezavolá.
 
 ```bash
 agencast validate workflows/scenarios/tutorial-03-rozhodovani.yaml
-agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake ../../framework/tests/golden/tutorial-03-rozhodovani.yaml
+agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-03-rozhodovani.yaml
 ```
 
 ```
@@ -627,7 +627,7 @@ diff workflows/scenarios/tutorial-03-rozhodovani.yaml workflows/scenarios/tutori
 >     fail: "Název {{ steps.navrh.nazev }} je příliš obyčejný (originalita = {{ steps.kontrola.originalita }})"
 ```
 
-Fixtura `../../framework/tests/golden/tutorial-03-cviceni.yaml` je stejná jako
+Fixtura `fake/tutorial-03-cviceni.yaml` je stejná jako
 u hlavního scénáře (`originalita: 1.4` → běh projde):
 
 ```yaml
@@ -648,7 +648,7 @@ slogan_hravy:
 
 ```bash
 agencast validate workflows/scenarios/tutorial-03-cviceni.yaml
-agencast run workflows/scenarios/tutorial-03-cviceni.yaml -i produkt="veganská zmrzlina" --fake ../../framework/tests/golden/tutorial-03-cviceni.yaml
+agencast run workflows/scenarios/tutorial-03-cviceni.yaml -i produkt="veganská zmrzlina" --fake fake/tutorial-03-cviceni.yaml
 ```
 
 ```

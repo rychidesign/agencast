@@ -8,15 +8,15 @@ ho, vyzkoušet ho zadarmo a jednou pustit naostro.
 pro produkt.
 
 > Všechny příkazy spouštěj **z projektu `examples/tutorial`** (z kořene klonu
-> nejprve `cd examples/tutorial`). Výstupy v tomto dílu jsou skutečné — z běhů
+> nejprve `cd examples/tutorial`, z balíčku `cd ~/agencast-tutorial`). Výstupy v tomto dílu jsou skutečné — z běhů
 > 25. 9. 2026. Tvoje `run_id`, časy a texty od modelu budou jiné.
 
 ---
 
 ## Krok 0 — zkratka pro příkaz
 
-Framework se spouští přes `uv`. Aby se ti nemusel pořád psát dlouhý
-příkaz, nadefinuj si v terminálu zkratku (platí do zavření terminálu):
+Po instalaci balíčku je `agencast` přímo v PATH. Pouze při práci z klonu
+bez instalace nástroje si nastav zkratku (platí do zavření terminálu):
 
 ```bash
 alias agencast="uv run --project ../../framework agencast"
@@ -286,7 +286,7 @@ realisticky, napíšeš mu **fixturu** — soubor s předem danými odpověďmi.
 
 ### Fixtura
 
-Vytvoř `../../framework/tests/golden/tutorial-01-nazvy.yaml`:
+Vytvoř `fake/tutorial-01-nazvy.yaml`:
 
 ```yaml
 # Skriptované odpovědi falešného poskytovatele pro tutorial-01-nazvy.
@@ -298,7 +298,7 @@ navrh:
 a spusť s ní:
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake ../../framework/tests/golden/tutorial-01-nazvy.yaml
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-01-nazvy.yaml
 ```
 
 ```
@@ -306,8 +306,8 @@ běh 20260925-150957-tutorial-01-nazvy-c3a6: úspěch · 0,0 s · 0,0001 USD
 záznam: runs/20260925-150957-tutorial-01-nazvy-c3a6/summary.md
 ```
 
-Proč zrovna do `../../framework/tests/golden/` a proč stejné jméno jako scénář?
-Protože **každý scénář ve `workflows/scenarios/` je zároveň test
+Proč zrovna do `fake/` a proč stejné jméno jako scénář?
+Protože **každý scénář v příkladech klonu ve `workflows/scenarios/` je zároveň test
 frameworku** (tzv. zlatý scénář). Testy ho spustí s `--fake` a když
 k němu najdou fixturu se stejným jménem, použijí ji a čekají úspěch. Díky
 tomu, až někdo framework vylepší, hned uvidí, jestli tvůj scénář pořád
@@ -499,7 +499,7 @@ steps:
 Pozor: `name` se musí změnit spolu se jménem souboru. Vstup `styl` má
 `default`, proto **nemá** `required`.
 
-`../../framework/tests/golden/tutorial-01-cviceni.yaml`:
+`fake/tutorial-01-cviceni.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-01-cviceni (řešení cvičení z dílu 1).
@@ -511,7 +511,7 @@ Ověření:
 
 ```bash
 agencast validate workflows/scenarios/tutorial-01-cviceni.yaml
-agencast run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská zmrzlina" --fake ../../framework/tests/golden/tutorial-01-cviceni.yaml
+agencast run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská zmrzlina" --fake fake/tutorial-01-cviceni.yaml
 ```
 
 ```

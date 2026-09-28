@@ -191,7 +191,7 @@ steps:
 
 Kroky volaného scénáře mají ve fixtuře (a v záznamu) **cestu**
 `<id kroku call>/<id kroku uvnitř>`.
-`../../framework/tests/golden/tutorial-07-skladani.yaml`:
+`fake/tutorial-07-skladani.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-07-skladani. Kroky volaných scénářů
@@ -204,12 +204,12 @@ ton/kontrola:
   - answers: { on_brand: 0.82 }
 ```
 
-(A `../../framework/tests/golden/tutorial-07-slogan.yaml` s klíčem `napis` pro
+(A `fake/tutorial-07-slogan.yaml` s klíčem `napis` pro
 stavebnici samotnou — i ona je zlatý test.)
 
 ```bash
 agencast validate tutorial-07-skladani
-agencast run tutorial-07-skladani -i produkt="veganská zmrzlina z ovesného mléka" --fake ../../framework/tests/golden/tutorial-07-skladani.yaml
+agencast run tutorial-07-skladani -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-07-skladani.yaml
 ```
 
 ```
@@ -380,7 +380,7 @@ python3 docs/tutorials/callback-prijemac.py
 z kroku 3:
 
 ```bash
-agencast serve --fake ../../framework/tests/golden/tutorial-07-skladani.yaml
+agencast serve --fake fake/tutorial-07-skladani.yaml
 ```
 
 ```
@@ -616,11 +616,11 @@ steps:
       zprava: "{{ steps.zapis.text }}"
 ```
 
-Fixtura `../../framework/tests/golden/tutorial-07-archiv.yaml` má stejné tahy
+Fixtura `fake/tutorial-07-archiv.yaml` má stejné tahy
 jako `tutorial-06-archiv`. Restartuj server (terminál 2, Ctrl+C) s ní:
 
 ```bash
-agencast serve --fake ../../framework/tests/golden/tutorial-07-archiv.yaml
+agencast serve --fake fake/tutorial-07-archiv.yaml
 ```
 
 a pošli dva **různé** požadavky (`n8n-5001`, `n8n-5002`) na stejný den:
@@ -910,7 +910,7 @@ steps:
       vazny: "{{ steps.vazny_slogan.slogan }}"
 ```
 
-`../../framework/tests/golden/tutorial-07-cviceni.yaml`:
+`fake/tutorial-07-cviceni.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-07-cviceni (řešení cvičení z dílu 7).
@@ -925,7 +925,7 @@ Uvnitř obou volání je krok `napis` — rozliší je až `id` kroku `call`.
 Proto musí mít každé volání vlastní `id` (to by chtěl `validate` stejně).
 
 ```bash
-agencast run tutorial-07-cviceni -i nazev=Ovena --fake ../../framework/tests/golden/tutorial-07-cviceni.yaml
+agencast run tutorial-07-cviceni -i nazev=Ovena --fake fake/tutorial-07-cviceni.yaml
 ```
 
 ```

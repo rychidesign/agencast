@@ -12,7 +12,7 @@ from agencast.loader import LoadError, read_frontmatter, read_yaml
 from agencast.record import run_detail, step_detail
 from agencast.task import run_locked
 
-GOLDEN = Path(__file__).parent / "golden" / "ukazka-call.yaml"
+GOLDEN = Path(__file__).resolve().parents[2] / "examples" / "showcase" / "fake" / "ukazka-call.yaml"
 
 
 def write_events(d: Path, events: list[dict]):

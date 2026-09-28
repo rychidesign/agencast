@@ -46,7 +46,7 @@ def err(r):
 
 def test_record_layout_and_events(wf):
     r, fake = run(wf / "scenarios" / "ig-post.yaml", {"tema": "káva"},
-                  __import__("yaml").safe_load(open(__file__.replace("test_engine.py", "golden/ig-post.yaml"))))
+                  __import__("yaml").safe_load(open(Path(__file__).resolve().parents[2] / "examples/showcase/fake/ig-post.yaml")))
     assert r.status == "succeeded", r.error
     d = r.rec.dir
     assert re.fullmatch(r"\d{8}-\d{6}-ig-post-[0-9a-f]{4}", r.run_id)

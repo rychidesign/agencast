@@ -8,7 +8,7 @@ from agencast.fake import Fake
 from agencast.record import count
 from conftest import add_image_model, scenario
 
-GOLDEN = str(Path(__file__).parent / "golden" / "ukazka-call.yaml")
+GOLDEN = str(Path(__file__).resolve().parents[2] / "examples" / "showcase" / "fake" / "ukazka-call.yaml")
 
 
 def test_serve_bind_defaults_and_environment(monkeypatch):

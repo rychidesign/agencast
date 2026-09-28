@@ -5,7 +5,9 @@
     agencast runs list | show <run_id>
     agencast serve [--host H] [--port P] [--workers N] [--fake [SKRIPT]] [--cors ORIGIN]   (mimo projekt: režim registru)
     agencast migrate <soubor>
-    agencast new project <cesta> [--name N] | agent <jméno> | scenario <jméno>
+    agencast skills list | path | install [--to all] [--prefix DIR] [--copy] [--force]
+    agencast docs [show <cesta>]
+    agencast new project <cesta> [--example showcase|tutorial] [--name N] | agent <jméno> | scenario <jméno>
     agencast rename scenario <staré> <nové> | agent <staré> <nové>
     agencast projects list | add <cesta> [--name N] | rm <jméno>
 
@@ -15,6 +17,8 @@ s workflows/ od aktuální složky nahoru, nebo --project <cesta> (u každého p
 .env se načítá až po parsování argumentů.
 """
 import argparse
+import difflib
+import shutil
 import os
 import sys
 from pathlib import Path
@@ -23,6 +27,7 @@ from . import ConfigErrors, __version__, api, projects as _projects
 from .loader import LoadError, load_dotenv, read_frontmatter, read_yaml, version_error
 from .fake import Fake
 from .record import count, cz, cz_usd
+from .resources import resource_dir
 from .validate import require_config, resolve_inputs
 
 
@@ -32,7 +37,9 @@ def _fail_config(errors: list[str]) -> int:
     return 2
 
 
-def _fake(arg: str | None, config_models: dict):
+def _fake(arg: str | None, config_models: dict, root: Path | None = None):
+    if arg and root and not Path(arg).is_absolute() and not Path(arg).exists():
+        arg = str(root / arg)
     script = read_yaml(Path(arg), arg) if arg else None
     return Fake(script, [m["id"] for m in config_models.values() if m.get("api", "chat") == "chat"],
                 [m["id"] for m in config_models.values() if m.get("api", "chat") == "images"])
@@ -47,7 +54,7 @@ def _project(a, *, offline=False, register=False):
     zapíše projekt do registru (validate od 0.15.1 ne: je bez vedlejších účinků, volají ho i nástroje
     a testy z cizích kopií projektu); chyba registru příkaz nezastaví."""
     arg = getattr(a, "fake", None)
-    fake = _fake(arg, {}) if arg is not None else None  # modely doplní api.load z config.yaml
+    fake = _fake(arg, {}, _root(a)) if arg is not None else None  # modely doplní api.load z config.yaml
     p = api.load(a.scenario, project_root=a.project, fake=fake, offline=offline)
     if not register:
         return p, fake
@@ -161,7 +168,7 @@ def cmd_serve(a) -> int:
                                             fake=(lambda: _fake(a.fake, {})) if a.fake is not None else None)
         else:
             wf, cfg = _config(a)
-            hook = Webhook(wf, fake=_fake(a.fake, cfg["models"]) if a.fake is not None else None, workers=a.workers)
+            hook = Webhook(wf, fake=_fake(a.fake, cfg["models"], wf.parent) if a.fake is not None else None, workers=a.workers)
             projects = Projects(hook)
         srv = Server(hook, a.host, a.port, projects, cors=a.cors)
         if not hook:
@@ -189,7 +196,7 @@ def cmd_serve(a) -> int:
 def cmd_new(a) -> int:
     try:
         if a.what == "project":
-            made = api.new_project(a.name, a.as_name)
+            made = api.new_project(a.name, a.as_name, example=a.example)
         else:
             made = (api.new_agent if a.what == "agent" else api.new_scenario)(a.project, a.name)
     except ConfigErrors as e:
@@ -197,12 +204,101 @@ def cmd_new(a) -> int:
     for p in made:
         print(f"vytvořeno: {p}")
     if a.what == "project":
-        root = made[0].parent.parent
+        root = Path(a.name).resolve()
         print(f"projekt {a.as_name or next(x['name'] for x in api.projects() if x['root'] == str(root))} "
               "přidán do registru")
+        if a.example == "showcase":
+            print(f'dál: agencast --project {root} run ig-post -i tema="nová káva" --fake fake/ig-post.yaml')
+            return 0
+        if a.example == "tutorial":
+            print("dál: agencast docs show tutorials/01-prvni-agent-a-scenar.md")
+            return 0
         print(f"dál: cp {root / '.env.example'} {root / '.env'}, doplň OPENROUTER_API_KEY a zkus\n"
               f"  agencast --project {root} run ukazka --fake")
     return 0
+
+
+SKILL_TARGETS = {
+    "claude": (".claude", "skills"),
+    "codex": (".codex", "skills"),
+    "opencode": (".config/opencode", "skills"),
+    "omp": (".omp", "agent/managed-skills"),
+}
+
+
+def cmd_skills(a) -> int:
+    try:
+        source = resource_dir("skills")
+        if a.skills_cmd == "path":
+            print(source)
+            return 0
+        skills = sorted(p.parent for p in source.glob("*/SKILL.md"))
+        if a.skills_cmd == "list":
+            for skill in skills:
+                fm, _ = read_frontmatter(skill / "SKILL.md", str(skill))
+                print(f"{skill.name}: {fm['description']}\n  {skill}")
+            return 0
+        prefix = a.prefix.expanduser().resolve()
+        targets = list(SKILL_TARGETS) if a.to == "all" else (
+            a.to.split(",") if a.to else [k for k, (base, _) in SKILL_TARGETS.items() if (prefix / base).is_dir()])
+        if unknown := set(targets) - SKILL_TARGETS.keys():
+            return _fail_config([f"neznámé nástroje: {', '.join(sorted(unknown))}; použij claude,codex,opencode,omp nebo all"])
+        if not targets:
+            print("žádný nástroj nenalezen; použij --to all")
+        for target in dict.fromkeys(targets):
+            base, subdir = SKILL_TARGETS[target]
+            dest = prefix / base / subdir
+            dest.mkdir(parents=True, exist_ok=True)
+            for skill in skills:
+                path = dest / skill.name
+                if path.is_symlink():
+                    if not a.copy and path.resolve() == skill.resolve():
+                        print(f"beze změny: {path}")
+                        continue
+                    path.unlink()
+                elif path.exists():
+                    if not a.force:
+                        print(f"ponecháno: {path} (přepsání: --force)")
+                        continue
+                    if path.is_dir():
+                        shutil.rmtree(path)
+                    else:
+                        path.unlink()
+                if a.copy:
+                    shutil.copytree(skill, path)
+                else:
+                    path.symlink_to(skill.resolve(), target_is_directory=True)
+                print(f"vytvořeno: {path}")
+        return 0
+    except ConfigErrors as e:
+        return _fail_config(e.errors)
+    except (OSError, LoadError) as e:
+        return _fail_config([str(e)])
+
+
+def cmd_docs(a) -> int:
+    try:
+        root = resource_dir("docs").resolve()
+        if a.docs_cmd == "show":
+            path = (root / a.path).resolve()
+            if Path(a.path).is_absolute() or not path.is_relative_to(root):
+                return _fail_config(["cesta musí být relativní uvnitř docs/"])
+            if not path.is_file():
+                names = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
+                nearest = difflib.get_close_matches(a.path, names, n=5, cutoff=0)
+                return _fail_config([f"dokument {a.path} neexistuje; nejbližší: {', '.join(nearest)}"])
+            print(path.read_text(encoding="utf-8"), end="")
+        else:
+            print(f"dokumentace: {root}\n  getting-started.md")
+            for section in ("tutorials", "spec"):
+                for path in sorted((root / section).glob("*.md")):
+                    print(f"  {path.relative_to(root)}")
+            print("čtení: agencast docs show <cesta>\nhttps://github.com/rychidesign/agencast")
+        return 0
+    except ConfigErrors as e:
+        return _fail_config(e.errors)
+    except OSError as e:
+        return _fail_config([str(e)])
 
 
 def cmd_rename(a) -> int:
@@ -295,6 +391,7 @@ def main(argv=None) -> int:
     ns = n.add_subparsers(dest="what", required=True)
     np = ns.add_parser("project", help="kostra projektu s ukázkovým agentem a scénářem, zapíše ji do registru")
     np.add_argument("name", metavar="cesta", help="složka projektu (workflows/ v ní ještě nesmí být)")
+    np.add_argument("--example", choices=["showcase", "tutorial"], help="zkopíruje přibalený příklad včetně fake fixtur")
     np.add_argument("--name", dest="as_name", metavar="JMÉNO", help="jméno v registru (výchozí: jméno složky)")
     pr = sub.add_parser("projects", help="registr projektů (~/.config/agencast/projects.yaml)")
     prs = pr.add_subparsers(dest="projects_cmd", required=True)
@@ -311,6 +408,18 @@ def main(argv=None) -> int:
         p = rns.add_parser(what, parents=[common])
         p.add_argument("old", metavar="staré")
         p.add_argument("new", metavar="nové")
+    sk = sub.add_parser("skills", help="skilly pro kódovací agenty")
+    sks = sk.add_subparsers(dest="skills_cmd", required=True)
+    sks.add_parser("list", help="jména, popisy a cesty skillů")
+    sks.add_parser("path", help="složka přibalených skillů")
+    si = sks.add_parser("install", help="nainstaluje skilly pro zvolené nástroje")
+    si.add_argument("--to", help="claude,codex,opencode,omp nebo all; výchozí: nalezené nástroje")
+    si.add_argument("--prefix", type=Path, default=Path.home(), metavar="DIR", help="domovská složka pro instalaci")
+    si.add_argument("--copy", action="store_true", help="kopie místo symlinků")
+    si.add_argument("--force", action="store_true", help="přepíše i existující soubory a složky")
+    doc = sub.add_parser("docs", help="rejstřík přibalené dokumentace")
+    ds = doc.add_subparsers(dest="docs_cmd")
+    ds.add_parser("show", help="vypíše dokument").add_argument("path", help="relativní cesta uvnitř docs/")
     a = ap.parse_args(argv)
     if a.cmd == "serve":
         from_env = a.port is None
@@ -323,7 +432,7 @@ def main(argv=None) -> int:
                 return _fail_config(["AGENCAST_PORT musí být celé číslo v rozsahu 1–65535"])
     return {"validate": cmd_validate, "run": cmd_run, "runs": cmd_runs, "serve": cmd_serve,
             "migrate": cmd_migrate, "new": cmd_new,
-            "rename": cmd_rename, "projects": cmd_projects}[a.cmd](a)
+            "rename": cmd_rename, "projects": cmd_projects, "skills": cmd_skills, "docs": cmd_docs}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from agencast import ConfigErrors
 from agencast.loader import read_yaml
 from agencast.validate import validate
 
-GOLDEN = Path(__file__).parent / "golden" / "ukazka-call.yaml"
+GOLDEN = Path(__file__).resolve().parents[2] / "examples" / "showcase" / "fake" / "ukazka-call.yaml"
 
 CALLEE = """
 version: 1

@@ -205,7 +205,7 @@ znamenalo: po zkoušce s `--fake` se příspěvek naostro nikdy nezveřejní
 a n8n dostane vymyšlený `post_url`.
 
 ```bash
-maw serve --fake ../../framework/tests/golden/tutorial-07-archiv.yaml     # nebo maw run … --fake
+maw serve --fake fake/tutorial-07-archiv.yaml     # nebo maw run … --fake
 # POST /runs: {"scenario": "tutorial-07-archiv", "inputs": {"den": "2026-09-25", "text": "…"}, …}
 maw run tutorial-07-archiv -i den=2026-09-25 -i text="Ostrý zápis."   # bez --fake
 ```

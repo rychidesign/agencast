@@ -2,7 +2,7 @@
 examples/ a každá ukázka v docs/spec/ musí projít validate a scénáře doběhnout
 s falešným poskytovatelem. Přidání scénáře do examples/*/workflows/ = přidání testu.
 
-Skriptované odpovědi pro zlatý scénář: tests/golden/<jméno>.yaml (volitelné;
+Skriptované odpovědi pro zlatý scénář: examples/<projekt>/fake/<jméno>.yaml (volitelné;
 bez nich musí běh skončit úspěchem nebo záměrným `fail`).
 """
 import re
@@ -19,13 +19,13 @@ from agencast.loader import (load_yaml, nested_lists, read_frontmatter, read_yam
 from agencast.mcp_client import load_mcp
 from agencast.validate import load_agent, load_config, load_skill
 
-GOLDEN = Path(__file__).parent / "golden"
 SPEC = REPO / "docs" / "spec"
 
 
 @pytest.mark.parametrize("path", example_files("scenarios/*.yaml"), ids=lambda p: p.stem)
 def test_workflow_scenario_runs_with_fake(wf, path):
-    script = read_yaml(GOLDEN / path.name) if (GOLDEN / path.name).is_file() else None
+    fixture = path.parents[2] / "fake" / path.name
+    script = read_yaml(fixture) if fixture.is_file() else None
     r, _ = run(wf / "scenarios" / path.name, _sample_inputs(read_yaml(path)), script)
     if script:
         assert r.status == "succeeded", r.error

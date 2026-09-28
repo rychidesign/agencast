@@ -4,8 +4,19 @@ Sedm dílů od prvního agenta po provoz přes webhook. Každý díl staví na
 předchozích, má skutečné výstupy z běhů a končí cvičením s řešením.
 Příkazy v dílech spouštějte z `examples/tutorial` (`cd examples/tutorial` z kořene klonu).
 
+Z instalovaného balíčku (bez klonu) začněte takto:
+
+```bash
+agencast new project ~/agencast-tutorial --example tutorial
+cd ~/agencast-tutorial
+agencast docs show tutorials/01-prvni-agent-a-scenar.md
+```
+
+Příkazy pak spouštějte z této složky; fixtury jsou v `fake/`.
+Testy frameworku přes `uv run pytest` vyžadují klon, jednotlivé falešné běhy nikoli.
+
 Řešení jsou soubory `tutorial-0N-*` v `examples/tutorial/workflows/` a fixtury
-v `framework/tests/golden/` — jsou to zároveň zlaté testy
+v `examples/tutorial/fake/` — jsou to zároveň zlaté testy
 (`cd framework && uv run pytest`).
 
 | Díl | Čas | Útrata | Co se naučíš |

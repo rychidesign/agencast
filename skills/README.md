@@ -1,10 +1,18 @@
-# skills
+# Skilly pro kódovací agenty
 
-Skills for coding agents (Claude Code, Codex, OpenCode and OMP) that work *on* AgenCast:
-`agencast-run` (validate, dry-run, run, read results) and `agencast-create`
-(write agents and scenarios). Install with `bash skills/install.sh`; it creates
-symlinks in `~/.claude/skills`, `~/.codex/skills`,
-`~/.config/opencode/skills` and `~/.omp/agent/managed-skills`.
+`agencast-run` pomáhá spouštět scénáře a číst výsledky; `agencast-create`
+vytvářet agenty a scénáře. Jsou přibalené i v instalaci bez klonu.
 
-Not to be confused with `examples/*/workflows/skills/` — those are skills for the agents
-*inside* scenarios (loaded by the `skills:` field of an agent).
+```bash
+agencast skills list
+agencast skills install                # nalezené nástroje
+agencast skills install --to all       # Claude Code, Codex, OpenCode, OMP
+agencast skills path
+```
+
+Výchozí instalace vytvoří symlinky v `~/.claude/skills`, `~/.codex/skills`,
+`~/.config/opencode/skills` a `~/.omp/agent/managed-skills`. `--copy` vytvoří
+kopie, `--force` dovolí přepsat existující složky, `--prefix DIR` změní domovskou
+složku. Konkrétní nástroje vyberete např. `--to claude,codex`.
+
+Skilly v `examples/*/workflows/skills/` jsou naopak pro agenty uvnitř scénářů.

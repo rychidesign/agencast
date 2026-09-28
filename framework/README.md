@@ -1,8 +1,10 @@
 # AgenCast framework
 
-Verze 0.16.4, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
+Verze 0.17.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
 v `docs/DESIGN.md`. Balík i příkaz se jmenují `agencast` (do 0.2.5
 `maw`); jméno příkazu je v `pyproject.toml` (`[project.scripts]`).
+
+Balíček obsahuje i skilly, dokumentaci a příklady: [návod](../docs/getting-started.md).
 
 ## Použití
 
@@ -11,15 +13,17 @@ Příkazy spouštějte z kořene klonu repozitáře.
 ```
 uv run --project framework agencast --project examples/showcase validate ig-post
 uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva" --dry-run
-uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
+uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva" --fake examples/showcase/fake/ig-post.yaml
 uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva"
-uv run --project framework agencast --project examples/showcase run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake framework/tests/golden/ukazka-task.yaml
+uv run --project framework agencast --project examples/showcase run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake examples/showcase/fake/ukazka-task.yaml
 uv run --project framework agencast --project examples/showcase runs list
 uv run --project framework agencast --project examples/showcase runs show <run_id>
 uv run --project framework agencast --project examples/showcase serve --host 127.0.0.1 --port 8080 [--workers 2] [--cors http://localhost:5173]
 uv run --project framework agencast --project examples/showcase migrate examples/showcase/workflows/scenarios/ig-post.yaml
-uv run --project framework agencast new project ~/muj-projekt
+uv run --project framework agencast new project ~/muj-projekt [--example showcase|tutorial]
 uv run --project framework agencast new agent recenzent | new scenario kontrola [--project <cesta>]
+uv run --project framework agencast skills list | path | install [--to all] [--prefix DIR] [--copy] [--force]
+uv run --project framework agencast docs [show spec/scenario.md]
 uv run --project framework agencast projects list | add <cesta> [--name N] | rm <jméno>
 ```
 
@@ -148,7 +152,7 @@ maskování), krok `task` s falešným MCP serverem `tests/fake_mcp_server.py`
 (oprávnění, normalizace schémat, smyčka, skilly, `dedupe_key`, zbylé
 procesy) a zlaté scénáře — každý soubor v `examples/*/workflows/` a každá ukázka
 v `docs/spec/`. Nový scénář v `examples/*/workflows/scenarios/` se testuje sám;
-skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
+skriptované odpovědi pro něj patří do `../examples/<projekt>/fake/<jméno>.yaml`.
 
 ## Struktura (vrstvy DESIGN D3)
 

@@ -1,6 +1,6 @@
 [project]
 name = "agencast"
-version = "0.16.4"
+version = "0.17.0"
 description = "AgenCast — scénáře s LLM agenty: scénáře v YAML, agenti v Markdownu, modely přes OpenRouter"
 license = "WTFPL"
 requires-python = ">=3.12,<3.13"
@@ -35,3 +35,19 @@ testpaths = ["tests"]
 # Testy se sítí nebo skutečným npx serverem: jen `uv run pytest -m live`; běžná sada je hermetická (DESIGN §5.9).
 markers = ["live: potřebuje síť nebo skutečný MCP server přes npx — spouštět jen `-m live`"]
 addopts = "-m 'not live'"
+
+[tool.hatch.build.targets.wheel.force-include]
+"../skills/agencast-run" = "agencast/skills/agencast-run"
+"../skills/agencast-create" = "agencast/skills/agencast-create"
+"../docs/getting-started.md" = "agencast/docs/getting-started.md"
+"../docs/spec" = "agencast/docs/spec"
+"../docs/tutorials" = "agencast/docs/tutorials"
+"../examples/README.md" = "agencast/examples/README.md"
+"../examples/showcase/workflows" = "agencast/examples/showcase/workflows"
+"../examples/showcase/fake" = "agencast/examples/showcase/fake"
+"../examples/showcase/.env.example" = "agencast/examples/showcase/.env.example"
+"../examples/tutorial/workflows" = "agencast/examples/tutorial/workflows"
+"../examples/tutorial/fake" = "agencast/examples/tutorial/fake"
+"../examples/tutorial/.env.example" = "agencast/examples/tutorial/.env.example"
+
+[tool.hatch.build.hooks.custom]

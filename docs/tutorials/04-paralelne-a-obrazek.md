@@ -187,7 +187,7 @@ Limity běhu: rozpočet 1.0 USD (z toho obrázky 0.3 USD), čas 1h. Jev: jev-1.1
 | 6 | out | output |  | nazev, slogan, foto |  |
 ```
 
-Fixtura `../../framework/tests/golden/tutorial-04-paralelne.yaml`:
+Fixtura `fake/tutorial-04-paralelne.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-04-paralelne.
@@ -204,7 +204,7 @@ popis:
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake ../../framework/tests/golden/tutorial-04-paralelne.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-04-paralelne.yaml
 ```
 
 ```
@@ -420,7 +420,7 @@ Zkusíme to s přísnějšími limity. **Dočasně** změň u kroku `fotka`
 `budget_usd: 0.10` na `budget_usd: 0.03` (falešný obrázek stojí 0,04):
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake ../../framework/tests/golden/tutorial-04-paralelne.yaml
+agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake fake/tutorial-04-paralelne.yaml
 ```
 
 ```
@@ -536,7 +536,7 @@ diff workflows/scenarios/tutorial-04-paralelne.yaml workflows/scenarios/tutorial
   všechna pole výstupu (`image` má jen `file`). `null` z výslovného
   `default` se do výstupu vložit smí — zvolil jsi ho vědomě.
 
-Fixtura `../../framework/tests/golden/tutorial-04-cviceni.yaml` je stejná jako
+Fixtura `fake/tutorial-04-cviceni.yaml` je stejná jako
 u hlavního scénáře (zlatý test ověřuje úspěšnou cestu):
 
 ```yaml

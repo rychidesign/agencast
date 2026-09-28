@@ -5,8 +5,9 @@ description: Run, dry-run and inspect AgenCast scenarios and read their results 
 
 # Running AgenCast scenarios
 
-Command: `agencast` (on this host `~/.local/bin/agencast`; fallback
-`uv run --project ~/workspace/agencast/framework agencast`).
+Command: `agencast`. If missing, see `docs/getting-started.md` on
+https://github.com/rychidesign/agencast or install with
+`uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"`.
 
 ## Find the project and the scenario
 
@@ -21,19 +22,22 @@ Command: `agencast` (on this host `~/.local/bin/agencast`; fallback
 - Creating or editing agents/scenarios, new project, `rename`, `migrate`,
   registration for the GUI: skill `agencast-create`.
 
+Create an example with `agencast new project <dir> --example showcase`,
+then `cd <dir>`; its scripted answers are in `fake/<scenario>.yaml`.
+
 ## Order of work — always cheapest first
 
 ```bash
-agencast --project ~/workspace/agencast/examples/showcase validate ig-post                            # files, agents, aliases (GET /models); --offline skips models
-agencast --project ~/workspace/agencast/examples/showcase run ig-post -i tema="nová káva" --dry-run   # plan only: steps, models, tools, limits; no calls
-agencast --project ~/workspace/agencast/examples/showcase run ig-post -i tema="nová káva" --fake ~/workspace/agencast/framework/tests/golden/ig-post.yaml
-agencast --project ~/workspace/agencast/examples/showcase run ig-post -i tema="nová káva"             # live: real models, real money
+agencast validate ig-post                            # files, agents, aliases (GET /models); --offline skips models
+agencast run ig-post -i tema="nová káva" --dry-run   # plan only: steps, models, tools, limits; no calls
+agencast run ig-post -i tema="nová káva" --fake fake/ig-post.yaml
+agencast run ig-post -i tema="nová káva"             # live: real models, real money
 ```
 
 - `-i key=value` per input; numbers, `true`/`false`, lists and objects as JSON
   (`-i tags='["a","b"]'`). Missing required input → `config: chybí povinný vstup 'tema' (string)`.
 - `--fake [fixture]` = fake provider, no network, no cost. Fixtures for the
-  repo's own scenarios live in `framework/tests/golden/<scenario>.yaml`. Without a
+  repo's own scenarios live in `fake/<scenario>.yaml`. Without a
   fixture the fake invents values (text placeholders, JSON per schema, Jev
   answers 0.5), so threshold checks may `fail` — expected, not a bug. Own fixture:
   YAML map `step_id: [answer, …]` (last answer repeats; nested call step
@@ -105,6 +109,6 @@ only those lines with `grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve
 network and never print the token. The GUI reads and writes the same files as
 the CLI, so its runs appear in `runs list` too.
 
-Details: `~/workspace/agencast/docs/spec/run-record.md`
-(record layout), `…/docs/spec/scenario.md` §6 (errors),
-`~/workspace/agencast/framework/README.md` (CLI, `serve`).
+Details: `agencast docs show spec/run-record.md`
+(record layout), `agencast docs show spec/scenario.md` §6 (errors),
+`agencast docs show getting-started.md` (CLI, `serve`).

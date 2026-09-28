@@ -7,7 +7,7 @@ Každá složka je samostatný projekt s vlastními `workflows/`, běhy a výstu
 Z kořene repozitáře po instalaci AgenCast:
 ```bash
 agencast --project examples/showcase validate ig-post --offline
-agencast --project examples/showcase run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
+agencast --project examples/showcase run ig-post -i tema="nová káva" --fake examples/showcase/fake/ig-post.yaml
 agencast --project examples/tutorial validate tutorial-07-skladani --offline
 ```
 

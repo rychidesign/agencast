@@ -266,7 +266,7 @@ a `3m` z agenta.
 
 U `task` je odpověď modelu **seznam tahů**. Tah je buď volání nástrojů
 (`tool_calls`), nebo závěrečná odpověď (`text`, se `schema` `json`).
-`../../framework/tests/golden/tutorial-06-archiv.yaml`:
+`fake/tutorial-06-archiv.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-06-archiv. Krok task = seznam tahů:
@@ -294,7 +294,7 @@ Jméno nástroje pro model je `<server>__<nástroj>` (dvě podtržítka) — tak
 ho framework pojmenuje, aby se nástroje dvou serverů nepletly.
 
 ```bash
-agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake ../../framework/tests/golden/tutorial-06-archiv.yaml
+agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake fake/tutorial-06-archiv.yaml
 ```
 
 ```
@@ -777,7 +777,7 @@ steps:
       kontrola: "{{ steps.kontrola.text }}"
 ```
 
-`../../framework/tests/golden/tutorial-06-cviceni.yaml`:
+`fake/tutorial-06-cviceni.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-06-cviceni (řešení cvičení z dílu 6).
@@ -802,7 +802,7 @@ kontrola:
 ```
 
 ```bash
-agencast run tutorial-06-cviceni -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake ../../framework/tests/golden/tutorial-06-cviceni.yaml
+agencast run tutorial-06-cviceni -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake fake/tutorial-06-cviceni.yaml
 ```
 
 ```

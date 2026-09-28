@@ -5,8 +5,9 @@ description: Write or edit AgenCast agents (workflows/agents/<name>.md), scenari
 
 # Creating AgenCast agents and scenarios
 
-Command: `agencast` (on this host `~/.local/bin/agencast`; fallback
-`uv run --project ~/workspace/agencast/framework agencast`).
+Command: `agencast`. If missing, see `docs/getting-started.md` on
+https://github.com/rychidesign/agencast or install with
+`uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"`.
 
 ## Before writing anything
 
@@ -142,8 +143,9 @@ address comes from `AGENCAST_HOST` and `AGENCAST_PORT` in
 `grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env`. The token
 `AGENCAST_TOKEN` is also configured there; never print it.
 
-Examples: `~/workspace/agencast/examples/showcase/workflows/agents/*.md`,
-`…/examples/showcase/workflows/scenarios/ig-post.yaml` (ask + jev + fail + image + output),
-`…/ukazka-task.yaml` (task with MCP), `…/ukazka-call.yaml` (call).
-Full format: `~/workspace/agencast/docs/spec/agent.md`,
-`…/docs/spec/scenario.md`, `…/docs/spec/skill.md`, `…/docs/spec/config.md`.
+Examples: `agencast new project <dir> --example showcase`, then read
+`workflows/agents/*.md`, `workflows/scenarios/ig-post.yaml` (ask + jev + fail + image + output),
+`workflows/scenarios/ukazka-task.yaml` (task with MCP), `workflows/scenarios/ukazka-call.yaml` (call).
+Full format: `agencast docs show spec/agent.md`,
+`agencast docs show spec/scenario.md`, `agencast docs show spec/skill.md`,
+`agencast docs show spec/config.md`.

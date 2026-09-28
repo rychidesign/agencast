@@ -266,7 +266,7 @@ def ensure(root: Path) -> str | None:
 
 # --- šablony ------------------------------------------------------------------------
 
-def new_project(root, name: str | None = None) -> list[Path]:
+def new_project(root, name: str | None = None, *, example: str | None = None) -> list[Path]:
     """Kostra projektu s jedním agentem a scénářem, které projdou `validate --offline` i `--fake`;
     hned ji zapíše do registru (jméno se ověří před vytvořením souborů)."""
     root = Path(root).resolve()
@@ -286,6 +286,17 @@ def new_project(root, name: str | None = None) -> list[Path]:
         wf / "scenarios" / "ukazka.yaml": SCENARIO.format(
             name="ukazka", description="Napíše krátký text na zadané téma", agent="pisatel"),
     }
+    if example is not None:
+        from .resources import resource_dir
+        if example not in {"showcase", "tutorial"}:
+            raise ConfigErrors([f"neznámý příklad: {example}"])
+        source = resource_dir("examples") / example
+        files = {}
+        for part in ("workflows", "fake", ".env.example", "README.md"):
+            item = source / part
+            for path in sorted(item.rglob("*")) if item.is_dir() else [item]:
+                if path.is_file():
+                    files[root / path.relative_to(source)] = path.read_text(encoding="utf-8")
     if not (root / ".gitignore").exists():
         files[root / ".gitignore"] = GITIGNORE
     made = _write(files)

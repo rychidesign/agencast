@@ -13,9 +13,9 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from . import FORMAT_VERSIONS
+from .resources import resource_dir
 
-# ponytail: schémata se čtou z repozitáře vedle frameworku; nasazení bez repa (Modal) je přibalí do image
-SPEC_SCHEMAS = Path(__file__).resolve().parents[3] / "docs" / "spec" / "schema"
+SPEC_SCHEMAS = resource_dir("docs") / "spec" / "schema"
 STEP_KINDS = ("ask", "task", "jev", "image", "parallel", "switch", "call", "set", "fail", "output")
 
 

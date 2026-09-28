@@ -10,7 +10,7 @@ from test_engine import PARALLEL
 from agencast.loader import read_yaml
 from agencast.record import cz, cz_usd
 
-GOLDEN = read_yaml(Path(__file__).parent / "golden" / "ig-post.yaml")
+GOLDEN = read_yaml(Path(__file__).resolve().parents[2] / "examples" / "showcase" / "fake" / "ig-post.yaml")
 SECRET = "tajna-hodnota-callbacku-789"
 
 

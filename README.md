@@ -33,14 +33,16 @@ s API, bez GUI:
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
 ```
 
-Příklady, tutoriály a dokumentace jsou jen v klonu repozitáře.
+Příklady, tutoriály, dokumentace a skilly jsou přibalené i bez klonu.
 
 ## Rychlý start
+
+Celý postup pro balíček i klon: [Začínáme s AgenCast](docs/getting-started.md).
 
 Příklad z klonu repozitáře spustíte bez klíče a bez sítě:
 
 ```bash
-agencast --project examples/showcase run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
+agencast --project examples/showcase run ig-post -i tema="nová káva" --fake examples/showcase/fake/ig-post.yaml
 ```
 
 Další ukázky najdete v [examples/](examples/). Pro vlastní práci vytvořte projekt, doplňte klíč OpenRouteru do `.env` a projděte nejprve kontroly bez ostrého volání:
@@ -55,6 +57,11 @@ agencast run ukazka --dry-run
 agencast run ukazka --fake
 agencast run ukazka
 ```
+
+## Skilly pro kódovací agenty
+
+`agencast skills install` nainstaluje skilly pro nalezené nástroje Claude Code,
+Codex, OpenCode a OMP; `--to all` vybere všechny. Více: [skills/](skills/).
 
 ## Struktura repozitáře
 
@@ -90,6 +97,6 @@ Hodnotu tokenu nikdy nevypisujte.
 
 ## Stav a licence
 
-Aktuální verze frameworku je **0.16.4** (řada 0.16.x); historii změn najdete
+Aktuální verze frameworku je **0.17.0** (řada 0.17.x); historii změn najdete
 v [changelogu](framework/CHANGELOG.md). Projekt je dostupný pod licencí
 [WTFPL verze 2](LICENSE).

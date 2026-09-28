@@ -5,6 +5,13 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.17.0
+
+- Balíček obsahuje skilly, český návod, specifikaci, tutoriály a oba příklady.
+- `skills list|path|install` zpřístupní a nainstaluje skilly; `docs [show <cesta>]` vypíše dokumentaci.
+- `new project --example showcase|tutorial` založí hotový projekt s fixturami v `fake/`.
+- Fixtury jsou součástí příkladů; relativní `--fake` hledá také v kořeni projektu.
+
 ## 0.16.4 — 2026-09-28 (příprava veřejného vydání)
 
 - `serve` čte výchozí adresu a port z `AGENCAST_HOST` a `AGENCAST_PORT`; neplatný port končí chybou `config`.
