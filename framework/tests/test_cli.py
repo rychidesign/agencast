@@ -2,12 +2,38 @@
 from pathlib import Path
 
 from agencast import api
+import agencast.cli as cli
 from agencast.cli import main
 from agencast.fake import Fake
 from agencast.record import count
 from conftest import add_image_model, scenario
 
 GOLDEN = str(Path(__file__).parent / "golden" / "ukazka-call.yaml")
+
+
+def test_serve_bind_defaults_and_environment(monkeypatch):
+    got = []
+    monkeypatch.setattr(cli, "cmd_serve", lambda a: got.append((a.host, a.port)) or 0)
+    monkeypatch.delenv("AGENCAST_HOST", raising=False)
+    monkeypatch.delenv("AGENCAST_PORT", raising=False)
+    assert main(["serve"]) == 0
+    monkeypatch.setenv("AGENCAST_HOST", "192.0.2.4")
+    monkeypatch.setenv("AGENCAST_PORT", "9090")
+    assert main(["serve"]) == 0
+    monkeypatch.setenv("AGENCAST_PORT", "bad-but-overridden")
+    assert main(["serve", "--host", "localhost", "--port", "8081"]) == 0
+    assert got == [("127.0.0.1", 8080), ("192.0.2.4", 9090), ("localhost", 8081)]
+
+
+def test_serve_invalid_environment_port_is_config_before_server(monkeypatch, capsys):
+    called = []
+    monkeypatch.setattr(cli, "cmd_serve", lambda a: called.append(a) or 0)
+    for value in ("abc", "0", "65536"):
+        monkeypatch.setenv("AGENCAST_PORT", value)
+        assert main(["serve"]) == 2
+        err = capsys.readouterr().err
+        assert "config: AGENCAST_PORT musí být celé číslo v rozsahu 1–65535" in err
+    assert not called
 
 
 def test_commands_from_other_cwd_with_project(wf, tmp_path, monkeypatch, capsys):

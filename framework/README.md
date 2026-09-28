@@ -1,6 +1,6 @@
-# framework — AgenCast, jádro `agencast` (multiagent-workflows)
+# AgenCast framework
 
-Verze 0.9.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
+Verze 0.16.4, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
 v `docs/DESIGN.md`. Balík i příkaz se jmenují `agencast` (do 0.2.5
 `maw`); jméno příkazu je v `pyproject.toml` (`[project.scripts]`).
 
@@ -90,6 +90,33 @@ GET /, /assets/…      GUI (framework/src/agencast/ui/, bez tokenu)
   serveru `AGENCAST_TOKEN`, tajemství z prostředí serveru a `.env` v cwd,
   `/runs` jen přes `/projects/<p>/runs`.
 
+- `--host` a `--port` přepisují `AGENCAST_HOST` a `AGENCAST_PORT`; výchozí
+  hodnoty jsou `127.0.0.1` a `8080`. `AGENCAST_PORT` musí být celé číslo 1–65535.
+  Tyto proměnné se čtou z prostředí procesu při parsování argumentů;
+  `.env` v cwd se načítá až potom, proto z něj bind adresu ani port nenastavíš.
+- Pro režim registru může `~/.config/agencast/serve.env` obsahovat
+  `AGENCAST_TOKEN`, `AGENCAST_HOST` a `AGENCAST_PORT`:
+
+  ```dotenv
+  AGENCAST_TOKEN=<tajný-token>
+  AGENCAST_HOST=127.0.0.1
+  AGENCAST_PORT=8080
+  ```
+
+  Pro přístup z jiných zařízení nastav `AGENCAST_HOST` na privátní adresu
+  rozhraní Tailscale. Služba systemd uživatele:
+
+  ```ini
+  [Unit]
+  Description=AgenCast server
+  [Service]
+  ExecStart=%h/.local/bin/agencast serve
+  EnvironmentFile=%h/.config/agencast/serve.env
+  Restart=on-failure
+  [Install]
+  WantedBy=default.target
+  ```
+
 - Start potřebuje proměnné `webhook.token_env`, `callback.secret_env`
   a (bez `--fake`) klíč OpenRouteru; jinak skončí chybou `config`.
 - Běhy jdou jeden po druhém (jedno pracovní vlákno); `--workers N` pustí
@@ -102,8 +129,9 @@ GET /, /assets/…      GUI (framework/src/agencast/ui/, bez tokenu)
   `serve`, ruční CLI i cron sdílí jeden strop (docs/spec/config.md).
 - Callback: `https://` (výjimka `http://127.0.0.1` pro testy), podpis
   `X-Signature: sha256=<HMAC>`, 3 pokusy, pak `callback_failed`.
-- Server je HTTP bez TLS — mimo `127.0.0.1` jen za reverzní proxy s TLS
-  (token jde v hlavičce). Nasazení na Modal je Fáze 3c.
+- Server je HTTP bez TLS a GUI nemá tokenovou ochranu. Nikdy ho
+  nevystavuj veřejně; binduj jen na localhost nebo privátní síť, například
+  Tailscale. Nasazení na Modal je Fáze 3c.
 
 ## Testy
 

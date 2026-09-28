@@ -1,7 +1,8 @@
 [project]
 name = "agencast"
-version = "0.16.3"
-description = "AgenCast — jádro frameworku multiagent-workflows (scénáře v YAML, agenti v Markdownu, OpenRouter)"
+version = "0.16.4"
+description = "AgenCast — scénáře s LLM agenty: scénáře v YAML, agenti v Markdownu, modely přes OpenRouter"
+license = "WTFPL"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "pyyaml>=6",
@@ -10,6 +11,10 @@ dependencies = [
     "mcp==2.2.*",
     "ruamel-yaml>=0.19.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/rychidesign/agencast"
+Repository = "https://github.com/rychidesign/agencast"
 
 [project.scripts]
 agencast = "agencast.cli:main"

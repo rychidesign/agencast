@@ -5,6 +5,12 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.16.4 — 2026-09-28 (příprava veřejného vydání)
+
+- `serve` čte výchozí adresu a port z `AGENCAST_HOST` a `AGENCAST_PORT`; neplatný port končí chybou `config`.
+- Metadata balíčku odstraňují název starého repozitáře a odkazují na veřejný repozitář AgenCast.
+- README frameworku popisuje proměnné prostředí, nasazení přes systemd a bezpečné omezení přístupu ke GUI.
+
 ## 0.16.3 — 2026-09-28 (opravy GUI v editoru)
 
 - Desktopový panel se posouvá se stránkou bez vlastního scrollu a začíná u vybrané karty; mobilní sheet zůstává.

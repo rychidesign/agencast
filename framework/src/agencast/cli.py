@@ -11,6 +11,8 @@
 
 <scénář> je jméno (ig-post) nebo cesta k .yaml. Kořen projektu = první složka
 s workflows/ od aktuální složky nahoru, nebo --project <cesta> (u každého příkazu).
+`serve` čte výchozí adresu a port z AGENCAST_HOST a AGENCAST_PORT v prostředí procesu;
+.env se načítá až po parsování argumentů.
 """
 import argparse
 import os
@@ -277,9 +279,12 @@ def main(argv=None) -> int:
     rss.add_parser("list", parents=[common], help="seznam běhů")
     rss.add_parser("show", parents=[common], help="summary.md běhu").add_argument("run_id")
     s = sub.add_parser("serve", parents=[common], help="webhook server a čtecí API: POST /runs, GET /runs/<run_id>, "
-                                                       "/projects/…; mimo projekt režim registru (AGENCAST_TOKEN)")
-    s.add_argument("--host", default="127.0.0.1", help="výchozí 127.0.0.1")
-    s.add_argument("--port", type=int, default=8080, help="výchozí 8080")
+                                                       "/projects/…; AGENCAST_HOST/AGENCAST_PORT; mimo projekt "
+                                                       "režim registru (AGENCAST_TOKEN)")
+    s.add_argument("--host", default=os.environ.get("AGENCAST_HOST", "127.0.0.1"),
+                   help="bind adresa (AGENCAST_HOST; výchozí 127.0.0.1)")
+    s.add_argument("--port", type=int, default=None,
+                   help="port (AGENCAST_PORT; výchozí 8080; rozsah 1–65535)")
     s.add_argument("--workers", type=int, default=1, metavar="N",
                    help="kolik běhů najednou (výchozí 1 = jeden po druhém; víc = pořadí dokončení není zaručené)")
     s.add_argument("--fake", nargs="?", const="", metavar="SKRIPT", help="falešný poskytovatel bez sítě")
@@ -307,6 +312,15 @@ def main(argv=None) -> int:
         p.add_argument("old", metavar="staré")
         p.add_argument("new", metavar="nové")
     a = ap.parse_args(argv)
+    if a.cmd == "serve":
+        from_env = a.port is None
+        if from_env:
+            try:
+                a.port = int(os.environ.get("AGENCAST_PORT", "8080"))
+            except ValueError:
+                return _fail_config(["AGENCAST_PORT musí být celé číslo v rozsahu 1–65535"])
+            if not 1 <= a.port <= 65535:
+                return _fail_config(["AGENCAST_PORT musí být celé číslo v rozsahu 1–65535"])
     return {"validate": cmd_validate, "run": cmd_run, "runs": cmd_runs, "serve": cmd_serve,
             "migrate": cmd_migrate, "new": cmd_new,
             "rename": cmd_rename, "projects": cmd_projects}[a.cmd](a)
