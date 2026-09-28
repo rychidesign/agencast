@@ -6,7 +6,7 @@ description: Run, dry-run and inspect AgenCast scenarios and read their results 
 # Running AgenCast scenarios
 
 Command: `agencast` (on this host `~/.local/bin/agencast`; fallback
-`uv run --project ~/workspace/multiagent-workflows/framework agencast`).
+`uv run --project ~/workspace/agencast/framework agencast`).
 
 ## Find the project and the scenario
 
@@ -97,11 +97,14 @@ Never print, cat, grep or log `.env` or key values. `validate --offline`,
 
 ## Web GUI
 
-Runs can also be started and inspected in the web GUI (`agencast.service`, only
-over Tailscale at `http://<tailscale-host>:8090`; token in
-`~/.config/agencast/serve.env`, never print it). It reads and writes the same
-files as the CLI, so its runs appear in `runs list` too.
+Runs can also be started and inspected in the web GUI (`agencast serve` in
+registry mode, typically managed by systemd). `AGENCAST_HOST` and
+`AGENCAST_PORT` in `~/.config/agencast/serve.env` determine its address; read
+only those lines with `grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env`.
+`AGENCAST_TOKEN` is also configured in that file. Keep the GUI on a private
+network and never print the token. The GUI reads and writes the same files as
+the CLI, so its runs appear in `runs list` too.
 
-Details: `~/workspace/multiagent-workflows/docs/spec/run-record.md`
+Details: `~/workspace/agencast/docs/spec/run-record.md`
 (record layout), `…/docs/spec/scenario.md` §6 (errors),
-`~/workspace/multiagent-workflows/framework/README.md` (CLI, `serve`).
+`~/workspace/agencast/framework/README.md` (CLI, `serve`).

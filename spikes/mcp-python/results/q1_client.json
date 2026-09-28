@@ -212,7 +212,7 @@
     "content": [
      {
       "type": "text",
-      "text": "Access denied - path outside allowed directories: /etc/hostname not in ~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox"
+      "text": "Access denied - path outside allowed directories: /etc/hostname not in ~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox"
      }
     ],
     "structured": false
@@ -238,7 +238,7 @@
     "content": [
      {
       "type": "text",
-      "text": "Allowed directories:\n~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox"
+      "text": "Allowed directories:\n~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox"
      }
     ],
     "structured": true
@@ -1533,12 +1533,12 @@
   {
    "pid": 1025676,
    "stat": "Ssl",
-   "cmd": "node ~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/node_modules/.bin/mcp-server-fi"
+   "cmd": "node ~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/node_modules/.bin/mcp-server-fi"
   },
   {
    "pid": 1025740,
    "stat": "Ssl",
-   "cmd": "node ~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/node_modules/.bin/mcp-server-ev"
+   "cmd": "node ~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/node_modules/.bin/mcp-server-ev"
   }
  ],
  "leftover_after_two_servers": [],

@@ -233,7 +233,7 @@ Limity běhu: rozpočet 1.0 USD (z toho obrázky 0.3 USD), čas 1h. Jev: jev-1.1
 | 2 | out | output |  | nazvy |  |
 
 
-plán: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-150947-tutorial-01-nazvy-3c6f/plan.md
+plán: runs/20260925-150947-tutorial-01-nazvy-3c6f/plan.md
 ```
 
 - `-i klíč=hodnota` předá vstup. Více vstupů = více `-i`.
@@ -261,7 +261,7 @@ agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zm
 
 ```
 běh 20260925-150949-tutorial-01-nazvy-b761: úspěch · 0,0 s · 0,0001 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-150949-tutorial-01-nazvy-b761/summary.md
+záznam: runs/20260925-150949-tutorial-01-nazvy-b761/summary.md
 ```
 
 `--fake` místo OpenRouteru použije **falešného poskytovatele**: běží celý
@@ -303,7 +303,7 @@ agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zm
 
 ```
 běh 20260925-150957-tutorial-01-nazvy-c3a6: úspěch · 0,0 s · 0,0001 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-150957-tutorial-01-nazvy-c3a6/summary.md
+záznam: runs/20260925-150957-tutorial-01-nazvy-c3a6/summary.md
 ```
 
 Proč zrovna do `framework/tests/golden/` a proč stejné jméno jako scénář?
@@ -387,7 +387,7 @@ agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zm
 
 ```
 běh 20260925-151000-tutorial-01-nazvy-8d6a: úspěch · 1,6 s · 0,0002 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151000-tutorial-01-nazvy-8d6a/summary.md
+záznam: runs/20260925-151000-tutorial-01-nazvy-8d6a/summary.md
 ```
 
 ```bash
@@ -517,7 +517,7 @@ agencast run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská 
 ```
 v pořádku: tutorial-01-cviceni (2 kroky)
 běh 20260925-151019-tutorial-01-cviceni-6b59: úspěch · 0,0 s · 0,0001 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151019-tutorial-01-cviceni-6b59/summary.md
+záznam: runs/20260925-151019-tutorial-01-cviceni-6b59/summary.md
 ```
 
 ```bash

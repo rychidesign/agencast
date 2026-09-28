@@ -1,11 +1,11 @@
 # Uživatelské cesty pro Playwright E2E — GUI AgenCast
 
-Stav: **návrh** (UX designér, 2026-09-26) + rozhodnutí koordinátora na konci. Závazné
-zadání pro E2E testy v `ui/e2e/`; každá cesta = jeden test (nebo skupina), značky
-**[hotovo]**, **[obcházeno]** a **[nehotové]** říkají, co se má psát jako očekávané
-selhání s poznámkou, dokud se to nedodělá.
+Návrhové zadání z 2026-09-26 a mapa pokrytí E2E testů v `ui/e2e/`. Značky
+**[hotovo]**, **[obcházeno]** a **[nehotové]** zachycují stav při sepsání
+scénářů; aktuální pokrytí ukazují testy a současný popis v `ui/README.md`.
 
-Zdroj: navrh-gui.md, api.md 0.8.0, projects.md, reporty ui-1/2/3, nalezy-api.md, ui/src (App, router, pages, komponenty, locales/cs.json).
+Zdroj: `docs/ui/navrh-gui.md`, `docs/spec/api.md`, `docs/spec/projects.md`,
+reporty ui-1/2/3, `docs/ui/nalezy-api.md` a implementace `ui/src/`.
 
 ## Společný výchozí stav (fixture)
 
@@ -43,8 +43,8 @@ Cíl: dostat se bez terminálu k projektům. Stav: prázdné localStorage.
 3. Napsat `test-token`, Enter → `h1 "Projekty"`, popis „Registr …/cfg/projects.yaml“, karta `demo` **bez** štítku „dostupný“ (G6), s „1 scénář · 1 agent“, „dnes 0 USD“, „bez běhů“.
 Playwright: `localStorage.agencast.token === "test-token"`; `Authorization: Bearer` v požadavku (route intercept).
 
-### C2 Založení projektu z GUI **[nehotové — dnes karta „Přidat projekt“ jen s CLI `agencast projects add <cesta>` a tlačítkem „Kopírovat příkaz“]**
-Cíl: nový projekt bez terminálu. Stav: registr jen `demo`. Cíl podle chystaného `POST /projects/new`.
+### C2 Založení projektu z GUI **[hotovo]**
+Cíl: nový projekt bez terminálu. Stav: registr jen `demo`.
 1. `#/` → klik „Přidat projekt“ (tlačítko v hlavičce; čárkovaná karta jen u prázdného seznamu) → dialog (`role=dialog`) „Nový projekt“: `textbox "Jméno"` (slug, chyba „Jen malá písmena, číslice a pomlčka.“ / „„demo“ už existuje.“), `textbox "Cesta"`, `button "Vytvořit"`.
 2. `muj-web` + `$TMP/muj-web`, Vytvořit → `#/p/muj-web`, `h1 "Scénáře"`, jméno „muj-web“ a `nav "Části projektu"` v sidebaru (cesta projektu na stránce není, G5), karta scénáře `ukazka` s podtitulem „Napíše krátký text na zadané téma“ a meta „2 kroky · pisatel“ (bez počtu vstupů/výstupů a bez „ukazka.yaml“, G7).
 3. Disk: `muj-web/workflows/config.yaml`, `agents/pisatel.md`, `scenarios/ukazka.yaml`, `.env.example`, `.gitignore`; `cfg/projects.yaml` má `name: muj-web, root: …`.
@@ -132,12 +132,12 @@ Cíl: přejmenovat `napis` na `text_clanku` a nic nerozbít. Stav: `ukazka` (`vy
 2. Dnes: přepsat id, Tab → pod polem „Krok čtou vystup — přejmenování by jim rozbilo odkazy a API ho po jednom neuloží.“ + odkaz „Přejmenovat i s odkazy v YAML režimu“; id se nezmění.
 3. Cíl: Tab → karta „Krok 1: ask text_clanku“, karta `vystup` bez chyby, `?krok=text_clanku`; Uložit → `POST …/scenarios/ukazka/batch` s `rename_step` (`rename_refs: true`) → disk: `- id: text_clanku` a v `vystup` `{{ steps.text_clanku.text }}`, komentáře zachované; `aria-live` „Uloženo ✓“. Nevalidní id (`Napis`, `1x`, existující `vystup`) → „Malá písmena, číslice a _, začíná písmenem.“ / „„vystup“ už existuje.“ a bez změny.
 
-### C13 Přidání existujícího projektu **[nehotové — čeká na `POST /projects`; dnes CLI řádek s kopírováním]**
+### C13 Přidání existujícího projektu **[hotovo]**
 Stav: složka `$TMP/cizi` vytvořená `agencast new project` **bez** registru (`AGENCAST_CONFIG_DIR` jiný při vytvoření), pak smazaná z registru.
 1. `#/` → „Přidat projekt“ → dialog s přepínačem „Založit nový“ / „Přidat existující“ (nebo druhé tlačítko) → `textbox "Cesta"` = `$TMP/cizi`, jméno předvyplněné `cizi` → Vytvořit/Přidat.
 2. → karta `cizi` s počty; `cfg/projects.yaml` má druhou položku; na disku `cizi/` beze změny (žádné nové soubory). Cesta bez `workflows/config.yaml` → chyba v dialogu `role=alert` (text API), nic nezapsáno. Stejná cesta podruhé → chyba kolize s nápovědou `--name`.
 
-### C14 Odebrání projektu z registru **[nehotové — čeká na `DELETE /projects/<p>`; menu má jen „Otevřít“, „Kopírovat cestu“]**
+### C14 Odebrání projektu z registru **[hotovo]**
 1. `#/` → `button "Akce pro cizi"` → `menuitem "Odebrat z registru"` → dialog „Odebrat „cizi“ z registru?“ s větou, že soubory zůstanou → potvrdit.
 2. → karta zmizí bez reloadu, registr bez položky, `$TMP/cizi/workflows/` netknuté; přímý `#/p/cizi` → `role=alert` s 404 textem + odkaz „Projekty“. Odebrání nedostupného projektu funguje stejně (karta „nedostupný“ má menu).
 

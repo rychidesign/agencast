@@ -170,7 +170,7 @@ agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veg
 ```
 v pořádku: tutorial-02-nazev-a-slogan (4 kroky)
 běh 20260925-151207-tutorial-02-nazev-a-slogan-6952: úspěch · 0,0 s · 0,0002 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151207-tutorial-02-nazev-a-slogan-6952/summary.md
+záznam: runs/20260925-151207-tutorial-02-nazev-a-slogan-6952/summary.md
 ```
 
 ```bash
@@ -255,7 +255,7 @@ agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veg
 
 ```
 běh 20260925-151245-tutorial-02-nazev-a-slogan-8c39: úspěch · 4,2 s · 0,0008 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151245-tutorial-02-nazev-a-slogan-8c39/summary.md
+záznam: runs/20260925-151245-tutorial-02-nazev-a-slogan-8c39/summary.md
 ```
 
 Z `summary.md`:
@@ -435,7 +435,7 @@ expression v kroku slogan: ask.prompt: index 0 mimo rozsah 'steps.navrh.nazvy' (
   {{ steps.navrh.nazvy[0] }}
                        ^
 běh 20260925-151229-tutorial-02-nazev-a-slogan-ec41: chyba · 0,0 s · 0,0001 USD
-záznam: ~/orca/workspaces/multiagent-workflows/tutorials/runs/20260925-151229-tutorial-02-nazev-a-slogan-ec41/summary.md
+záznam: runs/20260925-151229-tutorial-02-nazev-a-slogan-ec41/summary.md
 ```
 
 Třída **`expression`** = chyba výrazu **za běhu**. Neopakuje se, běh

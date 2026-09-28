@@ -1,13 +1,8 @@
-# multiagent-workflows — návrh
+# AgenCast — návrh
 
-**Stav:** v0.4, 2026-09-25 — **v1 implementována**: AgenCast (`agencast`, do 0.2.5 `maw`) 0.3.0 v `framework/`
-(všech 10 typů kroků, MCP a skilly, `call`, webhook `agencast serve`, `report.html`;
-391 hermetických testů, zlaté scénáře pro každý soubor ve `workflows/`),
-tutoriály 1–7 v `docs/tutorials/`. Spec v1 (`docs/spec/`) schválena uživatelem
-včetně otázek 1–14; výklady při implementaci v `docs/spec/ISSUES.md` (39 bodů).
-Nehotovo: D5 nasazení na Modal + úložiště R2 (Fáze 3c, čeká na klíče R2).
-Dokument je závazný pro workery: co je zde rozhodnuto, se neotvírá znovu bez
-souhlasu uživatele.
+Tento dokument zachycuje architektonická rozhodnutí a omezení frameworku.
+Aktuální verze a stav implementace jsou v [README](../README.md) a
+[changelogu](../framework/CHANGELOG.md); formáty popisuje [specifikace](spec/).
 
 ---
 
@@ -277,7 +272,7 @@ jsou **tenké obálky nad `agencast.api`** (`load`, `run`, `dry_run`,
 ## 4. Struktura repozitáře
 
 ```
-multiagent-workflows/
+agencast/
   framework/        jádro (CLI, engine, adaptéry, webhook) — udržují workeři
   workflows/        vrstva uživatele
     agents/         *.md   — agenti (D1a)

@@ -1,11 +1,11 @@
 # Nezávislá kontrola specifikace v1
 
-Datum: 2026-09-25. Recenzent: worker `task_2de99b7af9e5` (specifikaci nepsal).
-Kontrolováno proti `DESIGN.md` z **hlavního checkoutu**
-(`~/workspace/multiagent-workflows/docs/DESIGN.md`, v0.2 s §5.8 a fakty ze
-spiků (c) a (d)). Citace `DESIGN.md:<řádek>` se vztahují k tomuto souboru.
-Kopie `docs/DESIGN.md` v této větvi §5.8 nemá; odtud pochází většina
+Historický nezávislý audit z 2026-09-25; specifikaci autor nepsal.
+Kontrolováno proti `docs/DESIGN.md` z hlavní větve (v0.2 s §5.8 a fakty ze
+spiků (c) a (d)). Citace `DESIGN.md:<řádek>` se vztahují k této tehdejší
+verzi. Kopie `docs/DESIGN.md` v přezkoumávaném snapshotu §5.8 neměla; odtud pochází většina
 rozporů ve skillech, nástrojích a MCP (B1, B2, D16–D19).
+Nálezy zachycují stav tehdejší specifikace a nejsou aktuálním přehledem chyb.
 
 Souhrn: **6 BLOKUJÍCÍCH, 23 DŮLEŽITÝCH, 12 DROBNÝCH**.
 

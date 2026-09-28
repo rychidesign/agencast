@@ -43,7 +43,7 @@
      "calls": [
       {
        "name": "fs__read_text_file",
-       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/zakazany_zapis.txt\"}"
+       "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/zakazany_zapis.txt\"}"
       }
      ]
     },

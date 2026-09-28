@@ -10,11 +10,11 @@
      "calls": [
       {
        "name": "fs__read_text_file",
-       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+       "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
       },
       {
        "name": "fs__read_media_file",
-       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+       "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
       }
      ]
     },
@@ -41,11 +41,11 @@
      "calls": [
       {
        "name": "fs__read_text_file",
-       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+       "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
       },
       {
        "name": "fs__read_media_file",
-       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+       "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
       }
      ]
     },
@@ -72,11 +72,11 @@
      "calls": [
       {
        "name": "fs__read_text_file",
-       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+       "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
       },
       {
        "name": "fs__read_media_file",
-       "arguments": "{\"path\": \"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+       "arguments": "{\"path\": \"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
       }
      ]
     },
@@ -103,11 +103,11 @@
      "calls": [
       {
        "name": "fs__read_text_file",
-       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+       "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
       },
       {
        "name": "fs__read_media_file",
-       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+       "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
       }
      ]
     },
@@ -134,11 +134,11 @@
      "calls": [
       {
        "name": "fs__read_text_file",
-       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+       "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
       },
       {
        "name": "fs__read_media_file",
-       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+       "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
       }
      ]
     },
@@ -165,11 +165,11 @@
      "calls": [
       {
        "name": "fs__read_text_file",
-       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
+       "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/hello.txt\"}"
       },
       {
        "name": "fs__read_media_file",
-       "arguments": "{\"path\":\"~/orca/workspaces/multiagent-workflows/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
+       "arguments": "{\"path\":\"~/orca/workspaces/agencast/spike-mcp-python/spikes/mcp-python/sandbox/barva.png\"}"
       }
      ]
     },

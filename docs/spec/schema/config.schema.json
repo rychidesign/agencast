@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://multiagent-workflows.local/spec/v1/config.schema.json",
+  "$id": "https://raw.githubusercontent.com/rychidesign/agencast/main/docs/spec/schema/config.schema.json",
   "title": "config.yaml, formát v1",
   "description": "Viz docs/spec/config.md. Pole *_env obsahují jméno proměnné prostředí, nikdy hodnotu.",
   "type": "object",

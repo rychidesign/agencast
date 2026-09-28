@@ -1,15 +1,15 @@
 # Návrh GUI AgenCast
 
-Stav: **návrh** (UX designér, 2026-09-26), podklad pro stavbu `ui/` v tomto repu
-(DESIGN „Obálky“: samostatná obálka nad HTTP API `serve`, vložená do záložky
-Skynet Soul). Vizuální vzor: Buzz, obrazovka Create workflow — svislý sloupec
-kroků, pravý panel s formulářem, přepínač Form / YAML, tmavé téma bez rámečků.
+Stav: návrhový dokument z 2026-09-26; GUI je implementované v `ui/`.
+Popis současného chování je v [README GUI](../../ui/README.md). Návrh vychází
+z rozhodnutí DESIGN „Obálky“: samostatná obálka nad HTTP API `serve`, kterou
+lze vložit do hostitelské aplikace jako záložku. Vizuální vzor: editor
+workflowů se svislým sloupcem kroků, pravým panelem s formulářem, přepínačem
+Form / YAML a tmavým tématem.
 
-Rozhodnutí koordinátora k otázkám v §8 jsou na konci dokumentu.
+Rozhodnutí k otázkám v §8 jsou na konci dokumentu.
 
 Podklady: DESIGN.md (Obálky, §5), spec scenario/agent/config/skill/api/projects/run-record, ig-post.yaml, SKILL.md agencast-create.
-
-Vizuální reference: screenshot obrazovky Create workflow z Buzz, který uživatel poslal přímo; prohlédnut a promítnut do sekcí 2.3, 3 a 5. Kopie: `~/workspace/ux-reference/buzz-create-workflow.png`.
 
 ## 1. Informační architektura
 
