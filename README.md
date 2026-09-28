@@ -16,17 +16,24 @@ AgenCast je framework pro vývojáře a týmy, které chtějí skládat opakovat
 
 ## Instalace
 
-Vyžaduje Python 3.12. S `uv` nainstalujte nástroj z klonu repozitáře:
+Vyžaduje Python 3.12 a `uv`; GUI se sestavuje Node.js. Z klonu repozitáře
+včetně GUI:
 
 ```bash
+git clone https://github.com/rychidesign/agencast
+cd agencast
+(cd ui && npm install && npm run build)   # sestaví GUI do balíčku
 uv tool install --editable framework
 ```
 
-Nebo přímo z GitHubu:
+Přímo z GitHubu bez klonu se nainstaluje jen příkaz `agencast` a server
+s API, bez GUI:
 
 ```bash
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
 ```
+
+Příklady, tutoriály a dokumentace jsou jen v klonu repozitáře.
 
 ## Rychlý start
 
