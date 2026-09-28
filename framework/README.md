@@ -47,7 +47,8 @@ uv run --project framework agencast projects list | add <cesta> [--name N] | rm 
   `.env.example` a `.gitignore`; `new agent|scenario <jméno>` přidá
   minimální soubor do projektu. Nic nepřepisuje (docs/spec/projects.md).
 - Registr projektů `~/.config/agencast/projects.yaml` (`AGENCAST_CONFIG_DIR`)
-  plní `new project`, `projects add` a úspěšný `validate`/`run`; GUI může
+  plní `new project`, `projects add` a úspěšný `run` (`validate` od 0.15.1
+  registr nemění); GUI může
   zapisovat v režimu registru. `projects_root` určuje výchozí složku pro
   nové projekty (výchozí `~/workspace`).
 - `migrate`: ve v1 není co převádět; neznámá verze = chyba `config`.

@@ -5,43 +5,48 @@ description: Run, dry-run and inspect AgenCast scenarios and read their results 
 
 # Running AgenCast scenarios
 
-A **project** is any folder containing `workflows/` with `config.yaml`,
-`agents/*.md` and `scenarios/*.yaml`. Every command finds the project by
-walking up from the current directory, or takes `--project <root>`; a scenario
-is given by name (`ig-post`) or as an absolute path to its `.yaml`.
+Command: `agencast` (on this host `~/.local/bin/agencast`; fallback
+`uv run --project ~/workspace/multiagent-workflows/framework agencast`).
 
-Creating a project, agent or scenario, registering a project for the GUI,
-`rename` and `migrate`: skill `agencast-create`. Known projects:
-`agencast projects list`. Projects made with `new project` are registered from
-the start; an existing folder is registered with `projects add`. As a fallback a
-successful `run` registers an unregistered project itself (one stderr line).
+## Find the project and the scenario
 
-Runs can also be started and inspected in the web GUI (`agencast.service`, only
-over Tailscale at `http://<tailscale-host>:8090`; token in
-`~/.config/agencast/serve.env`, never print it). It reads and writes the same
-files as the CLI.
-
-Command: `agencast` (on this host `~/.local/bin/agencast`). If missing, use
-`uv run --project ~/workspace/multiagent-workflows/framework agencast`.
+- A **project** is any folder containing `workflows/` with `config.yaml`,
+  `agents/*.md` and `scenarios/*.yaml`. Every command walks up from the current
+  directory, or takes `agencast --project <root> …`. Known projects and their
+  paths: `agencast projects list`.
+- Scenarios: `ls <root>/workflows/scenarios/`. A scenario is given by name
+  (`ig-post`) or as an absolute path to its `.yaml`. Its inputs (name, type,
+  `required` or `default`, description) are the `inputs:` block of that file —
+  read it before running.
+- Creating or editing agents/scenarios, new project, `rename`, `migrate`,
+  registration for the GUI: skill `agencast-create`.
 
 ## Order of work — always cheapest first
 
 ```bash
 agencast validate ig-post                            # files, agents, aliases (GET /models); --offline skips models
-agencast run ig-post -i tema="nová káva" --dry-run   # plan only: steps, models, limits; no calls
+agencast run ig-post -i tema="nová káva" --dry-run   # plan only: steps, models, tools, limits; no calls
 agencast run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
 agencast run ig-post -i tema="nová káva"             # live: real models, real money
 ```
 
 - `-i key=value` per input; numbers, `true`/`false`, lists and objects as JSON
   (`-i tags='["a","b"]'`). Missing required input → `config: chybí povinný vstup 'tema' (string)`.
-- `--fake [fixture]` = fake provider, no network, no cost. Fixtures live in
-  `framework/tests/golden/<scenario>.yaml` (repo only). Without a fixture the
-  fake invents values (Jev answers 0.5), so threshold checks may `fail` — that
-  is expected, not a bug.
+- `--fake [fixture]` = fake provider, no network, no cost. Fixtures for the
+  repo's own scenarios live in `framework/tests/golden/<scenario>.yaml`. Without a
+  fixture the fake invents values (text placeholders, JSON per schema, Jev
+  answers 0.5), so threshold checks may `fail` — expected, not a bug. Own fixture:
+  YAML map `step_id: [answer, …]` (last answer repeats; nested call step
+  `call_id/step_id`), answer shapes `text: "…"`, `json: {…}`, `answers: {q: v}`
+  (Jev), `image: {width, height}`, `status: 429`; details in the docstring of
+  `framework/src/agencast/fake.py`.
 - Go live only after validate + dry-run + fake pass, and ask the user first if
   the run could cost more than ~1 USD (dry-run shows per-step budgets; run cap
   is `limits.run_budget_usd` in `config.yaml`).
+- A successful `run` in a project that is not registered yet registers it for
+  the GUI and prints one stderr line about it — not an error.
+- `--callback-url https://…` (HMAC-signed result) and `--request-key` are for
+  webhook integrations; not needed from a terminal.
 
 ## Reading the result
 
@@ -50,7 +55,10 @@ The CLI prints one line and the paths:
 ```
 běh 20260926-085911-ig-post-a248: úspěch · 0,0 s · 0,0404 USD
 záznam: <project>/runs/20260926-085911-ig-post-a248/summary.md
+report: file://<project>/outputs/20260926-085911-ig-post-a248-…/report.html
 ```
+
+On failure a second line goes to stderr: `<class> v kroku <step>: <message>`.
 
 `runs/<run_id>/` (under `runs_dir` from `config.yaml`, default `<project>/runs`):
 
@@ -58,11 +66,12 @@ záznam: <project>/runs/20260926-085911-ig-post-a248/summary.md
 - `callback.json` — machine result: `status`, `outputs`, `error`, `warnings`, `cost_usd`, `duration_s`.
 - `steps/<nn>-<id>/` — per step: `prompt.md` (exactly what the model got),
   `output.json`, `calls/NN.request|response.json`. Skipped steps have no folder.
-- `events.jsonl`, `report.html`, `plan.md`; files from `output` are in `outputs/`.
+- `events.jsonl` (timeline), `report.html`, `plan.md`; files from `output` are in `outputs/`;
+  `mcp/<server>.stderr.log` for `task` steps.
 
 ```bash
-agencast runs list            # all runs: id, status, duration, cost
-agencast runs show <run_id>   # prints summary.md
+agencast runs list            # all runs: id, status, duration, cost (incl. runs started from the GUI)
+agencast runs show <run_id>   # prints summary.md (plan.md for a dry run) and the paths
 ```
 
 Exit code: 0 success, 1 run failed, 2 `config` error (nothing ran).
@@ -83,8 +92,15 @@ Exit code: 0 success, 1 run failed, 2 `config` error (nothing ran).
 
 The key is `OPENROUTER_API_KEY`, read from the environment or from `.env` in
 the project root. Missing → `config: chybí proměnná prostředí OPENROUTER_API_KEY`.
-Never print, cat, grep or log `.env` or key values. `validate`, `--dry-run`
-and `--fake` need no key.
+Never print, cat, grep or log `.env` or key values. `validate --offline`,
+`--dry-run` and `--fake` need no key.
+
+## Web GUI
+
+Runs can also be started and inspected in the web GUI (`agencast.service`, only
+over Tailscale at `http://<tailscale-host>:8090`; token in
+`~/.config/agencast/serve.env`, never print it). It reads and writes the same
+files as the CLI, so its runs appear in `runs list` too.
 
 Details: `~/workspace/multiagent-workflows/docs/spec/run-record.md`
 (record layout), `…/docs/spec/scenario.md` §6 (errors),
