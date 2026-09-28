@@ -3,9 +3,9 @@
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
 Všech šest je opraveno v maw 0.2.1 (větev `fix-tutorial-bugs`, viz
-`framework/CHANGELOG.md`); u každé položky je commit s opravou a testem.
+`../../framework/CHANGELOG.md`); u každé položky je commit s opravou a testem.
 Níže zůstává původní popis. Příkazy se spouští
-z kořene repozitáře, `maw` = `uv run --project framework maw`. Fixtury
+z projektu `examples/tutorial`, `maw` = `uv run --project ../../framework maw`. Fixtury
 z `/tmp` jsou v textu u každé položky.
 
 ## 1. Falešné varování „nevrátil cenu" po HTTP chybě (střední)
@@ -113,13 +113,13 @@ maw validate workflows/scenarios/tutorial-01-nazvy.yaml
 v pořádku: tutorial-01-nazvy (2 kroků)
 ```
 
-Česky „2 kroky", „4 kroky", ale „9 kroků", „1 krok". `framework/src/maw/cli.py`, `cmd_validate`.
+Česky „2 kroky", „4 kroky", ale „9 kroků", „1 krok". `../../framework/src/maw/cli.py`, `cmd_validate`.
 
 ## 6. Zlaté testy nečtou `workflows/config.yaml` (střední, ověřeno čtením kódu)
 
 **Opraveno v 0.2.1 (commit f04a099).** Testovací config přebírá aliasy ze skutečného `config.yaml`; test `test_owner_alias_reaches_golden_tests` (dočasný alias `levny` jen v testu).
 
-`framework/tests/conftest.py` má pevný testovací `CONFIG` s aliasy
+`../../framework/tests/conftest.py` má pevný testovací `CONFIG` s aliasy
 `chytry`, `rychly`, `gemini-image` a fixtura `wf` ho zapíše místo
 skutečného `config.yaml`. Když vlastník přidá do `workflows/config.yaml`
 nový alias (např. `levny`) a agent ho použije, `maw validate` projde, ale
@@ -128,7 +128,7 @@ selžou na „model 'levny' není alias v config.yaml".
 
 Nespuštěno — vyžadovalo by změnu `config.yaml`, kterou smí dělat jen
 vlastník. Reprodukce pro vlastníka: přidat alias do `config.yaml`,
-agenta s ním do `workflows/agents/`, `cd framework && uv run pytest -k
+agenta s ním do `workflows/agents/`, `cd ../../framework && uv run pytest -k
 <agent>`. Návrh: testovací config odvodit z `workflows/config.yaml`
 (aliasy převzít, `base_url`/limity přepsat na testovací).
 
@@ -137,11 +137,11 @@ agenta s ním do `workflows/agents/`, `cd framework && uv run pytest -k
 # maw 0.2.1 — nálezy z dílů 6 a 7
 
 Zjištěno 2026-09-25 při psaní dílů 6 a 7 proti `maw` 0.2.1 (větev
-`tutorials-6-7`). `framework/src` beze změny; číslování navazuje.
-`maw` = `uv run --project framework maw`, příkazy z kořene repozitáře.
+`tutorials-6-7`). `../../framework/src` beze změny; číslování navazuje.
+`maw` = `uv run --project ../../framework maw`, příkazy z projektu `examples/tutorial`.
 
 Všechny tři body jsou opraveny v maw 0.2.2 (větev `fix-0.2.2`, viz
-`framework/CHANGELOG.md`); u každé položky je commit s opravou a testem.
+`../../framework/CHANGELOG.md`); u každé položky je commit s opravou a testem.
 
 ## 7. `task` se `schema` a `native_schema`: Haiku ukončí smyčku bez nástrojů (střední)
 
@@ -205,7 +205,7 @@ znamenalo: po zkoušce s `--fake` se příspěvek naostro nikdy nezveřejní
 a n8n dostane vymyšlený `post_url`.
 
 ```bash
-maw serve --fake framework/tests/golden/tutorial-07-archiv.yaml     # nebo maw run … --fake
+maw serve --fake ../../framework/tests/golden/tutorial-07-archiv.yaml     # nebo maw run … --fake
 # POST /runs: {"scenario": "tutorial-07-archiv", "inputs": {"den": "2026-09-25", "text": "…"}, …}
 maw run tutorial-07-archiv -i den=2026-09-25 -i text="Ostrý zápis."   # bez --fake
 ```

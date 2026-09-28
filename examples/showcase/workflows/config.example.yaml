@@ -1,0 +1,41 @@
+# Ukázka config.yaml — zkopíruj na workflows/config.yaml a uprav.
+# Mění jen vlastník. Žádné tajné hodnoty: pole *_env obsahují JMÉNO
+# proměnné prostředí, hodnota je v .env (server) nebo v modal.Secret.
+# Specifikace: docs/spec/config.md
+version: 1
+
+openrouter:
+  api_key_env: OPENROUTER_API_KEY
+  jev_model: jev-1.13
+
+# Aliasy modelů. Agenti a scénáře znají jen levou stranu.
+models:
+  chytry:       { id: anthropic/claude-haiku-4.5 }
+  rychly:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
+  gemini-image: { id: google/gemini-3.1-flash-image }
+
+# Složka se záznamy běhů (na Modalu cesta k Volume).
+runs_dir: ./runs
+
+# Kam se nahrají soubory z kroku output (a report.html).
+storage:
+  type: r2
+  r2:
+    bucket: lumen-posts
+    account_id_env: R2_ACCOUNT_ID
+    access_key_id_env: R2_ACCESS_KEY_ID
+    secret_access_key_env: R2_SECRET_ACCESS_KEY
+    public_base_url: https://files.example.com
+
+# Pojistky jednoho běhu.
+limits:
+  run_budget_usd: 1.00
+  run_image_budget_usd: 0.30
+  run_timeout: 1h
+  max_call_depth: 3
+
+webhook:
+  token_env: WEBHOOK_TOKEN
+
+callback:
+  secret_env: CALLBACK_SECRET

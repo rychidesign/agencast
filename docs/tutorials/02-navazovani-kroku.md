@@ -1,12 +1,14 @@
 # Díl 2 — Navazování kroků
 
+Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+
 **Čas:** asi 15 minut · **Útrata:** jeden ostrý běh za ~0,0008 USD
 **Co budeš umět:** poslat výstup jednoho kroku do dalšího, dostat od modelu
 data místo volného textu (`schema`), počítat bez modelu (`set`), vrátit
 víc polí a číst hlášky `validate`.
 
 Předpoklad: díl 1 (agent `tutorial-pojmenovavac`, zkratka
-`alias agencast="uv run --project framework agencast"`).
+`alias agencast="uv run --project ../../framework agencast"`).
 
 ---
 
@@ -149,7 +151,7 @@ svým typem — `pocet` zůstane číslem, ne textem `"3"`.
 ## Krok 3 — fixtura pro krok se `schema`
 
 Krok se `schema` dostává ve fixtuře `json:` místo `text:`. Vytvoř
-`framework/tests/golden/tutorial-02-nazev-a-slogan.yaml`:
+`../../framework/tests/golden/tutorial-02-nazev-a-slogan.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-02-nazev-a-slogan.
@@ -164,7 +166,7 @@ slogan:
 
 ```bash
 agencast validate workflows/scenarios/tutorial-02-nazev-a-slogan.yaml
-agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-02-nazev-a-slogan.yaml
+agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake ../../framework/tests/golden/tutorial-02-nazev-a-slogan.yaml
 ```
 
 ```
@@ -513,7 +515,7 @@ diff workflows/scenarios/tutorial-02-nazev-a-slogan.yaml workflows/scenarios/tut
 Porovnání `<=` dává `true`/`false`, takže typ `boolean` sedí.
 Krok `souhrn` smí číst `steps.slogan`, protože `slogan` je nad ním.
 
-Fixtura `framework/tests/golden/tutorial-02-cviceni.yaml` je stejná jako
+Fixtura `../../framework/tests/golden/tutorial-02-cviceni.yaml` je stejná jako
 u hlavního scénáře (kroky se nezměnily):
 
 ```yaml
@@ -529,7 +531,7 @@ slogan:
 
 ```bash
 agencast validate workflows/scenarios/tutorial-02-cviceni.yaml
-agencast run workflows/scenarios/tutorial-02-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-02-cviceni.yaml
+agencast run workflows/scenarios/tutorial-02-cviceni.yaml -i produkt="veganská zmrzlina" --fake ../../framework/tests/golden/tutorial-02-cviceni.yaml
 ```
 
 ```

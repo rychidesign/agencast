@@ -24,10 +24,10 @@ Command: `agencast` (on this host `~/.local/bin/agencast`; fallback
 ## Order of work — always cheapest first
 
 ```bash
-agencast validate ig-post                            # files, agents, aliases (GET /models); --offline skips models
-agencast run ig-post -i tema="nová káva" --dry-run   # plan only: steps, models, tools, limits; no calls
-agencast run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
-agencast run ig-post -i tema="nová káva"             # live: real models, real money
+agencast --project ~/workspace/agencast/examples/showcase validate ig-post                            # files, agents, aliases (GET /models); --offline skips models
+agencast --project ~/workspace/agencast/examples/showcase run ig-post -i tema="nová káva" --dry-run   # plan only: steps, models, tools, limits; no calls
+agencast --project ~/workspace/agencast/examples/showcase run ig-post -i tema="nová káva" --fake ~/workspace/agencast/framework/tests/golden/ig-post.yaml
+agencast --project ~/workspace/agencast/examples/showcase run ig-post -i tema="nová káva"             # live: real models, real money
 ```
 
 - `-i key=value` per input; numbers, `true`/`false`, lists and objects as JSON

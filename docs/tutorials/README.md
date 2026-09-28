@@ -2,7 +2,9 @@
 
 Sedm dílů od prvního agenta po provoz přes webhook. Každý díl staví na
 předchozích, má skutečné výstupy z běhů a končí cvičením s řešením.
-Řešení jsou soubory `tutorial-0N-*` ve `workflows/` a fixtury
+Příkazy v dílech spouštějte z `examples/tutorial` (`cd examples/tutorial` z kořene klonu).
+
+Řešení jsou soubory `tutorial-0N-*` v `examples/tutorial/workflows/` a fixtury
 v `framework/tests/golden/` — jsou to zároveň zlaté testy
 (`cd framework && uv run pytest`).
 

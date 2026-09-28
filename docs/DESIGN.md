@@ -45,7 +45,7 @@ frontmatter), instrukce jako tělo souboru. Ilustrativně:
 ```markdown
 ---
 name: copywriter
-description: Copywriter pro sociální sítě značky THTD
+description: Copywriter pro sociální sítě značky Lumen
 model: chytry                 # alias z config.yaml, ne konkrétní model
 skills: [marketing-copy]
 mcp: []
@@ -71,7 +71,7 @@ aritmetika, indexování, malá sada povolených funkcí (`len`, `min`, `max`,
 `round`, `str`, `int`, `float`, `join`). Žádný přístup k systému, žádné
 volání metod, žádný import. Pevná pravidla viz §5.4.
 
-Spike (c) 2026-09-25 (`spikes/expressions/REPORT.md`): rozhodnuto **vlastní
+Spike (c) 2026-09-25 (report spiku expressions, vyřazen ze stromu; v historii do commitu fe90e05): rozhodnuto **vlastní
 evaluátor nad `ast`**, žádná knihovna. Z 8 konfigurací (simpleeval, asteval,
 evalidate, RestrictedPython, cel-python, cel-rust, vlastní) splnil D1c + §5.4
 jen vlastní prototyp (207 řádků; odhad s validací 350–500). Knihovny
@@ -274,15 +274,15 @@ jsou **tenké obálky nad `agencast.api`** (`load`, `run`, `dry_run`,
 ```
 agencast/
   framework/        jádro (CLI, engine, adaptéry, webhook) — udržují workeři
-  workflows/        vrstva uživatele
-    agents/         *.md   — agenti (D1a)
-    scenarios/      *.yaml — scénáře (D1d)
-    skills/         <name>/SKILL.md
-    config.yaml     OpenRouter, aliasy modelů, úložiště, limity   ← jen vlastník
-    mcp.yaml        registr MCP serverů + odkazy na tajné klíče    ← jen vlastník
-    commands.yaml   povolené příkazy pro `run`                     ← jen vlastník
+  examples/         samostatné ukázkové projekty showcase/ a tutorial/
+    <projekt>/workflows/  agenti, scénáře, skilly a konfigurace projektu
+      agents/         *.md   — agenti (D1a)
+      scenarios/      *.yaml — scénáře (D1d)
+      skills/         <name>/SKILL.md
+      config.yaml     OpenRouter, aliasy modelů, úložiště, limity   ← jen vlastník
+      mcp.yaml        registr MCP serverů + odkazy na tajné klíče    ← jen vlastník
+      commands.yaml   povolené příkazy pro `run`                     ← jen vlastník
   docs/             tento návrh, specifikace formátů, changelog
-  spikes/           časově omezené experimenty, každý s REPORT.md
 ```
 
 Soubory označené „jen vlastník" rozhodují, co je v systému vůbec povolené.
@@ -544,7 +544,7 @@ kroku, důvodem přeskočení, cenou a časem, `summary.md` a HTML.
 ## 8. Spiky (před dokončením specifikace)
 
 Každý spike: jeden worker, jasná otázka, časový limit ~1 den, výstup
-`spikes/<name>/REPORT.md` s verdiktem *funguje / nefunguje / funguje
+report s výsledky (spiky byly vyřazeny ze stromu; výstupy jsou v historii repozitáře do commitu fe90e05) s verdiktem *funguje / nefunguje / funguje
 s výhradou* a naměřenými fakty (ne dojmy).
 
 **(a) OpenRouter** — otázky: (1) `ask` se JSON schématem a jedním
@@ -567,15 +567,15 @@ token Modalu a přístup k R2.
 
 | Spike | Verdikt | Report |
 |---|---|---|
-| (a) OpenRouter — schéma + nástroj | funguje s výhradou (Gemini potřebuje nástroj-obal) | `spikes/openrouter/REPORT.md` |
+| (a) OpenRouter — schéma + nástroj | funguje s výhradou (Gemini potřebuje nástroj-obal) | report spiku openrouter/REPORT.md (vyřazen ze stromu; v historii repozitáře do commitu fe90e05) |
 | (a) OpenRouter — Jev | funguje (5/5, 0,30 s, ~0,00003 USD) | tamtéž |
 | (a) OpenRouter — obrázek | funguje s výhradou (0,067 USD, odmítnutí nevyvoláno) | tamtéž |
-| (b) Modal — MCP v kontejneru | funguje (předinstalovat balíčky) | `spikes/modal/REPORT.md` |
+| (b) Modal — MCP v kontejneru | funguje (předinstalovat balíčky) | report spiku modal/REPORT.md (vyřazen ze stromu; v historii repozitáře do commitu fe90e05) |
 | (b) Modal — webhook + fronta | funguje (výhrada: redeploy = stop + deploy) | tamtéž |
 | (b) Modal — Volume + veřejná URL | funguje; R2 neimplementováno (chybí klíče) | tamtéž |
 | (b) Modal — Secrets | funguje | tamtéž |
-| (c) výrazy pro D1c (2026-09-25, větev `spike-expressions`) | funguje: vlastní evaluátor 24/24 + 14/14 + 20/20; žádná knihovna nesplní §5.4 | `spikes/expressions/REPORT.md` |
-| (d) MCP klient + skilly v Pythonu (2026-09-25, větev `spike-mcp-python`) | funguje: `mcp` 2.2 stdio/HTTP/SSE, schémata po normalizaci 18/18, `load_skill` 12/12, allowlist drží; 0,136 USD | `spikes/mcp-python/REPORT.md` |
+| (c) výrazy pro D1c (2026-09-25, větev `spike-expressions`) | funguje: vlastní evaluátor 24/24 + 14/14 + 20/20; žádná knihovna nesplní §5.4 | report spiku expressions/REPORT.md (vyřazen ze stromu; v historii repozitáře do commitu fe90e05) |
+| (d) MCP klient + skilly v Pythonu (2026-09-25, větev `spike-mcp-python`) | funguje: `mcp` 2.2 stdio/HTTP/SSE, schémata po normalizaci 18/18, `load_skill` 12/12, allowlist drží; 0,136 USD | report spiku mcp-python/REPORT.md (vyřazen ze stromu; v historii repozitáře do commitu fe90e05) |
 
 Útrata: (a) 0,30 USD, (b) řádově centy. Fakta z obou spiků jsou
 zapracována v §5.1 (bod 8), §5.5, §5.7, D5 a §7.

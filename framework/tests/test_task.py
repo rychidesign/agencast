@@ -291,22 +291,22 @@ steps:
 # --- skilly ---------------------------------------------------------------------------------
 
 def test_skills_task_list_and_load_skill(wf):
-    setup(wf, agent_extra="skills: [thtd-hlas]\n")
-    r, fake = run(task_sc(wf), script={"t": [calls(("load_skill", {"name": "thtd-hlas"})),
+    setup(wf, agent_extra="skills: [lumen-hlas]\n")
+    r, fake = run(task_sc(wf), script={"t": [calls(("load_skill", {"name": "lumen-hlas"})),
                                              calls(("load_skill", {"name": "neni"})), {"text": "ok"}]})
     assert r.status == "succeeded", r.error
     first = fake.calls[0][2]
     system = first["messages"][0]["content"]
-    assert "## Skilly\n\n- thtd-hlas: Tón a slovník značky THTD" in system and "Tykáme" not in system
+    assert "## Skilly\n\n- lumen-hlas: Tón a slovník značky Lumen" in system and "Tykáme" not in system
     skill = next(t for t in first["tools"] if t["function"]["name"] == "load_skill")
-    assert skill["function"]["parameters"]["properties"]["name"]["enum"] == ["thtd-hlas"]
+    assert skill["function"]["parameters"]["properties"]["name"]["enum"] == ["lumen-hlas"]
     tc = events(r, "tool_call")
     assert [(e["server"], e["tool"], e["invalid_args"]) for e in tc] == [("_skills", "load_skill", False),
                                                                         ("_skills", "load_skill", True)]
     assert [e["turn"] for e in events(r, "model_call")] == [1, 2, 3]                # load_skill je tah
     msgs = fake.calls[2][2]["messages"]
     tool_msgs = [m["content"] for m in msgs if m["role"] == "tool"]
-    assert "Tykáme" in tool_msgs[0] and '"thtd-hlas"' in tool_msgs[1]            # chyba se seznamem skillů
+    assert "Tykáme" in tool_msgs[0] and '"lumen-hlas"' in tool_msgs[1]            # chyba se seznamem skillů
 
 
 def test_skills_ask_inlines_whole_body(wf):
@@ -314,8 +314,8 @@ def test_skills_ask_inlines_whole_body(wf):
     errs = []
     agent = load_agent(wf, "copywriter", load_config(wf, errs), errs)
     ask = system_prompt_ask(agent)
-    assert "## Skill: thtd-hlas\n\n- Tykáme." in ask
-    assert system_prompt_task(agent).endswith("## Skilly\n\n- thtd-hlas: Tón a slovník značky THTD pro texty na sociální sítě")
+    assert "## Skill: lumen-hlas\n\n- Tykáme." in ask
+    assert system_prompt_task(agent).endswith("## Skilly\n\n- lumen-hlas: Tón a slovník značky Lumen pro texty na sociální sítě")
 
 
 # --- dedupe_key -----------------------------------------------------------------------------

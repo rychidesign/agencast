@@ -1,5 +1,7 @@
 # Díl 7 — Skládání a provoz: `call` a webhook
 
+Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+
 **Čas:** asi 35 minut · **Útrata:** 0 USD s `--fake`; volitelný ostrý
 běh přes webhook ~0,001 USD
 **Co budeš umět:** poskládat scénář ze stavebnic (`call`), spustit
@@ -11,7 +13,7 @@ Předpoklad: díly 1–6 (krok `task` a agent `tutorial-archivar` z dílu 6)
 a `curl`.
 
 > Výstupy jsou skutečné — z běhů 25. 9. 2026 proti `maw` 0.2.1. Příkazy
-> spouštěj z kořene repozitáře se zkratkou `agencast` z dílu 1. Tvoje
+> spouštěj z projektu `examples/tutorial` se zkratkou `agencast` z dílu 1. Tvoje
 > `run_id`, časy a texty budou jiné.
 
 ---
@@ -19,11 +21,12 @@ a `curl`.
 ## Krok 1 — hotová stavebnice: `kontrola-tonu`
 
 Ve `workflows/scenarios/` už jeden scénář-stavebnici máš:
+`kontrola-tonu.yaml` je pro samostatné spuštění tutoriálu převzatý ze showcase.
 
 ```yaml
 version: 1
 name: kontrola-tonu
-description: Zkontroluje, že text sedí na tón značky THTD (volá se krokem call z jiných scénářů)
+description: Zkontroluje, že text sedí na tón značky Lumen (volá se krokem call z jiných scénářů)
 callable: true
 
 inputs:
@@ -188,7 +191,7 @@ steps:
 
 Kroky volaného scénáře mají ve fixtuře (a v záznamu) **cestu**
 `<id kroku call>/<id kroku uvnitř>`.
-`framework/tests/golden/tutorial-07-skladani.yaml`:
+`../../framework/tests/golden/tutorial-07-skladani.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-07-skladani. Kroky volaných scénářů
@@ -201,12 +204,12 @@ ton/kontrola:
   - answers: { on_brand: 0.82 }
 ```
 
-(A `framework/tests/golden/tutorial-07-slogan.yaml` s klíčem `napis` pro
+(A `../../framework/tests/golden/tutorial-07-slogan.yaml` s klíčem `napis` pro
 stavebnici samotnou — i ona je zlatý test.)
 
 ```bash
 agencast validate tutorial-07-skladani
-agencast run tutorial-07-skladani -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-07-skladani.yaml
+agencast run tutorial-07-skladani -i produkt="veganská zmrzlina z ovesného mléka" --fake ../../framework/tests/golden/tutorial-07-skladani.yaml
 ```
 
 ```
@@ -377,7 +380,7 @@ python3 docs/tutorials/callback-prijemac.py
 z kroku 3:
 
 ```bash
-agencast serve --fake framework/tests/golden/tutorial-07-skladani.yaml
+agencast serve --fake ../../framework/tests/golden/tutorial-07-skladani.yaml
 ```
 
 ```
@@ -613,11 +616,11 @@ steps:
       zprava: "{{ steps.zapis.text }}"
 ```
 
-Fixtura `framework/tests/golden/tutorial-07-archiv.yaml` má stejné tahy
+Fixtura `../../framework/tests/golden/tutorial-07-archiv.yaml` má stejné tahy
 jako `tutorial-06-archiv`. Restartuj server (terminál 2, Ctrl+C) s ní:
 
 ```bash
-agencast serve --fake framework/tests/golden/tutorial-07-archiv.yaml
+agencast serve --fake ../../framework/tests/golden/tutorial-07-archiv.yaml
 ```
 
 a pošli dva **různé** požadavky (`n8n-5001`, `n8n-5002`) na stejný den:
@@ -767,7 +770,7 @@ podpis: sedí
 ```
 
 `on_brand` 0,25 — slogan s vykřičníkem a „zdraví v každé lžici" není
-tón THTD. Běh přesto skončil úspěchem: `kontrola-tonu` jen měří,
+tón Lumen. Běh přesto skončil úspěchem: `kontrola-tonu` jen měří,
 rozhoduje volající, a `tutorial-07-skladani` žádný `fail` nemá. Kdybys
 chtěl nevhodný text zastavit, přidej za `ton` krok jako v
 `ukazka-call.yaml`:
@@ -907,7 +910,7 @@ steps:
       vazny: "{{ steps.vazny_slogan.slogan }}"
 ```
 
-`framework/tests/golden/tutorial-07-cviceni.yaml`:
+`../../framework/tests/golden/tutorial-07-cviceni.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-07-cviceni (řešení cvičení z dílu 7).
@@ -922,7 +925,7 @@ Uvnitř obou volání je krok `napis` — rozliší je až `id` kroku `call`.
 Proto musí mít každé volání vlastní `id` (to by chtěl `validate` stejně).
 
 ```bash
-agencast run tutorial-07-cviceni -i nazev=Ovena --fake framework/tests/golden/tutorial-07-cviceni.yaml
+agencast run tutorial-07-cviceni -i nazev=Ovena --fake ../../framework/tests/golden/tutorial-07-cviceni.yaml
 ```
 
 ```
@@ -951,7 +954,7 @@ runs/…/steps/03-vazny_slogan/steps/01-napis/prompt.md:Tón: vazny
 `hravy` přišel z `default` stavebnice, `vazny` z volání.
 
 ```bash
-cd framework && uv run pytest -k tutorial-07 -v; cd ..
+cd ../../framework && uv run pytest -k tutorial-07 -v; cd ../examples/tutorial
 ```
 
 ```

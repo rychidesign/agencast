@@ -6,16 +6,18 @@ v `docs/DESIGN.md`. Balík i příkaz se jmenují `agencast` (do 0.2.5
 
 ## Použití
 
+Příkazy spouštějte z kořene klonu repozitáře.
+
 ```
-uv run --project framework agencast validate ig-post
-uv run --project framework agencast run ig-post -i tema="nová káva" --dry-run
-uv run --project framework agencast run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
-uv run --project framework agencast run ig-post -i tema="nová káva"
-uv run --project framework agencast run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake framework/tests/golden/ukazka-task.yaml
-uv run --project framework agencast runs list
-uv run --project framework agencast runs show <run_id>
-uv run --project framework agencast serve --host 127.0.0.1 --port 8080 [--workers 2] [--cors http://localhost:5173]
-uv run --project framework agencast migrate workflows/scenarios/ig-post.yaml
+uv run --project framework agencast --project examples/showcase validate ig-post
+uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva" --dry-run
+uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
+uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva"
+uv run --project framework agencast --project examples/showcase run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake framework/tests/golden/ukazka-task.yaml
+uv run --project framework agencast --project examples/showcase runs list
+uv run --project framework agencast --project examples/showcase runs show <run_id>
+uv run --project framework agencast --project examples/showcase serve --host 127.0.0.1 --port 8080 [--workers 2] [--cors http://localhost:5173]
+uv run --project framework agencast --project examples/showcase migrate examples/showcase/workflows/scenarios/ig-post.yaml
 uv run --project framework agencast new project ~/muj-projekt
 uv run --project framework agencast new agent recenzent | new scenario kontrola [--project <cesta>]
 uv run --project framework agencast projects list | add <cesta> [--name N] | rm <jméno>
@@ -29,7 +31,7 @@ uv run --project framework agencast projects list | add <cesta> [--name N] | rm 
 - Konfigurace `workflows/config.yaml` (vzor `config.example.yaml`) a
   registr MCP serverů `workflows/mcp.yaml` (vzor `mcp.example.yaml`; oba
   mění jen vlastník). Klíče jen z prostředí nebo z `.env` v kořeni
-  repozitáře.
+  projektu.
 - Krok `task` spouští MCP servery z `mcp.yaml` jednou za běh (stdio přes
   `npx` potřebuje Node; na Modalu balíček předinstalovat). stderr serverů
   je v záznamu běhu v `mcp/<server>.stderr.log`.
@@ -144,8 +146,8 @@ upravených podle spec + pravidla spec), loader, validate, engine (třídy
 chyb, retry, kaskáda, parallel, switch, rozpočet, timeout, callback,
 maskování), krok `task` s falešným MCP serverem `tests/fake_mcp_server.py`
 (oprávnění, normalizace schémat, smyčka, skilly, `dedupe_key`, zbylé
-procesy) a zlaté scénáře — každý soubor ve `workflows/` a každá ukázka
-v `docs/spec/`. Nový scénář ve `workflows/scenarios/` se testuje sám;
+procesy) a zlaté scénáře — každý soubor v `examples/*/workflows/` a každá ukázka
+v `docs/spec/`. Nový scénář v `examples/*/workflows/scenarios/` se testuje sám;
 skriptované odpovědi pro něj patří do `tests/golden/<jméno>.yaml`.
 
 ## Struktura (vrstvy DESIGN D3)
@@ -170,7 +172,7 @@ Zatím ne: Modal a úložiště R2 (Fáze 3c). Nejasnosti spec: `docs/spec/ISSUE
 
 ## Ostrý test webhooku (Fáze 3b, 2026-09-25)
 
-`agencast serve --port 8788` lokálně (proti OpenRouteru, `workflows/config.yaml`
+`agencast serve --port 8788` lokálně (proti OpenRouteru, `examples/showcase/workflows/config.yaml`
 beze změny), přijímač callbacku na `http://127.0.0.1:8799/cb` (ověřuje
 HMAC), `WEBHOOK_TOKEN` a `CALLBACK_SECRET` vygenerované jen pro test.
 Jeden `POST /runs` s `ig-post`, téma „ranní espresso na cestu do práce",
@@ -191,7 +193,7 @@ Jeden `POST /runs` s `ig-post`, téma „ranní espresso na cestu do práce",
 
 ## Ostrý běh (Fáze 2, 2026-09-25)
 
-`agencast run workflows/scenarios/ig-post.yaml` proti OpenRouteru, aliasy
+`agencast --project examples/showcase run ig-post` proti OpenRouteru, aliasy
 `chytry` = `anthropic/claude-haiku-4.5`, `rychly` =
 `google/gemini-3.5-flash-lite` (`tool_wrapper`), `gemini-image` =
 `google/gemini-3.1-flash-image`. `agencast validate` proti `GET /models` prošel.
@@ -199,7 +201,7 @@ Jeden `POST /runs` s `ig-post`, téma „ranní espresso na cestu do práce",
 | Běh | Téma | Výsledek | Čas | Cena |
 |---|---|---|---|---|
 | `runs/20260925-145904-ig-post-81e5` | ranní káva s přáteli | `fail` v kroku `stop`: on_brand = 0,68 | 6,2 s | 0,0013 USD |
-| `runs/20260925-145923-ig-post-d686` | nové tričko THTD z bio bavlny | `fail` v kroku `stop`: on_brand = 0,63 | 2,8 s | 0,0013 USD |
+| `runs/20260925-145923-ig-post-d686` | nová káva Lumen | `fail` v kroku `stop`: on_brand = 0,63 | 2,8 s | 0,0013 USD |
 
 Útrata Fáze 2 celkem **0,0026 USD**. Oba běhy doběhly přesně podle
 scénáře: `copy` (Claude Haiku přes Amazon Bedrock, `native_schema`,
@@ -232,7 +234,7 @@ kroku a zkopírovaný do `outputs/<run_id>-<32 hex>/image.png`.
 
 ## Ostrý běh Fáze 3a (2026-09-25): krok `task` se skutečným MCP serverem
 
-`agencast run workflows/scenarios/ukazka-task.yaml -i knihy="Karel Čapek:
+`agencast --project examples/showcase run ukazka-task -i knihy="Karel Čapek:
 R.U.R. (1920); Božena Němcová: Babička (1855); Jaroslav Hašek: Osudy
 dobrého vojáka Švejka (1921)"`, agent `knihovnik` na aliasu `chytry` =
 `anthropic/claude-haiku-4.5` (`native_schema`), MCP server

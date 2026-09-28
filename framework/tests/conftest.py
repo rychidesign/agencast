@@ -16,11 +16,12 @@ from agencast.server import Projects, Server
 from agencast.validate import resolve_inputs, validate
 
 REPO = Path(__file__).resolve().parents[2]
-WORKFLOWS = REPO / "workflows"
+WORKFLOWS = REPO / "examples" / "showcase" / "workflows"
+TUTORIAL = REPO / "examples" / "tutorial" / "workflows"
 FAKE_MCP = Path(__file__).resolve().parent / "fake_mcp_server.py"
 TOKEN, SECRET = "token-webhooku-123", "podpis-callbacku-456"  # webhook a server v režimu registru
 
-# Testovací config: aliasy (models) se berou ze skutečného workflows/config.yaml — golden_config().
+# Testovací config: aliasy (models) se berou z examples/showcase/workflows/config.yaml — golden_config().
 CONFIG = """\
 version: 1
 openrouter:
@@ -43,6 +44,11 @@ webhook:
 callback:
   secret_env: CALLBACK_SECRET
 """
+
+
+def example_files(pattern: str) -> list[Path]:
+    """Oba projekty; sdílená kontrola-tonu se v kombinovaném projektu testuje jednou."""
+    return sorted({str(p.relative_to(root)): p for root in (WORKFLOWS, TUTORIAL) for p in root.glob(pattern)}.values())
 
 
 def golden_config(real: Path = WORKFLOWS / "config.yaml") -> str:
@@ -82,18 +88,24 @@ def no_delays(monkeypatch):
 
 @pytest.fixture
 def wf(tmp_path) -> Path:
-    """Kopie workflows/ (agenti, skilly, scénáře) s testovacím config.yaml (aliasy ze skutečného)."""
+    """Sloučené workflows obou příkladů s testovacím config.yaml (aliasy ze showcase)."""
     w = tmp_path / "workflows"
-    for d in ("agents", "skills", "scenarios"):
-        shutil.copytree(WORKFLOWS / d, w / d)
+    for source in (WORKFLOWS, TUTORIAL):
+        for d in ("agents", "skills", "scenarios"):
+            shutil.copytree(source / d, w / d, dirs_exist_ok=True)
     (w / "config.yaml").write_text(golden_config())
-    (w / "mcp.yaml").write_text(fake_mcp_yaml(WORKFLOWS / "mcp.yaml"))
+    (w / "mcp.yaml").write_text(fake_mcp_yaml(WORKFLOWS / "mcp.yaml", TUTORIAL / "mcp.yaml"))
     return w
 
 
-def fake_mcp_yaml(path: Path) -> str:
+def fake_mcp_yaml(path: Path, tutorial: Path) -> str:
     """mcp.yaml, ve kterém každý stdio server nahradí falešný (tests/fake_mcp_server.py, bez sítě a Node)."""
     data = yaml.safe_load(path.read_text())
+    for name, server in yaml.safe_load(tutorial.read_text())["servers"].items():
+        if name in data["servers"]:
+            data["servers"][name]["agents"] += server["agents"]
+        else:
+            data["servers"][name] = server
     for s in data["servers"].values():
         if "command" in s:
             s["command"], s["args"] = sys.executable, [str(FAKE_MCP), *s.get("args", [])]

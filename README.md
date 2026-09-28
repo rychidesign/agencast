@@ -30,7 +30,13 @@ uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framew
 
 ## Rychlý start
 
-Vytvořte projekt, doplňte klíč OpenRouteru do `.env` a projděte nejprve kontroly bez ostrého volání:
+Příklad z klonu repozitáře spustíte bez klíče a bez sítě:
+
+```bash
+agencast --project examples/showcase run ig-post -i tema="nová káva" --fake framework/tests/golden/ig-post.yaml
+```
+
+Další ukázky najdete v [examples/](examples/). Pro vlastní práci vytvořte projekt, doplňte klíč OpenRouteru do `.env` a projděte nejprve kontroly bez ostrého volání:
 
 ```bash
 agencast new project ~/muj-projekt
@@ -49,9 +55,8 @@ agencast run ukazka
 |---|---|
 | `framework/` | Python balík a příkaz `agencast` |
 | `ui/` | Zdrojový kód GUI |
-| `workflows/` | Příklady agentů, scénářů, skillů a konfigurace |
+| `examples/` | Samostatné projekty showcase a tutorial |
 | `docs/` | Specifikace, návrh a tutoriály |
-| `spikes/` | Časově omezené experimenty s nezpracovanými výsledky |
 | `skills/` | Skilly pro kódovací agenty |
 
 ## Dokumentace

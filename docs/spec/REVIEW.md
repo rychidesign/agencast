@@ -52,7 +52,8 @@ Souhrn: **6 BLOKUJÍCÍCH, 23 DŮLEŽITÝCH, 12 DROBNÝCH**.
 - **Co:** Spec (a doporučení k otázce 6) dává serveru bez záznamu v `tools`
   všechny nástroje. §5.8 chce allowlist podle jména. Spike (d) ho zdůvodňuje
   tím, že „nový nástroj, který server přidá (`list_changed`), agent neuvidí“
-  (`spike-mcp-python:spikes/mcp-python/REPORT.md:171`). Při výchozím „všechny“
+  (report spiku mcp-python, řádek 171; spike byl vyřazen ze stromu,
+  výstupy jsou v historii repozitáře do commitu fe90e05). Při výchozím „všechny“
   agent nový nástroj uvidí, třeba `delete_media` po aktualizaci serveru.
 - **Proč:** Porušuje DESIGN §5.8. Otázka 6 byla položena, než §5.8 vznikl.
 - **Návrh:** V `agent.md:43` psát: „Každý server z `mcp` musí mít v `tools`
@@ -560,7 +561,7 @@ odmítnuto).
 
 | Nález | Stav | Poznámka |
 |---|---|---|
-| B1 skilly | hotovo | `task`: seznam + `load_skill` (`_skills` v záznamu), `ask`: celé; `skill.md`, `skill.schema.json`, ukázka `skills/thtd-hlas`; OPEN-QUESTIONS 11 |
+| B1 skilly | hotovo | `task`: seznam + `load_skill` (`_skills` v záznamu), `ask`: celé; `skill.md`, `skill.schema.json`, ukázka `skills/lumen-hlas`; OPEN-QUESTIONS 11 |
 | B2 `tools` povinné | hotovo | `dependentRequired`, klíče `tools` = `mcp`, `--dry-run` vypíše nabídku; OQ 6 vyřešena podle §5.8 |
 | B3 kaskáda | hotovo | `models.<alias>.structured_output`, `_submit_output`, přechod o úroveň níž po `schema` |
 | B4 dedupe | hotovo | `<runs>/_dedupe/<sha256>.json`, atomicky; OQ 12 |

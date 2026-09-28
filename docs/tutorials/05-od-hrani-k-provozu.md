@@ -1,5 +1,7 @@
 # Díl 5 — Od hraní k provozu
 
+Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+
 **Čas:** asi 20 minut · **Útrata:** 0 USD (všechno s `--fake` nebo bez
 volání modelu)
 **Co budeš umět:** vyměnit model jedním řádkem, udělat ze scénáře zlatý
@@ -72,20 +74,20 @@ Která verze modelu v kterém běhu opravdu běžela, je vždy v záznamu (krok 
 
 ## Krok 2 — zlaté testy
 
-Od dílu 1 píšeš ke každému scénáři fixturu do `framework/tests/golden/`.
+Od dílu 1 píšeš ke každému scénáři fixturu do `../../framework/tests/golden/`.
 Tady je proč:
 
 > **Každý soubor ve `workflows/` je test frameworku.** Každý agent musí
 > projít kontrolou a každý scénář musí doběhnout s falešným
 > poskytovatelem. Když k němu existuje fixtura
-> `framework/tests/golden/<jméno scénáře>.yaml`, běh musí skončit
+> `../../framework/tests/golden/<jméno scénáře>.yaml`, běh musí skončit
 > **úspěchem**; bez fixtury stačí úspěch nebo záměrný `fail`.
 
 Až někdo (typicky agent-worker) framework vylepší, tyhle testy spustí.
 Když tvůj scénář přestane fungovat, uvidí to **on**, dřív než ty.
 
 ```bash
-cd framework && uv run pytest
+cd ../../framework && uv run pytest
 ```
 
 ```
@@ -94,7 +96,7 @@ cd framework && uv run pytest
 ```
 
 (Víc řádků teček zkracuji.) Jen tvoje soubory — jsi pořád ve složce
-`framework/`:
+`framework/` repozitáře:
 
 ```bash
 uv run pytest -k tutorial -v
@@ -118,7 +120,7 @@ tests/test_golden.py::test_workflow_agent_valid[tutorial-sloganista] PASSED
 ```
 
 (`-k tutorial` vybere testy, v jejichž jméně je „tutorial"; ukazuji jen
-řádky s výsledky.) Zpátky do kořene repozitáře: `cd ..`.
+řádky s výsledky.) Zpátky do projektu tutoriálu: `cd ../examples/tutorial`.
 
 ### Jak test vypadá, když neprojde
 
@@ -291,7 +293,7 @@ grep -o '"url": "<[^"]*"\|"reasoning_details": "<[^"]*"' runs/20260925-151755-tu
 
 ```bash
 export CALLBACK_SECRET=tutorial-demo-tajemstvi
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina tutorial-demo-tajemstvi" --fake framework/tests/golden/tutorial-01-nazvy.yaml
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina tutorial-demo-tajemstvi" --fake ../../framework/tests/golden/tutorial-01-nazvy.yaml
 ```
 
   V `inputs.json`:
@@ -336,7 +338,7 @@ HTTPS server, který se tváří jako n8n a vypíše, co přišlo (skript je
 [níž](#příloha-falešné-n8n)):
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake ../../framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
 ```
 
 ```
@@ -396,7 +398,7 @@ odsazený, takže podpis z něj nevyjde.)
 ### Když n8n neodpovídá
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8444/webhook-waiting/4713
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina" --fake ../../framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8444/webhook-waiting/4713
 ```
 
 ```
@@ -474,7 +476,7 @@ Přehled všech dílů: [README.md](README.md).
 - Výměna modelu = jeden řádek v `config.yaml` (vlastník); `validate` ho
   ověří proti OpenRouteru; záznam drží, co běželo.
 - Každý scénář ve `workflows/` je zlatý test; fixtura se jménem scénáře
-  v `framework/tests/golden/`; `cd framework && uv run pytest`.
+  v `../../framework/tests/golden/`; `cd ../../framework && uv run pytest`.
 - `events.jsonl` = celý příběh běhu; `calls/` = každé volání; klíče,
   base64 ani tajné hodnoty v záznamu nejsou.
 - Callback: vždy, podepsaný HMAC; `class` v `error` odliší `fail` od
@@ -514,7 +516,7 @@ diff workflows/scenarios/tutorial-03-rozhodovani.yaml workflows/scenarios/tutori
 a pod tím původní hláška parseru `mapping values are not allowed here`.
 Text s `: ` dej do uvozovek, nebo dvojtečku vynech.)
 
-`framework/tests/golden/tutorial-05-cviceni.yaml`:
+`../../framework/tests/golden/tutorial-05-cviceni.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-05-cviceni (řešení cvičení z dílu 5).
@@ -536,7 +538,7 @@ Klíč je `slogan_vazny`, ne `slogan_hravy` — fixtura odpovídá krokům,
 které **opravdu proběhnou**.
 
 ```bash
-agencast run workflows/scenarios/tutorial-05-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-05-cviceni.yaml
+agencast run workflows/scenarios/tutorial-05-cviceni.yaml -i produkt="veganská zmrzlina" --fake ../../framework/tests/golden/tutorial-05-cviceni.yaml
 ```
 
 ```
@@ -557,7 +559,7 @@ běh 20260925-152230-tutorial-05-cviceni-c273: úspěch · 0,0 s · 0,0003 USD
 ```
 
 ```bash
-cd framework && uv run pytest -k tutorial-05 -v; cd ..
+cd ../../framework && uv run pytest -k tutorial-05 -v; cd ../examples/tutorial
 ```
 
 ```
@@ -606,13 +608,13 @@ srv.serve_forever()
 ```
 
 Spusť ho v jednom terminálu (`cd /tmp/n8n-mock && python3 prijimac.py`),
-ve druhém (v kořeni repozitáře) řekni frameworku, ať certifikátu věří,
+ve druhém (v projektu `examples/tutorial`) řekni frameworku, ať certifikátu věří,
 a pošli callback:
 
 ```bash
 export CALLBACK_SECRET=tutorial-demo-tajemstvi
 export SSL_CERT_FILE=/tmp/n8n-mock/cert.pem
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake ../../framework/tests/golden/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
 ```
 
 `SSL_CERT_FILE` nech nastavené jen v tomhle terminálu. Říká „věř **jen**

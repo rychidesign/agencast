@@ -82,7 +82,7 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
 
 ```json
 {
-  "name": "thtd", "root": "~/projekty/thtd",
+  "name": "lumen", "root": "~/projekty/lumen",
   "models": {"chytry": "anthropic/claude-haiku-4.5"},
   "limits": {"run_budget_usd": 1.0, "run_timeout": "1h", "max_call_depth": 3},
   "scenarios": [{"name": "ig-post", "etag": "9f2c…", "description": "…", "inputs": {…}, "outputs": {…},
@@ -91,14 +91,14 @@ navíc `"details": [...]` (u editačních operací `"errors": [...]`, oddíl
                  "last_run": {"run_id": "20260926-120000-ig-post-ab12", "state": "succeeded",
                               "finished_at": "2026-09-26T12:01:10.500Z", "cost_usd": 0.0123}}],
   "agents": [{"name": "copywriter", "etag": "…", "description": "…", "model": "chytry",
-              "model_id": "anthropic/claude-haiku-4.5", "skills": ["thtd-hlas"], "mcp": [], "tools": {},
+              "model_id": "anthropic/claude-haiku-4.5", "skills": ["lumen-hlas"], "mcp": [], "tools": {},
               "errors": []}],
-  "skills": [{"name": "thtd-hlas", "etag": "…", "description": "…", "errors": []}],
+  "skills": [{"name": "lumen-hlas", "etag": "…", "description": "…", "errors": []}],
   "mcp_servers": [{"name": "filesystem", "type": "stdio", "agents": ["knihovnik"],
                    "tools": ["read_text_file"], "scenarios": null}],
   "links": {"scenario_agent": [["ig-post", "copywriter"]], "scenario_step_agent": [["ig-post", "copy", "copywriter"]],
             "scenario_scenario": [["ukazka-call", "kontrola-tonu"]],
-            "agent_skill": [["copywriter", "thtd-hlas"]], "agent_server": [["knihovnik", "filesystem"]]},
+            "agent_skill": [["copywriter", "lumen-hlas"]], "agent_server": [["knihovnik", "filesystem"]]},
   "env": {"CALLBACK_SECRET": true, "OPENROUTER_API_KEY": true, "WEBHOOK_TOKEN": false},
   "errors": []
 }

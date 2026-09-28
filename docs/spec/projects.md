@@ -11,8 +11,8 @@ disku **neskenuje**; které zná, drží registr. Formáty v1 se tím nemění.
 ```yaml
 projects_root: ~/workspace   # výchozí místo pro nové projekty z GUI
 projects:
-  - name: thtd              # jméno projektu v registru a v URL /projects/<name>
-    root: ~/thtd  # absolutní cesta ke kořeni (složka s workflows/)
+  - name: lumen              # jméno projektu v registru a v URL /projects/<name>
+    root: ~/lumen  # absolutní cesta ke kořeni (složka s workflows/)
 ```
 
 | Pole | Co dělá |

@@ -64,11 +64,11 @@ describe("hash router", () => {
   it.each([
     ["", { page: "projects" }],
     ["#/", { page: "projects" }],
-    ["#/p/thtd", { page: "project", project: "thtd", tab: "scenare", item: undefined }],
-    ["#/p/thtd/agenti/copywriter", { page: "project", project: "thtd", tab: "agenti", item: "copywriter" }],
-    ["#/p/thtd/scenare/ig-post?krok=kontrola", { page: "scenario", project: "thtd", scenario: "ig-post" }],
-    ["#/p/thtd/behy/20260925-141502-ig-post-9f3c", { page: "run", project: "thtd", runId: "20260925-141502-ig-post-9f3c" }],
-    ["#/p/thtd/nic", { page: "notFound" }],
+    ["#/p/lumen", { page: "project", project: "lumen", tab: "scenare", item: undefined }],
+    ["#/p/lumen/agenti/copywriter", { page: "project", project: "lumen", tab: "agenti", item: "copywriter" }],
+    ["#/p/lumen/scenare/ig-post?krok=kontrola", { page: "scenario", project: "lumen", scenario: "ig-post" }],
+    ["#/p/lumen/behy/20260925-141502-ig-post-9f3c", { page: "run", project: "lumen", runId: "20260925-141502-ig-post-9f3c" }],
+    ["#/p/lumen/nic", { page: "notFound" }],
     ["#/x", { page: "notFound" }],
   ])("%s", (hash, route) => expect(parseHash(hash).route).toEqual(route));
 

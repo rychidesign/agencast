@@ -23,9 +23,9 @@ test("Karta kroku: výběr, konektor a klávesnice nabídky", async ({ page, pro
 });
 
 test("Editor: panel v toku stránky zarovnaný ke kartě", async ({ page, project }) => {
-  project.write("scenarios/tutorial-03-cviceni.yaml", fs.readFileSync(path.resolve(import.meta.dirname, "../../workflows/scenarios/tutorial-03-cviceni.yaml"), "utf8"));
+  project.write("scenarios/tutorial-03-cviceni.yaml", fs.readFileSync(path.resolve(import.meta.dirname, "../../examples/tutorial/workflows/scenarios/tutorial-03-cviceni.yaml"), "utf8"));
   for (const agent of ["tutorial-pojmenovavac", "tutorial-sloganista"])
-    project.write(`agents/${agent}.md`, fs.readFileSync(path.resolve(import.meta.dirname, `../../workflows/agents/${agent}.md`), "utf8"));
+    project.write(`agents/${agent}.md`, fs.readFileSync(path.resolve(import.meta.dirname, `../../examples/tutorial/workflows/agents/${agent}.md`), "utf8"));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/#/p/${project.name}/scenare/tutorial-03-cviceni?krok=_hlavicka`);
   const header = page.locator("main header").first();

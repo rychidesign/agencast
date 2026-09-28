@@ -1,41 +1,35 @@
-# AgenCast — pokyny pro agenty
+# AgenCast — pokyny pro přispěvatele a agenty
 
-Uživatel je rychidesign, komunikuje česky. **Odpovídej česky.** Dokumentaci
-i komentáře piš česky; názvy v kódu anglicky.
+Dokumentaci a komentáře pište česky, názvy v kódu anglicky.
 
-## Nejdřív si přečti
-`docs/DESIGN.md` — závazná rozhodnutí (R1–R7, D1–D5) a pevná pravidla
-(§5). Co je tam rozhodnuto, neotvírej znovu bez souhlasu uživatele. Co je
-označeno OTEVŘENO, rozhodují spiky, ne názor.
+Nejdřív čtěte `docs/DESIGN.md` a `docs/spec/`. Formáty v1 jsou zmražené;
+rozšiřujte je jen zpětně kompatibilně podle DESIGN §5.9.
 
-Závazná je i `docs/spec/` (formáty v1, schválena uživatelem 2026-09-25;
-zmražená podle DESIGN §5.9 — rozšiřovat jen zpětně kompatibilně). Rozpor
-spec × DESIGN hlas koordinátorovi, nerozhoduj ho sám.
+## Struktura
+- `framework/`: Python jádro, CLI a testy.
+- `ui/`: webové GUI a jeho testy.
+- `examples/showcase/`: samostatný projekt s ukázkami pro fiktivní kavárnu Lumen.
+- `examples/tutorial/`: samostatný projekt k českým tutoriálům.
+- `docs/`: návrh, specifikace a tutoriály.
+- `skills/`: skilly pro kódovací agenty.
 
-Framework se jmenuje **AgenCast** (balík i příkaz `agencast`; do 0.2.5
-`maw` — tak zůstává ve starých záznamech changelogu a BUGS.md).
+Konfigurace projektu (`config.yaml`, `mcp.yaml`, `commands.yaml`) určuje
+oprávnění a patří vlastníkovi projektu. Příklady jsou v `examples/`;
+vlastní projekty uchovávejte mimo repozitář.
 
-## Rozdělení repozitáře
-- `framework/` — jádro. Sem patří kód frameworku, jeho testy a
-  konformační scénáře.
-- `workflows/` — vrstva uživatele (agenti, scénáře, skilly, konfigurace).
-  Framework ji čte, nikdy do ní negeneruje kód. `config.yaml`, `mcp.yaml`
-  a `commands.yaml` mění jen uživatel.
-- `spikes/<name>/` — experiment s jasnou otázkou a časovým limitem. Výstup
-  je `REPORT.md`: verdikt *funguje / nefunguje / funguje s výhradou* +
-  naměřená fakta (příkazy, odpovědi, latence, cena). Kód spiku se do
-  `framework/` nepřenáší, přenáší se poznatky.
+## Kontroly
+Z kořene repozitáře:
 
-## Pravidla
-- Tajné klíče jen z proměnných prostředí (`OPENROUTER_API_KEY`,
-  `MODAL_TOKEN_*`, …) nebo z `.env`, který je v `.gitignore`. **Nikdy je
-  nevypisuj, neloguj ani nečti z cizích konfigurací** (např.
-  `~/.local/share/opencode/auth.json`).
-- Útrata: spiky mají rozpočet v centech, používej levné modely a malé
-  vstupy. Před čímkoliv dražším než ~1 USD se zeptej.
-- Commituj na větvi, kde pracuješ. **Push, mazání a cokoliv nevratné jen
-  se souhlasem uživatele.**
-- Nic nesmí selhat potichu: chybu, kterou nedokážeš vyřešit, popiš v
-  reportu i s přesnou hláškou.
-- Externí fakta (API, parametry knihoven) ověřuj v aktuální dokumentaci a
-  uveď zdroj; nepiš je z paměti.
+```bash
+cd framework && uv sync --all-groups && uv run pytest -q
+```
+
+V dalším terminálu z kořene repozitáře:
+
+```bash
+cd ui && npm install && npm run typecheck && npx vitest run && npm run e2e
+```
+
+Nikdy necommitujte `.env` ani klíče; hodnoty tajemství nevypisujte ani nelogujte.
+Před ostrým voláním použijte `validate --offline`, `--dry-run` a `--fake`.
+GUI vystavujte jen v privátní síti. Nevyřešené chyby popište s přesnou hláškou.

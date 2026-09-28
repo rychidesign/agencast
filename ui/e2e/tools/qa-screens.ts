@@ -87,11 +87,11 @@ async function screens(): Promise<Screen[]> {
     { name: "krajni-agent", hash: "#/p/krajni/agenti/ultra-dlouhy-agent-s-velmi-dlouhym-jmenem-ktery-se-nevejde-nikam" },
     { name: "krajni-chyby-popover", hash: "#/p/krajni", act: (p) => p.getByTestId("validation-popover-trigger").click() },
     { name: "krajni-beh-velky", hash: `#/p/krajni/behy/${big}` },
-    { name: "thtd-scenare", hash: "#/p/thtd" },
-    { name: "thtd-igpost", hash: ed("thtd", "ig-post") },
-    { name: "thtd-agenti", hash: "#/p/thtd/agenti/copywriter" },
-    { name: "thtd-skilly", hash: "#/p/thtd/skilly/thtd-hlas" },
-    { name: "thtd-config", hash: "#/p/thtd/config" },
+    { name: "lumen-scenare", hash: "#/p/lumen" },
+    { name: "lumen-igpost", hash: ed("lumen", "ig-post") },
+    { name: "lumen-agenti", hash: "#/p/lumen/agenti/copywriter" },
+    { name: "lumen-skilly", hash: "#/p/lumen/skilly/lumen-hlas" },
+    { name: "lumen-config", hash: "#/p/lumen/config" },
   ];
 }
 

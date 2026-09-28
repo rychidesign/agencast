@@ -1,8 +1,8 @@
 # Skriptované odpovědi falešného poskytovatele pro zlatý scénář ig-post.
 copy:
   - json:
-      caption: "Nová káva od THTD. Ochutnej ji dřív než ostatní."
-      hashtags: ["#thtd", "#kava", "#rano"]
+      caption: "Nová káva od Lumen. Ochutnej ji dřív než ostatní."
+      hashtags: ["#lumen", "#kava", "#rano"]
       image_idea: "Šálek kávy na dřevěném stole v ranním světle."
 kontrola:
   - answers: {on_brand: 0.91}

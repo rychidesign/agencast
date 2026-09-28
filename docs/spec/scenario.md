@@ -5,7 +5,7 @@ dolů: nahoře co dostane (`inputs`) a co vrátí (`outputs`), pod tím kroky
 v pořadí, v jakém proběhnou.
 
 Strojová podoba: [`schema/scenario.schema.json`](schema/scenario.schema.json).
-Ukázka: `workflows/scenarios/ig-post.yaml`. Spuštění přes webhook:
+Ukázka: `examples/showcase/workflows/scenarios/ig-post.yaml`. Spuštění přes webhook:
 [webhook.md](webhook.md).
 
 **Jak se soubor čte (B6):** jako **YAML 1.2 core** — booleany jsou jen
@@ -337,7 +337,7 @@ Levné (~0,00003 USD) a rychlé (~0,3 s).
     questions:
       on_brand:
         type: noul
-        instructions: Odpovídá text tónu značky THTD?
+        instructions: Odpovídá text tónu značky Lumen?
       druh:
         type: choice
         instructions: O jaký druh příspěvku jde?
@@ -638,7 +638,8 @@ klíče se tak do promptu nedostanou ani omylem (§5.2).
 Bezpečně vyhodnocované výrazy v pythonovském stylu (D1c). Tato část
 popisuje **jazyk** — co smí autor scénáře napsat a co se stane. Výrazy
 vyhodnocuje vlastní malý evaluátor frameworku (rozhodnutí po spiku (c),
-`spikes/expressions/REPORT.md` na větvi `spike-expressions`); Python se
+report na větvi `spike-expressions`; spike byl vyřazen ze stromu,
+výstupy jsou v historii repozitáře do commitu fe90e05); Python se
 nikdy nespouští.
 
 #### Co v jazyce je

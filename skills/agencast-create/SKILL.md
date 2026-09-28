@@ -142,8 +142,8 @@ address comes from `AGENCAST_HOST` and `AGENCAST_PORT` in
 `grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env`. The token
 `AGENCAST_TOKEN` is also configured there; never print it.
 
-Examples: `~/workspace/agencast/workflows/agents/*.md`,
-`…/workflows/scenarios/ig-post.yaml` (ask + jev + fail + image + output),
+Examples: `~/workspace/agencast/examples/showcase/workflows/agents/*.md`,
+`…/examples/showcase/workflows/scenarios/ig-post.yaml` (ask + jev + fail + image + output),
 `…/ukazka-task.yaml` (task with MCP), `…/ukazka-call.yaml` (call).
 Full format: `~/workspace/agencast/docs/spec/agent.md`,
 `…/docs/spec/scenario.md`, `…/docs/spec/skill.md`, `…/docs/spec/config.md`.

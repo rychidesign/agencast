@@ -55,7 +55,7 @@ describe("seznam běhů", () => {
     saveToken("t");
     const runCalls = () => fetch.mock.calls.filter(([u]) => String(u).includes("/runs?")).length;
 
-    await act(async () => render(<RunsTab project="thtd" header={(x) => x?.meta} />));
+    await act(async () => render(<RunsTab project="lumen" header={(x) => x?.meta} />));
     expect(runCalls()).toBe(1);
     expect(screen.getByText("krok 4/8 · foto_prompt")).toBeTruthy();
 

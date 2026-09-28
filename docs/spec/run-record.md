@@ -369,7 +369,7 @@ Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,0
 
 ## Výstup
 - caption: „…"
-- hashtags: #kava, #thtd
+- hashtags: #kava, #lumen
 - image: https://files.example.com/20260925-140311-ig-post-a1b2-3f9c1e7a0b5d4c2e8a6f1d9b7c3e5a0f/image.png
 ```
 
@@ -405,7 +405,7 @@ tělo JSON:
   "status": "succeeded",
   "outputs": {
     "caption": "…",
-    "hashtags": ["#kava", "#thtd"],
+    "hashtags": ["#kava", "#lumen"],
     "image": "https://files.example.com/20260925-140311-ig-post-a1b2-3f9c1e7a0b5d4c2e8a6f1d9b7c3e5a0f/image.png"
   },
   "error": null,

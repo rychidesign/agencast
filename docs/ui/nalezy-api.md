@@ -26,7 +26,7 @@ dopadu.
 
 3. **`GET /projects/<p>` — scénáře bez typů kroků.** `IconChain` na kartě
    scénáře (§2.2) potřebuje typy kroků hlavního seznamu; GUI kvůli tomu volá
-   `GET …/scenarios/<s>` pro každý scénář (u `workflows/` repa 20 dotazů
+   `GET …/scenarios/<s>` pro každý scénář (u původní společné sady workflows 20 dotazů; dnes `examples/`
    na jedno otevření projektu). *Potřeba:* `types` (typy kroků hlavního
    seznamu v pořadí souboru) v položce `scenarios`.
    **Stav (0.7.0):** hotovo — `types` v položkách `scenarios`.

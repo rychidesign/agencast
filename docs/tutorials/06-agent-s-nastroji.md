@@ -1,5 +1,7 @@
 # Díl 6 — Agent s nástroji: `task`, MCP server a skilly
 
+Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+
 **Čas:** asi 30 minut · **Útrata:** jeden ostrý běh za ~0,014 USD
 (ostatní s `--fake` nebo bez volání modelu)
 **Co budeš umět:** povolit agentovi MCP server (jako vlastník), napsat
@@ -10,7 +12,7 @@ Předpoklad: díly 1–5 a **Node.js** (`npx` spouští MCP server; poprvé si
 stáhne balíček, takže potřebuje internet).
 
 > Výstupy jsou skutečné — z běhů 25. 9. 2026 proti `maw` 0.2.1. Příkazy
-> spouštěj z kořene repozitáře se zkratkou `agencast` z dílu 1.
+> spouštěj z projektu `examples/tutorial` se zkratkou `agencast` z dílu 1.
 
 ---
 
@@ -174,14 +176,15 @@ a navíc smí zúžit `max_turns`, `mcp` a `tools`. Bez `schema` je výstup
 kroku `steps.zapis.text` — závěrečná odpověď agenta. Proč tu `schema`
 schválně není, uvidíš v kroku 7.
 
-Zkontroluj ho:
+Zkontroluj ho. Hotový projekt v `examples/tutorial` už má oprávnění nastavená.
+Při psaní od nuly bez povoleného agenta by kontrola vypadala takto:
 
 ```bash
 agencast validate tutorial-06-archiv
 ```
 
 ```
-config: agents/tutorial-archivar.md: server 'filesystem' agentovi 'tutorial-archivar' vlastník nepovolil (mcp.yaml → servers.filesystem.agents: knihovnik)
+config: agents/tutorial-archivar.md: server 'filesystem' agentovi 'tutorial-archivar' vlastník nepovolil (mcp.yaml → servers.filesystem.agents: )
 ```
 
 Agent říká „chci filesystem", ale to nestačí.
@@ -198,7 +201,7 @@ servers:
     description: Čtení a zápis v pracovní složce aktuálního běhu
     command: npx
     args: ["-y", "@modelcontextprotocol/server-filesystem@2026.8.31", "{run_dir}/work"]
-    agents: [knihovnik]
+    agents: []
     tools: [list_allowed_directories, list_directory, read_text_file, write_file]
 ```
 
@@ -213,7 +216,7 @@ Přepni se do role vlastníka a přidej agenta do `agents` (jediná změna
 v souboru):
 
 ```yaml
-    agents: [knihovnik, tutorial-archivar]
+    agents: [tutorial-archivar]
 ```
 
 ```bash
@@ -263,7 +266,7 @@ a `3m` z agenta.
 
 U `task` je odpověď modelu **seznam tahů**. Tah je buď volání nástrojů
 (`tool_calls`), nebo závěrečná odpověď (`text`, se `schema` `json`).
-`framework/tests/golden/tutorial-06-archiv.yaml`:
+`../../framework/tests/golden/tutorial-06-archiv.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-06-archiv. Krok task = seznam tahů:
@@ -291,7 +294,7 @@ Jméno nástroje pro model je `<server>__<nástroj>` (dvě podtržítka) — tak
 ho framework pojmenuje, aby se nástroje dvou serverů nepletly.
 
 ```bash
-agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake framework/tests/golden/tutorial-06-archiv.yaml
+agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake ../../framework/tests/golden/tutorial-06-archiv.yaml
 ```
 
 ```
@@ -316,8 +319,8 @@ ls runs/20260925-161448-tutorial-06-archiv-3ba8/work
 2026-09-25.md  obsah.md
 ```
 
-Ve zlatých testech (`cd framework && uv run pytest`) místo něj běží
-falešný server z `framework/tests/fake_mcp_server.py` — bez Node a bez
+Ve zlatých testech (`cd ../../framework && uv run pytest`) místo něj běží
+falešný server z `../../framework/tests/fake_mcp_server.py` — bez Node a bez
 sítě, se stejnými nástroji. Fixtura je stejná.
 
 ---
@@ -774,7 +777,7 @@ steps:
       kontrola: "{{ steps.kontrola.text }}"
 ```
 
-`framework/tests/golden/tutorial-06-cviceni.yaml`:
+`../../framework/tests/golden/tutorial-06-cviceni.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-06-cviceni (řešení cvičení z dílu 6).
@@ -799,7 +802,7 @@ kontrola:
 ```
 
 ```bash
-agencast run tutorial-06-cviceni -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake framework/tests/golden/tutorial-06-cviceni.yaml
+agencast run tutorial-06-cviceni -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake ../../framework/tests/golden/tutorial-06-cviceni.yaml
 ```
 
 ```
@@ -822,7 +825,7 @@ na start). Nástroje, které model v kroku `kontrola` dostal
 „nástroj není povolen" (krok 9).
 
 ```bash
-cd framework && uv run pytest -k tutorial-06 -v; cd ..
+cd ../../framework && uv run pytest -k tutorial-06 -v; cd ../examples/tutorial
 ```
 
 ```

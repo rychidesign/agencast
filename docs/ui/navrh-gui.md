@@ -15,12 +15,12 @@ Podklady: DESIGN.md (Obálky, §5), spec scenario/agent/config/skill/api/project
 
 ```
 Projekty  (#/)                                   seznam z registru, sidebar jen se značkou
-└ Projekt (#/p/thtd)                             sidebar: ← Projekty, jméno, navigace, útrata
-   ├ Scénáře (výchozí)   seznam → Editor scénáře (#/p/thtd/scenare/ig-post?krok=kontrola)
-   ├ Agenti              seznam vlevo + formulář (#/p/thtd/agenti/copywriter)
+└ Projekt (#/p/lumen)                             sidebar: ← Projekty, jméno, navigace, útrata
+   ├ Scénáře (výchozí)   seznam → Editor scénáře (#/p/lumen/scenare/ig-post?krok=kontrola)
+   ├ Agenti              seznam vlevo + formulář (#/p/lumen/agenti/copywriter)
    ├ Config              jeden formulář: config.yaml + sekce MCP servery (mcp.yaml)
-   ├ Skilly              seznam vlevo + text (#/p/thtd/skilly/thtd-hlas)
-   └ Běhy                seznam → Detail běhu (#/p/thtd/behy/<run_id>?krok=navrh/copy)
+   ├ Skilly              seznam vlevo + text (#/p/lumen/skilly/lumen-hlas)
+   └ Běhy                seznam → Detail běhu (#/p/lumen/behy/<run_id>?krok=navrh/copy)
 ```
 
 - Hloubka nejvýš 2 pod projektem. Editor scénáře a detail běhu jsou celé obrazovky se stejným sloupcem karet; vpravo **panel** (440 / 520 px na desktopu) s krokem.
@@ -35,7 +35,7 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
 │ ◈ agencast        ││ ← Scénáře                                                                │
 │ ← Projekty        ││ ig-post  ✗ 2 chyby                             [▷ Spustit] [Uložit]  ⋯   │
 │ ───────────────── ││ Návrh IG příspěvku ke schválení                                          │
-│ thtd              ││ [Form | <> YAML]   Neuloženo                                             │
+│ lumen              ││ [Form | <> YAML]   Neuloženo                                             │
 │ ▣ Scénáře         ││                                                                          │
 │   Agenti          ││   … obsah stránky (karty, panel, tabulka)                                │
 │   Běhy            ││                                                                          │
@@ -111,8 +111,8 @@ Projekty                                                                        
 Spravuj projekty, scénáře a běhy agentů na jednom místě.
 ~/.config/agencast/projects.yaml
 ┌────────────────────────┐  ┌────────────────────────┐  ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
-│ thtd                ⋯  │  │ ukazka              ⋯  │    stary-projekt       ⋯
-│ ~/thtd                 │  │ ~/ukazka               │  │ /mnt/disk/stary        │
+│ lumen                ⋯  │  │ ukazka              ⋯  │    stary-projekt       ⋯
+│ ~/lumen                 │  │ ~/ukazka               │  │ /mnt/disk/stary        │
 │                        │  │                        │    ⊘ nedostupný
 │ [3 scénáře] [4 agenti] │  │ [1 scénář] [1 agent]   │  │ chybí workflows/       │
 │ ────────────────────── │  │ ────────────────────── │    config.yaml
@@ -164,7 +164,7 @@ Návrh IG příspěvku ke schválení
       (    copywriter: „Napiš IG příspěvek na téma: {{ inputs.tema }}“         )
                                      ↓
     ╭─( 2  JEV · kontrola                                                      )─╮   (🗑)
-    ╰─(    „Odpovídá text tónu značky THTD…?“ · noul                           )─╯
+    ╰─(    „Odpovídá text tónu značky Lumen…?“ · noul                           )─╯
                                      ↓
       ( 3  FAIL · stop                                     když on_brand < 0.7 )
       (    „Text neodpovídá značce (on_brand = …)“                             )
@@ -300,9 +300,9 @@ leží ve vodorovném posuvu. Běžící řádek se obnovuje (viz 4.8). Prázdn�
 Agenti  ✗ 1 chyba                                       [+ Nový agent] [Uložit]  ⋯
  copywriter          │ copywriter
  photographer        │ ┌ karta: [Form | <> Markdown]  Uloženo ✓ ──────────────────┐
- publisher  ✗ 1 chyba│ │ Popis *   [Copywriter pro IG značky THTD              ] │
+ publisher  ✗ 1 chyba│ │ Popis *   [Copywriter pro IG značky Lumen              ] │
                      │ │ Model *   [chytry — anthropic/claude-haiku-4.5 ▾]       │
-                     │ │ Skilly    ☑ thtd-hlas                       SKILL.md  │
+                     │ │ Skilly    ☑ lumen-hlas                       SKILL.md  │
                      │ │           ☐ pruzkum                         SKILL.md  │
                      │ │ MCP       ☑ instagram · ☑ create_media                │
                      │ │           ☐ filesystem (vlastník nepovolil)            │
@@ -325,7 +325,7 @@ pořadí v souboru se při vypnutí a zapnutí ostatních položek zachová. Ins
 
 ```
 Config                                                                      [Uložit]  ⋯
-┌ karta: ~/thtd · [Form | <> YAML] Uloženo ✓ ─────────────────────────────┐
+┌ karta: ~/lumen · [Form | <> YAML] Uloženo ✓ ─────────────────────────────┐
 │ Připojení [OPENROUTER_API_KEY] ✓  │ Jev model [jev-1.13] jen ke čtení │
 │ Modely                                        [+ Přidat alias]           │
 │ ┌ chytry · anthropic/claude-haiku-4.5 · max_tokens · API ───────────┐ │
@@ -348,10 +348,10 @@ Na úzké obrazovce se řádek aliasu zalomí (pole ID drží nejmenší šířk
 ```
 Skilly                                                  [+ Nový skill] [Uložit]  ⋯
 Uloženo ✓
- thtd-hlas        │ thtd-hlas
+ lumen-hlas        │ lumen-hlas
  ig-pravidla      │ ┌ SKILL.md (Markdown editor s čísly řádků) ──────────────────────┐
                   │ │ ---                                                            │
-                  │ │ name: thtd-hlas …                                              │
+                  │ │ name: lumen-hlas …                                              │
                   │ └────────────────────────────────────────────────────────────────┘
                   │ Používají: copywriter · publisher
 ```

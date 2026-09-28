@@ -6,20 +6,20 @@ Skill je znalost nebo postup, který agent použije, když ho potřebuje
 uvádí ve `skills` ([agent.md](agent.md)).
 
 Strojová podoba: [`schema/skill.schema.json`](schema/skill.schema.json).
-Ukázka: `workflows/skills/thtd-hlas/SKILL.md`.
+Ukázka: `examples/showcase/workflows/skills/lumen-hlas/SKILL.md`.
 
 ```markdown
 ---
-name: thtd-hlas
-description: Tón a slovník značky THTD pro texty na sociální sítě
+name: lumen-hlas
+description: Tón a slovník značky Lumen pro texty na sociální sítě
 ---
 Tykáme. Krátké věty. …
 ```
 
 | Pole | Povinné | Co dělá | Když chybí | Příklad |
 |---|---|---|---|---|
-| `name` | ano | Jméno skillu = jméno složky. Malá písmena, číslice, pomlčka. | Chyba `config`; nesoulad se jménem složky také. | `name: thtd-hlas` |
-| `description` | ano | Jedna věta: kdy skill použít. U `task` je to jediné, co model o skillu vidí, dokud ho nenačte — proto musí říct, k čemu skill je. | Chyba `config`. | `description: Tón a slovník značky THTD` |
+| `name` | ano | Jméno skillu = jméno složky. Malá písmena, číslice, pomlčka. | Chyba `config`; nesoulad se jménem složky také. | `name: lumen-hlas` |
+| `description` | ano | Jedna věta: kdy skill použít. U `task` je to jediné, co model o skillu vidí, dokud ho nenačte — proto musí říct, k čemu skill je. | Chyba `config`. | `description: Tón a slovník značky Lumen` |
 
 Jiná pole nejsou povolená. Tělo pod frontmatterem musí být neprázdné.
 Soubor se čte jako YAML 1.2 core (viz [scenario.md](scenario.md)).

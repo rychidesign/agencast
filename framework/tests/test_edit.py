@@ -4,14 +4,14 @@ import re
 from pathlib import Path
 
 import pytest
-from conftest import WORKFLOWS
+from conftest import example_files
 
 from agencast import ConfigErrors, api, edit
 from agencast.edit import FRONTMATTER, _new, merge, yaml_edit
 from agencast.loader import load_yaml
 
-SCENARIOS = sorted(p.name for p in (WORKFLOWS / "scenarios").glob("*.yaml"))
-AGENTS = sorted(p.name for p in (WORKFLOWS / "agents").glob("*.md"))
+SCENARIOS = example_files("scenarios/*.yaml")
+AGENTS = example_files("agents/*.md")
 
 
 def changed_lines(a: str, b: str) -> list[str]:
@@ -20,9 +20,10 @@ def changed_lines(a: str, b: str) -> list[str]:
     return [ln for op, i1, i2, _, _ in sm.get_opcodes() if op in ("replace", "delete") for ln in a.splitlines()[i1:i2]]
 
 
-@pytest.mark.parametrize("name", SCENARIOS)
-def test_scenario_roundtrip(name):
-    text = (WORKFLOWS / "scenarios" / name).read_text(encoding="utf-8")
+@pytest.mark.parametrize("path", SCENARIOS, ids=lambda p: p.name)
+def test_scenario_roundtrip(path):
+    name = path.name
+    text = path.read_text(encoding="utf-8")
     assert yaml_edit(text, lambda d: None, name) == text  # no-op = bajtově stejný soubor
 
     new_step = {"id": "rt_novy", "fail": "Víc řádků\n{{ inputs.x }}"}
@@ -43,9 +44,10 @@ def test_scenario_roundtrip(name):
     assert set(changed_lines(text, new)) <= set(lines[i:j])
 
 
-@pytest.mark.parametrize("name", AGENTS)
-def test_agent_roundtrip(name):
-    src = (WORKFLOWS / "agents" / name).read_text(encoding="utf-8")
+@pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.name)
+def test_agent_roundtrip(path):
+    name = path.name
+    src = path.read_text(encoding="utf-8")
     m = FRONTMATTER.match(src)
     assert m
     assert m[1] + yaml_edit(m[2], lambda d: merge(d, {}), name) + m[3] + m[4] == src  # no-op

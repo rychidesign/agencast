@@ -7,8 +7,8 @@ ho, vyzkoušet ho zadarmo a jednou pustit naostro.
 Úkol dílu je schválně primitivní: agent **pojmenovávač** vymyslí tři názvy
 pro produkt.
 
-> Všechny příkazy spouštěj **z kořene repozitáře** (složka, ve které je
-> `framework/` a `workflows/`). Výstupy v tomto dílu jsou skutečné — z běhů
+> Všechny příkazy spouštěj **z projektu `examples/tutorial`** (z kořene klonu
+> nejprve `cd examples/tutorial`). Výstupy v tomto dílu jsou skutečné — z běhů
 > 25. 9. 2026. Tvoje `run_id`, časy a texty od modelu budou jiné.
 
 ---
@@ -19,7 +19,7 @@ Framework se spouští přes `uv`. Aby se ti nemusel pořád psát dlouhý
 příkaz, nadefinuj si v terminálu zkratku (platí do zavření terminálu):
 
 ```bash
-alias agencast="uv run --project framework agencast"
+alias agencast="uv run --project ../../framework agencast"
 agencast --help
 ```
 
@@ -286,7 +286,7 @@ realisticky, napíšeš mu **fixturu** — soubor s předem danými odpověďmi.
 
 ### Fixtura
 
-Vytvoř `framework/tests/golden/tutorial-01-nazvy.yaml`:
+Vytvoř `../../framework/tests/golden/tutorial-01-nazvy.yaml`:
 
 ```yaml
 # Skriptované odpovědi falešného poskytovatele pro tutorial-01-nazvy.
@@ -298,7 +298,7 @@ navrh:
 a spusť s ní:
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake framework/tests/golden/tutorial-01-nazvy.yaml
+agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake ../../framework/tests/golden/tutorial-01-nazvy.yaml
 ```
 
 ```
@@ -306,7 +306,7 @@ běh 20260925-150957-tutorial-01-nazvy-c3a6: úspěch · 0,0 s · 0,0001 USD
 záznam: runs/20260925-150957-tutorial-01-nazvy-c3a6/summary.md
 ```
 
-Proč zrovna do `framework/tests/golden/` a proč stejné jméno jako scénář?
+Proč zrovna do `../../framework/tests/golden/` a proč stejné jméno jako scénář?
 Protože **každý scénář ve `workflows/scenarios/` je zároveň test
 frameworku** (tzv. zlatý scénář). Testy ho spustí s `--fake` a když
 k němu najdou fixturu se stejným jménem, použijí ji a čekají úspěch. Díky
@@ -378,7 +378,7 @@ Když model odpoví divně, **tady** hledáš proč: co přesně dostal.
 
 ## Krok 8 — jeden ostrý běh
 
-Klíč `OPENROUTER_API_KEY` je v souboru `.env` v kořeni repozitáře;
+Klíč `OPENROUTER_API_KEY` je v souboru `.env` v projektu `examples/tutorial`;
 framework si ho načte sám (a nikam ho nevypisuje). Spusť bez `--fake`:
 
 ```bash
@@ -499,7 +499,7 @@ steps:
 Pozor: `name` se musí změnit spolu se jménem souboru. Vstup `styl` má
 `default`, proto **nemá** `required`.
 
-`framework/tests/golden/tutorial-01-cviceni.yaml`:
+`../../framework/tests/golden/tutorial-01-cviceni.yaml`:
 
 ```yaml
 # Skriptované odpovědi pro tutorial-01-cviceni (řešení cvičení z dílu 1).
@@ -511,7 +511,7 @@ Ověření:
 
 ```bash
 agencast validate workflows/scenarios/tutorial-01-cviceni.yaml
-agencast run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská zmrzlina" --fake framework/tests/golden/tutorial-01-cviceni.yaml
+agencast run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská zmrzlina" --fake ../../framework/tests/golden/tutorial-01-cviceni.yaml
 ```
 
 ```

@@ -6,5 +6,5 @@ Skills for coding agents (Claude Code, Codex, OpenCode and OMP) that work *on* A
 symlinks in `~/.claude/skills`, `~/.codex/skills`,
 `~/.config/opencode/skills` and `~/.omp/agent/managed-skills`.
 
-Not to be confused with `workflows/skills/` — those are skills for the agents
+Not to be confused with `examples/*/workflows/skills/` — those are skills for the agents
 *inside* scenarios (loaded by the `skills:` field of an agent).

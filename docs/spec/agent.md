@@ -5,7 +5,7 @@ Agent je jeden soubor `workflows/agents/<name>.md`: nahoře konfigurace
 (DESIGN D1a). Scénář agenta volá jménem v kroku `ask` nebo `task`.
 
 Strojová podoba: [`schema/agent.schema.json`](schema/agent.schema.json).
-Ukázky: `workflows/agents/copywriter.md`, `photographer.md`, `publisher.md`.
+Ukázky: `examples/showcase/workflows/agents/copywriter.md`, `photographer.md`, `publisher.md`.
 
 Frontmatter se čte jako **YAML 1.2 core** (booleany jen `true`/`false`,
 duplicitní klíč = chyba `config` s číslem řádku; viz
@@ -32,7 +32,7 @@ limits:
   budget_usd: 0.20
   timeout: 5m
 ---
-Jsi správce Instagramu značky THTD. Dostaneš hotový text a URL obrázku…
+Jsi správce Instagramu značky Lumen. Dostaneš hotový text a URL obrázku…
 ```
 
 ## Pole frontmatteru
@@ -41,7 +41,7 @@ Jsi správce Instagramu značky THTD. Dostaneš hotový text a URL obrázku…
 |---|---|---|---|---|
 | `version` | ano | Verze formátu agenta. Framework podle ní pozná, jak soubor číst (R7). Zatím jen `1`. | `validate` skončí chybou `config`. | `version: 1` |
 | `name` | ano | Jméno, kterým agenta volá scénář. Musí se shodovat s názvem souboru bez `.md`. Malá písmena, číslice, pomlčka. | Chyba `config`. Nesoulad se jménem souboru také. | `name: copywriter` |
-| `description` | ano | Jedna věta pro člověka: k čemu agent je. Do promptu se **neposílá**. | Chyba `config`. | `description: Copywriter pro IG značky THTD` |
+| `description` | ano | Jedna věta pro člověka: k čemu agent je. Do promptu se **neposílá**. | Chyba `config`. | `description: Copywriter pro IG značky Lumen` |
 | `model` | ano | **Alias** modelu z `config.yaml` (§5.5), nikdy konkrétní id modelu. | Chyba `config`. Neznámý alias také. | `model: chytry` |
 | `skills` | ne | Seznam skillů ze `workflows/skills/<name>/SKILL.md` ([skill.md](skill.md)). Jak se dostanou k modelu, viz níže. | Žádné skilly. | `skills: [ig-pravidla]` |
 | `mcp` | ne | Seznam MCP serverů z `mcp.yaml`, ke kterým se agent smí připojit. Používá je jen krok `task`. Server musí mít tohoto agenta ve svém `agents` v `mcp.yaml` (určuje vlastník). | Agent nemá žádné nástroje. | `mcp: [instagram]` |

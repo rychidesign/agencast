@@ -1,5 +1,5 @@
 """Výrazy a šablony (scenario.md §5). Základ = 58 případů ze spiku (c)
-(`spikes/expressions/cases.py`), upravených podle schválené spec:
+(report spiku expressions/cases.py (vyřazen ze stromu; v historii repozitáře do commitu fe90e05)), upravených podle schválené spec:
 `item` ve v1 neexistuje (případy s ním čtou `inputs.item`), `//` a `is`
 v jazyce nejsou, literály jsou true/false/null, `round` půlku od nuly.
 """
@@ -13,7 +13,7 @@ CTX = {
                "item": {"nazev": "tričko", "cena": 590, "tagy": ["a", "b"]}},
     "steps": {
         "kontrola": {"on_brand": 0.4, "duvod": "moc formální", "skore": [0.4, 0.9, 0.7]},
-        "copy": {"caption": "Léto je tady", "hashtags": ["#leto", "#thtd", "#drop"]},  # koliduje s dict.copy
+        "copy": {"caption": "Léto je tady", "hashtags": ["#leto", "#lumen", "#drop"]},  # koliduje s dict.copy
     },
 }
 
@@ -33,11 +33,11 @@ VALID = [  # (id, výraz, výsledek)
     ("V13", "round(steps.kontrola.on_brand * 100)", 40),
     ("V14", 'str(inputs.item.cena) + " Kč"', "590 Kč"),
     ("V15", 'int("42") + float("0.5")', 42.5),
-    ("V16", 'join(steps.copy.hashtags, " ")', "#leto #thtd #drop"),
+    ("V16", 'join(steps.copy.hashtags, " ")', "#leto #lumen #drop"),
     ("V17", 'steps.copy.caption == "Léto je tady"', True),
     ("V18", "inputs.poznamka == null", True),                 # spike: `== None`
     ("V19", "inputs.poznamka != null", False),                # spike: `is None` — ve spec není
-    ("V20", '"#thtd" in steps.copy.hashtags', True),
+    ("V20", '"#lumen" in steps.copy.hashtags', True),
     ("V21", 'inputs.jazyk in ["cs", "sk"]', True),
     ("V22", 'steps.copy.caption != "" and len(steps.copy.caption) <= 280', True),
     ("V23", "-inputs.item.cena + 600", 10),
@@ -99,7 +99,7 @@ def test_harmful(cid, expr):
     ("str(true)", "true"), ("str(0.62)", "0.62"), ("str(0.1 + 0.2)", "0.30000000000000004"), ("str(4 / 2)", "2.0"),
     ('"a" + "b"', "ab"), ("[1] + [2]", [1, 2]), ('"léto" in inputs.tema', True), ('"jazyk" in inputs', True),
     ("steps.copy.hashtags[-3]", "#leto"), ("min(3, 1, 2)", 1), ("max([1, 5])", 5), ("true and false or true", True),
-    ("steps.copy.hashtags == null", False), ("1 < 2 < 3", True), ('steps.copy.hashtags[1.0]', "#thtd"),
+    ("steps.copy.hashtags == null", False), ("1 < 2 < 3", True), ('steps.copy.hashtags[1.0]', "#lumen"),
 ])
 def test_spec_rules(expr, want):
     got = evaluate(expr, CTX)
@@ -166,7 +166,7 @@ def test_dot_reads_keys_not_attributes():
 # --- šablony ------------------------------------------------------------------------
 
 def test_template_whole_value_keeps_type():
-    assert render("{{ steps.copy.hashtags }}", CTX) == ["#leto", "#thtd", "#drop"]
+    assert render("{{ steps.copy.hashtags }}", CTX) == ["#leto", "#lumen", "#drop"]
     assert render("{{ steps.kontrola.on_brand }}", CTX) == 0.4
     ref = FileRef("steps/07-foto/image.png")
     assert render("{{ steps.foto.file }}", {"inputs": {}, "steps": {"foto": {"file": ref}}}) is ref
@@ -174,7 +174,7 @@ def test_template_whole_value_keeps_type():
 
 def test_template_in_text():
     got = render("T: {{ inputs.tema }} {{ inputs.limit }} {{ steps.kontrola.on_brand }} {{ steps.copy.hashtags }}", CTX)
-    assert got == 'T: léto 3 0.4 ["#leto","#thtd","#drop"]' or got == 'T: léto 3 0.4 ["#leto", "#thtd", "#drop"]'
+    assert got == 'T: léto 3 0.4 ["#leto","#lumen","#drop"]' or got == 'T: léto 3 0.4 ["#leto", "#lumen", "#drop"]'
 
 
 def test_template_null_is_error_except_default():

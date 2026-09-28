@@ -5,9 +5,9 @@ v systému vůbec povolené; agenti a scénáře se na ně jen odkazují.
 
 | Soubor | Co obsahuje | Ukázka |
 |---|---|---|
-| `workflows/config.yaml` | OpenRouter, aliasy modelů, úložiště výstupů, limity běhu, webhook a callback | `workflows/config.example.yaml` |
-| `workflows/mcp.yaml` | registr MCP serverů | `workflows/mcp.example.yaml` |
-| `workflows/commands.yaml` | pojmenované příkazy pro budoucí krok `run` | `workflows/commands.example.yaml` |
+| `workflows/config.yaml` | OpenRouter, aliasy modelů, úložiště výstupů, limity běhu, webhook a callback | `examples/showcase/workflows/config.example.yaml` |
+| `workflows/mcp.yaml` | registr MCP serverů | `examples/showcase/workflows/mcp.example.yaml` |
+| `workflows/commands.yaml` | pojmenované příkazy pro budoucí krok `run` | `examples/showcase/workflows/commands.example.yaml` |
 
 Strojová podoba: [`schema/config.schema.json`](schema/config.schema.json),
 [`schema/mcp.schema.json`](schema/mcp.schema.json).
@@ -64,7 +64,7 @@ runs_dir: ./runs
 storage:
   type: r2
   r2:
-    bucket: thtd-posts
+    bucket: lumen-posts
     account_id_env: R2_ACCOUNT_ID
     access_key_id_env: R2_ACCESS_KEY_ID
     secret_access_key_env: R2_SECRET_ACCESS_KEY
@@ -121,7 +121,7 @@ změně `id` — to je věc frameworku (Fáze 2), ne tohoto souboru.
 | `type` | ano | `local` nebo `r2`. | Chyba `config`. | `type: r2` |
 | `local.path` | u `local` | Složka, kam se soubory zkopírují. | Chyba `config`. | `path: ./outputs` |
 | `local.public_base_url` | ne | Adresa, na které server tu složku vystavuje. | Callback nese `file://` cestu — pro Instagram nepoužitelné. | |
-| `r2.bucket` | u `r2` | Jméno bucketu (není tajné). | Chyba `config`. | `bucket: thtd-posts` |
+| `r2.bucket` | u `r2` | Jméno bucketu (není tajné). | Chyba `config`. | `bucket: lumen-posts` |
 | `r2.account_id_env`, `r2.access_key_id_env`, `r2.secret_access_key_env` | u `r2` | Proměnné s údaji S3 tokenu Cloudflare R2. | Chyba `config`. | |
 | `r2.public_base_url` | u `r2` | Veřejná adresa bucketu (vlastní doména nebo `r2.dev`). Instagram potřebuje stálou veřejnou URL. | Chyba `config`. | `https://files.example.com` |
 

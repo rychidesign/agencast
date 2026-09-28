@@ -79,7 +79,7 @@ def test_record_layout_and_events(wf):
             assert "base64," not in text and "falešný-podpis" not in text, f
     assert "<soubor: steps/07-foto/image.png" in (d / "steps/07-foto/calls/01.response.json").read_text()
     cb = json.loads((d / "callback.json").read_text())
-    assert cb["status"] == "succeeded" and cb["outputs"]["hashtags"] == ["#thtd", "#kava", "#rano"]
+    assert cb["status"] == "succeeded" and cb["outputs"]["hashtags"] == ["#lumen", "#kava", "#rano"]
     assert cb["outputs"]["image"].startswith("file://") and started["storage_prefix"] in cb["outputs"]["image"]
     assert json.loads((d / "steps/07-foto/output.json").read_text()) == {"file": "steps/07-foto/image.png"}
     summary = (d / "summary.md").read_text()
@@ -94,7 +94,7 @@ def test_ask_text_and_system_prompt_with_skill(wf):
     assert r.status == "succeeded" and r.outputs == {"text": "Ahoj!"}
     body = fake.calls[0][2]
     system = body["messages"][0]["content"]
-    assert system.startswith("Jsi copywriter") and "## Skill: thtd-hlas" in system
+    assert system.startswith("Jsi copywriter") and "## Skill: lumen-hlas" in system
     assert body["messages"][1] == {"role": "user", "content": "Pozdrav"}
     assert "response_format" not in body and body["usage"] == {"include": True}
 

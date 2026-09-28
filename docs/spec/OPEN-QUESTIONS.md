@@ -56,8 +56,8 @@ Platí tedy `x == null` a `str(null)` = `"null"`.
 
 ---
 
-Otázky 8–10 vznikly ze spiku (c) (`spikes/expressions/REPORT.md` na větvi
-`spike-expressions`). Koordinátor je rozhodl a spec je podle toho napsaná;
+Otázky 8–10 vznikly ze spiku (c) (report na větvi `spike-expressions`; spike byl vyřazen ze stromu,
+výstupy jsou v historii repozitáře do commitu fe90e05). Koordinátor je rozhodl a spec je podle toho napsaná;
 při schvalování je můžeš změnit.
 
 ### 8. `and` / `or` / `not` jen nad `true` / `false`

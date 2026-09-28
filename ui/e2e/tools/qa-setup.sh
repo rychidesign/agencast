@@ -20,9 +20,9 @@ for _ in $(seq 50); do curl -fs -H "Authorization: Bearer test-token" "http://12
 api() { curl -fs -X "$1" -H "Authorization: Bearer test-token" -H "Content-Type: application/json" "http://127.0.0.1:$PORT$2" ${3:+-d "$3"}; echo; }
 api POST /projects/new '{"name":"demo"}'
 api POST /projects/new '{"name":"krajni"}'
-# reálná vrstva uživatele z repa (workflows/) jako třetí projekt
-mkdir -p "$S/projekty/thtd" && cp -r "$REPO/workflows" "$S/projekty/thtd/"
-api POST /projects '{"root":"'"$S/projekty/thtd"'"}'
+# reálná ukázka z repa (examples/showcase/workflows/) jako třetí projekt
+mkdir -p "$S/projekty/lumen" && cp -r "$REPO/examples/showcase/workflows" "$S/projekty/lumen/"
+api POST /projects '{"root":"'"$S/projekty/lumen"'"}'
 # nedostupný projekt (N3)
 mkdir -p "$S/projekty/stary"
 "$REPO/framework/.venv/bin/python" - "$S/cfg/projects.yaml" "$S/projekty/stary" <<'P'
