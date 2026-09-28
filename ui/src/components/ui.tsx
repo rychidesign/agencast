@@ -278,6 +278,7 @@ export function CodeBlock({ text: source, title, file, language, foot }: {
 export interface MenuItem {
   label: string;
   onSelect: () => void;
+  shortcut?: string;
   danger?: boolean;
   disabled?: string;
 }
@@ -285,6 +286,7 @@ export interface MenuItem {
 /** ⋯ menu; `ghost` = bez výplně (karty). */
 export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label: string; ghost?: boolean }) {
   const [open, setOpen] = useState(false);
+  const mac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const popup = useRef<HTMLDivElement>(null);
@@ -334,10 +336,11 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
           {items.map((it) => (
             <button
               key={it.label} type="button" role="menuitem" tabIndex={-1} disabled={!!it.disabled} aria-disabled={!!it.disabled || undefined} title={it.disabled}
-              className={`flex min-h-10 w-full items-center rounded-[7px] px-3 text-left text-sm hover:bg-surface-active focus:bg-surface-active disabled:opacity-50 ${it.danger ? "text-error" : "text-fg"}`}
+              className={`group flex min-h-10 w-full items-center rounded-[7px] px-3 text-left text-sm hover:bg-surface-active focus:bg-surface-active disabled:opacity-50 ${it.danger ? "text-error" : "text-fg"}`}
               onClick={(e) => (e.stopPropagation(), setOpen(false), it.onSelect())}
             >
               {it.label}
+              {it.shortcut && <span aria-hidden="true" className="pointer-coarse:hidden ml-auto pl-3 font-mono text-[11px] text-fg-muted group-hover:text-fg-secondary group-focus:text-fg-secondary">{it.shortcut.replace(/^Ctrl\+/, mac ? "⌘" : "Ctrl+").replace(/^Alt\+/, mac ? "⌥" : "Alt+")}</span>}
             </button>
           ))}
         </div>, document.body

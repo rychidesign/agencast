@@ -7,10 +7,12 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
 
 ## 0.16.3 — 2026-09-28 (opravy GUI v editoru)
 
+- Desktopový panel se posouvá se stránkou bez vlastního scrollu a začíná u vybrané karty; mobilní sheet zůstává.
+- Nabídky ukazují zkratky vpravo a destruktivní položky červeně.
 - Plovoucí nabídky a výběr typu se drží ve viewportu i uvnitř karet a sheetů.
 - Krátké výpadky připojení se tiše zkusí znovu; po probuzení se data a konflikty hned ověří.
 - Konektory kroků mají volné místo kolem tlačítka +, boxy vstupů a aliasů světlejší pozadí, pole zůstávají tmavá a checkboxy i radio mají čitelný vlastní vzhled.
-- Posuvníky panelů, sheetů a dlouhých seznamů jsou skryté; bloky kódu mají tenký posuvník při najetí nebo fokusu.
+- Posuvníky sheetů a dlouhých seznamů jsou skryté; bloky kódu mají tenký posuvník při najetí nebo fokusu.
 - Prstenec vybrané HLAVIČKY je celý vidět pod přilepenou hlavičkou stránky.
 - Duplicitní koš vedle karty kroku zmizel; mazání zůstává v nabídce ⋯, panelu a na klávese Delete.
 

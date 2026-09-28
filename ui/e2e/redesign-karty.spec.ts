@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { expect, test } from "./fixtures";
+import { expect, startRun, test, waitRun } from "./fixtures";
 
 test("Karta kroku: výběr, konektor a klávesnice nabídky", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenare/ukazka`);
@@ -22,7 +22,7 @@ test("Karta kroku: výběr, konektor a klávesnice nabídky", async ({ page, pro
   await expect(page.locator('[data-step-card="jev_1"]')).toBeVisible();
 });
 
-test("Editor: celý prstenec HLAVIČKY, skrytý posuvník a mazání jen v ⋯/panelu", async ({ page, project }) => {
+test("Editor: panel v toku stránky zarovnaný ke kartě", async ({ page, project }) => {
   project.write("scenarios/tutorial-03-cviceni.yaml", fs.readFileSync(path.resolve(import.meta.dirname, "../../workflows/scenarios/tutorial-03-cviceni.yaml"), "utf8"));
   for (const agent of ["tutorial-pojmenovavac", "tutorial-sloganista"])
     project.write(`agents/${agent}.md`, fs.readFileSync(path.resolve(import.meta.dirname, `../../workflows/agents/${agent}.md`), "utf8"));
@@ -35,43 +35,49 @@ test("Editor: celý prstenec HLAVIČKY, skrytý posuvník a mazání jen v ⋯/p
   await expect(header).toContainText("Vymyslí název");
   await page.evaluate(() => document.fonts.ready);
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--page-header-h") === `${document.querySelector<HTMLElement>("main header")?.offsetHeight}px`)).toBe(true);
-  const headerBox = (await header.boundingBox())!;
-  const cardBox = (await card.boundingBox())!;
-  const panelBox = (await panel.boundingBox())!;
-  expect(cardBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
-  expect(panelBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height + 2);
+  const aligned = async (selected: string) => {
+    const box = page.locator(`[data-step-card="${selected}"]`);
+    await expect.poll(async () => Math.abs((await panel.boundingBox())!.y - (await box.boundingBox())!.y)).toBeLessThanOrEqual(1);
+  };
+  expect((await card.boundingBox())!.y).toBeGreaterThanOrEqual((await header.boundingBox())!.y + (await header.boundingBox())!.height);
   await expect(card).toHaveClass(/ring-inset ring-1/);
-
-  const scroll = panel.locator("xpath=..");
-  fs.mkdirSync("/tmp/agencast-k", { recursive: true });
-  for (const width of [1280, 1440]) {
+  const slot = panel.locator("xpath=..");
+  fs.mkdirSync("/tmp/agencast-l", { recursive: true });
+  await aligned("");
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  await page.screenshot({ path: "/tmp/agencast-l/1440-header.png" });
+  await page.locator('[data-step-card="stop"]').click();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  for (const width of [1440, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    expect((await scroll.boundingBox())!.width).toBe(440);
-    expect(await scroll.evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe("none");
-    expect(await scroll.evaluate((el) => getComputedStyle(el, "::-webkit-scrollbar").display)).toBe("none");
-    expect(await scroll.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
-    await page.mouse.move(20, 200);
-    await page.screenshot({ path: `/tmp/agencast-k/${width}-header-away.png` });
-    await scroll.hover();
-    await page.screenshot({ path: `/tmp/agencast-k/${width}-header-hover.png` });
-    await page.mouse.wheel(0, 300);
-    await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
-    await scroll.evaluate((el) => { el.scrollTop = 0; });
+    await aligned("stop");
+    expect((await slot.boundingBox())!.width).toBe(440);
+    expect(await slot.evaluate((el) => ({ height: el.scrollHeight - el.clientHeight, overflow: getComputedStyle(el).overflowY, position: getComputedStyle(el).position })))
+      .toEqual({ height: 0, overflow: "visible", position: "static" });
+    await page.screenshot({ path: `/tmp/agencast-l/${width}-step-3.png` });
   }
-
-  await page.evaluate(() => window.scrollTo(0, 300));
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--page-header-h") === `${document.querySelector<HTMLElement>("main header")?.offsetHeight}px`)).toBe(true);
-  const scrolledHeader = (await header.boundingBox())!;
-  expect((await panel.boundingBox())!.y).toBeGreaterThanOrEqual(scrolledHeader.y + scrolledHeader.height + 2);
-  const step = page.locator('[data-step-card="navrh"]');
-  await step.click();
-  await expect(step).toHaveClass(/bg-surface-active/);
-  const stepBox = (await step.boundingBox())!;
-  const stepHeader = (await header.boundingBox())!;
-  expect(stepBox.y).toBeGreaterThanOrEqual(stepHeader.y + stepHeader.height);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('[data-step-card="navrh"]').click();
+  for (const name of ["Podmínka", "Spolehlivost", "Podrobnosti kroku"])
+    await panel.getByRole("button", { name: new RegExp(name) }).click();
+  await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeGreaterThan(900);
+  await page.evaluate(() => window.scrollTo(0, document.scrollingElement!.scrollHeight));
+  await expect.poll(async () => (await panel.boundingBox())!.y + (await panel.boundingBox())!.height).toBeLessThanOrEqual(900);
+  await page.screenshot({ path: "/tmp/agencast-l/1440-long-panel-bottom.png" });
   await expect(page.getByRole("region", { name: "Kroky scénáře" }).getByRole("button", { name: /^Smazat krok / })).toHaveCount(0);
-  await page.getByRole("button", { name: "Akce pro navrh" }).click();
-  await expect(page.getByRole("menuitem", { name: "Smazat (Delete)" })).toBeVisible();
+});
+
+test("Detail běhu: panel zarovnaný ke kartě", async ({ page, project, server }) => {
+  const id = await startRun(server, project.name, "ukazka", { inputs: { tema: "káva" } });
+  await waitRun(server, project.name, id, ["succeeded"]);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/#/p/${project.name}/behy/${id}?krok=napis`);
+  const card = page.locator('[data-step-card="napis"]');
+  const panel = page.getByRole("complementary");
+  await expect(panel).toBeVisible();
+  await expect.poll(async () => Math.abs((await panel.boundingBox())!.y - (await card.boundingBox())!.y)).toBeLessThanOrEqual(1);
+  expect((await panel.boundingBox())!.width).toBe(520);
+  await page.screenshot({ path: "/tmp/agencast-l/1440-run-step.png" });
 });
 
 test("Scénáře: karta bez přípony a čárkovaný prázdný stav", async ({ page, project }) => {

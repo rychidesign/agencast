@@ -23,7 +23,7 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
    └ Běhy                seznam → Detail běhu (#/p/thtd/behy/<run_id>?krok=navrh/copy)
 ```
 
-- Hloubka nejvýš 2 pod projektem. Editor scénáře a detail běhu jsou celé obrazovky se stejným sloupcem karet; vpravo **panel** (420 px, nikdy modál) s krokem.
+- Hloubka nejvýš 2 pod projektem. Editor scénáře a detail běhu jsou celé obrazovky se stejným sloupcem karet; vpravo **panel** (440 / 520 px na desktopu) s krokem.
 - **Modály jen pro rozhodnutí:** mazání s dopadem, konflikt souboru, změna typu kroku. Výběr typu u + je popover, ne modál.
 - Vybraný krok je v URL (`?krok=`), aby šel poslat odkaz. Hash routing kvůli iframe v Skynet Soul; iframe posílá `postMessage` s aktuální cestou pro deep link z dashboardu.
 - Čtecí verze (podle DESIGN) = stejné obrazovky bez +, bez Uložit, panel jen ke čtení. Editor je nadmnožina, nic se nepřekresluje.
@@ -66,7 +66,7 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
 - **Pod 1024 px** je v horní liště značka a jméno projektu. Projektová navigace se otevírá z FAB 56 px
   vpravo dole do nabídky nad tlačítkem; má „← Projekty“, položky 48 px a útratu. FAB není na seznamu projektů ani 404.
 - **Responzivita obsahu** (ověřeno při 768 / 1024 / 1440 px): editor scénáře má panel vedle sloupce karet
-  až od 1280 px (sidebar 232 + sloupec + panel 400); užší obrazovka ukáže spodní sheet s horními rohy 16 px,
+  až od 1280 px (sidebar 232 + sloupec + panel 440); užší obrazovka ukáže spodní sheet s horními rohy 16 px,
   stínem a max. výškou `100dvh - 48px` (na tabletu šířka nejvýš 720 px), vždy se zavíracím křížkem a Esc. Agenti a Skilly mají
   seznam vedle editoru od 1100 px, jinak nad ním. Tabulka běhů má vodorovný posuv (min. 46rem), řádek
   modelového aliasu v Configu se zalomí. Popovery jsou v portálu v `body`, vejdou se do viewportu s okrajem 12 px
@@ -78,7 +78,7 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
   poslední) jako ikonové tlačítko `bg-control` 44 × 44; samostatné ikonové tlačítko hlavičky je
   `headerIconBtn` (44 × 44). Pod hlavičkou 24 px; druhý řádek pro přepínač režimu a stav
   uložení nebo záložky. V editoru a detailu běhu je hlavička přilepená a svou výšku
-  hlásí v `--page-header-h` (podle ní se přilepí panel).
+  hlásí v `--page-header-h` (pro odstup karet při skoku na krok).
 - Hlavičky podle stránky:
   - **Projekt:** titul = sekce („Scénáře“, „Agenti“, …), `meta` = čip „N chyb“ s rozbalovacím seznamem
     (odkazy na soubor a krok). V ⋯ je vždy první „Načíst znovu“. Bez cesty projektu, limitů a útraty. Blok
@@ -92,7 +92,7 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
       Form | YAML + stav uložení.
     - Běhy: titul, `meta` = čip „2 běží · 1 ve frontě“ (mono 12 `running`, jen když něco žije) a ⋯.
   - **Editor scénáře:** „← Scénáře“ (+ drobečky přes `call`), titul = jméno scénáře mono, popis = `description`,
-    akce Spustit (primární, Play) a Uložit (sekundární, Save, Ctrl+S); ⋯ 40 × 40: Vrátit zpět (Ctrl+Z), Kopírovat příkaz spuštění, Běhy tohoto
+    akce Spustit (primární, Play) a Uložit (sekundární, Save, Ctrl+S); ⋯ 40 × 40: Vrátit zpět (zkratka Ctrl+Z vpravo), Kopírovat příkaz spuštění, Běhy tohoto
     scénáře, Přejmenovat, Smazat. Druhý řádek: Form | YAML + stav uložení s čipem chyb.
   - **Detail běhu:** viz 2.5.
   - **Neexistující adresa** (návrh V3 / 14): na střed ikona `MapPinX`, „404“ mono 64 `fg-muted`, titul
@@ -196,9 +196,9 @@ Pilulka (fidelity §6, změřeno z .pen): `surface`, výška 96, padding 16, mez
 
 **Konektor:** šipka ↓ 16 px `fg-muted`, výška 44, se při hoveru nebo fokusu promění v (+) kolečko 44 px `surface` (hover `control`); vyjmutý krok drží (+) viditelné s `ring-accent`. Pod hlavním sloupcem jsou sekundární tlačítka 44 px „+ Přidat krok“ a „+ output“ vedle sebe na střed; na konci větví zůstává trvale viditelné (+). TypePicker: `surface` r12, položky 40 px, klíčové slovo mono 13 `fg` + popis 13 `fg-muted`, aktivní `surface-active`. Sloupec do 676 px, panel 440 px, mezera 28 (změřeno z .pen). Hlavičková karta je obdélník r14 p22 s ikonou 24, titulem „HLAVIČKA“ 21 px a vstupy · výstupy mono 13; vybraná má prstenec `accent`. Menu ⋯ má „Vložit krok nad / pod“. Kontejnerové karty (`parallel`, `switch`, `call`) mají obal a hlavní kartu s rádiusem `card`. V běhu stavová ikona nahradí číslo; běžící ikona pulzuje jen při povoleném pohybu, přeskočené a nedošlé kroky mají opacity 40 %.
 
-**Mazání kroku:** ⋯ na kartě → „Smazat (Delete)“, koš v hlavičce otevřeného panelu nebo klávesa Delete na fokusované kartě. Samostatný koš u karty není; ochrana mazání z §4.3 platí beze změny. Hlavičková karta se nemaže.
+**Mazání kroku:** ⋯ na kartě → červené „Smazat“ se zkratkou Del vpravo, koš v hlavičce otevřeného panelu nebo klávesa Delete na fokusované kartě. Samostatný koš u karty není; ochrana mazání z §4.3 platí beze změny. Hlavičková karta se nemaže. Ostatní zkratky v nabídce jsou vpravo jako tlumená nápověda (na dotyku skryté; na Macu ⌘/⌥).
 
-**Panel** (V3: `bg-surface`, rádius panel 16, padding 20; od 1280 px přilepený vedle sloupce pod hlavičkou, užší obrazovka = list dole přes sloupec se zavíracím křížkem, viz §1.1):
+**Panel** (V3: `bg-surface`, rádius panel 16, padding 20; od 1280 px v toku stránky vedle sloupce, horní hranou u vybrané karty a bez vlastního scrollu, užší obrazovka = list dole přes sloupec se zavíracím křížkem, viz §1.1):
 
 ```
 ┌ KROK 2 · JEV                               🗑   ✕ ┐

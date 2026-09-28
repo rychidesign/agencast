@@ -167,13 +167,13 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
   const out = step.type === "output";
   const items = [
     ...(out ? [] : [
-      { label: t("edit.moveUp"), onSelect: () => edit.shift(step, -1) },
-      { label: t("edit.moveDown"), onSelect: () => edit.shift(step, 1) },
-      { label: t("edit.cut"), onSelect: () => edit.cut(step) },
+      { label: t("edit.moveUp"), shortcut: "Alt+↑", onSelect: () => edit.shift(step, -1) },
+      { label: t("edit.moveDown"), shortcut: "Alt+↓", onSelect: () => edit.shift(step, 1) },
+      { label: t("edit.cut"), shortcut: "Ctrl+X", onSelect: () => edit.cut(step) },
     ]),
     ...(above ? [{ label: t("edit.insertAbove"), onSelect: () => setPicker(above) }] : []),
     ...(out ? [] : [{ label: t("edit.insertBelow"), onSelect: () => setPicker({ after: uid }) }]),
-    { label: t("edit.delete"), onSelect: () => edit.remove(step) },
+    { label: t("edit.delete"), shortcut: "Del", onSelect: () => edit.remove(step), danger: true },
   ];
   return (
     <div ref={pickerAnchor} className="absolute top-12 right-3 -translate-y-1/2 max-md:top-10 in-data-branch:top-[25px] in-data-branch:right-1">

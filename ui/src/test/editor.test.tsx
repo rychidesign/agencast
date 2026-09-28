@@ -157,7 +157,7 @@ describe("editor scénáře", () => {
     fireEvent.keyDown(copy, { key: "ArrowDown", altKey: true });
     expect(screen.getByRole("button", { name: /Krok 2: ask copy/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Další akce" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Vrátit zpět (Ctrl+Z)" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Vrátit zpět" }));
     expect(screen.getByRole("button", { name: /Krok 1: ask copy/ })).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("button", { name: /ask ask_1/ }), { key: "Delete" });
     expect(screen.queryByRole("button", { name: /ask ask_1/ })).toBeNull();

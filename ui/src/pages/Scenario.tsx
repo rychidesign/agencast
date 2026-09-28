@@ -3,7 +3,7 @@
 // obojí až tlačítkem Uložit / Ctrl+S. Form → YAML převede rozpracovaný strom na text přes `render`;
 // YAML → Form převede neuložený text přes `render` bez zápisu (nalezy-api.md bod 26).
 import { CodeXml, Play, Save } from "lucide-react";
-import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { stepLines } from "../components/CodeView";
 import { Modal, NameDialog, type ModalAction } from "../components/form";
@@ -37,7 +37,10 @@ export function errorsByStep(errors: ErrorItem[]): Map<string, ErrorItem[]> {
 /** Posune vybranou kartu do pohledu (klik na čip „čte z“ skočí na kartu). */
 export function useScrollToCard(key: string | undefined) {
   useEffect(() => {
-    if (key) document.querySelector(`[data-step-card="${CSS.escape(key)}"]`)?.scrollIntoView?.({
+    if (!key) return;
+    const card = document.querySelector(`[data-step-card="${CSS.escape(key)}"]`);
+    const rect = card?.getBoundingClientRect();
+    if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) card?.scrollIntoView?.({
       block: "nearest", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth",
     });
   }, [key]);
@@ -55,14 +58,31 @@ export function closeOnEsc(selected: string | undefined) {
   };
 }
 
-export function PanelSlot({ children, wide = false }: { children: ReactNode; /** Panel kroku v běhu (návrh 12: 520 px). */ wide?: boolean }) {
+export function PanelSlot({ children, wide = false, align }: { children: ReactNode; /** Panel kroku v běhu (návrh 12: 520 px). */ wide?: boolean; align?: string }) {
   // Vedle sloupce od 1280 px (návrh 05, změřeno z .pen: sloupec do 676, mezera 28, panel 440); užší = plnoobrazovkový
   // sheet (PanelShell), nikdy přes sloupec ani přes hlavičku stránky. Panel vedle sloupce (z-20) leží pod přilepenou
   // hlavičkou (z-30), aby ho menu ⋯ z hlavičky překrylo.
   const sheet = useMedia("(max-width: 1279px)");
+  const panel = useRef<HTMLDivElement>(null);
+  const [marginTop, setMarginTop] = useState(0);
+  useLayoutEffect(() => {
+    if (sheet || !panel.current) return;
+    const row = panel.current.parentElement;
+    const column = row?.querySelector<HTMLElement>("section");
+    if (!row || !column) return;
+    const measure = () => {
+      const card = align ? column.querySelector<HTMLElement>('[data-step-card][aria-pressed="true"]') : null;
+      setMarginTop(card ? card.getBoundingClientRect().top - row.getBoundingClientRect().top : 0);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(column);
+    return () => observer.disconnect();
+  }, [align, sheet]);
   if (sheet) return <SheetContext.Provider value>{children}</SheetContext.Provider>;
   return (
-    <div className={`scroll-quiet sticky top-[calc(var(--page-header-h,5rem)+1rem)] z-20 mt-4 max-h-[calc(100vh-var(--page-header-h,5rem)-2rem)] shrink-0 self-start overflow-auto rounded-panel ${wide ? "w-[520px]" : "w-[440px]"}`}>
+    <div ref={panel} style={{ marginTop }} className={`z-20 shrink-0 self-start rounded-panel ${wide ? "w-[520px]" : "w-[440px]"}`}>
       {children}
     </div>
   );
@@ -284,7 +304,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const p = proj.data;
   const summary = p?.scenarios.find((s) => s.name === scenario);
   const menu: MenuItem[] = [
-    ...(!yaml ? [{ label: `${t("edit.undo")} (Ctrl+Z)`, onSelect: form.undo, disabled: form.canUndo ? undefined : t("edit.nothingToUndo") }] : []),
+    ...(!yaml ? [{ label: t("edit.undo"), shortcut: "Ctrl+Z", onSelect: form.undo, disabled: form.canUndo ? undefined : t("edit.nothingToUndo") }] : []),
     ...(p && summary ? [{ label: t("scenarios.copyRun"), onSelect: () => void navigator.clipboard.writeText(runCommand(p.root, summary)) }] : []),
     { label: t("editor.runs"), onSelect: () => navigate(href(project, "behy", undefined, { scenar: scenario })) },
     // bez otisku souboru (ještě se načítá) přejmenovat ani smazat nejde
@@ -352,13 +372,13 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
               </PanelSlot>
             )}
             {!running && selected === HEADER_KEY && (
-              <PanelSlot>
+              <PanelSlot align={selected}>
                 <HeaderPanel name={scenario} header={work.header} errors={fileErrors.filter((e) => !e.step)} onClose={() => setQuery({ krok: undefined })}
                   change={(fn, key) => form.change((d: Draft) => ({ ...d, header: fn(d.header) }), key && `h:${key}`)} />
               </PanelSlot>
             )}
             {!running && step && p && (
-              <PanelSlot>
+              <PanelSlot align={selected}>
                 <StepPanel key={step.uid} step={step} steps={steps} header={work.header} project={p} scenario={scenario}
                   errors={byStep.get(step.id) ?? []} onClose={() => setQuery({ krok: undefined })} onSelect={(id) => setQuery({ krok: id })}
                   edit={{

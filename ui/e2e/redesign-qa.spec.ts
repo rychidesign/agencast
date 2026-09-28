@@ -32,7 +32,7 @@ test("QA2 menu ⋯ karty leží nad dalšími kartami a menu hlavičky nad panel
   await card(page, "napis").hover();
   await page.getByRole("button", { name: "Akce pro napis" }).click();
   // poslední položka zasahuje nad kartu `vystup`; klik myší ji musí trefit
-  await page.getByRole("menuitem", { name: "Smazat (Delete)" }).click();
+  await page.getByRole("menuitem", { name: "Smazat" }).click();
   await expect(page.getByRole("dialog")).toContainText("Smazat krok „napis“?");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Další akce" }).click();

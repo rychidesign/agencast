@@ -48,8 +48,8 @@ test("R2 editor: hlavička s Uložit, Spustit a menu ⋯", async ({ page, projec
   await expect(page.getByRole("button", { name: "Přejmenovat" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Další akce" }).click();
-  await expect(page.getByRole("menuitem")).toHaveText([
-    "Vrátit zpět (Ctrl+Z)", "Kopírovat příkaz spuštění", "Běhy tohoto scénáře", "Přejmenovat", "Smazat"]);
+  for (const name of ["Vrátit zpět", "Kopírovat příkaz spuštění", "Běhy tohoto scénáře", "Přejmenovat", "Smazat"])
+    await expect(page.getByRole("menuitem", { name, exact: true })).toBeVisible();
   await page.getByRole("menuitem", { name: "Běhy tohoto scénáře" }).click();
   await expect(page).toHaveURL(new RegExp(`#/p/${project.name}/behy\\?scenar=ukazka$`));
   await expect(page.getByRole("combobox", { name: "Filtr scénáře" })).toHaveValue("ukazka");

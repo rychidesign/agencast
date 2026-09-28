@@ -110,7 +110,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
 /** Sticky pruh nad kartami (§4.6): soubor se na disku změnil a GUI drží neuložené změny. */
 export function ConflictBar({ conflict, onDiff, onReload, onKeep, inHeader = false }: {
   conflict: Conflict; onDiff: () => void; onReload: () => void; onKeep: () => void;
-  /** V přilepené hlavičce (editor scénáře): přilepený panel se pak řadí pod pruh, nepřekryje ho. */
+  /** V přilepené hlavičce editoru scénáře: pruh zůstane nad panelem. */
   inHeader?: boolean;
 }) {
   return (

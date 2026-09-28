@@ -35,7 +35,7 @@ export function PageHeader({ title, description, detail, meta, actions, compact 
   menuLabel?: string;
   /** Řádek nad titulem: odkaz zpět, drobečky. */
   back?: ReactNode;
-  /** Přilepená hlavička (editor, běh); výšku hlásí v `--page-header-h` pro přilepený panel. */
+  /** Přilepená hlavička (editor, běh); výšku hlásí v `--page-header-h` pro odstup karet při skoku. */
   sticky?: boolean;
   /** Druhý řádek: přepínač režimu, SaveNote, záložky. */
   children?: ReactNode;

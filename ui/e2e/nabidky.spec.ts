@@ -2,7 +2,7 @@ import { DLOUHY, expect, startRun, test } from "./fixtures";
 import AxeBuilder from "@axe-core/playwright";
 import { mkdirSync } from "node:fs";
 
-const shots = "/tmp/agencast-k";
+const shots = "/tmp/agencast-l";
 mkdirSync(shots, { recursive: true });
 
 function watchErrors(page: import("@playwright/test").Page) {
@@ -40,7 +40,7 @@ async function menuInsideViewport(page: import("@playwright/test").Page) {
 
 for (const [width, height, code] of [[390, 844, "N7"], [768, 1024, "N9"], [1024, 768, "N10"], [1440, 900, "N8"]] as const) {
   test.describe(`${width}px`, () => {
-    test.use({ viewport: { width, height } });
+    test.use({ viewport: { width, height }, hasTouch: width === 390 });
 
     test(`${code} ⋯ karta scénáře a hlavička editoru zůstávají ve viewportu`, async ({ page, project }) => {
       await page.goto(`/#/p/${project.name}/scenare`);
@@ -67,6 +67,17 @@ for (const [width, height, code] of [[390, 844, "N7"], [768, 1024, "N9"], [1024,
       const trigger = page.getByRole("button", { name: "Akce pro napis" });
       await trigger.click();
       await menuInsideViewport(page);
+      const remove = page.getByRole("menuitem", { name: "Smazat" });
+      await expect(remove).toHaveCSS("color", "rgb(255, 143, 157)");
+      expect((await remove.textContent())!.includes("(")).toBe(false);
+      const hint = remove.locator("span");
+      await expect(hint).toHaveText("Del");
+      if (width === 390) await expect(hint).toBeHidden();
+      if (width === 1440) {
+        await expect(hint).toBeVisible();
+        const [itemBox, hintBox] = await Promise.all([remove.boundingBox(), hint.boundingBox()]);
+        expect(hintBox!.x).toBeGreaterThan(itemBox!.x + itemBox!.width / 2);
+      }
       await cleanPage(page);
       await page.screenshot({ path: `${shots}/${width}-step-menu.png` });
       await page.evaluate(() => window.scrollBy(0, 300));

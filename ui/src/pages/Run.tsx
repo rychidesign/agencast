@@ -162,7 +162,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
                 <StepList steps={steps} ctx={ctx} />
               </section>
               {selected && sel && (
-                <PanelSlot wide>
+                <PanelSlot wide align={selected}>
                   <RunStepPanel key={`${selected}:${sel.rs?.status}`} project={project} runId={runId} path={selected} rs={sel.rs}
                     kind={sel.step?.type ?? sel.rs?.kind ?? null} onClose={() => setQuery({ krok: undefined })} />
                 </PanelSlot>

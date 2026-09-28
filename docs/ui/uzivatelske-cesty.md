@@ -113,10 +113,10 @@ Cíl: neztratit ani svou, ani cizí změnu. Stav: editor `ukazka`, karta `napis`
 
 ### C10 Přesun a smazání kroku s ochranou odkazů **[hotovo; smazání čteného kroku + úprava čtenářů jde dnes jako dvě operace, dávka 0.8.0 se nepoužívá → 422, pokud druhá operace nestihne]**
 Cíl: přeskládat scénář a nerozbít odkazy. Stav: `clanek` z C4 (`napis, jev_1, vystup`).
-1. Fokus karty `jev_1` (klik), `Alt+↑` → `aria-label` „Krok 1: jev jev_1“, `napis` je „Krok 2“; menu ⋯ „Další akce“ v hlavičce → `menuitem "Vrátit zpět (Ctrl+Z)"` (nebo Ctrl+Z) vrátí; menu `"Akce pro jev_1"` má `menuitem` „Posunout nahoru (Alt+↑)“, „Posunout dolů (Alt+↓)“, „Vyjmout (Ctrl+X)“, „Vložit krok nad“, „Vložit krok pod“, „Smazat (Delete)“.
+1. Fokus karty `jev_1` (klik), `Alt+↑` → `aria-label` „Krok 1: jev jev_1“, `napis` je „Krok 2“; menu ⋯ „Další akce“ v hlavičce → `menuitem "Vrátit zpět"` (zkratka Ctrl+Z vpravo, nebo Ctrl+Z na klávesnici) vrátí; menu `"Akce pro jev_1"` má `menuitem` „Posunout nahoru“ (Alt+↑ vpravo), „Posunout dolů“ (Alt+↓), „Vyjmout“ (Ctrl+X), „Vložit krok nad“, „Vložit krok pod“, červené „Smazat“ (Del). Na dotykovém zařízení jsou zkratky skryté.
 2. `Ctrl+X` na `jev_1` → `aria-live` „Krok jev_1 vyjmut — vlož ho tlačítkem + na novém místě.“, karta 50 % s „— vyjmuto“, všechna (+) trvale vidět; klik + nad `napis` → první `option` „Vložit „jev_1“ sem“ → Enter → „Krok jev_1 vložen.“, pořadí `[jev_1, napis, vystup]`; validace u karty `jev_1` hlásí `steps.napis` níže (po Uložit 422 „krok 'napis' … níže/neexistuje“) → Ctrl+Z.
 3. Delete na `napis` (čte ho `jev_1` i `vystup`) → dialog „Smazat krok „napis“?“ s textem „Krok „napis“ čtou jev_1, vystup. Uložení projde, jen když jejich odkazy upravíš nebo je smažeš taky.“ → „Smazat i tak“ → `aria-live` „Krok napis smazán. Vrátit zpět: Ctrl+Z.“; Uložit → 422 s hláškou u `vystup`, disk beze změny. Cíl (dávka): úprava čtenářů + smazání v jedné dávce, zapíše se vše nebo nic.
-4. Delete na `jev_1` (nikdo nečte) → hned pryč, bez dialogu; stejné mazání spustí ⋯ → „Smazat (Delete)“ nebo koš v hlavičce panelu. Uložit → `DELETE …/steps/1` → disk má `[napis, vystup]`. Smazání kontejneru s kroky → dialog „Smaže i N kroků uvnitř.“ Karta `output` nemá Posunout/Vyjmout/Vložit pod; u karet není samostatný koš.
+4. Delete na `jev_1` (nikdo nečte) → hned pryč, bez dialogu; stejné mazání spustí ⋯ → „Smazat“ nebo koš v hlavičce panelu. Uložit → `DELETE …/steps/1` → disk má `[napis, vystup]`. Smazání kontejneru s kroky → dialog „Smaže i N kroků uvnitř.“ Karta `output` nemá Posunout/Vyjmout/Vložit pod; u karet není samostatný koš.
 
 ### C11 `parallel` a `switch` **[hotovo — nová větev musí začít novým krokem (nález 13); přejmenování/mazání větví jen v YAML]**
 Cíl: „vedle sebe = zároveň, pod sebou = jedna z možností“. Stav: `clanek`.
@@ -196,7 +196,7 @@ Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
    „0,00 / 5,00 USD“ a pruhem). Klik na Běhy → `#/p/demo/behy`, `h1 "Běhy"`. Editor scénáře zvýrazní
    Scénáře, detail běhu Běhy. „← Projekty“ vede zpět.
 3. Editor `ukazka`: `h1 "ukazka"`, tlačítka „Spustit“ a „Uložit“ (disabled bez změn), žádné viditelné
-   „Přejmenovat“; `button "Další akce"` → `menuitem` Vrátit zpět (Ctrl+Z) · Kopírovat příkaz spuštění ·
+   „Přejmenovat“; `button "Další akce"` → `menuitem` Vrátit zpět (Ctrl+Z vpravo) · Kopírovat příkaz spuštění ·
    Běhy tohoto scénáře · Přejmenovat · Smazat; „Běhy tohoto scénáře“ → `#/p/demo/behy?scenar=ukazka`
    s předvybraným filtrem.
 4. Viewport 900 px: lišta nahoře obsahuje značku a projekt; FAB „Navigace“ 56 px vpravo dole otevře

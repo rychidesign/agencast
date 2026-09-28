@@ -81,7 +81,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 ## 7. Panel (`StepPanel.tsx`, `RunPanel.tsx`, `RunStepPanel.tsx`)
 
 - `bg-surface` radius 16; **hlavička** padding 20 s linkou dole: ikona panelu 16, eyebrow mono 10 `fg-muted` verzálky, titul 18/26 semibold, zavřít ghost 44; **tělo** padding 20, mezera polí 18 (změřeno z .pen). Šířka 440 (panel kroku v běhu **520**).
-- Scrollující panel, sheet a dlouhé seznamy mají skrytý posuvník; kolečko, dotyk a klávesnice dál scrollují. Bloky kódu mají na desktopu tenký posuvník při hoveru nebo fokusu.
+- Na desktopu je panel v toku stránky, horní hranou u vybrané karty (panel hlavičky a spuštění u začátku sloupce), bez omezení výšky a vlastního scrollu. Stránka se prodlouží podle panelu. Sheet do 1279 px a dlouhé nabídky mají skrytý posuvník; bloky kódu mají na desktopu tenký posuvník při hoveru nebo fokusu.
 - Pole podle §2 (výška 44, štítky 13 medium). Select „Typ kroku“ ukazuje „ask · jedno volání agenta“ (mono klíč + popis). Vstupy a výstupy v panelu hlavičky jsou karty `group` r8 p14 s poli `nested`, „+ Přidat …“ je sekundární tlačítko.
 - Panel spuštění: eyebrow „SPUSTIT BĚH“, mezery 20; štítek „REŽIM BĚHU“ 11 px verzálky; karty režimu `bg-nested` radius 8 padding 14 (řádek s radiem 20 px 44 px, popis 12), vybraná ring 1 `accent`; „Limity“ jako řádky 32 px s oddělovači (štítek 12 `fg-secondary`, hodnota mono 12 `fg`); varování `warning/10` r8 p12 text 12; vpravo „Zrušit“ + „Spustit dry-run“ (změřeno z .pen).
 - Panel kroku v běhu: řádek stavu = čip stavu + mono 11 „12,4 s · 0,0210 USD“; záložky 13 px; obsah = blok kódu (viz §2) a řádek souboru `bg-nested` r8 p12 výška 52 (cesta mono 12 + ↗).
@@ -130,6 +130,7 @@ Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v k
 - Do 1279 px je panel (krok, hlavička, spuštění, krok v běhu) spodní sheet s kulatými horními rohy a stínem,
   max. výška `100dvh - 48px` (`role="dialog"`, fokus past, Esc, po zavření fokus zpět na kartu). Do 767 px karta kroku 80 px bez čísla (kolečko 36), konektor 32 px s (+)
   32 px a dotykovou plochou 44, sloupec přes celou šířku (mazání jen v ⋯ nebo panelu), TypePicker jako list u spodního okraje.
+- Nabídka ⋯ má destruktivní položky `text-error`; klávesové zkratky jsou tlumené vpravo a na dotykových zařízeních se skrývají.
 - Běhy do 767 px bez záhlaví: karta o dvou řádcích (stav + jméno + stav textem; run_id, kdy, trvání · cena),
   chevron vpravo. Záložky detailu běhu s vodorovným posuvem. Agenti/Skilly pod 1100 px jako vodorovné čipy.
 - Vlna H podle uživatele: nabídky mají stín místo rámečku, panely a mobilní modály jsou spodní sheety,
@@ -137,6 +138,6 @@ Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v k
 - Vlna I: nabídky ⋯, proměnných, našeptávač a výběr typu se vykreslují přes portál do `body`, takže souřadnice
   `fixed` patří viewportu i v transformovaných kartách a sheetech. Konektor mezi kartami má 48 px, (+) 40 px,
   tedy 4 px volného místa nahoře i dole, také ve větvích.
-- Vlna K: boxy sdružující pole mají `group` `#253B50`, pole zůstávají `nested` `#0D192A` a posuvníky panelů i nabídek jsou skryté.
+- Vlna K: boxy sdružující pole mají `group` `#253B50`, pole zůstávají `nested` `#0D192A` a posuvníky sheetů i nabídek jsou skryté.
 - Vlna I: checkboxy/radia jsou na všech plochách vykreslené jednotně (prázdné `control`, vybrané `accent` s tmavou značkou). Čtení API opakuje jednou po 1,5 s
   a po obnovení připojení či zviditelnění stránky hned obnovuje data i kontrolu konfliktu.
