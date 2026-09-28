@@ -22,7 +22,7 @@ function MasterDetail({ project, tab, items, current, children }: {
 }) {
   return (
     // návrh 06 (změřeno z .pen): seznam 240 px, položky `surface` r14 p16 gap 14, ikona 22, výběr = `surface-active`
-    <div className="grid gap-6 min-[1100px]:grid-cols-[240px_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-6 min-[1100px]:grid-cols-[240px_minmax(0,1fr)]">
       <nav aria-label={t(`project.tab.${tab}`)}>
         <ul className="space-y-2 max-[1099px]:flex max-[1099px]:gap-2 max-[1099px]:space-y-0 max-[1099px]:overflow-x-auto max-[1099px]:pb-1">
           {items.map((it) => (

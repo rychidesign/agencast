@@ -40,7 +40,7 @@ export function Markdown({ text }: { text: string }) {
       while (i < lines.length && lines[i].startsWith("|")) rows.push(lines[i++]);
       const [head, , ...body] = rows;
       out.push(
-        <div key={i} className="overflow-x-auto">
+        <div key={i} className="overflow-x-auto focus-visible:ring-2 focus-visible:ring-accent" tabIndex={0}>
           <table className="text-[13px]">
             <thead><tr>{cells(head).map((c, j) => <th key={j} className="px-2 py-1 text-left font-semibold text-fg-muted">{inline(c)}</th>)}</tr></thead>
             <tbody>
