@@ -48,8 +48,9 @@
 
 @layer components {
   .text-h1 { @apply text-[28px] leading-[42px] font-normal; }
-  .popover { background: var(--color-menu); border-radius: 12px; box-shadow: var(--shadow-pop), 0 2px 8px rgba(0, 0, 0, .35); outline: 0; }
-  .sheet-shadow { box-shadow: var(--shadow-sheet), 0 -2px 8px rgba(0, 0, 0, .35); }
+  /* jediný měkký stín (uživatel: x/y 20, blur 40); hranu nad kartou drží světlejší výplň `menu`, ne druhý stín */
+  .popover { background: var(--color-menu); border-radius: 12px; box-shadow: var(--shadow-pop); outline: 0; }
+  .sheet-shadow { box-shadow: var(--shadow-sheet); }
   @keyframes sheet-up { from { transform: translateY(16px); opacity: .85; } to { transform: translateY(0); opacity: 1; } }
   @keyframes pop-up { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   @keyframes fab-turn { from { transform: rotate(-90deg); opacity: .6; } to { transform: rotate(0); opacity: 1; } }
