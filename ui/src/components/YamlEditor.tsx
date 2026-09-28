@@ -5,7 +5,7 @@ import { Check, FileCode2, GitCompareArrows, RotateCcw, TriangleAlert } from "lu
 import { t } from "../i18n";
 import { lineDiff, type Conflict } from "../textfile";
 import type { ErrorItem } from "../types";
-import { Line } from "./CodeView";
+import { lineContexts, Line } from "./CodeView";
 import { Modal } from "./form";
 import { btn, ErrorList } from "./ui";
 
@@ -24,6 +24,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
   const [flash, setFlash] = useState(focus);
   const [position, setPosition] = useState<[number, number]>([1, 1]);
   const lines = text.split("\n");
+  const contexts = lineContexts(lines);
   const bad = new Set(errors.map((e) => e.line).filter(Boolean));
 
   const goTo = (line: number) => {
@@ -74,7 +75,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
               {lines.map((l, i) => {
                 const n = i + 1;
                 const hi = flash && n >= flash[0] && n <= flash[1];
-                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-active transition-colors" : ""}><Line text={l || " "} /></div>;
+                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-active transition-colors" : ""}><Line text={l || " "} {...contexts[i]} /></div>;
               })}
             </pre>
             <textarea
