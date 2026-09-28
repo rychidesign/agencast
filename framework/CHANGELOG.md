@@ -9,8 +9,8 @@ Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno ne
 
 - Plovoucí nabídky a výběr typu se drží ve viewportu i uvnitř karet a sheetů.
 - Krátké výpadky připojení se tiše zkusí znovu; po probuzení se data a konflikty hned ověří.
-- Konektory kroků mají volné místo kolem tlačítka +, pole ve vnořených kartách světlejší pozadí a checkboxy i radio čitelný vlastní vzhled.
-- Posuvníky panelů, sheetů a dlouhých seznamů jsou tenké a při práci myší se zobrazí až po najetí nebo fokusu.
+- Konektory kroků mají volné místo kolem tlačítka +, boxy vstupů a aliasů světlejší pozadí, pole zůstávají tmavá a checkboxy i radio mají čitelný vlastní vzhled.
+- Posuvníky panelů, sheetů a dlouhých seznamů jsou skryté; bloky kódu mají tenký posuvník při najetí nebo fokusu.
 - Prstenec vybrané HLAVIČKY je celý vidět pod přilepenou hlavičkou stránky.
 - Duplicitní koš vedle karty kroku zmizel; mazání zůstává v nabídce ⋯, panelu a na klávese Delete.
 

@@ -22,7 +22,7 @@ test("Karta kroku: výběr, konektor a klávesnice nabídky", async ({ page, pro
   await expect(page.locator('[data-step-card="jev_1"]')).toBeVisible();
 });
 
-test("Editor: celý prstenec HLAVIČKY, klidný posuvník a mazání jen v ⋯/panelu", async ({ page, project }) => {
+test("Editor: celý prstenec HLAVIČKY, skrytý posuvník a mazání jen v ⋯/panelu", async ({ page, project }) => {
   project.write("scenarios/tutorial-03-cviceni.yaml", fs.readFileSync(path.resolve(import.meta.dirname, "../../workflows/scenarios/tutorial-03-cviceni.yaml"), "utf8"));
   for (const agent of ["tutorial-pojmenovavac", "tutorial-sloganista"])
     project.write(`agents/${agent}.md`, fs.readFileSync(path.resolve(import.meta.dirname, `../../workflows/agents/${agent}.md`), "utf8"));
@@ -43,12 +43,21 @@ test("Editor: celý prstenec HLAVIČKY, klidný posuvník a mazání jen v ⋯/p
   await expect(card).toHaveClass(/ring-inset ring-1/);
 
   const scroll = panel.locator("xpath=..");
-  await page.mouse.move(20, 200);
-  expect(await scroll.evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe("thin");
-  expect(await scroll.evaluate((el) => getComputedStyle(el).scrollbarGutter)).toBe("stable");
-  expect(await scroll.evaluate((el) => getComputedStyle(el).scrollbarColor)).toMatch(/^(?:transparent|rgba\(0, 0, 0, 0\))/);
-  await scroll.hover();
-  expect(await scroll.evaluate((el) => getComputedStyle(el).scrollbarColor)).toContain("49, 69, 95");
+  fs.mkdirSync("/tmp/agencast-k", { recursive: true });
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect((await scroll.boundingBox())!.width).toBe(440);
+    expect(await scroll.evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe("none");
+    expect(await scroll.evaluate((el) => getComputedStyle(el, "::-webkit-scrollbar").display)).toBe("none");
+    expect(await scroll.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    await page.mouse.move(20, 200);
+    await page.screenshot({ path: `/tmp/agencast-k/${width}-header-away.png` });
+    await scroll.hover();
+    await page.screenshot({ path: `/tmp/agencast-k/${width}-header-hover.png` });
+    await page.mouse.wheel(0, 300);
+    await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await scroll.evaluate((el) => { el.scrollTop = 0; });
+  }
 
   await page.evaluate(() => window.scrollTo(0, 300));
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--page-header-h") === `${document.querySelector<HTMLElement>("main header")?.offsetHeight}px`)).toBe(true);

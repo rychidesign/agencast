@@ -21,7 +21,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 | `--color-control` | `#31455F` | výplň sekundárního tlačítka a ikonového tlačítka (`V3 / Button / secondary`, `V3 / IconButton`) |
 | `--color-control-hover` | `#3B5170` | hover sekundárního tlačítka |
 | `--color-surface-active` | `#253B50` (změřeno z .pen; odhad byl `#1B2A3D`) | aktivní položka sidebaru a seznamu, vybraná karta kroku |
-| `--color-field-raised` | `#253B50` (vlna I) | pole uvnitř vnořených karet `bg-nested` |
+| `--color-group` | `#253B50` | box sdružující pole; samotná pole zůstávají `nested` |
 | `--color-track` | `#25374A` | dráha progress baru |
 | `--radius-button` | `10px` | tlačítka |
 | `--radius-tile` | `14px` (změřeno z .pen) | karta projektu, scénáře, položka seznamu, kontejner kroků, filtry běhů, modál |
@@ -81,8 +81,8 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 ## 7. Panel (`StepPanel.tsx`, `RunPanel.tsx`, `RunStepPanel.tsx`)
 
 - `bg-surface` radius 16; **hlavička** padding 20 s linkou dole: ikona panelu 16, eyebrow mono 10 `fg-muted` verzálky, titul 18/26 semibold, zavřít ghost 44; **tělo** padding 20, mezera polí 18 (změřeno z .pen). Šířka 440 (panel kroku v běhu **520**).
-- Scrollující panel, sheet, bloky kódu a dlouhé seznamy mají na desktopu tenký posuvník s průhledným palcem; při hoveru nebo fokusu má barvu `control`, rezervovaný žlábek drží šířku obsahu. Dotykové ovládání zůstává nativní.
-- Pole podle §2 (výška 44, štítky 13 medium). Select „Typ kroku“ ukazuje „ask · jedno volání agenta“ (mono klíč + popis). Vstupy a výstupy v panelu hlavičky jsou vnořené karty `nested` r8 p14, „+ Přidat …“ je sekundární tlačítko.
+- Scrollující panel, sheet a dlouhé seznamy mají skrytý posuvník; kolečko, dotyk a klávesnice dál scrollují. Bloky kódu mají na desktopu tenký posuvník při hoveru nebo fokusu.
+- Pole podle §2 (výška 44, štítky 13 medium). Select „Typ kroku“ ukazuje „ask · jedno volání agenta“ (mono klíč + popis). Vstupy a výstupy v panelu hlavičky jsou karty `group` r8 p14 s poli `nested`, „+ Přidat …“ je sekundární tlačítko.
 - Panel spuštění: eyebrow „SPUSTIT BĚH“, mezery 20; štítek „REŽIM BĚHU“ 11 px verzálky; karty režimu `bg-nested` radius 8 padding 14 (řádek s radiem 20 px 44 px, popis 12), vybraná ring 1 `accent`; „Limity“ jako řádky 32 px s oddělovači (štítek 12 `fg-secondary`, hodnota mono 12 `fg`); varování `warning/10` r8 p12 text 12; vpravo „Zrušit“ + „Spustit dry-run“ (změřeno z .pen).
 - Panel kroku v běhu: řádek stavu = čip stavu + mono 11 „12,4 s · 0,0210 USD“; záložky 13 px; obsah = blok kódu (viz §2) a řádek souboru `bg-nested` r8 p12 výška 52 (cesta mono 12 + ↗).
 
@@ -105,7 +105,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 ## 10. Config (`Config.tsx`)
 
 - Celý formulář **v kartě** `bg-surface` radius 16 padding 24; první řádek cesta projektu mono 13 `fg-muted`; přepínač Form | YAML + SaveNote; Uložit jen v hlavičce.
-- Sekce ve **dvou sloupcích** (gap 24): Připojení (api_key_env + stav) | Jev model (jen ke čtení, mono, poznámka); Modely přes celou šířku: každý alias jako **`bg-nested` karta** (radius 12, padding 16) s řádkem polí Alias / ID modelu / max_tokens / API + kvalita a pod ním meta „používá pisatel“ mono 12 + vpravo „Smazat alias“ (nebezpečné, disabled s důvodem); „+ Přidat alias“ sekundární vpravo nad seznamem; Úložiště | Webhook a callback (stavy `*_env` jako řádky s ikonou); Limity (dva sloupce polí) | Proměnné (řádky `bg-nested` 40 px: název mono + stav vpravo v barvě); MCP servery jako `bg-nested` karta: název 15 semibold, řádky Transport / Povolení agenti / Nástroje (mono 12), čip „Pouze čtení“.
+- Sekce ve **dvou sloupcích** (gap 24): Připojení (api_key_env + stav) | Jev model (jen ke čtení, mono, poznámka); Modely přes celou šířku: každý alias jako **`bg-group` karta** (radius 12, padding 16) s poli `bg-nested` Alias / ID modelu / max_tokens / API + kvalita a pod ním meta „používá pisatel“ mono 12 + vpravo „Smazat alias“ (nebezpečné, disabled s důvodem); „+ Přidat alias“ sekundární vpravo nad seznamem; Úložiště | Webhook a callback (stavy `*_env` jako řádky s ikonou); Limity (dva sloupce polí) | Proměnné (řádky `bg-nested` 40 px: název mono + stav vpravo v barvě); MCP servery jako `bg-nested` karta: název 15 semibold, řádky Transport / Povolení agenti / Nástroje (mono 12), čip „Pouze čtení“.
 
 ## 11. Co zůstává jinak než v návrhu (záměrně)
 
@@ -137,6 +137,6 @@ Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v k
 - Vlna I: nabídky ⋯, proměnných, našeptávač a výběr typu se vykreslují přes portál do `body`, takže souřadnice
   `fixed` patří viewportu i v transformovaných kartách a sheetech. Konektor mezi kartami má 48 px, (+) 40 px,
   tedy 4 px volného místa nahoře i dole, také ve větvích.
-- Vlna I: pole ve vnořených kartách mají `field-raised` `#253B50`; checkboxy/radia jsou na všech plochách
-  vykreslené jednotně (prázdné `control`, vybrané `accent` s tmavou značkou). Čtení API opakuje jednou po 1,5 s
+- Vlna K: boxy sdružující pole mají `group` `#253B50`, pole zůstávají `nested` `#0D192A` a posuvníky panelů i nabídek jsou skryté.
+- Vlna I: checkboxy/radia jsou na všech plochách vykreslené jednotně (prázdné `control`, vybrané `accent` s tmavou značkou). Čtení API opakuje jednou po 1,5 s
   a po obnovení připojení či zviditelnění stránky hned obnovuje data i kontrolu konfliktu.

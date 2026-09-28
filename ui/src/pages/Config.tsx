@@ -197,7 +197,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
             const users = usage(alias);
             const setM = (k: string, v: unknown) => put("models", { ...models, [alias]: clean(m, k, v) });
             return (
-              <li key={alias} className="space-y-4 rounded-[10px] bg-nested p-4">
+              <li key={alias} className="space-y-4 rounded-[10px] bg-group p-4">
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(120px,1fr)_minmax(220px,2fr)_minmax(100px,0.7fr)_minmax(110px,0.7fr)]">
                   <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">{t("config.alias")}</span><div className="flex min-h-11 min-w-0 items-center">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
                     : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
@@ -231,7 +231,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
                   </select></div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="font-mono text-xs text-fg-muted">{users.length ? t("config.usedByAgents", { agents: users.join(", ") }) : t("config.unused")}</p>
+                  <p className="font-mono text-xs text-fg-secondary">{users.length ? t("config.usedByAgents", { agents: users.join(", ") }) : t("config.unused")}</p>
                   <button type="button" className={btn.danger} disabled={users.length > 0}
                     aria-label={t("config.removeAlias", { alias })}
                     aria-description={users.length ? t("config.aliasUsed", { agents: users.join(", ") }) : undefined}

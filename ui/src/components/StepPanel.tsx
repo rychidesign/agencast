@@ -507,12 +507,12 @@ export function HeaderPanel({ name, header, errors, onClose, change }: {
       <FormField label={t(`panel.${which}`)} errors={fe(which).filter((e) => e.field === which)}
         action={<AddPill label={t(which === "inputs" ? "panel.addInput" : "panel.addOutput")} onClick={add} />}>
         {() => (
-          // každý vstup / výstup jako vnořená karta (návrh 09: `nested` r8 p14)
+          // každý vstup / výstup jako vnořená karta (návrh 09: `group` r8 p14)
           <ul className="space-y-3">
             {Object.entries(map).map(([name, spec]) => {
               const put = (s: IoSpec, key: string) => write({ ...map, [name]: s }, `${which}:${name}:${key}`);
               return (
-                <li key={name} className="space-y-2 rounded-control bg-nested p-3.5">
+                <li key={name} className="space-y-2 rounded-control bg-group p-3.5">
                   <div className="flex items-center gap-2">
                     <KeyInput name={name} taken={Object.keys(map)} label={t("panel.keyName")}
                       onRename={(to) => write(renameKey(map, name, to) as Record<string, IoSpec>, "rename")} />

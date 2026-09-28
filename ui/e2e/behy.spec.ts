@@ -120,6 +120,10 @@ test("C7 čtení výsledku a ceny", async ({ page, project, server }) => {
   const panel = page.getByRole("complementary");
   await expect(panel).toContainText("KROK 1");
   await expect(panel).toContainText("napis");
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect((await panel.locator("xpath=..").boundingBox())!.width).toBe(520);
+  }
   const tabs = panel.getByRole("tablist", { name: "Části kroku" }).getByRole("tab");
   await expect(tabs).toContainText(["Prompt", "Odpověď", "Výstup", "Volání", "Soubory"]);
   await tabs.filter({ hasText: "Volání" }).click();

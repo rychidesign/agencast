@@ -2,7 +2,7 @@ import { DLOUHY, expect, startRun, test } from "./fixtures";
 import AxeBuilder from "@axe-core/playwright";
 import { mkdirSync } from "node:fs";
 
-const shots = "/tmp/agencast-i";
+const shots = "/tmp/agencast-k";
 mkdirSync(shots, { recursive: true });
 
 function watchErrors(page: import("@playwright/test").Page) {
@@ -81,13 +81,14 @@ for (const [width, height, code] of [[390, 844, "N7"], [768, 1024, "N9"], [1024,
 
 test.describe("sheet a vnořená pole", () => {
   test.use({ viewport: { width: 390, height: 844 } });
-  test("pole se liší od karty, checkbox má oba stavy", async ({ page, project }) => {
+  test("pole je nested, sdružující karta group, checkbox má oba stavy", async ({ page, project }) => {
     const errors = watchErrors(page);
     await page.goto(`/#/p/${project.name}/scenare/ukazka?krok=_hlavicka`);
     const sheet = page.getByRole("dialog");
+    await expect(sheet).toHaveCSS("opacity", "1");
     const field = sheet.getByRole("textbox", { name: "Výchozí hodnota tema" });
-    const colors = await field.evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.closest("li.bg-nested")!).backgroundColor]);
-    expect(colors).toEqual(["rgb(37, 59, 80)", "rgb(13, 25, 42)"]);
+    const colors = await field.evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.closest("li.bg-group")!).backgroundColor]);
+    expect(colors).toEqual(["rgb(13, 25, 42)", "rgb(37, 59, 80)"]);
     const cb = sheet.getByRole("checkbox", { name: "povinný" });
     await expect(cb).toHaveCSS("background-color", "rgb(49, 69, 95)");
     await page.screenshot({ path: `${shots}/390-header-sheet.png` });
@@ -169,12 +170,14 @@ test.describe("desktop fields and controls", () => {
     mkdirSync(`${project.wf}/skills/pruzkum`, { recursive: true });
     project.write("skills/pruzkum/SKILL.md", "---\nname: pruzkum\ndescription: Průzkum\n---\nPostup.\n");
     await page.goto(`/#/p/${project.name}/config`);
-    const field = page.locator("li.bg-nested input").first();
-    await expect(field).toHaveCSS("background-color", "rgb(37, 59, 80)");
+    const field = page.locator("li.bg-group input").first();
+    await expect(field).toHaveCSS("background-color", "rgb(13, 25, 42)");
+    await expect(field.locator("xpath=ancestor::li[1]")).toHaveCSS("background-color", "rgb(37, 59, 80)");
     await cleanPage(page);
     await page.screenshot({ path: `${shots}/1440-config.png` });
 
     await page.goto(`/#/p/${project.name}/agenti/pisatel`);
+    await expect(page.locator("textarea").first()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     const skill = page.getByTestId("agent-editor-card").getByRole("checkbox", { name: /pruzkum/ });
     await expect(skill).toHaveCSS("background-color", "rgb(49, 69, 95)");
     await page.screenshot({ path: `${shots}/1440-agent-checkbox-unchecked.png` });

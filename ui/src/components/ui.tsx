@@ -256,7 +256,7 @@ export function CodeBlock({ text: source, title, file, language, foot }: {
   return (
     <section className="overflow-hidden rounded-[var(--radius-panel)] bg-surface">
       <CodeHead name={name} chip={language ?? t("code.readOnly")} />
-      <div className="scroll-quiet max-h-[60vh] overflow-auto bg-nested py-[18px] font-mono text-[13px] leading-[19px] focus-visible:ring-2 focus-visible:ring-accent" role="region" aria-label={name} tabIndex={0}>
+      <div className="scroll-thin max-h-[60vh] overflow-auto bg-nested py-[18px] font-mono text-[13px] leading-[19px] focus-visible:ring-2 focus-visible:ring-accent" role="region" aria-label={name} tabIndex={0}>
         <table className="w-full border-collapse"><tbody>{lines.map((line, i) => (
           <tr key={i}><td className="w-[58px] py-1 pr-3.5 pl-4 text-right align-top font-mono text-xs leading-[19px] text-fg-muted select-none">{i + 1}</td><td className="py-1 pr-4 whitespace-pre-wrap break-words text-fg-secondary">{line || " "}</td></tr>
         ))}</tbody></table>

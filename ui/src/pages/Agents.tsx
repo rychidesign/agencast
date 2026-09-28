@@ -393,7 +393,7 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
       <section className="space-y-3">
         <div className="[&_label]:text-base [&_label]:font-semibold">
           <FormField label={t("agent.instructions")} errors={fe("body")} required>
-            {(a) => <div className="overflow-hidden rounded-[10px] bg-nested"><textarea {...a} rows={Math.min(24, Math.max(12, value.body.split("\n").length + 1))} className={`${inputCls} resize-y rounded-none font-mono text-[13px] leading-5`}
+            {(a) => <div className="overflow-hidden rounded-[10px] bg-nested"><textarea {...a} rows={Math.min(24, Math.max(12, value.body.split("\n").length + 1))} className={`${inputCls.replace("bg-nested", "bg-transparent")} resize-y rounded-none font-mono text-[13px] leading-5`}
               value={value.body} onChange={(e) => onChange({ ...value, body: e.target.value })} /><p className="border-t border-line px-3 py-2 text-xs text-fg-muted">{t("agent.markdownHelp")}</p></div>}
           </FormField>
         </div>
