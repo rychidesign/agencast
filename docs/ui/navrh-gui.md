@@ -60,14 +60,17 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
   editor scénáře patří pod Scénáře, detail běhu pod Běhy) a dole „Dnes utraceno 1,20 / 5,00 USD“ s pruhem
   (zelený, po překročení denního limitu červený; bez limitu jen částka). Na stránce Projekty jen značka, na neexistující adrese značka a „← Projekty“.
   Řádek „server dostupný“ není (G6); při výpadku se dole objeví „Server agencast neodpovídá (…), zkouším
-  znovu…“ (`role="alert"`, `data-testid="server-bar"`).
+  znovu…“ (`role="alert"`, `data-testid="server-bar"`). GET/HEAD má timeout 20 s a po síťové chybě jeden
+  tichý pokus za 1,5 s; teprve druhá chyba ukáže lištu. Po `online` či návratu viditelnosti se data a
+  kontrola konfliktu obnoví ihned, při skryté stránce se kontrola konfliktu pozastaví.
 - **Pod 1024 px** je v horní liště značka a jméno projektu. Projektová navigace se otevírá z FAB 56 px
   vpravo dole do nabídky nad tlačítkem; má „← Projekty“, položky 48 px a útratu. FAB není na seznamu projektů ani 404.
 - **Responzivita obsahu** (ověřeno při 768 / 1024 / 1440 px): editor scénáře má panel vedle sloupce karet
   až od 1280 px (sidebar 232 + sloupec + panel 400); užší obrazovka ukáže spodní sheet s horními rohy 16 px,
   stínem a max. výškou `100dvh - 48px` (na tabletu šířka nejvýš 720 px), vždy se zavíracím křížkem a Esc. Agenti a Skilly mají
   seznam vedle editoru od 1100 px, jinak nad ním. Tabulka běhů má vodorovný posuv (min. 46rem), řádek
-  modelového aliasu v Configu se zalomí. Popovery se vejdou do viewportu s okrajem 12 px a podle prostoru se otevřou dolů nebo nahoru.
+  modelového aliasu v Configu se zalomí. Popovery jsou v portálu v `body`, vejdou se do viewportu s okrajem 12 px
+  a podle prostoru se otevřou dolů nebo nahoru i zevnitř transformované karty či sheetu.
 - **Hlavička stránky** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4, fidelity §1): nad titulem
   volitelně odkaz zpět (12 px); H1 28/42 regular (změřeno z .pen) + `meta` (čip chyb, stav běhu), pod ním
   jednořádkový popis 14 `fg-secondary` a `detail` 8 px pod titulem (mono 13 `fg-muted`: run_id); vpravo
@@ -444,6 +447,7 @@ Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlač
 **Tokeny (V3).** Závazné názvy a hodnoty barev, písem a rádiusů jsou v [plánu redesignu, §1](redesign-plan.md#1-tokeny-kontrakt-pro-vsechny). Pravidla G7, G8 a G15 platí nad referenčními exporty.
 
 - **Žebřík ploch:** stránka `bg-app` (gradient z .pen nad `canvas`), karta a panel `bg-surface`, hover `bg-surface-hover`, pole, čipy a větve `bg-nested` s případným `ring-line`. Vybraná karta má `ring-2 ring-accent` bez offsetu. Bez průhledných ploch a `backdrop-blur`.
+- Pole uvnitř vnořené karty `bg-nested` mají plochu `field-raised` (`#253B50`), aby nesplývala s kartou. Checkboxy a radia mají prázdnou plochu `control`, vybranou `accent` a tmavou fajfku nebo tečku.
 - **Barva:** primární text `fg`, popisky `fg-secondary`, meta `fg-muted`, ikony typů `type`; stav běhu má ikonu a text s barvami `success`, `error`, `running`, `warning` a `neutral`. Pulz jen `motion-safe`.
 - **Tvary:** pilulka kroku `rounded-full` s kruhem 40 px, kontejner/karta scénáře `rounded-tile`, panel `rounded-panel`, ovládací prvky `rounded-control`; malé (+) kruh 28 px s `ring-line`.
 - **Text v pilulce:** typ 11 px uppercase, id mono 13 px `fg-secondary`, hodnota 14 px semibold `fg`, meta 13 px `fg-muted`. Mono i pro výrazy, `run_id`, ceny a YAML.

@@ -137,7 +137,7 @@ test("C4 nový scénář se dvěma kroky a output", async ({ page, project }) =>
 
   const state = panel.getByRole("combobox", { name: "State" });
   await state.pressSequentially("{{ steps.");
-  await expect(panel.locator("ul[role=listbox]").getByRole("option")).toHaveText(["steps.napis.text"]);
+  await expect(page.locator("ul[role=listbox]").getByRole("option")).toHaveText(["steps.napis.text"]);
   await state.press("Enter");
   await state.pressSequentially(" }}");
   await expect(state).toHaveValue("{{ steps.napis.text }}");

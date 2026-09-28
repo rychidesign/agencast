@@ -4,6 +4,7 @@ import {
   TriangleAlert, type LucideIcon, Circle,
 } from "lucide-react";
 import { createContext, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 
@@ -36,14 +37,14 @@ export const SheetContext = createContext(false);
 /** Umístí plovoucí nabídku do viewportu i u jeho okraje. */
 export function placePopover(panel: HTMLElement, anchor: HTMLElement, align: "left" | "right" = "right", matchWidth = false) {
   const a = anchor.getBoundingClientRect();
-  if (matchWidth) panel.style.width = `${Math.min(a.width, window.innerWidth - 24)}px`;
-  const p = panel.getBoundingClientRect();
-  const width = Math.min(p.width, window.innerWidth - 24);
-  const left = Math.max(12, Math.min(align === "right" ? a.right - width : a.left, window.innerWidth - width - 12));
-  const below = a.bottom + 4 + p.height <= window.innerHeight - 12;
-  panel.style.left = `${left}px`;
-  panel.style.top = `${below ? a.bottom + 4 : Math.max(12, a.top - p.height - 4)}px`;
   panel.style.maxHeight = `${window.innerHeight - 24}px`;
+  if (matchWidth) panel.style.width = `${Math.min(a.width, window.innerWidth - 24)}px`;
+  const width = Math.min(panel.offsetWidth, window.innerWidth - 24);
+  const height = Math.min(panel.offsetHeight, window.innerHeight - 24);
+  const left = Math.max(12, Math.min(align === "right" ? a.right - width : a.left, window.innerWidth - width - 12));
+  const below = a.bottom + 4 + height <= window.innerHeight - 12;
+  panel.style.left = `${left}px`;
+  panel.style.top = `${below ? a.bottom + 4 : Math.max(12, Math.min(a.top - height - 4, window.innerHeight - height - 12))}px`;
 }
 
 export function usePopoverPosition(open: boolean, panel: RefObject<HTMLElement | null>, anchor: RefObject<HTMLElement | null>, align: "left" | "right" = "right", matchWidth = false, sizeKey = 0) {
@@ -291,20 +292,27 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
   usePopoverPosition(open, popup, trigger);
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => root.current?.contains(e.target as Node) || setOpen(false);
+    const close = (e: MouseEvent) => (root.current?.contains(e.target as Node) || popup.current?.contains(e.target as Node)) || setOpen(false);
+    const scroll = () => {
+      const a = trigger.current?.getBoundingClientRect();
+      if (a && (a.bottom < 0 || a.top > window.innerHeight)) setOpen(false);
+    };
     document.addEventListener("mousedown", close);
-    root.current?.querySelector<HTMLElement>("[role=menuitem]:not([aria-disabled=true])")?.focus();
-    return () => document.removeEventListener("mousedown", close);
+    window.addEventListener("scroll", scroll, true);
+    popup.current?.querySelector<HTMLElement>("[role=menuitem]:not([aria-disabled=true])")?.focus();
+    return () => { document.removeEventListener("mousedown", close); window.removeEventListener("scroll", scroll, true); };
   }, [open]);
   const onKey = (e: React.KeyboardEvent) => {
-    const all = [...(root.current?.querySelectorAll<HTMLElement>("[role=menuitem]:not([aria-disabled=true])") ?? [])];
+    const all = [...(popup.current?.querySelectorAll<HTMLElement>("[role=menuitem]:not([aria-disabled=true])") ?? [])];
     const i = all.indexOf(document.activeElement as HTMLElement);
     if (e.key === "Escape" && open) {
       e.preventDefault(); // Esc zavře jen menu, ne panel nebo sheet pod ním
+      e.stopPropagation();
       setOpen(false);
       root.current?.querySelector<HTMLElement>("button")?.focus();
     } else if (e.key === "Tab" && open) {
       // Tab menu zavře a pokračuje od tlačítka ⋯ (vzor menu podle WAI-ARIA), položky v pořadí Tab nejsou
+      e.stopPropagation();
       setOpen(false);
       root.current?.querySelector<HTMLElement>("button")?.focus();
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -321,8 +329,8 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
       >
         <Ellipsis className="size-5" aria-hidden />
       </button>
-      {open && (
-        <div ref={popup} id={id} role="menu" className="popover fixed z-[60] flex w-60 flex-col gap-1 overflow-y-auto p-2">
+      {open && createPortal(
+        <div ref={popup} id={id} role="menu" className="popover pop-enter fixed z-[60] flex w-60 flex-col gap-1 overflow-y-auto p-2">
           {items.map((it) => (
             <button
               key={it.label} type="button" role="menuitem" tabIndex={-1} disabled={!!it.disabled} aria-disabled={!!it.disabled || undefined} title={it.disabled}
@@ -332,7 +340,7 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
               {it.label}
             </button>
           ))}
-        </div>
+        </div>, document.body
       )}
     </div>
   );

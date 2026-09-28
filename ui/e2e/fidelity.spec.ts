@@ -65,11 +65,11 @@ test("F5 detail běhu: karta kroku bez pořadí, trvání · cena ve třetím ř
   await expect(page.getByRole("region", { name: "summary.md" })).toBeVisible();
 });
 
-test("F6 editor: karta hlavičky r14, konektor 44, sloupec 676 + panel 440, přepínač 44 px", async ({ page, project }) => {
+test("F6 editor: karta hlavičky r14, konektor 48, sloupec 676 + panel 440, přepínač 44 px", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenare/ukazka?krok=napis`);
   const header = page.locator('[data-step-card=""]');
   await expect(header).toHaveCSS("border-top-left-radius", "14px");
-  expect((await page.getByTestId("add-after-napis").locator("xpath=../..").boundingBox())!.height).toBe(44);
+  expect((await page.getByTestId("add-after-napis").locator("xpath=../..").boundingBox())!.height).toBe(48);
   expect((await page.getByRole("radio", { name: "Form" }).boundingBox())!.height).toBe(44);
   expect((await page.getByRole("complementary").boundingBox())!.width).toBe(440);
   await expect(page.getByTestId("save-status").locator("xpath=..")).toHaveClass(/rounded-full/);

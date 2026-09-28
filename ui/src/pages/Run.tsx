@@ -123,7 +123,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
               tabs={RUN_TABS.map((k) => ({ key: k, label: t(`run.tab.${k}`), href: href(project, "behy", runId, { zalozka: k === "kroky" ? undefined : k }) }))} />
             {live && (
               <label className="ml-auto inline-flex min-h-11 items-center gap-2.5 text-[13px] text-fg-secondary">
-                <input type="checkbox" className="size-5" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> {t("run.follow")}
+                <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> {t("run.follow")}
               </label>
             )}
           </div>

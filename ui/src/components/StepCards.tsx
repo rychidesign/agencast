@@ -1,7 +1,7 @@
 // Sloupec karet kroků (§2.3, §2.4) — stejný pro editor a prohlížeč běhu (§2.5).
 // Editor přidává `ctx.edit`: konektory s +, koš a ⋯ vně pilulky, klávesy (§4.1–4.3, §6).
 import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Plus, Trash2, TriangleAlert } from "lucide-react";
-import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { Anchor, ListRef } from "../edit";
 import { formatCost, formatDuration } from "../format";
 import { t } from "../i18n";
@@ -117,7 +117,7 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
   // návrh 05 (změřeno z .pen): pilulka p 16, gap 14, výška 96; vybraná = plocha `surface-active` bez rámečku
   const plane = head ? "rounded-card" : `rounded-full ${dim ? "border border-dashed border-line" : selected ? "bg-surface-active" : "bg-surface"}`;
   return (
-    // otevřené ⋯ / TypePicker leží v kontextu vrstvení karty (transform) → karta s fokusem nad sousedy
+    // Karta má vlastní kontext vrstvení; popovery se proto portálují do body.
     <div className={edit ? "group relative focus-within:z-10" : ""}>
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
@@ -163,6 +163,7 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
  *  Svisle na střed pilulky (96 px, ve větvi 72 px) — řádky karty mají výpustku, výška je pevná i s chybou pod kartou. */
 function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?: Anchor }) {
   const [picker, setPicker] = useState<Anchor | null>(null);
+  const pickerAnchor = useRef<HTMLDivElement>(null);
   const uid = uidOf(step);
   const out = step.type === "output";
   const items = [
@@ -187,8 +188,8 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
           <Trash2 className="size-3.5" aria-hidden />
         </button>
         {picker && (
-          <div className="relative">
-            <TypePicker paste={edit.cut_?.id} onClose={() => setPicker(null)} onPick={(p) => (setPicker(null), edit.add(picker, p))} />
+          <div ref={pickerAnchor} className="relative">
+            <TypePicker anchor={pickerAnchor} paste={edit.cut_?.id} onClose={() => setPicker(null)} onPick={(p) => (setPicker(null), edit.add(picker, p))} />
           </div>
         )}
       </div>
@@ -201,7 +202,7 @@ export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afte
   const edit = ctx.edit;
   if (!edit) return <Arrow />;
   return (
-    <div className="group/conn relative flex h-11 items-center justify-center max-md:h-8">
+    <div className="group/conn relative flex h-12 items-center justify-center">
       <ArrowDown className={`absolute size-4 text-fg-muted group-focus-within/conn:opacity-0 group-hover/conn:opacity-0 pointer-coarse:opacity-0 ${edit.cut_ ? "opacity-0" : ""}`} aria-hidden />
       <AddButton label={afterId ? t("edit.addAfter", { id: afterId }) : t("edit.addStart")} testid={afterId && `add-after-${afterId}`}
         paste={edit.cut_?.id} always={!!edit.cut_} onPick={(p) => edit.add(at, p)} />
@@ -211,7 +212,7 @@ export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afte
 
 function Arrow() {
   return (
-    <div className="flex h-11 items-center justify-center text-fg-muted max-md:h-8" aria-hidden>
+    <div className="flex h-12 items-center justify-center text-fg-muted" aria-hidden>
       <ArrowDown className="size-4" />
     </div>
   );

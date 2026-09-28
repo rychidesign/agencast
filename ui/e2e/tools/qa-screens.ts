@@ -85,7 +85,7 @@ async function screens(): Promise<Screen[]> {
     { name: "krajni-rozbity", hash: ed("krajni", "rozbity") },
     { name: "krajni-rozbity-yaml", hash: ed("krajni", "rozbity", "?rezim=yaml") },
     { name: "krajni-agent", hash: "#/p/krajni/agenti/ultra-dlouhy-agent-s-velmi-dlouhym-jmenem-ktery-se-nevejde-nikam" },
-    { name: "krajni-chyby-popover", hash: "#/p/krajni", act: (p) => p.locator("header summary").first().click() },
+    { name: "krajni-chyby-popover", hash: "#/p/krajni", act: (p) => p.getByTestId("validation-popover-trigger").click() },
     { name: "krajni-beh-velky", hash: `#/p/krajni/behy/${big}` },
     { name: "thtd-scenare", hash: "#/p/thtd" },
     { name: "thtd-igpost", hash: ed("thtd", "ig-post") },

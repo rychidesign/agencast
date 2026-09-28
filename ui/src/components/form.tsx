@@ -1,5 +1,6 @@
 // Editační prvky (§3 inventář): pole se štítkem, výraz/šablona s našeptávačem, JSON, modál rozhodnutí.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { Braces, Check, CircleX, Plus, X } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
@@ -106,7 +107,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   useEffect(() => {
     if (!variablesOpen) return;
     const close = (e: PointerEvent) => {
-      if (!root.current?.contains(e.target as Node)) setVariablesOpen(false);
+      if (!root.current?.contains(e.target as Node) && !menu.current?.contains(e.target as Node)) setVariablesOpen(false);
     };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
@@ -152,8 +153,14 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
       if (item) insertVariable(item);
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       setVariablesOpen(false);
       ref.current?.focus();
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      e.stopPropagation();
+      setVariablesOpen(false);
+      variableRef.current?.focus();
     }
   };
   const onKey = (e: KeyboardEvent) => {
@@ -216,7 +223,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     </button>
   );
   const suggestions = open && (
-    <ul ref={suggestionsRef} id={listId} role="listbox" className="popover fixed z-[60] overflow-y-auto p-2">
+    <ul ref={suggestionsRef} id={listId} role="listbox" className="popover pop-enter fixed z-[60] overflow-y-auto p-2">
       {matches.map((c, i) => (
         <li key={c} id={`${listId}-${i}`} role="option" aria-selected={i === active}
           onMouseDown={(e) => (e.preventDefault(), accept(c))}
@@ -228,7 +235,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   );
   const variableMenu = variablesOpen && (
     <div ref={menu} id={menuId} role="menu" onKeyDown={onVariableMenuKey}
-      className="popover fixed z-[60] max-h-72 w-64 overflow-y-auto p-2">
+      className="popover pop-enter fixed z-[60] max-h-72 w-64 overflow-y-auto p-2">
       {variableGroups.map((group) => (
         <div key={group.label} role="group" aria-label={group.label}>
           <div className="px-3 pt-2 pb-1 text-xs text-fg-muted">{group.label}</div>
@@ -250,22 +257,24 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     // `V3 / VariableInput`: jeden box 44 px, `{}` uvnitř vpravo bez výplně a bez rámečku
     <div ref={root} className="relative">
       <input {...props} className={`${inputCls} ${mono} pr-12`} />
-      <div className="absolute top-0 right-0">{variableButton}{variableMenu}</div>
-      {suggestions}
+      <div className="absolute top-0 right-0">{variableButton}</div>
+      {variableMenu && createPortal(variableMenu, document.body)}
+      {suggestions && createPortal(suggestions, document.body)}
     </div>
   );
   const opened = (value.match(/\{\{/g) ?? []).length, closed = (value.match(/\}\}/g) ?? []).length;
   return (
     <div ref={root}>
       <CodeBox label={label} kind={t(template ? "form.kind.template" : "form.kind.expr")} invalid={!!a11y["aria-invalid"]}
-        tools={<div className="relative -my-3 -mr-3">{variableButton}{variableMenu}</div>}
+        tools={<div className="relative -my-3 -mr-3">{variableButton}</div>}
         status={template && value.includes("{{") ? (opened === closed ? ["ok", t("form.template.ok")] : ["bad", t("form.template.bad")]) : undefined}
         shortcut={candidates.length ? t("form.variables.shortcut") : undefined}>
         <div className="relative">
           <textarea {...props} className={codeArea} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
-          {suggestions}
+          {suggestions && createPortal(suggestions, document.body)}
         </div>
       </CodeBox>
+      {variableMenu && createPortal(variableMenu, document.body)}
     </div>
   );
 }
@@ -281,7 +290,7 @@ function CodeBox({ label, kind, tools, status, shortcut, invalid, children }: {
 }) {
   return (
     // DOM: editor, pak toolbar (Tab z pole jde na `{}` jako u jednořádkového); vizuálně toolbar nahoře (`order-first`)
-    <div className={`relative flex flex-col rounded-control bg-nested ${invalid ? "ring-2 ring-error" : "has-[textarea:focus]:ring-2 has-[textarea:focus]:ring-accent"}`}>
+    <div className={`code-box relative flex flex-col rounded-control bg-nested ${invalid ? "ring-2 ring-error" : "has-[textarea:focus]:ring-2 has-[textarea:focus]:ring-accent"}`}>
       {children}
       <div className="order-first flex min-h-11 items-center justify-between gap-4 border-b border-line px-4 py-3">
         <div className="min-w-0">{label}</div>
@@ -474,7 +483,7 @@ export function ValueInput({ type, value, onChange, a11y }: {
 }) {
   switch (type) {
     case "boolean":
-      return <label htmlFor={a11y.id} className="inline-flex size-9 items-center justify-center pointer-coarse:size-11"><input {...a11y} type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-accent" /></label>;
+      return <label htmlFor={a11y.id} className="inline-flex size-11 items-center justify-center"><input {...a11y} type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} /></label>;
     case "number":
     case "integer":
       return (

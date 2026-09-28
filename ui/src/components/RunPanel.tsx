@@ -85,7 +85,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
           {([[true, "runForm.dry", "runForm.dryHelp"], [false, "runForm.live", "runForm.liveHelp"]] as const).map(([value, label, help]) => (
             <label key={label} className={`block cursor-pointer space-y-1 rounded-control bg-nested p-3.5 ${dry === value ? "ring-1 ring-accent" : "hover:bg-surface-hover"}`}>
               <span className="flex min-h-11 items-center gap-2.5 text-[13px] text-fg-secondary">
-                <input type="radio" name="mode" checked={dry === value} onChange={() => setDry(value)} className="size-5 accent-accent" />{t(label)}
+                <input type="radio" name="mode" checked={dry === value} onChange={() => setDry(value)} />{t(label)}
               </span>
               <span className="block text-xs leading-[18px] text-fg-secondary">{t(help)}</span>
             </label>

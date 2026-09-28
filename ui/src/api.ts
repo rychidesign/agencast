@@ -32,6 +32,7 @@ export interface Connection {
 }
 
 let conn: Connection = { auth: localStorage.getItem(TOKEN_KEY) ? "ok" : "missing", offline: false };
+let connectionVersion = 0;
 const listeners = new Set<() => void>();
 
 function setConn(patch: Partial<Connection>) {
@@ -61,16 +62,26 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
     setConn({ auth: "missing" });
     throw new ApiError(401, "chybí token");
   }
+  const reading = !init.method || init.method === "GET" || init.method === "HEAD";
+  const version = connectionVersion;
   let res: Response;
   try {
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (init.body) headers["Content-Type"] = "application/json";
-    res = await fetch(API_BASE + path, { ...init, headers });
+    const fetchOnce = () => fetch(API_BASE + path, { ...init, headers, ...(reading && { signal: AbortSignal.timeout(20_000) }) });
+    try {
+      res = await fetchOnce();
+    } catch (error) {
+      if (!reading) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      res = await fetchOnce();
+    }
   } catch {
-    setConn({ offline: true });
+    if (reading && version === connectionVersion) setConn({ offline: true });
     // hláška prohlížeče („Failed to fetch“) je anglicky a nic neříká; ukazuje ji SaveNote
     throw new ApiError(0, t("server.unreachable"));
   }
+  connectionVersion++;
   setConn({ offline: false });
   if (res.status === 401) setConn({ auth: "bad" });
   if (!res.ok) {
@@ -149,9 +160,15 @@ export function useApi<T>(
       );
     };
     run();
+    const revalidate = () => { clearTimeout(timer); run(); };
+    const visible = () => { if (!document.hidden) revalidate(); };
+    window.addEventListener("online", revalidate);
+    document.addEventListener("visibilitychange", visible);
     return () => {
       alive = false;
       clearTimeout(timer);
+      window.removeEventListener("online", revalidate);
+      document.removeEventListener("visibilitychange", visible);
     };
   }, [path, tick]);
 

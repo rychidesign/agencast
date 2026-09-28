@@ -21,6 +21,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 | `--color-control` | `#31455F` | výplň sekundárního tlačítka a ikonového tlačítka (`V3 / Button / secondary`, `V3 / IconButton`) |
 | `--color-control-hover` | `#3B5170` | hover sekundárního tlačítka |
 | `--color-surface-active` | `#253B50` (změřeno z .pen; odhad byl `#1B2A3D`) | aktivní položka sidebaru a seznamu, vybraná karta kroku |
+| `--color-field-raised` | `#253B50` (vlna I) | pole uvnitř vnořených karet `bg-nested` |
 | `--color-track` | `#25374A` | dráha progress baru |
 | `--radius-button` | `10px` | tlačítka |
 | `--radius-tile` | `14px` (změřeno z .pen) | karta projektu, scénáře, položka seznamu, kontejner kroků, filtry běhů, modál |
@@ -132,3 +133,9 @@ Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v k
   chevron vpravo. Záložky detailu běhu s vodorovným posuvem. Agenti/Skilly pod 1100 px jako vodorovné čipy.
 - Vlna H podle uživatele: nabídky mají stín místo rámečku, panely a mobilní modály jsou spodní sheety,
   mobilní a tabletová navigace používá FAB místo horního menu.
+- Vlna I: nabídky ⋯, proměnných, našeptávač a výběr typu se vykreslují přes portál do `body`, takže souřadnice
+  `fixed` patří viewportu i v transformovaných kartách a sheetech. Konektor mezi kartami má 48 px, (+) 40 px,
+  tedy 4 px volného místa nahoře i dole, také ve větvích.
+- Vlna I: pole ve vnořených kartách mají `field-raised` `#253B50`; checkboxy/radia jsou na všech plochách
+  vykreslené jednotně (prázdné `control`, vybrané `accent` s tmavou značkou). Čtení API opakuje jednou po 1,5 s
+  a po obnovení připojení či zviditelnění stránky hned obnovuje data i kontrolu konfliktu.

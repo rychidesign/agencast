@@ -323,7 +323,7 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
           {[...project.skills.map((s) => s.name), ...skills.filter((s) => !project.skills.some((known) => known.name === s))].map((s) => (
             <li key={s}>
               <label className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
-                <input type="checkbox" className="size-[18px] accent-accent" checked={skills.includes(s)}
+                <input type="checkbox" checked={skills.includes(s)}
                   onChange={(e) => setFm("skills", e.target.checked ? [...skills, s] : skills.filter((x) => x !== s))} />
                 <span className="min-w-0 flex-1 truncate">{s}</span><span className="font-mono text-[11px] text-fg-muted">SKILL.md</span>
               </label>
@@ -343,7 +343,7 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
               return (
                 <li key={s.name}>
                   <label className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
-                    <input type="checkbox" className="size-[18px] accent-accent" checked={on} disabled={!allowed && !on} onChange={(e) => toggleServer(s.name, e.target.checked, s.tools)} />
+                    <input type="checkbox" checked={on} disabled={!allowed && !on} onChange={(e) => toggleServer(s.name, e.target.checked, s.tools)} />
                     <span className="min-w-0 flex-1 truncate">{s.name}</span>
                     {!allowed && <span className="font-sans text-xs text-fg-muted">{t("agent.mcpNotAllowed")}</span>}
                     <span className="font-mono text-[11px] text-fg-muted">{s.tools?.length ?? 0} {t("agent.toolsCount")}</span>
@@ -354,7 +354,7 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
                         const cur = tools[s.name] ?? [];
                         return (
                           <label key={tool} className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
-                            <input type="checkbox" className="size-[18px] accent-accent" checked={cur.includes(tool)}
+                            <input type="checkbox" checked={cur.includes(tool)}
                               onChange={(e) => setFm("tools", { ...tools, [s.name]: e.target.checked ? [...cur, tool] : cur.filter((x) => x !== tool) })} />
                             <span className="min-w-0 flex-1 truncate">{tool}</span>
                           </label>

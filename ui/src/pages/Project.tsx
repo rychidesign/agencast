@@ -1,8 +1,9 @@
 // §2.2 Projekt: hlavička sekce (Scénáře · Agenti · Běhy · Skilly · Config); navigace projektu je v sidebaru (Shell).
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { enc, useApi } from "../api";
 import { PageHeader } from "../components/PageHeader";
-import { btn, ErrorList, ErrorText, Loading, placePopover, Skeleton, StatusChip, type MenuItem } from "../components/ui";
+import { btn, ErrorList, ErrorText, Loading, Skeleton, StatusChip, usePopoverPosition, type MenuItem } from "../components/ui";
 import { t } from "../i18n";
 import { href, type Tab } from "../router";
 import type { ErrorItem, Project } from "../types";
@@ -27,6 +28,33 @@ export function errorHref(project: string, e: ErrorItem): string | undefined {
   if (m?.[1] === "skills") return href(project, "skilly", m[2]);
   if (e.file === "config.yaml" || e.file === "mcp.yaml") return href(project, "config");
   return undefined;
+}
+
+function ValidationPopover({ errors, project }: { errors: ErrorItem[]; project: string }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
+  usePopoverPosition(open, popup, trigger);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => (trigger.current?.contains(e.target as Node) || popup.current?.contains(e.target as Node)) || setOpen(false);
+    const blur = (e: FocusEvent) => (trigger.current?.contains(e.target as Node) || popup.current?.contains(e.target as Node)) || setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("focusin", blur);
+    popup.current?.focus();
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("focusin", blur); };
+  }, [open]);
+  return <>
+    <button ref={trigger} type="button" data-testid="validation-popover-trigger" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
+      <StatusChip status="failed">{t("validation.count", { n: errors.length })}</StatusChip>
+    </button>
+    {open && createPortal(<div ref={popup} id={id} role="dialog" tabIndex={-1} aria-label={t("validation.count", { n: errors.length })}
+      onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOpen(false); trigger.current?.focus(); } }}
+      className="popover pop-enter fixed z-[60] w-[36rem] max-w-[calc(100vw-24px)] overflow-y-auto p-4 focus:outline-none">
+      <ErrorList errors={errors} hrefFor={(e) => errorHref(project, e)} />
+    </div>, document.body)}
+  </>;
 }
 
 /** Hlavička sekce (G1): záložka do ní doplní akce, ⋯ a druhý řádek; „Načíst znovu“ je v ⋯ vždy první. */
@@ -54,19 +82,7 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
         // než se projekt načte, kreslí hlavičku stránka a po načtení ji převezme záložka (nový uzel) → otevřené ⋯
         // by se samo zavřelo; během načítání proto ⋯ není (Běhy hlavičku nepředávají, mají ho vždy)
         menu={p || detail.error || tab === "behy" ? [{ label: t("common.reload"), onSelect: reload }, ...(x.menu ?? [])] : undefined}
-        meta={<>{x.meta}{errors.length > 0 && (
-          <details className="relative text-sm" onToggle={(e) => {
-            if (e.currentTarget.open) placePopover(e.currentTarget.querySelector<HTMLElement>("[data-popover]")!, e.currentTarget.querySelector("summary")!);
-          }} onKeyDown={(e) => e.key === "Escape" && (e.currentTarget.open = false)}
-            onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && (e.currentTarget.open = false)}>
-            <summary className="cursor-pointer list-none rounded-full [&::-webkit-details-marker]:hidden">
-              <StatusChip status="failed">{t("validation.count", { n: errors.length })}</StatusChip>
-            </summary>
-            <div data-popover tabIndex={-1} className="popover fixed z-[60] w-[36rem] max-w-[calc(100vw-24px)] overflow-y-auto p-4 focus:outline-none">
-              <ErrorList errors={errors} hrefFor={(e) => errorHref(project, e)} />
-            </div>
-          </details>
-        )}</>}>
+        meta={<>{x.meta}{errors.length > 0 && <ValidationPopover errors={errors} project={project} />}</>}>
         {x.children}
       </PageHeader>
       {detail.error?.status === 422 && (

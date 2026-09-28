@@ -74,7 +74,7 @@ test("QA5 výpadek při ukládání: česká hláška, konflikt v hlavičce", as
   await page.route("**/projects/**", (r) => r.abort());
   await page.getByRole("button", { name: "Uložit" }).click();
   await expect(page.getByTestId("save-status")).toHaveText("Server neodpovídá, nic se nezapsalo.");
-  await expect(page.getByTestId("server-bar")).toBeVisible();
+  await expect(page.getByTestId("server-bar")).toHaveCount(0);
   await page.unroute("**/projects/**");
   project.write("scenarios/ukazka.yaml", `${project.read("scenarios/ukazka.yaml")}# ručně\n`);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));

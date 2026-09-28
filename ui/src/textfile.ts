@@ -43,12 +43,16 @@ export function useWatch(check: () => void, active: boolean) {
   ref.current = check;
   useEffect(() => {
     if (!active) return;
-    const run = () => ref.current();
+    const run = () => { if (!document.hidden) ref.current(); };
     const timer = setInterval(run, POLL_MS);
     window.addEventListener("focus", run);
+    window.addEventListener("online", run);
+    document.addEventListener("visibilitychange", run);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", run);
+      window.removeEventListener("online", run);
+      document.removeEventListener("visibilitychange", run);
     };
   }, [active]);
 }

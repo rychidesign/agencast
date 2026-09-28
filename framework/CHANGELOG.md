@@ -5,6 +5,12 @@ verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
 
 Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
 
+## 0.16.3 — 2026-09-28 (opravy GUI v editoru)
+
+- Plovoucí nabídky a výběr typu se drží ve viewportu i uvnitř karet a sheetů.
+- Krátké výpadky připojení se tiše zkusí znovu; po probuzení se data a konflikty hned ověří.
+- Konektory kroků mají volné místo kolem tlačítka +, pole ve vnořených kartách světlejší pozadí a checkboxy i radio čitelný vlastní vzhled.
+
 ## 0.16.2 — 2026-09-28 (nabídky, sheety a mobilní navigace)
 
 - Kontextové nabídky a popovery bez rámečku, se světlejší výplní a měkkým fialovým stínem.
