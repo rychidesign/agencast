@@ -1,10 +1,10 @@
-// §2.8 Config: formulář pro models, limits, storage, webhook, callback a openrouter.api_key_env
-// (`PUT …/config`, merge patch); YAML režim = config.yaml a mcp.yaml jako text (`files/`).
-// Proměnné prostředí jen ✓/✗, nikdy hodnota.
+// §2.8 Config: form for models, limits, storage, webhook, callback and openrouter.api_key_env
+// (`PUT …/config`, merge patch); YAML mode = config.yaml and mcp.yaml as text (`files/`).
+// Environment variables only as ✓/✗, never the value.
 import { CodeXml, Plus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { enc } from "../api";
-import { FormField, inputCls, Modal } from "../components/form";
+import { FormField, inputCls, Modal, slugify } from "../components/form";
 import { YamlEditor } from "../components/YamlEditor";
 import { btn, ErrorList, ErrorText, Loading, StatusBadge, Toggle } from "../components/ui";
 import { KeyInput } from "../components/StepPanel";
@@ -17,7 +17,7 @@ import type { SectionHeader } from "./Project";
 
 type Obj = Record<string, unknown>;
 
-/** Část config.yaml, kterou `PUT …/config` smí měnit (api.md „Operace“). */
+/** The part of config.yaml that `PUT …/config` may change (api.md "Operations"). */
 export function configFields(data: unknown): Obj {
   const d: Obj = isObj(data) ? data : {};
   const out: Obj = {};
@@ -46,7 +46,7 @@ const Section = ({ title, children, action }: { title: string; children: ReactNo
 );
 
 export function ConfigTab({ name, project, header, onChanged }: { name: string; project?: Project; header: SectionHeader; onChanged?: () => void }) {
-  // Bez projektu (config neprošel, 422) rovnou text souboru.
+  // Without a project (the config did not pass, 422) straight to the file text.
   const [mode, setMode] = useState<"form" | "yaml">(project ? "form" : "yaml");
   const url = `/projects/${enc(name)}/config`;
   const form = useFileDraft<Obj>(name, mode === "form" ? "config.yaml" : null, {
@@ -131,7 +131,7 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
   );
 }
 
-/** Alias modelu podle config.schema.json (`kebab`): jako jméno agenta a scénáře, s pomlčkou. */
+/** Model alias per config.schema.json (`kebab`): like an agent or scenario name, with hyphens. */
 const KEBAB = /^[a-z][a-z0-9-]*$/;
 
 const LIMITS: [string, "usd" | "time" | "int"][] = [
@@ -166,7 +166,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
     const v = String(sub(section)[k] ?? "");
     return (
       <FormField label={label} errors={fe(`${section}.${k}`)} help={<EnvVar name={v} env={env} />}>
-        {(a) => <input {...a} className={`${inputCls} font-mono`} value={v} placeholder="JMENO_PROMENNE"
+        {(a) => <input {...a} className={`${inputCls} font-mono`} value={v} placeholder="VARIABLE_NAME"
           onChange={(e) => put(section, clean(sub(section), k, e.target.value))} />}
       </FormField>
     );
@@ -200,7 +200,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
               <li key={alias} className="space-y-4 rounded-[10px] bg-group p-4">
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(120px,1fr)_minmax(220px,2fr)_minmax(100px,0.7fr)_minmax(110px,0.7fr)]">
                   <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">{t("config.alias")}</span><div className="flex min-h-11 min-w-0 items-center">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
-                    : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
+                    : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} normalize={slugify} hint={t("config.aliasRule")}
                       onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}</div></div>
                   <div className="min-w-0 space-y-1"><label className="block text-[13px] font-medium text-fg-secondary" htmlFor={`model-${alias}`}>{t("config.modelId", { alias: "" }).trim()}</label><input id={`model-${alias}`} aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
                     value={String(m.id ?? "")} onChange={(e) => setM("id", e.target.value)} /></div>

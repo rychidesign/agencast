@@ -1,0 +1,28 @@
+version: 1
+name: tutorial-01-exercise
+description: Comes up with three names for a product in a given style (tutorial, part 1 — exercise solution)
+
+inputs:
+  product:
+    type: string
+    required: true
+    description: The product we are naming
+  style:
+    type: string
+    default: playful
+    description: The style of names we want
+
+outputs:
+  names:
+    type: string
+    description: Three name ideas, each on its own line
+
+steps:
+  - id: propose
+    ask:
+      agent: tutorial-namer
+      prompt: "Come up with 3 names in a “{{ inputs.style }}” style for this product: {{ inputs.product }}. Each on its own line."
+
+  - id: out
+    output:
+      names: "{{ steps.propose.text }}"

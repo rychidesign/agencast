@@ -1,120 +1,120 @@
 # AgenCast framework
 
-Verze 0.17.0, Python 3.12 + uv. Formáty podle `docs/spec/` (v1), návrh
-v `docs/DESIGN.md`. Balík i příkaz se jmenují `agencast` (do 0.2.5
-`maw`); jméno příkazu je v `pyproject.toml` (`[project.scripts]`).
+Version 0.17.0, Python 3.12 + uv. Formats per `docs/spec/` (v1), design
+in `docs/DESIGN.md`. The package and the command are both called `agencast` (until 0.2.5
+`maw`); the command name is in `pyproject.toml` (`[project.scripts]`).
 
-Balíček obsahuje i skilly, dokumentaci a příklady: [návod](../docs/getting-started.md).
+The package also contains the skills, documentation and examples: [guide](../docs/getting-started.md).
 
-## Použití
+## Usage
 
-Příkazy spouštějte z kořene klonu repozitáře.
+Run the commands from the root of the repository clone.
 
 ```
 uv run --project framework agencast --project examples/showcase validate ig-post
-uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva" --dry-run
-uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva" --fake examples/showcase/fake/ig-post.yaml
-uv run --project framework agencast --project examples/showcase run ig-post -i tema="nová káva"
-uv run --project framework agencast --project examples/showcase run ukazka-task -i knihy="Čapek: R.U.R. (1920)" --fake examples/showcase/fake/ukazka-task.yaml
+uv run --project framework agencast --project examples/showcase run ig-post -i topic="new coffee" --dry-run
+uv run --project framework agencast --project examples/showcase run ig-post -i topic="new coffee" --fake examples/showcase/fake/ig-post.yaml
+uv run --project framework agencast --project examples/showcase run ig-post -i topic="new coffee"
+uv run --project framework agencast --project examples/showcase run demo-task -i books="Austen: Pride and Prejudice (1813)" --fake examples/showcase/fake/demo-task.yaml
 uv run --project framework agencast --project examples/showcase runs list
 uv run --project framework agencast --project examples/showcase runs show <run_id>
 uv run --project framework agencast --project examples/showcase serve --host 127.0.0.1 --port 8080 [--workers 2] [--cors http://localhost:5173]
 uv run --project framework agencast --project examples/showcase migrate examples/showcase/workflows/scenarios/ig-post.yaml
-uv run --project framework agencast new project ~/muj-projekt [--example showcase|tutorial]
-uv run --project framework agencast new agent recenzent | new scenario kontrola [--project <cesta>]
+uv run --project framework agencast new project ~/my-project [--example showcase|tutorial]
+uv run --project framework agencast new agent reviewer | new scenario check [--project <path>]
 uv run --project framework agencast skills list | path | install [--to all] [--prefix DIR] [--copy] [--force]
 uv run --project framework agencast docs [show spec/scenario.md]
-uv run --project framework agencast projects list | add <cesta> [--name N] | rm <jméno>
+uv run --project framework agencast projects list | add <path> [--name N] | rm <name>
 ```
 
-- Scénář jde zadat jménem (`ig-post`) nebo cestou k `.yaml`. Kořen
-  projektu = první složka s `workflows/` od aktuální složky nahoru, nebo
-  `--project <cesta>` u kteréhokoli příkazu — všechno funguje z libovolné
-  složky.
+- A scenario can be given by name (`ig-post`) or by the path to its `.yaml`. The project
+  root = the first folder with `workflows/` going up from the current folder, or
+  `--project <path>` on any command — everything works from any
+  folder.
 
-- Konfigurace `workflows/config.yaml` (vzor `config.example.yaml`) a
-  registr MCP serverů `workflows/mcp.yaml` (vzor `mcp.example.yaml`; oba
-  mění jen vlastník). Klíče jen z prostředí nebo z `.env` v kořeni
-  projektu.
-- Krok `task` spouští MCP servery z `mcp.yaml` jednou za běh (stdio přes
-  `npx` potřebuje Node; na Modalu balíček předinstalovat). stderr serverů
-  je v záznamu běhu v `mcp/<server>.stderr.log`.
-- `--fake` nahrazuje volání modelů bez ceny za model a bez klíče OpenRouteru;
-  volitelný YAML obsahuje skriptované odpovědi (popis v `src/agencast/fake.py`).
-  MCP servery z `mcp.yaml` v kroku `task` jsou skutečné i s `--fake`; ukázkový
-  `filesystem` přes `npx` potřebuje Node.js a při prvním spuštění stáhne balíček.
-  Callback se odesílá doopravdy a potřebuje podpisové tajemství. Zaručeně offline
-  jsou jen scénáře bez `task` (i ve volaných scénářích) a bez `--callback-url`, např. `ig-post`.
-- `--callback-url https://…` pošle po běhu výsledek podepsaný HMAC
+- Configuration `workflows/config.yaml` (template `config.example.yaml`) and the
+  MCP server registry `workflows/mcp.yaml` (template `mcp.example.yaml`; only the
+  owner changes both). Keys only from the environment or from `.env` in the project
+  root.
+- A `task` step starts the MCP servers from `mcp.yaml` once per run (stdio via
+  `npx` needs Node; on Modal, preinstall the package). The servers' stderr
+  is in the run record in `mcp/<server>.stderr.log`.
+- `--fake` replaces model calls with no model cost and no OpenRouter key;
+  an optional YAML contains scripted answers (described in `src/agencast/fake.py`).
+  The MCP servers from `mcp.yaml` in a `task` step are real even with `--fake`; the example
+  `filesystem` via `npx` needs Node.js and downloads a package on first run.
+  The callback is really sent and needs a signing secret. Only scenarios without
+  `task` (including called scenarios) and without `--callback-url` are guaranteed to run offline, e.g. `ig-post`.
+- `--callback-url https://…` sends the result signed with HMAC after the run
   (`callback.secret_env`).
-- Záznamy běhů jsou v `runs/` (v `.gitignore`), soubory z `output`
-  v `outputs/` (`storage.type: local`).
-- Každý běh má `report.html` (jeden soubor, CSS uvnitř, bez externích
-  zdrojů, prompty a odpovědi v `<details>`); kopie jde do úložiště a jeho
-  URL je v callbacku jako `report_url` (`storage.type: local` → `file://`).
-- `new project <cesta>` založí `workflows/` (config, agent `pisatel`,
-  scénář `ukazka` — projdou `validate --offline` i `--fake`),
-  `.env.example` a `.gitignore`; `new agent|scenario <jméno>` přidá
-  minimální soubor do projektu. Nic nepřepisuje (docs/spec/projects.md).
-- Registr projektů `~/.config/agencast/projects.yaml` (`AGENCAST_CONFIG_DIR`)
-  plní `new project`, `projects add` a úspěšný `run` (`validate` od 0.15.1
-  registr nemění); GUI může
-  zapisovat v režimu registru. `projects_root` určuje výchozí složku pro
-  nové projekty (výchozí `~/workspace`).
-- `migrate`: ve v1 není co převádět; neznámá verze = chyba `config`.
-- Návratový kód: 0 úspěch, 1 běh skončil chybou, 2 chyba `config`
-  (validate, vstupy, prostředí).
+- Run records are in `runs/` (in `.gitignore`), files from `output`
+  in `outputs/` (`storage.type: local`).
+- Every run has a `report.html` (a single file, CSS inside, no external
+  resources, prompts and responses in `<details>`); a copy goes to storage and its
+  URL is in the callback as `report_url` (`storage.type: local` → `file://`).
+- `new project <path>` creates `workflows/` (config, agent `writer`,
+  scenario `demo` — they pass `validate --offline` and `--fake`),
+  `.env.example` and `.gitignore`; `new agent|scenario <name>` adds a
+  minimal file to the project. It never overwrites anything (docs/spec/projects.md).
+- The project registry `~/.config/agencast/projects.yaml` (`AGENCAST_CONFIG_DIR`)
+  is filled by `new project`, `projects add` and a successful `run` (since 0.15.1 `validate` does not
+  change the registry); the GUI can
+  write in registry mode. `projects_root` sets the default folder for
+  new projects (default `~/workspace`).
+- `migrate`: there is nothing to convert in v1; an unknown version = `config` error.
+- Exit code: 0 success, 1 the run ended with an error, 2 `config` error
+  (validate, inputs, environment).
 
 ## Webhook server (`agencast serve`)
 
-Smlouva: `docs/spec/webhook.md`. Stdlib `ThreadingHTTPServer`, žádný
-webový framework.
+Contract: `docs/spec/webhook.md`. Stdlib `ThreadingHTTPServer`, no
+web framework.
 
 ```
 POST /runs            Authorization: Bearer $WEBHOOK_TOKEN
-{"scenario": "ig-post", "inputs": {"tema": "…"}, "callback_url": "https://…", "request_key": "n8n-4711"}
-→ 202 {"run_id": "…", "queue_position": 1}   běh je ve frontě, výsledek přijde na callback_url
-→ 200 {"run_id": "<původní>", "queue_position": null}   request_key už byl použit
-→ 401 / 422 {"error": "…", "details": [...]}   nic nevzniká, callback nepřijde
-GET /runs/<run_id>    stav: queued (+ queue_position) / running / tělo callbacku + callback_failed
-GET /projects, /projects/<p>[/scenarios/<s>|/runs[/<id>[/files/<cesta>]]|/spend?day=]   čtecí API (docs/spec/api.md)
-POST /projects/<p>/runs   jako POST /runs v projektu <p>; callback_url volitelná, "dry_run": true → jen plán
-POST /projects/<p>/validate   validace bez zápisu ({path, text} nebo prázdné tělo), chyby jako objekty
-POST /projects/new       založí projekt ze šablony a zapíše jej do registru
-POST /projects           zapíše existující projekt s workflows/config.yaml
-DELETE /projects/<p>     odebere projekt jen z registru, soubory zůstanou
-GET /, /assets/…      GUI (framework/src/agencast/ui/, bez tokenu)
+{"scenario": "ig-post", "inputs": {"topic": "…"}, "callback_url": "https://…", "request_key": "n8n-4711"}
+→ 202 {"run_id": "…", "queue_position": 1}   the run is queued, the result arrives at callback_url
+→ 200 {"run_id": "<original>", "queue_position": null}   request_key was already used
+→ 401 / 422 {"error": "…", "details": [...]}   nothing is created, no callback arrives
+GET /runs/<run_id>    status: queued (+ queue_position) / running / callback body + callback_failed
+GET /projects, /projects/<p>[/scenarios/<s>|/runs[/<id>[/files/<path>]]|/spend?day=]   read API (docs/spec/api.md)
+POST /projects/<p>/runs   like POST /runs in project <p>; callback_url optional, "dry_run": true → plan only
+POST /projects/<p>/validate   validation without writing ({path, text} or an empty body), errors as objects
+POST /projects/new       creates a project from the template and writes it to the registry
+POST /projects           registers an existing project with workflows/config.yaml
+DELETE /projects/<p>     removes the project from the registry only, files stay
+GET /, /assets/…      GUI (framework/src/agencast/ui/, no token)
 ```
 
-- **GUI** (od 0.6.0): `serve` podává sestavené GUI z
-  `framework/src/agencast/ui/` (výstup `npm run build` ve složce `ui/`
-  repozitáře; git ho ignoruje, do wheelu jde přes `artifacts`). `GET /`
-  a `/assets/…` jsou bez tokenu, token chrání jen `/projects…` a `/runs…`;
-  cesta bez přípony vrátí `index.html` (hash routing). Bez sestaveného
-  GUI vrátí `GET /` 404 s návodem. Při vývoji GUI z `vite dev` (jiný
-  origin) pusť `serve --port 8787 --cors http://localhost:5173` — bez přepínače
-  žádné CORS hlavičky.
+- **GUI** (since 0.6.0): `serve` serves the built GUI from
+  `framework/src/agencast/ui/` (output of `npm run build` in the repository's
+  `ui/` folder; git ignores it, it goes into the wheel via `artifacts`). `GET /`
+  and `/assets/…` need no token, the token protects only `/projects…` and `/runs…`;
+  a path without an extension returns `index.html` (hash routing). Without a built
+  GUI, `GET /` returns 404 with instructions. When developing the GUI from `vite dev` (another
+  origin), run `serve --port 8787 --cors http://localhost:5173` — without the switch
+  there are no CORS headers.
 
-- V projektu nebo s `--project` jeden projekt (token `webhook.token_env`);
-  **mimo projekt režim registru**: všechny projekty z registru, token
-  serveru `AGENCAST_TOKEN`, tajemství z prostředí serveru a `.env` v cwd,
-  `/runs` jen přes `/projects/<p>/runs`.
+- In a project or with `--project`: one project (token `webhook.token_env`);
+  **outside a project, registry mode**: all projects from the registry, the server
+  token `AGENCAST_TOKEN`, secrets from the server's environment and `.env` in cwd,
+  `/runs` only via `/projects/<p>/runs`.
 
-- `--host` a `--port` přepisují `AGENCAST_HOST` a `AGENCAST_PORT`; výchozí
-  hodnoty jsou `127.0.0.1` a `8080`. `AGENCAST_PORT` musí být celé číslo 1–65535.
-  Tyto proměnné se čtou z prostředí procesu při parsování argumentů;
-  `.env` v cwd se načítá až potom, proto z něj bind adresu ani port nenastavíš.
-- Pro režim registru může `~/.config/agencast/serve.env` obsahovat
-  `AGENCAST_TOKEN`, `AGENCAST_HOST` a `AGENCAST_PORT`:
+- `--host` and `--port` override `AGENCAST_HOST` and `AGENCAST_PORT`; the defaults
+  are `127.0.0.1` and `8080`. `AGENCAST_PORT` must be an integer 1–65535.
+  These variables are read from the process environment while parsing arguments;
+  `.env` in cwd is loaded only afterwards, so you cannot set the bind address or port from it.
+- For registry mode, `~/.config/agencast/serve.env` can contain
+  `AGENCAST_TOKEN`, `AGENCAST_HOST` and `AGENCAST_PORT`:
 
   ```dotenv
-  AGENCAST_TOKEN=<tajný-token>
+  AGENCAST_TOKEN=<secret-token>
   AGENCAST_HOST=127.0.0.1
   AGENCAST_PORT=8080
   ```
 
-  Pro přístup z jiných zařízení nastav `AGENCAST_HOST` na privátní adresu
-  rozhraní Tailscale. Služba systemd uživatele:
+  For access from other devices, set `AGENCAST_HOST` to the private address
+  of the Tailscale interface. A user systemd service:
 
   ```ini
   [Unit]
@@ -127,55 +127,55 @@ GET /, /assets/…      GUI (framework/src/agencast/ui/, bez tokenu)
   WantedBy=default.target
   ```
 
-- Start potřebuje proměnné `webhook.token_env`, `callback.secret_env`
-  a (bez `--fake`) klíč OpenRouteru; jinak skončí chybou `config`.
-- Běhy jdou jeden po druhém (jedno pracovní vlákno); `--workers N` pustí
-  N běhů najednou, pořadí dokončení pak není zaručené. Fronta a
-  `request_key` jsou soubory v `<runs>/_queue/` — po restartu serveru se
-  čekající požadavky zpracují; běh přerušený uprostřed se neopakuje,
-  pošle se callback `internal` (ověř ručně).
-- Volitelné `limits.max_parallel_runs` a `limits.daily_budget_usd`
-  v `config.yaml` (od 0.3.1) platí pro všechny běhy nad jedním `runs/` —
-  `serve`, ruční CLI i cron sdílí jeden strop (docs/spec/config.md).
-- Callback: `https://` (výjimka `http://127.0.0.1` pro testy), podpis
-  `X-Signature: sha256=<HMAC>`, 3 pokusy, pak `callback_failed`.
-- Server je HTTP bez TLS a GUI nemá tokenovou ochranu. Nikdy ho
-  nevystavuj veřejně; binduj jen na localhost nebo privátní síť, například
-  Tailscale. Nasazení na Modal je Fáze 3c.
+- Startup needs the variables `webhook.token_env`, `callback.secret_env`
+  and (without `--fake`) the OpenRouter key; otherwise it ends with a `config` error.
+- Runs go one after another (a single worker thread); `--workers N` starts
+  N runs at once, and the completion order is then not guaranteed. The queue and
+  `request_key` are files in `<runs>/_queue/` — after a server restart,
+  waiting requests are processed; a run interrupted midway is not repeated,
+  a callback `internal` is sent (verify manually).
+- The optional `limits.max_parallel_runs` and `limits.daily_budget_usd`
+  in `config.yaml` (since 0.3.1) apply to all runs over one `runs/` —
+  `serve`, the manual CLI and cron share one cap (docs/spec/config.md).
+- Callback: `https://` (exception `http://127.0.0.1` for tests), signature
+  `X-Signature: sha256=<HMAC>`, 3 attempts, then `callback_failed`.
+- The server is HTTP without TLS and the GUI has no token protection. Never
+  expose it publicly; bind only to localhost or a private network, for example
+  Tailscale. Deployment on Modal is Phase 3c.
 
-## Testy
+## Tests
 
 ```
 cd framework && uv run pytest
 ```
 
-Konformační sada (DESIGN §5.6, §5.9): výrazy (58 případů ze spiku (c)
-upravených podle spec + pravidla spec), loader, validate, engine (třídy
-chyb, retry, kaskáda, parallel, switch, rozpočet, timeout, callback,
-maskování), krok `task` s falešným MCP serverem `tests/fake_mcp_server.py`
-(oprávnění, normalizace schémat, smyčka, skilly, `dedupe_key`, zbylé
-procesy) a zlaté scénáře — každý soubor v `examples/*/workflows/` a každá ukázka
-v `docs/spec/`. Nový scénář v `examples/*/workflows/scenarios/` se testuje sám;
-skriptované odpovědi pro něj patří do `../examples/<projekt>/fake/<jméno>.yaml`.
+Conformance suite (DESIGN §5.6, §5.9): expressions (58 cases from spike (c)
+adjusted per the spec + the spec rules), loader, validate, engine (error
+classes, retry, cascade, parallel, switch, budget, timeout, callback,
+masking), the `task` step with the fake MCP server `tests/fake_mcp_server.py`
+(permissions, schema normalization, loop, skills, `dedupe_key`, leftover
+processes) and golden scenarios — every file in `examples/*/workflows/` and every example
+in `docs/spec/`. A new scenario in `examples/*/workflows/scenarios/` is tested automatically;
+its scripted answers belong in `../examples/<project>/fake/<name>.yaml`.
 
-## Struktura (vrstvy DESIGN D3)
+## Structure (DESIGN D3 layers)
 
-| Soubor | Vrstva |
+| File | Layer |
 |---|---|
-| `loader.py` | čtení souborů: YAML 1.2 core, frontmatter, `.env`, JSON Schema ze spec |
-| `validate.py` | statické kontroly (scenario.md §7), vstupy |
-| `expressions.py` | výrazy a šablony (scenario.md §5) |
-| `engine.py` | běh: kroky, retry, timeout, rozpočet, callback |
-| `providers.py` | OpenRouter chat / Jev / obrázek, třídy chyb, kaskáda |
-| `fake.py` | falešný poskytovatel (`httpx.MockTransport`) |
-| `record.py` | záznam běhu, summary.md, plan.md, report.html |
-| `server.py` | webhook server, fronta, request_key, API `/projects/...` (čtení, editace, validate), GUI a `--cors` |
-| `mcp_client.py` | `mcp.yaml`, MCP servery běhu (SDK `mcp` 2.2), normalizace schémat nástrojů |
-| `task.py` | krok `task` (smyčka model ↔ nástroje, `load_skill`), `dedupe_key` |
-| `projects.py` | registr projektů, šablony pro `agencast new`, popis projektu a scénáře pro GUI |
-| `api.py` | veřejné API pro obálky (CLI, `serve`, později Modal a MCP): `load`, `run`, `dry_run`, `runs_list`, `run_status`, `new_*` |
-| `cli.py` | příkaz `agencast` |
+| `loader.py` | reading files: YAML 1.2 core, frontmatter, `.env`, JSON Schema from the spec |
+| `validate.py` | static checks (scenario.md §7), inputs |
+| `expressions.py` | expressions and templates (scenario.md §5) |
+| `engine.py` | run: steps, retry, timeout, budget, callback |
+| `providers.py` | OpenRouter chat / Jev / image, error classes, cascade |
+| `fake.py` | fake provider (`httpx.MockTransport`) |
+| `record.py` | run record, summary.md, plan.md, report.html |
+| `server.py` | webhook server, queue, request_key, `/projects/...` API (read, edit, validate), GUI and `--cors` |
+| `mcp_client.py` | `mcp.yaml`, the run's MCP servers (`mcp` SDK 2.2), tool schema normalization |
+| `task.py` | the `task` step (model ↔ tools loop, `load_skill`), `dedupe_key` |
+| `projects.py` | project registry, templates for `agencast new`, project and scenario descriptions for the GUI |
+| `api.py` | public API for the shells (CLI, `serve`, later Modal and MCP): `load`, `run`, `dry_run`, `runs_list`, `run_status`, `new_*` |
+| `cli.py` | the `agencast` command |
 
-Zatím ne: Modal a úložiště R2 (Fáze 3c). Nejasnosti spec: `docs/spec/ISSUES.md`.
+Not yet: Modal and R2 storage (Phase 3c). Unclear points in the spec: `docs/spec/ISSUES.md`.
 
-Historické protokoly jsou v [archivu ostrých běhů](../docs/archive/ostre-behy-2026-09.md).
+Historical logs are in the [archive of live runs](../docs/archive/live-runs-2026-09.md).

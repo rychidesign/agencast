@@ -1,4 +1,4 @@
-// Tvary odpovědí `agencast serve` podle docs/spec/api.md (0.9.0).
+// Shapes of `agencast serve` responses per docs/spec/api.md (0.9.0).
 
 export interface ErrorItem {
   message: string;
@@ -14,7 +14,7 @@ export interface ProjectRef {
   available: boolean;
   counts: { scenarios: number; agents: number };
   spend_today_usd: number;
-  /** Jen u `available: false`. */
+  /** Only for `available: false`. */
   reason?: string;
   last_run?: LastRunRef | null;
 }
@@ -23,13 +23,13 @@ export interface ProjectRef {
 export interface ProjectList {
   projects: ProjectRef[];
   registry: string;
-  /** Výchozí kořen nových projektů (`<projects_root>/<jméno>`). */
+  /** Default root for new projects (`<projects_root>/<name>`). */
   projects_root: string;
-  /** Jen v režimu registru s právem zápisu; jinak GUI nabízí příkaz pro CLI. */
+  /** Only in registry mode with write permission; otherwise the GUI offers a CLI command. */
   writable: boolean;
 }
 
-/** `last_run` v `GET /projects` a u scénářů = první položka `…/runs` zúžená. */
+/** `last_run` in `GET /projects` and on scenarios = the first item of `…/runs`, narrowed down. */
 export interface LastRunRef {
   run_id: string;
   state: RunState;
@@ -53,7 +53,7 @@ export interface ScenarioSummary {
   outputs: Record<string, IoSpec> | null;
   callable: boolean;
   steps_count: number;
-  /** Typy kroků hlavního seznamu v pořadí souboru. */
+  /** Step types of the main list in file order. */
   types: (StepType | null)[];
   last_run: LastRunRef | null;
   errors: ErrorItem[];
@@ -133,12 +133,12 @@ export interface FileDoc {
   body?: string;
 }
 
-/** Strojový stav běhu (api.md „Stav běhu: `state`“). */
+/** Machine-readable run state (api.md "Run state: `state`"). */
 export type RunState = "queued" | "running" | "interrupted" | "succeeded" | "failed" | "cancelled" | "dry_run";
 
 export interface RunListItem {
   run_id: string;
-  /** Text pro člověka (`failed (<třída> v <krok>)`); stav je `state`. */
+  /** Human-readable text (`failed (<class> in <step>)`); the machine state is `state`. */
   status: string;
   state: RunState;
   cost_usd?: number | null;
@@ -155,7 +155,7 @@ export interface RunListItem {
   steps_done?: number | null;
 }
 
-/** `interrupted` jen v GUI: krok bez konce v běhu, který už neběží. */
+/** `interrupted` only in the GUI: a step without an end in a run that is no longer running. */
 export type StepStatus = "running" | "succeeded" | "failed" | "cancelled" | "skipped" | "interrupted";
 
 export interface RunStep {
@@ -170,7 +170,7 @@ export interface RunStep {
   reason_code?: string;
   reason?: string;
   nn?: number | null;
-  /** Složka kroku ve složce běhu (`steps/02-ton/steps/01-kontrola`), bez lomítka na konci. */
+  /** Step folder inside the run folder (`steps/02-tone/steps/01-check`), without a trailing slash. */
   dir?: string | null;
   error?: { class: string; message: string } | null;
   continued?: boolean;
@@ -193,7 +193,7 @@ export interface RunCall {
   duration_s: number | null;
 }
 
-/** `GET …/runs/<id>/steps/<cesta>`. */
+/** `GET …/runs/<id>/steps/<path>`. */
 export interface RunStepDetail extends RunStep {
   events: RunEvent[];
   output: unknown;
@@ -203,7 +203,7 @@ export interface RunStepDetail extends RunStep {
 export interface Run extends RunListItem {
   steps?: RunStep[];
   files?: string[];
-  /** Strom kroků ze snímku scénáře (`tree_source: snapshot`), jinak ze současného souboru. */
+  /** Step tree from the scenario snapshot (`tree_source: snapshot`), otherwise from the current file. */
   tree?: Step[];
   callees?: Record<string, Step[]>;
   tree_source?: "snapshot" | "current";
@@ -215,5 +215,5 @@ export interface Spend {
   runs: { run_id: string; cost_usd: number; finished_at: string }[];
 }
 
-/** Jedna událost z events.jsonl (docs/spec/run-record.md), v `RunStepDetail.events`. */
+/** One event from events.jsonl (docs/spec/run-record.md), in `RunStepDetail.events`. */
 export type RunEvent = { ts: string; type: string; step?: string } & Record<string, unknown>;

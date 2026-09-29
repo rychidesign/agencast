@@ -4,10 +4,10 @@ import { CodeInput } from "../components/form";
 
 afterEach(cleanup);
 
-function setup(value: string, template = false, candidates = ["inputs.tema"]) {
+function setup(value: string, template = false, candidates = ["inputs.topic"]) {
   const onChange = vi.fn();
   render(<CodeInput a11y={{ id: "prompt" }} value={value} onChange={onChange} candidates={candidates} template={template} />);
-  return { field: screen.getByRole("combobox"), button: screen.getByRole("button", { name: "Vložit proměnnou" }), onChange };
+  return { field: screen.getByRole("combobox"), button: screen.getByRole("button", { name: "Insert variable" }), onChange };
 }
 
 function select(field: HTMLElement, start: number, end = start) {
@@ -15,39 +15,39 @@ function select(field: HTMLElement, start: number, end = start) {
   fireEvent.select(field);
 }
 
-describe("nabídka proměnných v CodeInput", () => {
-  it("vkládá šablonu na pozici kurzoru a výraz bez závorek", () => {
-    const template = setup("Ahoj světe", true);
-    select(template.field, 4);
+describe("variable menu in CodeInput", () => {
+  it("inserts a template at the cursor and an expression without braces", () => {
+    const template = setup("Hello world", true);
+    select(template.field, 5);
     fireEvent.click(template.button);
-    fireEvent.click(screen.getByRole("menuitem", { name: "inputs.tema" }));
-    expect(template.onChange).toHaveBeenCalledWith("Ahoj{{ inputs.tema }} světe");
+    fireEvent.click(screen.getByRole("menuitem", { name: "inputs.topic" }));
+    expect(template.onChange).toHaveBeenCalledWith("Hello{{ inputs.topic }} world");
 
     cleanup();
     const expr = setup("left right");
     select(expr.field, 4);
     fireEvent.click(expr.button);
-    fireEvent.click(screen.getByRole("menuitem", { name: "inputs.tema" }));
-    expect(expr.onChange).toHaveBeenCalledWith("leftinputs.tema right");
+    fireEvent.click(screen.getByRole("menuitem", { name: "inputs.topic" }));
+    expect(expr.onChange).toHaveBeenCalledWith("leftinputs.topic right");
   });
 
-  it("uvnitř otevřených {{ }} vloží jen název a výběr nahradí", () => {
+  it("inside open {{ }} inserts only the name and replaces the selection", () => {
     const inside = setup("{{  }}", true);
     select(inside.field, 3);
     fireEvent.click(inside.button);
-    fireEvent.click(screen.getByRole("menuitem", { name: "inputs.tema" }));
-    expect(inside.onChange).toHaveBeenCalledWith("{{ inputs.tema }}");
+    fireEvent.click(screen.getByRole("menuitem", { name: "inputs.topic" }));
+    expect(inside.onChange).toHaveBeenCalledWith("{{ inputs.topic }}");
 
     cleanup();
-    const selected = setup("zaXXkonec");
+    const selected = setup("toXXend");
     select(selected.field, 2, 4);
     fireEvent.click(selected.button);
-    fireEvent.click(screen.getByRole("menuitem", { name: "inputs.tema" }));
-    expect(selected.onChange).toHaveBeenCalledWith("zainputs.temakonec");
+    fireEvent.click(screen.getByRole("menuitem", { name: "inputs.topic" }));
+    expect(selected.onChange).toHaveBeenCalledWith("toinputs.topicend");
   });
 
-  it("otevře se klávesnicí, šipka a Enter vyberou, Escape vrátí fokus do pole", () => {
-    const { field, button, onChange } = setup("x", false, ["inputs.tema", "steps.copy.text"]);
+  it("opens from the keyboard, arrow and Enter pick, Escape returns focus to the field", () => {
+    const { field, button, onChange } = setup("x", false, ["inputs.topic", "steps.copy.text"]);
     select(field, 1);
     fireEvent.keyDown(button, { key: "Enter" });
     const menu = screen.getByRole("menu");
@@ -61,9 +61,9 @@ describe("nabídka proměnných v CodeInput", () => {
     expect(document.activeElement).toBe(field);
   });
 
-  it("bez kandidátů je tlačítko disabled", () => {
+  it("without candidates the button is disabled", () => {
     const { button } = setup("text", false, []);
     expect((button as HTMLButtonElement).disabled).toBe(true);
-    expect(button.getAttribute("title")).toBe("Žádné dostupné proměnné");
+    expect(button.getAttribute("title")).toBe("No variables available");
   });
 });

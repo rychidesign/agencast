@@ -1,4 +1,4 @@
-// §2.2 Projekt: hlavička sekce (Scénáře · Agenti · Běhy · Skilly · Config); navigace projektu je v sidebaru (Shell).
+// §2.2 Project: section header (Scenarios · Agents · Runs · Skills · Config); project navigation is in the sidebar (Shell).
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { enc, useApi } from "../api";
@@ -12,20 +12,20 @@ import { ConfigTab } from "./Config";
 import { RunsTab } from "./Runs";
 import { ScenariosTab } from "./Scenarios";
 
-/** Všechny chyby validace projektu (projekt + soubory). */
+/** All project validation errors (project + files). */
 export const allErrors = (p: Project): ErrorItem[] => {
-  // chyba souboru přichází i v `p.errors` (nevalidní agent) → každou jednou
+  // a file error also arrives in `p.errors` (invalid agent) → take each one once
   const all = [...p.errors, ...[...p.scenarios, ...p.agents, ...p.skills].flatMap((x) => x.errors)];
   const key = (e: ErrorItem) => JSON.stringify([e.file, e.step, e.field, e.line, e.message]);
   return all.filter((e, i) => all.findIndex((f) => key(f) === key(e)) === i);
 };
 
-/** Odkaz z chyby na soubor a krok (`file` = cesta ve `workflows/`). */
+/** Link from an error to a file and step (`file` = path under `workflows/`). */
 export function errorHref(project: string, e: ErrorItem): string | undefined {
   const m = /^(scenarios|agents|skills)\/([^/]+?)(?:\.yaml|\.md|\/SKILL\.md)$/.exec(e.file ?? "");
-  if (m?.[1] === "scenarios") return href(project, "scenare", m[2], { krok: e.step });
-  if (m?.[1] === "agents") return href(project, "agenti", m[2]);
-  if (m?.[1] === "skills") return href(project, "skilly", m[2]);
+  if (m?.[1] === "scenarios") return href(project, "scenarios", m[2], { step: e.step });
+  if (m?.[1] === "agents") return href(project, "agents", m[2]);
+  if (m?.[1] === "skills") return href(project, "skills", m[2]);
   if (e.file === "config.yaml" || e.file === "mcp.yaml") return href(project, "config");
   return undefined;
 }
@@ -57,7 +57,7 @@ function ValidationPopover({ errors, project }: { errors: ErrorItem[]; project: 
   </>;
 }
 
-/** Hlavička sekce (G1): záložka do ní doplní akce, ⋯ a druhý řádek; „Načíst znovu“ je v ⋯ vždy první. */
+/** Section header (G1): the tab adds actions, ⋯ and a second row; "Reload" is always first in ⋯. */
 export type SectionHeader = (x?: {
   description?: ReactNode; meta?: ReactNode; actions?: ReactNode; compact?: MenuItem[]; menu?: MenuItem[]; menuLabel?: string; children?: ReactNode;
 }) => ReactNode;
@@ -68,7 +68,7 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
   const reload = () => (detail.reload(), setGen(gen + 1));
   const p = detail.data;
   const errors = p ? allErrors(p) : [];
-  // neexistující / nedostupný projekt: bez názvu sekce, s cestou zpět (jako 404 adresy)
+  // nonexistent / unavailable project: no section title, with a way back (like the 404 page)
   if (detail.error?.status === 404)
     return (
       <>
@@ -79,9 +79,9 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
   const header: SectionHeader = (x = {}) => (
     <>
       <PageHeader title={t(`project.tab.${tab}`)} description={x.description} actions={x.actions} compact={x.compact} menuLabel={x.menuLabel}
-        // než se projekt načte, kreslí hlavičku stránka a po načtení ji převezme záložka (nový uzel) → otevřené ⋯
-        // by se samo zavřelo; během načítání proto ⋯ není (Běhy hlavičku nepředávají, mají ho vždy)
-        menu={p || detail.error || tab === "behy" ? [{ label: t("common.reload"), onSelect: reload }, ...(x.menu ?? [])] : undefined}
+        // until the project loads, the page draws the header and after loading the tab takes it over (a new node) → an open ⋯
+        // would close by itself; so there is no ⋯ while loading (Runs does not pass a header, it always has one)
+        menu={p || detail.error || tab === "runs" ? [{ label: t("common.reload"), onSelect: reload }, ...(x.menu ?? [])] : undefined}
         meta={<>{x.meta}{errors.length > 0 && <ValidationPopover errors={errors} project={project} />}</>}>
         {x.children}
       </PageHeader>
@@ -97,25 +97,25 @@ export function ProjectPage({ project, tab, item }: { project: string; tab: Tab;
       {detail.error && detail.error.status !== 422 && detail.error.status !== 0 && <ErrorText error={detail.error} />}
     </>
   );
-  // Hlavičku kreslí záložka, jakmile má data (kvůli Uložit a přepínači); do té doby ji kreslí stránka.
-  const tabOwnsHeader = tab === "config" ? !!(p || detail.error) : tab === "behy" || !!p;
+  // The tab draws the header once it has data (for Save and the toggle); until then the page draws it.
+  const tabOwnsHeader = tab === "config" ? !!(p || detail.error) : tab === "runs" || !!p;
   return (
     <div key={gen}>
       {!tabOwnsHeader && header()}
       {tab === "config" && (p || detail.error) && <ConfigTab name={project} project={p} header={header} onChanged={detail.reload} />}
-      {tab === "behy" && <RunsTab project={project} header={header} />}
+      {tab === "runs" && <RunsTab project={project} header={header} />}
       {!p ? (
-        tab !== "behy" && !detail.error && (tab === "scenare"
-          // stejná mřížka a výška jako karty scénářů, ať se stránka po načtení nepohne
+        tab !== "runs" && !detail.error && (tab === "scenarios"
+          // same grid and height as the scenario cards, so the page does not jump after loading
           ? <div role="status" aria-label={t("common.loading")} className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4">
               {[0, 1, 2].map((i) => <Skeleton key={i} className="h-52 rounded-card" />)}
             </div>
           : <Loading rows={4} />)
       ) : (
         <>
-          {tab === "scenare" && <ScenariosTab project={p} header={header} onChanged={detail.reload} />}
-          {tab === "agenti" && <AgentsTab project={p} header={header} selected={item} onChanged={detail.reload} />}
-          {tab === "skilly" && <SkillsTab project={p} header={header} selected={item} onChanged={detail.reload} />}
+          {tab === "scenarios" && <ScenariosTab project={p} header={header} onChanged={detail.reload} />}
+          {tab === "agents" && <AgentsTab project={p} header={header} selected={item} onChanged={detail.reload} />}
+          {tab === "skills" && <SkillsTab project={p} header={header} selected={item} onChanged={detail.reload} />}
         </>
       )}
     </div>

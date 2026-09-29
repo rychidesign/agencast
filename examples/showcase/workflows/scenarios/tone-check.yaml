@@ -1,0 +1,45 @@
+version: 1
+name: tone-check
+description: Checks that a text matches the Lumen brand tone (called with a call step from other scenarios)
+callable: true
+
+inputs:
+  text:
+    type: string
+    required: true
+    description: Text to check
+  threshold:
+    type: number
+    default: 0.7
+    description: The on_brand value from which the text passes
+
+outputs:
+  on_brand:
+    type: number
+    description: How well the text matches the brand tone, from 0 to 1
+  passed:
+    type: boolean
+    description: on_brand reached the threshold
+
+steps:
+  # 1. Jev rates the text; noul = degree of "yes" from 0 to 1.
+  - id: check
+    jev:
+      state: "{{ inputs.text }}"
+      questions:
+        on_brand:
+          type: noul
+          instructions: >-
+            Does the text match the tone of Lumen café — English, short, friendly and
+            matter-of-fact, talks to the reader directly, no emoji and no advertising clichés?
+
+  # 2. Comparison with the threshold; the calling scenario decides what happens next.
+  - id: result
+    set:
+      passed: steps.check.on_brand >= inputs.threshold
+
+  # 3. Output for the calling scenario (steps.<id>.on_brand, steps.<id>.passed).
+  - id: out
+    output:
+      on_brand: "{{ steps.check.on_brand }}"
+      passed: "{{ steps.result.passed }}"

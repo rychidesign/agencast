@@ -1,14 +1,14 @@
-# tajné klíče
+# secret keys
 .env
 .env.*
 !.env.example
 
-# běhy a výstupy
+# runs and outputs
 runs/
 outputs/
 *.log
 
-# jazykové runtime
+# language runtimes
 node_modules/
 .venv/
 __pycache__/
@@ -27,5 +27,6 @@ framework/src/agencast/ui/
 ui/e2e/test-results/
 ui/e2e/playwright-report/
 
-# Referenční exporty z návrhu (generují se z docs/ui/design/*.pen)
+# Design working files (pen.dev) and their reference exports — local only
+docs/ui/design/*.pen
 docs/ui/design/ref/

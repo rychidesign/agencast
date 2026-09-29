@@ -1,0 +1,43 @@
+version: 1
+name: tutorial-03-expressions
+description: Expression playground — only a set step, no model, costs nothing (tutorial, part 3)
+
+inputs:
+  language:
+    type: string
+    default: en
+  divisor:
+    type: number
+    default: 2
+
+outputs:
+  results:
+    type: object
+    description: All computed values
+
+steps:
+  - id: examples
+    set:
+      # Rounding: a half always goes away from zero (unlike Python).
+      round_2_5: round(2.5)
+      round_minus_2_5: round(-2.5)
+      round_0_125_to_2: round(0.125, 2)
+      # Division always gives a decimal number.
+      seven_div_two: 7 / 2
+      four_div_two: 4 / 2
+      div_by_input: 10 / inputs.divisor
+      # Conversions must be explicit.
+      text_plus_number: '"version " + str(2)'
+      text_to_number: float("0.7") + 0.1
+      and_rounded: round(float("0.7") + 0.1, 2)
+      # in: an item in a list, a substring in a text.
+      english_or_french: inputs.language in ["en", "fr"]
+      contains_oat: '"oat" in "oat milk"'
+      # null can be compared with anything.
+      language_given: inputs.language != null
+      # Logic only on true/false.
+      both_conditions: len(inputs.language) == 2 and not (inputs.divisor < 0)
+
+  - id: out
+    output:
+      results: "{{ steps.examples }}"

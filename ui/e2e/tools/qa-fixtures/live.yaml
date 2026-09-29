@@ -1,0 +1,19 @@
+version: 1
+name: live
+description: A run that takes ten minutes (live following and the queue)
+inputs:
+  topic: { type: string, default: coffee }
+outputs:
+  text: { type: string }
+steps:
+  - id: write
+    ask:
+      agent: writer
+      prompt: "Write: {{ inputs.topic }}"
+  - id: very_slowly
+    ask:
+      agent: writer
+      prompt: "Slowly: {{ steps.write.text }}"
+  - id: result
+    output:
+      text: "{{ steps.very_slowly.text }}"

@@ -32,15 +32,15 @@
   --radius-control: 8px;
   --radius-button: 10px;
   --radius-card: 12px;
-  /* karta v mřížce / seznamu (projekt, scénář, položka seznamu, kontejner kroků, filtry) — změřeno z .pen */
+  /* card in a grid / list (project, scenario, list item, step container, filters) — measured from .pen */
   --radius-tile: 14px;
   --radius-panel: 16px;
   --shadow-pop: 20px 20px 40px rgba(20, 16, 48, 0.55);
   --shadow-sheet: 0 -20px 40px rgba(20, 16, 48, 0.55);
 }
 
-/* sdílený gradient pozadí aplikace z návrhu („AppBackground“, změřeno z .pen); `fixed`, aby přilepená hlavička
-   se stejnou třídou navazovala bez švu */
+/* shared app background gradient from the design ("AppBackground", measured from .pen); `fixed`, so the sticky header
+      with the same class lines up without a seam */
 @utility bg-app {
   background-color: var(--color-canvas);
   background-image: linear-gradient(-112.6deg, #1A2833 11%, #0C1A26 48%, #132430 89%);
@@ -63,7 +63,7 @@
     .scroll-thin::-webkit-scrollbar-thumb { border-radius: 4px; background: transparent; }
     .scroll-thin:hover::-webkit-scrollbar-thumb, .scroll-thin:focus-within::-webkit-scrollbar-thumb { background: var(--color-control); }
   }
-  /* jediný měkký stín (uživatel: x/y 20, blur 40); hranu nad kartou drží světlejší výplň `menu`, ne druhý stín */
+  /* a single soft shadow (user: x/y 20, blur 40); the edge above the card is held by the lighter `menu` fill, not a second shadow */
   .popover { background: var(--color-menu); border-radius: 12px; box-shadow: var(--shadow-pop); outline: 0; }
   .sheet-shadow { box-shadow: var(--shadow-sheet); }
   @keyframes sheet-up { from { transform: translateY(16px); opacity: .85; } to { transform: translateY(0); opacity: 1; } }
@@ -76,14 +76,14 @@
 }
 
 @layer base {
-  /* Tmavé nativní seznamy selectu a posuvníky. */
+  /* Dark native select lists and scrollbars. */
   :root {
     color-scheme: dark;
   }
   body {
     @apply bg-app text-fg font-sans antialiased;
   }
-  /* Tailwind 4 vrací tlačítkům výchozí kurzor; klikací prvky mají ruku, neaktivní ne */
+  /* Tailwind 4 resets buttons to the default cursor; clickable elements get a hand, disabled ones do not */
   button:not(:disabled, [aria-disabled="true"]), [role="button"], summary, select:not(:disabled),
   input:is([type="checkbox"], [type="radio"]):not(:disabled), label:has(> input:is([type="checkbox"], [type="radio"])) {
     cursor: pointer;

@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveToken } from "../api";
 import { App } from "../App";
@@ -19,34 +19,58 @@ afterEach(() => {
 });
 
 describe("token", () => {
-  it("bez tokenu obrazovka tokenu, nic se nevolá", () => {
+  it("no token → token screen, nothing is requested", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
     render(<App />);
-    expect(screen.getByRole("heading", { name: /Token serveru/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Server token" })).toBeTruthy();
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("401 → obrazovka tokenu s hláškou; token jde jen do hlavičky", async () => {
-    const fetch = vi.fn(() => json(401, { error: "chybí nebo nesedí token" }));
+  it("the token screen has the language switch; picking Czech saves it and reloads", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...location, reload });
+    render(<App />);
+    const lang = screen.getByRole("combobox", { name: "Language" }) as HTMLSelectElement;
+    expect(lang.value).toBe("en");
+    fireEvent.change(lang, { target: { value: "cs" } });
+    expect(localStorage.getItem("agencast.lang")).toBe("cs");
+    expect(reload).toHaveBeenCalled();
+  });
+
+  it("Czech locale: the token screen in Czech", async () => {
+    localStorage.setItem("agencast.lang", "cs");
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn());
+    const { App: CzechApp } = await import("../App");
+    render(<CzechApp />);
+    expect(screen.getByRole("heading", { name: "Token serveru" })).toBeTruthy();
+    expect((screen.getByRole("combobox", { name: "Jazyk" }) as HTMLSelectElement).value).toBe("cs");
+    expect(screen.getByRole("button", { name: "Uložit" })).toBeTruthy();
+    vi.resetModules();
+  });
+
+  it("401 → token screen with a message; the token goes only to the header", async () => {
+    const fetch = vi.fn(() => json(401, { error: "missing or invalid token (Authorization: Bearer … header)" }));
     vi.stubGlobal("fetch", fetch);
-    saveToken("tajny-token");
+    saveToken("secret-token");
     await act(async () => render(<App />));
-    expect(await screen.findByText(/Token serveru nesedí/)).toBeTruthy();
+    expect(await screen.findByText(/The server token doesn't match/)).toBeTruthy();
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).not.toContain("tajny-token");
-    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tajny-token");
+    expect(url).not.toContain("secret-token");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer secret-token");
   });
 });
 
-describe("seznam běhů", () => {
+describe("run list", () => {
   const running: RunListItem = {
-    run_id: "20260926-091502-ig-post-3c1f", status: "běží", state: "running", scenario: "ig-post", current_nn: 4, steps_done: 3,
-    started_at: "2026-09-26T09:15:02.000Z", current_step: "foto_prompt", steps_total: 8,
+    run_id: "20260926-091502-ig-post-3c1f", status: "running", state: "running", scenario: "ig-post", current_nn: 4, steps_done: 3,
+    started_at: "2026-09-26T09:15:02.000Z", current_step: "photo_prompt", steps_total: 8,
   };
   const done: RunListItem = { ...running, status: "succeeded", state: "succeeded", cost_usd: 0.0021, duration_s: 17.5, finished_at: "2026-09-26T09:15:20.000Z", current_step: null };
 
-  it(`obnovuje se každých ${RUNS_POLL_MS / 1000} s, dokud něco běží`, async () => {
+  it(`refreshes every ${RUNS_POLL_MS / 1000} s while something is running`, async () => {
     vi.useFakeTimers();
     let runs = [running];
     const fetch = vi.fn((url: string) =>
@@ -57,7 +81,7 @@ describe("seznam běhů", () => {
 
     await act(async () => render(<RunsTab project="lumen" header={(x) => x?.meta} />));
     expect(runCalls()).toBe(1);
-    expect(screen.getByText("krok 4/8 · foto_prompt")).toBeTruthy();
+    expect(screen.getByText("step 4/8 · photo_prompt")).toBeTruthy();
 
     await act(async () => void (await vi.advanceTimersByTimeAsync(RUNS_POLL_MS)));
     expect(runCalls()).toBe(2);
@@ -65,9 +89,9 @@ describe("seznam běhů", () => {
     runs = [done];
     await act(async () => void (await vi.advanceTimersByTimeAsync(RUNS_POLL_MS)));
     expect(runCalls()).toBe(3);
-    expect(screen.getByText("0,0021 USD")).toBeTruthy();
+    expect(screen.getByText("0.0021 USD")).toBeTruthy();
 
-    // Nic neběží → další dotaz už nepřijde.
+    // Nothing is running → no further request.
     await act(async () => void (await vi.advanceTimersByTimeAsync(RUNS_POLL_MS * 3)));
     expect(runCalls()).toBe(3);
   });

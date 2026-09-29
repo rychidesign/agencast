@@ -1,6 +1,6 @@
-// §2.6 Seznam běhů s filtry; obnovuje se každých 5 s, dokud něco běží nebo čeká (§4.8).
-// Scénář filtruje server (`?scenario=`), stav a hledání klient; starší stránky bere přes `before`.
-// Fidelity §8: filtrační karta, záhlaví sloupců, řádky jako karty 80 px.
+// §2.6 Run list with filters; refreshes every 5 s while anything is running or queued (§4.8).
+// The scenario is filtered by the server (`?scenario=`), status and search by the client; older pages are fetched via `before`.
+// Fidelity §8: filter card, column headers, rows as 80 px cards.
 import { Activity, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { enc, useApi } from "../api";
@@ -20,7 +20,7 @@ export const RUNS_PAGE = 50;
 
 const FILTERS: RunState[] = ["running", "queued", "interrupted", "succeeded", "failed", "dry_run"];
 
-/** Barva textu stavu v řádku (stav je vždy i slovem, barva jen zvýrazní). */
+/** Text color of the status in a row (the status is always also a word, color only accentuates it). */
 const STATE_COLOR: Record<RunState, string> = {
   running: "text-running", succeeded: "text-success", failed: "text-error", interrupted: "text-warning",
   cancelled: "text-warning", queued: "text-fg-secondary", dry_run: "text-fg-secondary",
@@ -29,8 +29,8 @@ const STATE_COLOR: Record<RunState, string> = {
 export function RunsTab({ project, header }: { project: string; header: SectionHeader }) {
   const { query } = useLocation();
   const base = `/projects/${enc(project)}`;
-  const scenario = query.get("scenar") ?? "";
-  const state = query.get("stav") ?? "";
+  const scenario = query.get("scenario") ?? "";
+  const state = query.get("status") ?? "";
   const [search, setSearch] = useState("");
   const [before, setBefore] = useState<string>();
   const [olderRuns, setOlderRuns] = useState<RunListItem[]>([]);
@@ -67,19 +67,19 @@ export function RunsTab({ project, header }: { project: string; header: SectionH
         ),
       })}
       <div className="space-y-4">
-        {/* návrh 04 (změřeno z .pen): filtry radius 14, padding 12, mezera 10, selecty 210 px; řádek 72 px, radius 8 */}
+        {/* design 04 (measured from .pen): filters radius 14, padding 12, gap 10, selects 210 px; row 72 px, radius 8 */}
         <div className="flex flex-wrap gap-2.5 rounded-tile bg-surface p-3 ring-1 ring-line">
           <div className="relative min-w-[min(16rem,100%)] flex-[2]">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-[18px] -translate-y-1/2 text-fg-muted" aria-hidden />
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t("runs.search")}
               placeholder={t("runs.search")} className={`${inputCls} pl-10`} />
           </div>
-          <select value={state} onChange={(e) => setQuery({ stav: e.target.value || undefined })} aria-label={t("runs.filter.stateLabel")}
+          <select value={state} onChange={(e) => setQuery({ status: e.target.value || undefined })} aria-label={t("runs.filter.stateLabel")}
             className={`${inputCls.replace("w-full", "w-[210px]")} max-sm:flex-1`}>
             <option value="">{t("runs.filter.allStates")}</option>
             {FILTERS.map((f) => <option key={f} value={f}>{t(`run.state.${f}`)}</option>)}
           </select>
-          <select value={scenario} onChange={(e) => setQuery({ scenar: e.target.value || undefined })} aria-label={t("runs.filter.scenarioLabel")}
+          <select value={scenario} onChange={(e) => setQuery({ scenario: e.target.value || undefined })} aria-label={t("runs.filter.scenarioLabel")}
             className={`${inputCls.replace("w-full", "w-[210px]")} max-sm:flex-1`}>
             <option value="">{t("runs.filter.allScenarios")}</option>
             {scenarios.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -87,12 +87,12 @@ export function RunsTab({ project, header }: { project: string; header: SectionH
         </div>
         {runs.error && runs.error.status !== 0 && <ErrorText error={runs.error} />}
         {runs.loading && !runs.data && <div role="status" aria-label={t("common.loading")}><Skeleton className="h-[264px] rounded-card" /></div>}
-        {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scénář>"}`} />}
+        {runs.data && !shown.length && <EmptyState text={t("runs.empty")} cli={`agencast run ${scenario || "<scenario>"}`} />}
         {shown.length > 0 && (
-          <div className="relative -my-2 overflow-x-auto max-md:my-0" tabIndex={0} role="region" aria-label={t("project.tab.behy")}>
+          <div className="relative -my-2 overflow-x-auto max-md:my-0" tabIndex={0} role="region" aria-label={t("project.tab.runs")}>
             <table className="w-full border-separate border-spacing-y-2 text-sm max-md:block md:min-w-[46rem]">
-              {/* do 767 px bez záhlaví: každý běh je karta o dvou řádcích (stav nahoře, run_id a meta pod ním) */}
-              <caption className="sr-only">{t("project.tab.behy")}</caption>
+              {/* under 767 px without headers: each run is a two-row card (status on top, run_id and meta below it) */}
+              <caption className="sr-only">{t("project.tab.runs")}</caption>
               <thead className="max-md:hidden">
                 <tr className="font-mono text-[10px] text-fg-muted uppercase [&>th]:pb-1 [&>th]:font-normal">
                   <th className="pr-4 pl-[58px] text-left">{t("runs.col.scenarioId")}</th>
@@ -131,7 +131,7 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
   else what = formatWhen(when);
   const reason = state === "failed" ? failReason(r.status) : "";
   const note = [r.fake ? t("run.fake") : "", r.callback ?? ""].filter(Boolean).join(" · ");
-  // běžící běh ukazuje čas od startu; obnoví se s pollingem seznamu (5 s)
+  // a running run shows the time since start; refreshed by the list polling (5 s)
   const duration = r.duration_s != null ? formatDuration(r.duration_s) : state === "running" ? formatElapsed(when) : "–";
   return (
     <tr data-testid={`run-row-${r.run_id}`} title={r.run_id}
@@ -140,7 +140,7 @@ function RunRow({ project, run: r }: { project: string; run: RunListItem }) {
         <div className="flex items-center gap-[18px] max-md:contents">
           <StatusIcon status={RUN_STATUS[state]} label="" className="size-5 max-md:absolute max-md:top-[15px] max-md:left-4" />
           <div className="min-w-0 max-md:contents">
-            <a href={href(project, "behy", r.run_id)} className="block truncate text-sm font-semibold text-fg after:absolute after:inset-0 max-md:min-w-0 max-md:flex-1 max-md:text-[15px]">
+            <a href={href(project, "runs", r.run_id)} className="block truncate text-sm font-semibold text-fg after:absolute after:inset-0 max-md:min-w-0 max-md:flex-1 max-md:text-[15px]">
               {runScenario(r) || r.run_id}
             </a>
             <p className="mt-1 truncate font-mono text-[11px] leading-4 text-fg-muted max-md:order-1 max-md:mt-0 max-md:basis-full">{r.run_id}{note && ` · ${note}`}</p>

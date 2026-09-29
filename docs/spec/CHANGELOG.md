@@ -1,266 +1,282 @@
-# Changelog formátů
+# Format changelog
 
-Každá změna formátu agenta, scénáře nebo konfigurace se zapisuje sem
-(DESIGN §5.6). Formát se mění jen zvýšením `version`; framework umí číst
-všechny vydané verze (R7).
+Every change to the agent, scenario or configuration format is recorded here
+(DESIGN §5.6). A format changes only by raising `version`; the framework can read
+all released versions (R7).
 
-Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
+Up to 0.2.5 the package and the command were called `maw`; older entries keep that name here.
 
-## version 1 — 2026-09-25 (návrh ke schválení)
+## version 1 — 2026-09-25 (draft for approval)
 
-První specifikace. Obsahuje:
+The first specification. It contains:
 
-- [agent.md](agent.md) — agent jako Markdown s frontmatter (D1a).
-- [scenario.md](scenario.md) — scénář, 10 typů kroků v1 (D1d), šablony
-  a výrazy (D1c, §5.4), `call` (§5.3), chyby (§5.1).
+- [agent.md](agent.md) — an agent as Markdown with frontmatter (D1a).
+- [scenario.md](scenario.md) — the scenario, the 10 step types of v1 (D1d), templates
+  and expressions (D1c, §5.4), `call` (§5.3), errors (§5.1).
 - [config.md](config.md) — `config.yaml`, `mcp.yaml`, `commands.yaml`
-  (jen struktura; krok `run` není ve v1).
-- [run-record.md](run-record.md) — složka běhu, `events.jsonl`,
-  `summary.md`, callback.
+  (structure only; the `run` step is not in v1).
+- [run-record.md](run-record.md) — the run folder, `events.jsonl`,
+  `summary.md`, the callback.
 - [schema/](schema/) — JSON Schema draft 2020-12: `agent`, `scenario`,
   `config`, `mcp`, `skill`.
 
-Odchylky od ilustrativní syntaxe v DESIGN (§3 D1a/D1d, §6) — ke
-schválení v [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md):
+Deviations from the illustrative syntax in DESIGN (§3 D1a/D1d, §6) — for
+approval in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md):
 
-- zadání pro model v `ask` se jmenuje `prompt` (v §6 `task`, což koliduje
-  s typem kroku `task`),
-- `schema` se píše uvnitř `ask`/`task` (jako v §6), ne na úrovni kroku,
-- rozpočet kroku se píše `budget_usd` (jako `limits.budget_usd` u agenta),
-- scénář deklaruje `outputs` v hlavičce; krok `output` je poslední,
-- nové třídy chyb `fail` a `internal`.
+- the instruction for the model in `ask` is called `prompt` (in §6 `task`, which collides
+  with the `task` step type),
+- `schema` is written inside `ask`/`task` (as in §6), not at the step level,
+- a step's budget is written `budget_usd` (like `limits.budget_usd` on an agent),
+- a scenario declares `outputs` in the header; the `output` step is last,
+- new error classes `fail` and `internal`.
 
-Přidáno, protože to vyžaduje DESIGN, i když ne ve výčtu D1d: `default`
-(§5.4), `dedupe_key` (§5.2). Přidáno kvůli referenčnímu scénáři: pole
-`aspect_ratio` kroku `image` (IG 4:5) a `max_tokens` u aliasu modelu
-(reasoning modely, `finish_reason: length`).
+Added because DESIGN requires it, even though it is not in the D1d list: `default`
+(§5.4), `dedupe_key` (§5.2). Added for the reference scenario: the
+`aspect_ratio` field of the `image` step (IG 4:5) and `max_tokens` on a model alias
+(reasoning models, `finish_reason: length`).
 
-### Doplněno 2026-09-25 — jazyk výrazů (spike (c))
+### Added 2026-09-25 — the expression language (spike (c))
 
-- [scenario.md §5](scenario.md#výrazy) popisuje jazyk výrazů přesně: co v
-  něm je (seznamový literál, `in`, `%`, záporný index, `["klíč"]`) a co
-  ne (podmínka `if/else`, řezy, `**`, metody, přiřazení, `lambda`,
-  comprehension, atributy, `import`); tečka = čtení klíče; přísné typy
-  (porovnání napříč typy je chyba kromě `== null` / `!= null`, `boolean`
-  není číslo, text + číslo je chyba, `/` je vždy desetinné); 8 funkcí
-  s typovou kontrolou; `round` půlku od nuly; `str(null)` = `"null"`;
-  limity 2000 znaků / hloubka 100; příklady hlášek.
-- Rozhodnuto: literály `true` / `false` / `null` (OPEN-QUESTIONS 7).
-- Nová třída chyby `expression` (chyba výrazu nebo šablony za běhu; chová
-  se jako `fail` kroku, neopakuje se). Statická kontrola výrazů ve
-  `validate` zůstává třída `config`. Třída doplněna i do výčtu v
+- [scenario.md §5](scenario.md) describes the expression language exactly: what is in
+  it (a list literal, `in`, `%`, a negative index, `["key"]`) and what is
+  not (an `if/else` condition, slices, `**`, methods, assignment, `lambda`,
+  comprehensions, attributes, `import`); a dot = reading a key; strict types
+  (comparing across types is an error except `== null` / `!= null`, `boolean`
+  is not a number, text + number is an error, `/` is always decimal); 8 functions
+  with type checking; `round` rounds half away from zero; `str(null)` = `"null"`;
+  limits of 2000 characters / depth 100; example messages.
+- Decided: the literals `true` / `false` / `null` (OPEN-QUESTIONS 7).
+- A new error class `expression` (an expression or template error at run time; behaves
+  like a step's `fail`, is not retried). The static check of expressions in
+  `validate` stays class `config`. The class was also added to the list in
   [run-record.md](run-record.md).
-- `null` v šabloně je chyba, výjimkou je výslovný `default`.
-- Nové otevřené otázky 8–10 (rozhodnutí koordinátora s výchozí volbou).
-- JSON Schema beze změny (výrazy jsou řetězce).
+- `null` in a template is an error, the exception being an explicit `default`.
+- New open questions 8–10 (coordinator decisions with a default choice).
+- JSON Schema unchanged (expressions are strings).
 
-### Opravy po nezávislé kontrole — 2026-09-25
+### Fixes after the independent review — 2026-09-25
 
-Podle [REVIEW.md](REVIEW.md) (41 nálezů) a rozhodnutí koordinátora; stav
-každého nálezu je na konci REVIEW.md.
+According to [REVIEW.md](REVIEW.md) (41 findings) and the coordinator's decisions; the status
+of each finding is at the end of REVIEW.md.
 
-- **Ověřování:** ukázky i úryvky se ověřují [`tools/check.py`](tools/check.py)
-  — **stejným loaderem, jaký použije framework** (PyYAML `SafeLoader` bez
-  resolverů YAML 1.1, kontrola duplicitních klíčů, `jsonschema` Draft
-  2020-12). Dřívější ověření přes `check-jsonschema` (ruamel) chybu
-  PyYAML s `4:5`, `yes`/`on` a duplicitními klíči skrylo. Spuštění:
+- **Verification:** the examples and snippets are verified by [`tools/check.py`](tools/check.py)
+  — **with the same loader the framework will use** (PyYAML `SafeLoader` without
+  YAML 1.1 resolvers, a duplicate key check, `jsonschema` Draft
+  2020-12). The earlier verification through `check-jsonschema` (ruamel) hid the
+  PyYAML problems with `4:5`, `yes`/`on` and duplicate keys. Run it with:
   `uv run docs/spec/tools/check.py`.
-- **YAML 1.2 core** pro všechny soubory: booleany jen `true`/`false`,
-  `4:5` a `yes` jsou text, duplicitní klíč = chyba `config`.
-- **Skilly:** nový [skill.md](skill.md) a `schema/skill.schema.json`; u
-  `task` seznam + nástroj `load_skill`, u `ask` celé (OPEN-QUESTIONS 11).
-  Ukázka `workflows/skills/thtd-hlas/`.
-- **Oprávnění:** každý server z `mcp` agenta má povinný seznam `tools`;
-  vlastník v `mcp.yaml` určuje `agents` (povinné), `scenarios` a `tools`
-  serveru; scénář má `callable` (výchozí `false`) a `call` smí jen na
-  volatelný scénář.
-- **Nové:** [webhook.md](webhook.md) (`POST /runs`, 202/200/401/422);
-  kaskáda strukturovaného výstupu (`models.<alias>.structured_output`,
-  `_submit_output`); `dedupe` jako samostatné soubory `_dedupe/` se stavem
-  `started`/`succeeded` (OPEN-QUESTIONS 12); `runs_dir`; `transport` a
-  `timeouts` u MCP serveru; `{run_dir}` v `args`; vstup typu `file` přes
+- **YAML 1.2 core** for all files: booleans only `true`/`false`,
+  `4:5` and `yes` are text, a duplicate key = a `config` error.
+- **Skills:** the new [skill.md](skill.md) and `schema/skill.schema.json`; for
+  `task` a list + the `load_skill` tool, for `ask` the whole skill (OPEN-QUESTIONS 11).
+  The example `workflows/skills/thtd-voice/`.
+- **Permissions:** every server from an agent's `mcp` has a mandatory `tools` list;
+  the owner in `mcp.yaml` determines `agents` (mandatory), `scenarios` and `tools`
+  of the server; a scenario has `callable` (default
+  `false`) and `call` may target only a callable scenario.
+- **New:** [webhook.md](webhook.md) (`POST /runs`, 202/200/401/422);
+  the structured-output cascade (`models.<alias>.structured_output`,
+  `_submit_output`); `dedupe` as separate `_dedupe/` files with the state
+  `started`/`succeeded` (OPEN-QUESTIONS 12); `runs_dir`; `transport` and
+  `timeouts` on an MCP server; `{run_dir}` in `args`; an input of type `file` through
   `call`.
-- **Záznam běhu:** klíč v úložišti `<run_id>-<32 hex>/<jméno>`; tajné
-  hodnoty se v záznamu i callbacku nahrazují `<tajné: JMENO>`; události
+- **Run record:** the storage key `<run_id>-<32 hex>/<name>`; secret
+  values in the record and the callback are replaced by `<secret: NAME>`; the events
   `mcp_server`, `callback_failed`; `step_finished.status: cancelled`;
-  `tool_call.invalid_args`; `<nn>` = pořadí v souboru.
-- **Upřesnění:** rozpočet (kontrola před voláním, chybějící cena), `max_turns`
-  vs. `retry`, `image` bez obrázku a kontrola `aspect_ratio`, úplný
-  `default`, `switch` nad `null`, uzavřený seznam polí se šablonami,
-  typy operátorů a `in`, čísla (`int`, `round`, `nan`), typ `file`,
-  kontrola `validate` proti `/models` s cache.
-- **Schémata:** kořen `schema` u `ask`/`task` je mapa; `outputs` aspoň
-  jedna položka; `limits.max_turns` povinné jen s `mcp`; `base_url` jen
-  OpenRouter nebo localhost; `env` serveru bez `PATH`, `LD_PRELOAD`, ….
-- **Přejmenováno v ukázce:** výstup fotografa `prompt` → `popis_fotky`.
-- OPEN-QUESTIONS: 6 vyřešeno podle DESIGN §5.8; nové 11–14.
+  `tool_call.invalid_args`; `<nn>` = order in the file.
+- **Clarifications:** the budget (checked before a call, a missing cost), `max_turns`
+  vs. `retry`, `image` without an image and the `aspect_ratio` check, a complete
+  `default`, `switch` over `null`, a closed list of fields with templates,
+  operator types and `in`, numbers (`int`, `round`, `nan`), the `file` type,
+  the `validate` check against `/models` with a cache.
+- **Schemas:** the root of `schema` in `ask`/`task` is a map; `outputs` at least
+  one item; `limits.max_turns` mandatory only with `mcp`; `base_url` only
+  OpenRouter or localhost; a server's `env` without `PATH`, `LD_PRELOAD`, ….
+- **Renamed in the example:** the photographer's output `prompt` → `photo_description`.
+- OPEN-QUESTIONS: 6 resolved per DESIGN §5.8; new 11–14.
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.2.1)
+## version 1 — backward-compatible addition (framework 0.2.1)
 
-- [run-record.md](run-record.md): pole `timeout_s` v událostech
-  `model_call` a `jev_call` (timeout HTTP volání, ISSUES 34). Starší
-  záznamy ho nemají; čtenář ho smí ignorovat.
+- [run-record.md](run-record.md): the `timeout_s` field in the `model_call`
+  and `jev_call` events (the HTTP call timeout, ISSUES 34). Older
+  records do not have it; a reader may ignore it.
 
-## version 1 — zpětně kompatibilní uvolnění (framework 0.2.3)
+## version 1 — backward-compatible relaxation (framework 0.2.3)
 
-- [agent.md](agent.md), [scenario.md](scenario.md): podsložky ve
-  `workflows/agents/` a `workflows/scenarios/` už nejsou chyba `config`,
-  ale tiše se ignorují (hodí se třeba na archiv). Čtou se dál jen soubory
-  přímo ve složce. Co dřív prošlo, projde dál (ISSUES 37, REVIEW M9).
+- [agent.md](agent.md), [scenario.md](scenario.md): subfolders in
+  `workflows/agents/` and `workflows/scenarios/` are no longer a `config` error
+  but are silently ignored (handy for an archive, say). Only files
+  directly in the folder are still read. What used to pass still passes (ISSUES 37, REVIEW M9).
 
-## version 1 — zpětně kompatibilní zpřesnění (framework 0.2.4)
+## version 1 — backward-compatible refinement (framework 0.2.4)
 
-- [run-record.md](run-record.md): ceny volání se ukládají přesně tak, jak
-  je vrátil poskytovatel, součty se zaokrouhlují jen na 10 desetinných
-  míst (dřív 8). Tvar polí se nemění, jen přesnost. `summary.md` a
-  `report.html` ukazují celou cenu (`0,000004482` místo `0,0000`) a na
-  konci tabulky kroků řádek **Celkem** (ISSUES 38).
+- [run-record.md](run-record.md): call costs are stored exactly as
+  the provider returned them, totals are rounded only to 10 decimal
+  places (previously 8). The shape of the fields does not change, only the precision. `summary.md` and
+  `report.html` show the full cost (`0.000004482` instead of `0.0000`) and at
+  the end of the step table a **Total** row (ISSUES 38).
 
-## version 1 — zpětně kompatibilní zpřesnění (framework 0.2.5)
+## version 1 — backward-compatible refinement (framework 0.2.5)
 
-- [run-record.md](run-record.md): řádek **Celkem** v `summary.md` a
-  `report.html` má ve sloupci Čas čas celého běhu (`duration_s`
-  z `run_finished`), ne součet kroků (ISSUES 38).
+- [run-record.md](run-record.md): the **Total** row in `summary.md` and
+  `report.html` has in the Time column the time of the whole run (`duration_s`
+  from `run_finished`), not the sum of the steps (ISSUES 38).
 
-## version 1 — beze změny formátu (framework 0.3.0)
+## version 1 — no format change (framework 0.3.0)
 
-- Framework se jmenuje AgenCast, příkaz `maw` → `agencast` (v textu
-  [run-record.md](run-record.md) a ISSUES). Žádný formát jméno
-  neobsahoval: záznam běhu, callback (`X-Run-Id`, `X-Signature`) ani fake
-  skripty se nemění.
-- [webhook.md](webhook.md): `agencast serve --workers N` (výchozí 1) —
-  N běhů najednou nad jednou frontou; `queue_position` počítá čekající
-  i běžící, pořadí dokončení s N > 1 není zaručené (ISSUES 39). Tvar
-  požadavku, odpovědí ani callbacku se nemění.
-- Kolize `run_id` (ISSUES 35) řeší nový suffix; formát id se nemění.
+- The framework is called AgenCast, the command `maw` → `agencast` (in the text of
+  [run-record.md](run-record.md) and ISSUES). No format contained the name:
+  the run record, the callback (`X-Run-Id`, `X-Signature`) and the fake
+  scripts do not change.
+- [webhook.md](webhook.md): `agencast serve --workers N` (default 1) —
+  N runs at a time over one queue; `queue_position` counts waiting
+  and running requests, the completion order with N > 1 is not guaranteed (ISSUES 39). The shape of the
+  request, the responses and the callback does not change.
+- A `run_id` collision (ISSUES 35) is handled by a new suffix; the id format does not change.
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.3.1)
+## version 1 — backward-compatible addition (framework 0.3.1)
 
 - [config.md](config.md), [schema/config.schema.json](schema/config.schema.json):
-  volitelné `limits.max_parallel_runs` (celé číslo ≥ 1, strop souběžných
-  běhů napříč procesy, čekání nejdéle `run_timeout`, pak `timeout`) a
-  `limits.daily_budget_usd` (číslo > 0, denní strop útraty v UTC, kontrola
-  jen na startu, pak `budget`). Bez nich se chování nemění; co dřív
-  prošlo, projde dál (ISSUES 40).
-- [run-record.md](run-record.md): vedle složek běhů `_slots/<n>.lock`
-  a denní kniha `_ledger/<RRRR-MM-DD>.jsonl` (`_ledger-fake/` u `--fake`);
-  nová událost `run_waiting` (`waited_s`, `max_parallel_runs`). Starší
-  záznamy ji nemají; čtenář neznámé události smí ignorovat.
-- [webhook.md](webhook.md): čekání na slot a třídy `timeout`/`budget`
-  u běhu, který nezačal. Tvar požadavku, odpovědí ani callbacku se nemění.
+  optional `limits.max_parallel_runs` (an integer ≥ 1, a cap on concurrent
+  runs across processes, waiting at most `run_timeout`, then `timeout`) and
+  `limits.daily_budget_usd` (a number > 0, a daily spend cap in UTC, checked
+  only at start, then `budget`). Without them the behavior does not change; what used to
+  pass still passes (ISSUES 40).
+- [run-record.md](run-record.md): next to the run folders `_slots/<n>.lock`
+  and the daily ledger `_ledger/<YYYY-MM-DD>.jsonl` (`_ledger-fake/` for `--fake`);
+  a new event `run_waiting` (`waited_s`, `max_parallel_runs`). Older
+  records do not have it; a reader may ignore unknown events.
+- [webhook.md](webhook.md): waiting for a slot and the `timeout`/`budget` classes
+  for a run that did not start. The shape of the request, the responses and the callback does not change.
 
-## version 1 — beze změny formátu (framework 0.4.0)
+## version 1 — no format change (framework 0.4.0)
 
-- Nové [projects.md](projects.md): registr projektů
-  `~/.config/agencast/projects.yaml` a šablony `agencast new` (ISSUES 41).
-- Nové [api.md](api.md): čtecí API `serve` (`/projects/...`), režim
-  registru s `AGENCAST_TOKEN`, `POST /projects/<p>/runs` (ISSUES 42).
-  [webhook.md](webhook.md) na něj odkazuje; `POST /runs`, `GET /runs/<id>`
-  a callback se nemění.
-- Formáty `agent`, `scenario`, `config`, `mcp`, záznam běhu ani JSON Schema
-  se nemění.
+- The new [projects.md](projects.md): the project registry
+  `~/.config/agencast/projects.yaml` and the `agencast new` templates (ISSUES 41).
+- The new [api.md](api.md): the `serve` read API (`/projects/...`), registry
+  mode with `AGENCAST_TOKEN`, `POST /projects/<p>/runs` (ISSUES 42).
+  [webhook.md](webhook.md) refers to it; `POST /runs`, `GET /runs/<id>`
+  and the callback do not change.
+- The `agent`, `scenario`, `config`, `mcp` formats, the run record and the JSON Schema
+  do not change.
 
-## version 1 — beze změny formátu (framework 0.5.0)
+## version 1 — no format change (framework 0.5.0)
 
-- [api.md](api.md) „Editace“: editační operace `serve` pro GUI —
-  hlavička scénáře a kroky (přidat, upravit, přesunout, smazat), agent,
-  skill, `config.yaml`, surový text souborů ve `workflows/` a `new`
-  přes HTTP. Adresa kroku (`address` v `GET …/scenarios/<s>`), otisk
-  `etag` (sha256 obsahu) a v `GET /projects/<p>` pole `etag` u scénářů,
-  agentů a skillů — nová pole v odpovědích, stávající se nemění
+- [api.md](api.md) “Editing”: `serve` editing operations for the GUI —
+  the scenario header and steps (add, edit, move, delete), an agent,
+  a skill, `config.yaml`, the raw text of files in `workflows/` and `new`
+  over HTTP. The step address (`address` in `GET …/scenarios/<s>`), the
+  `etag` fingerprint (sha256 of the content) and in `GET /projects/<p>` the `etag` field on scenarios,
+  agents and skills — new fields in responses, the existing ones do not change
   (ISSUES 43).
-- Zápis zachovává komentáře, pořadí klíčů, prázdné řádky a uvozovky;
-  soubory zůstávají ve formátu v1, JSON Schema se nemění.
+- Writing preserves comments, key order, blank lines and quotes;
+  files stay in the v1 format, the JSON Schema does not change.
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.6.0)
+## version 1 — backward-compatible addition (framework 0.6.0)
 
-- [api.md](api.md) „Doplňky pro GUI“ (ISSUES 44): `POST
-  /projects/<p>/validate` (validace bez zápisu), `env` v `GET
-  /projects/<p>` (jen příznak nastavené proměnné, nikdy hodnota), v
-  seznamu a detailu běhu `scenario`, `started_at`, `finished_at`,
-  `current_step`, `steps_total`; `POST /projects/<p>/runs` s volitelnou
-  `callback_url` a `dry_run`; `serve` podává GUI (`GET /`, `/assets/…`
-  bez tokenu) a má `--cors <origin>`.
-- **Změna tvaru API (0.5.0 → 0.6.0):** položky polí `errors` jsou objekty
-  `{message, file?, step?, field?, line?}` místo textů; `message` =
-  dřívější text. Týká se `GET /projects/<p>` (projekt, scénáře, agenti,
-  skilly), `GET …/scenarios/<s>`, `GET …/files/<cesta>` a odpovědí 200/422
-  editačních operací. Jediný klient těch polí je GUI; `details`, CLI
-  a Python API zůstávají texty.
-- [run-record.md](run-record.md): `run_started` má nová pole `steps_total`
-  a `callback_url` (bez query, `null` = bez callbacku). Starší záznamy je
-  nemají; čtenář bere chybějící pole jako `null`.
-- [webhook.md](webhook.md) jen odkaz; smlouva `POST /runs` se nemění.
-  Formáty `agent`, `scenario`, `config`, `mcp` ani JSON Schema se nemění.
+- [api.md](api.md) “GUI additions” (ISSUES 44): `POST
+  /projects/<p>/validate` (validation without writing), `env` in `GET
+  /projects/<p>` (only a flag that the variable is set, never the value), in the
+  run list and detail `scenario`, `started_at`, `finished_at`,
+  `current_step`, `steps_total`; `POST /projects/<p>/runs` with an optional
+  `callback_url` and `dry_run`; `serve` serves the GUI (`GET /`, `/assets/…`
+  without a token) and has `--cors <origin>`.
+- **API shape change (0.5.0 → 0.6.0):** the items of the `errors` arrays are objects
+  `{message, file?, step?, field?, line?}` instead of texts; `message` =
+  the former text. It concerns `GET /projects/<p>` (project, scenarios, agents,
+  skills), `GET …/scenarios/<s>`, `GET …/files/<path>` and the 200/422 responses of
+  editing operations. The only client of those fields is the GUI; `details`, the CLI
+  and the Python API stay texts.
+- [run-record.md](run-record.md): `run_started` has the new fields `steps_total`
+  and `callback_url` (without the query, `null` = no callback). Older records do not
+  have them; a reader treats a missing field as `null`.
+- [webhook.md](webhook.md) only a reference; the `POST /runs` contract does not change.
+  The `agent`, `scenario`, `config`, `mcp` formats and the JSON Schema do not change.
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.7.0)
+## version 1 — backward-compatible addition (framework 0.7.0)
 
-- [api.md](api.md) „Doplňky podle nálezů GUI“ (ISSUES 45): `state`
-  (`running` × `interrupted` podle zámku běhu), `fake`,
-  `queue_position`, `current_nn`, `steps_done` v seznamu běhů,
-  `?scenario=&limit=`, `last_run`, `types` a
-  `links.scenario_step_agent` v popisu projektu, `reason` a `registry`
-  v `GET /projects`, podrobnosti kroků (`nn`, `dir`, `error`,
-  `continued`, `default_used`, `calls`, …) a nový `GET
-  …/runs/<id>/steps/<cesta>`, strom kroků běhu (`tree`, `callees`,
-  `tree_source`), `errors` objekty i v 422 a všechny chyby
-  `config.yaml`/`mcp.yaml` ve `files/`. Nová pole, stávající se nemění;
-  textový `status` „běží nebo přerušen“ je rozdělený na „běží“ a
-  „přerušen“.
-- [run-record.md](run-record.md): ve složce běhu `run.lock` a snímek
-  `scenario/<jméno>.yaml`; `step_started` má `nn` a `dir`,
-  `step_skipped` `nn`, `step_finished` s `continued: true` má
-  `default_used`. Starší záznamy je nemají; čtenář bere chybějící pole
-  jako `null`.
-- Formáty `agent`, `scenario`, `config`, `mcp`, JSON Schema a smlouva
-  `POST /runs` + callback se nemění.
+- [api.md](api.md) “Additions from GUI findings” (ISSUES 45): `state`
+  (`running` × `interrupted` by the run lock), `fake`,
+  `queue_position`, `current_nn`, `steps_done` in the run list,
+  `?scenario=&limit=`, `last_run`, `types` and
+  `links.scenario_step_agent` in the project description, `reason` and `registry`
+  in `GET /projects`, step details (`nn`, `dir`, `error`,
+  `continued`, `default_used`, `calls`, …) and a new `GET
+  …/runs/<id>/steps/<path>`, the run step tree (`tree`, `callees`,
+  `tree_source`), `errors` objects also in 422 and all errors of
+  `config.yaml`/`mcp.yaml` in `files/`. New fields, the existing ones do not change;
+  the textual `status` “running or interrupted” is split into `running` and
+  `interrupted`.
+- [run-record.md](run-record.md): in the run folder `run.lock` and the snapshot
+  `scenario/<name>.yaml`; `step_started` has `nn` and `dir`,
+  `step_skipped` has `nn`, `step_finished` with `continued: true` has
+  `default_used`. Older records do not have them; a reader treats a missing field
+  as `null`.
+- The `agent`, `scenario`, `config`, `mcp` formats, the JSON Schema and the
+  `POST /runs` contract + callback do not change.
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.8.0)
+## version 1 — backward-compatible addition (framework 0.8.0)
 
-Formáty agenta, scénáře, konfigurace i záznamu běhu beze změny. API
-([api.md](api.md) „Dávka, náhled a doplňky podle nálezů GUI, část 2“),
-vše aditivní:
+The agent, scenario, configuration and run record formats are unchanged. The API
+([api.md](api.md) “Batch, preview and additions from GUI findings, part 2”),
+all additive:
 
-- `POST …/scenarios/<s>/batch` (dávka operací, jedna validace, jeden
-  zápis; nové operace `replace_step`, `rename_step`, `add_branch`),
-  `POST …/scenarios/<s>/render` (náhled bez zápisu), `PUT …/steps/<adresa>`
-  (celý krok).
-- `HEAD …/files/<cesta>` a `?etag_only=1`; `errors` v `GET …/files/<cesta>`
-  = chyby `validate` souboru.
-- `description` (a u agenta `model`) v `POST …/scenarios` a `POST …/agents`.
-- `links.scenario_model` a `models_used` v `GET /projects/<p>`.
-- `PUT …/config` povoluje i `runs_dir` a `openrouter.jev_model`.
-- `state`: záznam fronty `serve` → `queued`; `dry_run` jen bez
-  `run.lock` ([run-record.md](run-record.md) — jen upřesnění, soubor
-  i pořadí zápisu jsou od 0.7.0).
+- `POST …/scenarios/<s>/batch` (a batch of operations, one validation, one
+  write; the new operations `replace_step`, `rename_step`, `add_branch`),
+  `POST …/scenarios/<s>/render` (a preview without writing), `PUT …/steps/<address>`
+  (the whole step).
+- `HEAD …/files/<path>` and `?etag_only=1`; `errors` in `GET …/files/<path>`
+  = the `validate` errors of the file.
+- `description` (and for an agent `model`) in `POST …/scenarios` and `POST …/agents`.
+- `links.scenario_model` and `models_used` in `GET /projects/<p>`.
+- `PUT …/config` also allows `runs_dir` and `openrouter.jev_model`.
+- `state`: a `serve` queue entry → `queued`; `dry_run` only without
+  `run.lock` ([run-record.md](run-record.md) — only a clarification, the file
+  and the write order are from 0.7.0).
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.9.0)
+## version 1 — backward-compatible addition (framework 0.9.0)
 
-Formáty agenta, scénáře, konfigurace i záznamu běhu beze změny. API
-([api.md](api.md)): `POST /projects/new` založí a zaregistruje projekt,
-`POST /projects` zaregistruje existující projekt, `DELETE /projects/<p>`
-odebere jen položku registru; `GET /projects` přidává `projects_root` a
-`writable`. Kořen pro nové projekty je volitelně nastavitelný v registru;
-chování zápisu a cesty viz [projects.md](projects.md).
+The agent, scenario, configuration and run record formats are unchanged. The API
+([api.md](api.md)): `POST /projects/new` creates and registers a project,
+`POST /projects` registers an existing project, `DELETE /projects/<p>`
+removes only the registry entry; `GET /projects` adds `projects_root` and
+`writable`. The root for new projects is optionally configurable in the registry;
+for the write behavior and paths see [projects.md](projects.md).
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.10.0)
+## version 1 — backward-compatible addition (framework 0.10.0)
 
-Formáty agenta, scénáře, konfigurace i záznamu běhu zůstávají zpětně
-kompatibilní. API ([api.md](api.md)) přidává počty a dnešní útratu do
-`GET /projects`, stránkování běhů, `tree` při validaci/renderu textu,
-řádek chyb schématu configu a krok/pole u chyby operace dávky. Restartem
-přerušený běh zachová původní `run_started` a v API má `state: interrupted`.
-Smlouva `POST /runs` a callbacku se nemění.
+The agent, scenario, configuration and run record formats stay backward
+compatible. The API ([api.md](api.md)) adds counts and today's spend to
+`GET /projects`, run pagination, `tree` when validating/rendering text,
+the line of config schema errors and the step/field on a batch operation error.
+A run interrupted by a restart keeps its original `run_started` and has `state: interrupted`
+in the API. The `POST /runs` and callback contract does not change.
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.12.0)
+## version 1 — backward-compatible addition (framework 0.12.0)
 
-- `config.yaml`: alias modelu může mít volitelné `api: chat|images` (výchozí
-  `chat`) a při `api: images` volitelné `quality: auto|low|medium|high`;
-  formát kroku `image` zůstává beze změny.
+- `config.yaml`: a model alias may have an optional `api: chat|images` (default
+  `chat`) and, with `api: images`, an optional `quality: auto|low|medium|high`;
+  the format of the `image` step stays unchanged.
 
-## version 1 — zpětně kompatibilní doplnění (framework 0.14.0)
+## version 1 — backward-compatible addition (framework 0.14.0)
 
-- `image.aspect_ratio` nově přijímá šablonu; volitelná `quality` a
-  `resolution` přijímají pevnou hodnotu nebo šablonu. Kvalita kroku přebíjí
-  alias, chat API kvalitu a rozlišení ignoruje s varováním v záznamu běhu.
-  Stávající scénáře a výchozí chování zůstávají platné (R8).
+- `image.aspect_ratio` now accepts a template; the optional `quality` and
+  `resolution` accept a fixed value or a template. A step's quality overrides the
+  alias, the chat API ignores quality and resolution with a warning in the run record.
+  Existing scenarios and the default behavior stay valid (R8).
+
+## version 1 — no format change (English as the primary language)
+
+All formats, keys and enum values are unchanged. Only human-readable texts and
+the names in the examples are English now:
+
+- the run `status` text in the API and in `agencast runs list` (`running`,
+  `interrupted`, `failed (<class> in <step>)`; clients should read the machine
+  field `state`) and the message stored for a run interrupted by a `serve`
+  restart (`run interrupted by server restart`; older records with a different
+  message are read as `failed`);
+- `summary.md` and `report.html`: a decimal point and dates as
+  `YYYY-MM-DD HH:MM UTC`;
+- the files created by `agencast new` (the `writer` agent, the `demo` scenario
+  with the steps `write` and `result` and the input `topic`) and the example
+  projects (model aliases `smart` and `fast`).

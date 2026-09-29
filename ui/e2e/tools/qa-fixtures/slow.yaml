@@ -1,0 +1,15 @@
+version: 1
+name: slow
+description: Slow run for live following
+inputs:
+  topic: { type: string, default: coffee }
+outputs:
+  text: { type: string }
+steps:
+  - id: slowly
+    ask:
+      agent: writer
+      prompt: "Slowly: {{ inputs.topic }}"
+  - id: result
+    output:
+      text: "{{ steps.slowly.text }}"

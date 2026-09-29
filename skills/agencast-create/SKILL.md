@@ -15,14 +15,14 @@ https://github.com/rychidesign/agencast or install with
    `scenarios/`, optional `skills/`, `mcp.yaml`). Every command walks up from the
    current directory or takes `agencast --project <root> …`. Registered projects
    and their paths: `agencast projects list`. No project yet:
-   `agencast new project <dir>` (skeleton with config, agent `pisatel`, scenario
-   `ukazka`, `.env.example`; it is registered for the GUI right away).
+   `agencast new project <dir>` (skeleton with config, agent `writer`, scenario
+   `demo`, `.env.example`; it is registered for the GUI right away).
 2. **Read `workflows/config.yaml`** and note the keys under `models:` — agents
    reference a model only by such an alias, never by a model id. Read only:
    `config.yaml`, `mcp.yaml` and `commands.yaml` are owner-only; if a new alias
    or MCP server is needed, ask.
 3. **Look at the existing `agents/*.md` and `scenarios/*.yaml`** and match
-   their language (prompts here are usually Czech) and naming.
+   their language (the bundled examples use English prompts) and naming.
 4. **Scaffold or write by hand.** `agencast new agent <name>` /
    `agencast new scenario <name>` create a minimal valid file (agent gets a real
    alias from `config.yaml`); nothing is ever overwritten. Hand-written files
@@ -44,7 +44,7 @@ old format version.
 version: 1
 name: greeter
 description: Writes short friendly greetings   # for humans, not sent to the model
-model: chytry            # alias from workflows/config.yaml `models`, never a model id
+model: smart             # alias from workflows/config.yaml `models`, never a model id
 limits:
   budget_usd: 0.02       # required: cap per step using this agent
   # timeout: 2m          # optional; default ask 2m, task 15m
@@ -109,7 +109,7 @@ call on `transient`/`schema`), `on_error: continue` + `default`,
 `{{ path }}` templates only insert a value (no operators) in prompts, `jev.state`,
 `fail`, `output`, `call.inputs`; a `null` in a template is a runtime error unless
 it comes from an explicit `default`. Expressions (`when`, `switch.value`, `set`)
-are bare Python-style: `steps.check.on_brand < 0.7 and inputs.lang in ["cs", "sk"]`,
+are bare Python-style: `steps.check.on_brand < 0.7 and inputs.lang in ["en", "fr"]`,
 literals `true/false/null`, functions `len min max round str int float join`.
 A step skipped by `when`/`switch`/`on_error` needs `default:` if a later step
 reads it. YAML: quote values starting with `{{`; wrap an expression that starts
@@ -123,26 +123,26 @@ agencast run greet -i who=Ada --dry-run    # plan, no calls
 agencast run greet -i who=Ada --fake       # fake provider, no cost
 ```
 
-`validate` prints `v pořádku: greet (2 kroky)` or `config: …` lines that name
+`validate` prints `valid: greet (2 steps)` or `config: …` lines that name
 the file, step and field — fix every one before a live run. `--fake` without a
 fixture invents values (Jev answers 0.5), so a threshold `fail` is expected.
 Then tell the user the files, the inputs and the exact `run` command; a live
 run and reading results: skill `agencast-run`.
 
-`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
-Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
-`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
-`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
-Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
-a bez `--callback-url`, například `ig-post`.
+`--fake` replaces only model calls: no model cost and no OpenRouter key.
+A `task` step still runs the real MCP servers from `mcp.yaml`; the example
+`filesystem` uses `npx`, needs Node.js and downloads a package on first run.
+`--callback-url` sends a real callback (and needs its signing secret).
+Only scenarios without `task` (including called scenarios)
+and without `--callback-url` are guaranteed to run offline, for example `ig-post`.
 
 ## GUI and registry
 
 The web GUI (`agencast serve` in registry mode, typically a systemd service)
 edits the same files and shows **registered projects only**
 (`~/.config/agencast/projects.yaml`, `agencast projects list`). `new project`
-registers; an existing folder: `agencast projects add <root> [--name jmeno]`;
-`projects rm <jmeno>` removes from the registry only. `validate` never
+registers; an existing folder: `agencast projects add <root> [--name <name>]`;
+`projects rm <name>` removes from the registry only. `validate` never
 registers; a successful `run` does as a fallback. The GUI picks up a new
 registration on the next request. Keep the GUI on a private network. Its
 address comes from `AGENCAST_HOST` and `AGENCAST_PORT` in
@@ -152,7 +152,7 @@ address comes from `AGENCAST_HOST` and `AGENCAST_PORT` in
 
 Examples: `agencast new project <dir> --example showcase`, then read
 `workflows/agents/*.md`, `workflows/scenarios/ig-post.yaml` (ask + jev + fail + image + output),
-`workflows/scenarios/ukazka-task.yaml` (task with MCP), `workflows/scenarios/ukazka-call.yaml` (call).
+`workflows/scenarios/demo-task.yaml` (task with MCP), `workflows/scenarios/demo-call.yaml` (call).
 Full format: `agencast docs show spec/agent.md`,
 `agencast docs show spec/scenario.md`, `agencast docs show spec/skill.md`,
 `agencast docs show spec/config.md`.

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/rychidesign/agencast/main/docs/spec/schema/agent.schema.json",
-  "title": "Agent — YAML frontmatter, formát v1",
-  "description": "Viz docs/spec/agent.md. Tělo souboru (instrukce) se validuje zvlášť: musí být neprázdné. Že klíče tools = mcp a oprávnění z mcp.yaml kontroluje validate.",
+  "title": "Agent — YAML frontmatter, format v1",
+  "description": "See docs/spec/agent.md. The file body (instructions) is validated separately: it must not be empty. validate checks that the tools keys equal mcp and the permissions from mcp.yaml.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,7 +25,7 @@
     },
     "model": {
       "$ref": "#/$defs/kebab",
-      "description": "Alias z config.yaml"
+      "description": "Alias from config.yaml"
     },
     "skills": {
       "type": "array",

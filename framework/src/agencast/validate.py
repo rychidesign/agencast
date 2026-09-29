@@ -1,5 +1,5 @@
-"""Statické kontroly před během (scenario.md §7). Všechno je třída `config`
-a hlásí se všechny chyby najednou.
+"""Static checks before a run (scenario.md §7). All errors have class `config`
+and are reported together.
 """
 import ast
 import re
@@ -13,9 +13,9 @@ from .loader import (LoadError, load_yaml, nested_lists, read_frontmatter, read_
 from .mcp_client import api_name, load_mcp, secret_names
 from .providers import DEFAULT_BASE_URL, list_image_models, list_models, shape_type
 
-NOOUT = "bez výstupu"  # typ kroku parallel/switch/fail/output
-DEFAULT_TIMEOUT = {"ask": "2m", "task": "15m", "jev": "30s", "image": "3m"}  # scenario.md §3 (návrh)
-# Kde smí být šablona {{ }} (scenario.md §5); "*" = libovolný klíč/index.
+NOOUT = "no output"  # type of parallel/switch/fail/output steps
+DEFAULT_TIMEOUT = {"ask": "2m", "task": "15m", "jev": "30s", "image": "3m"}  # scenario.md §3 (draft)
+# Fields that allow {{ }} templates (scenario.md §5); "*" = any key/index.
 TEMPLATE_FIELDS = [("ask", "prompt"), ("task", "prompt"), ("image", "prompt"), ("jev", "state"),
                    ("image", "aspect_ratio"), ("image", "quality"), ("image", "resolution"),
                    ("jev", "questions", "*", "instructions"), ("jev", "questions", "*", "criteria", "*"),
@@ -29,23 +29,23 @@ class Agent:
     name: str
     data: dict
     body: str
-    skills: list  # [(jméno, description, tělo)]
+    skills: list  # [(name, description, body)]
 
 
 @dataclass
 class StepInfo:
     id: str
     kind: str
-    nn: int          # pořadí v souboru, hloubkově (run-record.md <nn>)
+    nn: int          # depth-first order in the file (run-record.md <nn>)
     data: dict
-    cond: frozenset  # co způsobí, že krok nemusí proběhnout
-    anc: frozenset   # podmínky předků (odkaz uvnitř stejné větve je v pořádku)
+    cond: frozenset  # conditions that may prevent the step from running
+    anc: frozenset   # ancestor conditions (references within the same branch are valid)
     out: object = None
-    dir: str = ""    # 3b: u kroku volaného scénáře složka kroku call ("steps/03-navrh/"), id je pak cesta "navrh/copy"
+    dir: str = ""    # 3b: call step directory for a callee step ("steps/03-propose/"), with id as path "propose/copy"
 
     @property
     def key(self) -> str:
-        """Id v souboru scénáře — pod ním je výstup ve výrazech (`steps.<key>`)."""
+        """ID in the scenario file — the output key used in expressions (`steps.<key>`)."""
         return self.id.rsplit("/", 1)[-1]
 
     @property
@@ -55,7 +55,7 @@ class StepInfo:
 
 @dataclass
 class Project:
-    """Ověřený scénář se vším, co engine potřebuje."""
+    """A validated scenario with everything the engine needs."""
     scenario_path: Path
     workflows: Path
     scenario: dict
@@ -63,12 +63,12 @@ class Project:
     agents: dict[str, Agent]
     steps: dict[str, StepInfo]
     order: list[StepInfo] = field(default_factory=list)
-    callees: dict[str, "Project"] = field(default_factory=dict)  # 3b: scénáře volané krokem call, podle jména
-    mcp: dict = field(default_factory=dict)  # servery z mcp.yaml
+    callees: dict[str, "Project"] = field(default_factory=dict)  # 3b: scenarios invoked by call steps, by name
+    mcp: dict = field(default_factory=dict)  # servers from mcp.yaml
 
     @property
     def base(self) -> Path:
-        """Kořen projektu (nad workflows/); relativní runs_dir a storage.local.path se berou odsud."""
+        """Project root (above workflows/); base for relative runs_dir and storage.local.path."""
         return self.workflows.parent
 
     @property
@@ -79,7 +79,7 @@ class Project:
 # --- config.yaml ----------------------------------------------------------------
 
 def env_fields(obj, path=()) -> list[tuple[str, str]]:
-    """(cesta, JMENO) všech polí `*_env`."""
+    """(path, NAME) for all `*_env` fields."""
     out = []
     if isinstance(obj, dict):
         for k, v in obj.items():
@@ -93,7 +93,7 @@ def env_fields(obj, path=()) -> list[tuple[str, str]]:
 def load_config(workflows: Path, errs: list) -> dict | None:
     p = workflows / "config.yaml"
     if not p.is_file():
-        errs.append(f"{p}: chybí — zkopíruj workflows/config.example.yaml na config.yaml a uprav (mění jen vlastník)")
+        errs.append(f"{p}: missing — copy workflows/config.example.yaml to config.yaml and edit it (project owner only)")
         return None
     try:
         text = p.read_text(encoding="utf-8")
@@ -110,8 +110,8 @@ def load_config(workflows: Path, errs: list) -> dict | None:
     seen = {}
     for path, name in env_fields(c):
         if name in seen:
-            errs.append(f"config.yaml: {seen[name]} a {path} používají stejnou proměnnou {name} — "
-                        "každé tajemství má mít vlastní proměnnou")
+            errs.append(f"config.yaml: {seen[name]} and {path} use the same variable {name} — "
+                        "each secret must have its own variable")
         seen[name] = path
     c["openrouter"].setdefault("base_url", DEFAULT_BASE_URL)
     c["openrouter"].setdefault("jev_model", "jev-1.13")
@@ -121,7 +121,7 @@ def load_config(workflows: Path, errs: list) -> dict | None:
 
 
 def require_config(workflows: Path) -> dict:
-    """`load_config`, chyby → ConfigErrors."""
+    """`load_config`, errors → ConfigErrors."""
     errs = []
     c = load_config(workflows, errs)
     if errs:
@@ -129,19 +129,19 @@ def require_config(workflows: Path) -> dict:
     return c
 
 
-# --- agenti a skilly ------------------------------------------------------------
+# --- agents and skills ------------------------------------------------------------
 
 def in_subdir(wf: Path, d: str, fname: str) -> str:
-    """Dovětek k hlášce „neexistuje“: soubor leží o úroveň níž v podsložce, která se nečte."""
+    """Suffix for 'does not exist': the file is one level down in an ignored subfolder."""
     hit = next(iter(sorted((wf / d).glob(f"*/{fname}"))), None)
-    return f" (soubor je v podsložce {d}/{hit.parent.name}/, podsložky se nečtou)" if hit else ""
+    return f" (file is in subfolder {d}/{hit.parent.name}/, subfolders are not read)" if hit else ""
 
 
 def load_skill(wf: Path, name: str, errs: list, ref: str):
     where = f"skills/{name}/SKILL.md"
     p = wf / where
     if not p.is_file():
-        errs.append(f"{ref}: skill '{name}' neexistuje ({where})")
+        errs.append(f"{ref}: skill '{name}' does not exist ({where})")
         return None
     try:
         fm, body = read_frontmatter(p, where)
@@ -152,9 +152,9 @@ def load_skill(wf: Path, name: str, errs: list, ref: str):
         errs.extend(e)
         return None
     if fm["name"] != name:
-        errs.append(f"{where}: name '{fm['name']}' se neshoduje se jménem složky")
+        errs.append(f"{where}: name '{fm['name']}' does not match the folder name")
     if not body.strip():
-        errs.append(f"{where}: tělo skillu je prázdné")
+        errs.append(f"{where}: skill body is empty")
     return name, fm["description"], body
 
 
@@ -163,7 +163,7 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
     where = f"agents/{name}.md"
     p = wf / where
     if not p.is_file():
-        errs.append(f"{ref + ': ' if ref else ''}agent '{name}' neexistuje ({where})"
+        errs.append(f"{ref + ': ' if ref else ''}agent '{name}' does not exist ({where})"
                     + in_subdir(wf, "agents", f"{name}.md"))
         return None
     try:
@@ -174,43 +174,43 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
     if v := version_error(fm, where):
         errs.append(v)
         return None
-    alias = f"{where}: model '{fm.get('model')}' není alias v config.yaml (aliasy: {', '.join(config['models'])})"
-    if e := schema_errors("agent", fm, where):  # id modelu místo aliasu: hláška o aliasu, ne regex ze schématu
+    alias = f"{where}: model '{fm.get('model')}' is not an alias in config.yaml (aliases: {', '.join(config['models'])})"
+    if e := schema_errors("agent", fm, where):  # model ID instead of alias: report the alias error, not the schema regex
         errs.extend(alias if x.startswith(f"{where}: model: ") else x for x in e)
         return None
     n = len(errs)
     if fm["name"] != name:
-        errs.append(f"{where}: name '{fm['name']}' se neshoduje se jménem souboru")
+        errs.append(f"{where}: name '{fm['name']}' does not match the file name")
     if not body.strip():
-        errs.append(f"{where}: tělo (instrukce agenta) je prázdné")
+        errs.append(f"{where}: body (agent instructions) is empty")
     if fm["model"] not in config["models"]:
         errs.append(alias)
     if set(fm.get("tools", {})) != set(fm.get("mcp", [])):
-        errs.append(f"{where}: klíče tools musí být přesně servery z mcp")
+        errs.append(f"{where}: tools keys must exactly match the servers in mcp")
     servers = load_mcp(wf, errs) if mcp is None else mcp
-    for srv in fm.get("mcp", []):  # oprávnění drží vlastník v mcp.yaml (config.md, §5.2)
+    for srv in fm.get("mcp", []):  # the project owner controls permissions in mcp.yaml (config.md, §5.2)
         s = servers.get(srv)
         if s is None:
-            errs.append(f"{where}: MCP server '{srv}' není v workflows/mcp.yaml (registr mění jen vlastník, "
-                        "vzor mcp.example.yaml)")
+            errs.append(f"{where}: MCP server '{srv}' is not in workflows/mcp.yaml (only the project owner can edit the registry, "
+                        "see mcp.example.yaml)")
         elif name not in s["agents"]:
-            errs.append(f"{where}: server '{srv}' agentovi '{name}' vlastník nepovolil "
+            errs.append(f"{where}: the project owner has not allowed server '{srv}' for agent '{name}' "
                         f"(mcp.yaml → servers.{srv}.agents: {', '.join(s['agents'])})")
         elif "tools" in s and (extra := [t for t in fm.get("tools", {}).get(srv, []) if t not in s["tools"]]):
-            errs.append(f"{where}: nástroje {', '.join(extra)} serveru '{srv}' vlastník nepovolil "
+            errs.append(f"{where}: the project owner has not allowed tools {', '.join(extra)} on server '{srv}' "
                         f"(mcp.yaml → servers.{srv}.tools: {', '.join(s['tools'])})")
     skills = [s for s in (load_skill(wf, s, errs, where) for s in fm.get("skills", [])) if s]
     return Agent(name, fm, body, skills) if len(errs) == n else None
 
 
 def effective_tools(agent: dict, task: dict) -> dict[str, list]:
-    """Nástroje, které krok task smí použít: krok ⊆ agent (§5.2); validate hlídá, že krok nerozšiřuje."""
+    """Tools a task step may use: step ⊆ agent (§5.2); validation prevents steps from expanding permissions."""
     servers = task.get("mcp", agent.get("mcp", []))
     return {s: (task.get("tools") or {}).get(s, agent.get("tools", {}).get(s, [])) for s in servers}
 
 
 def mcp_servers_used(p: "Project") -> set[str]:
-    """Servery, které běh může spustit: efektivní sady všech kroků task (i ve volaných scénářích)."""
+    """Servers a run may start: effective sets for all task steps (including called scenarios)."""
     projects, used = [p], set()
     while projects:
         q = projects.pop()
@@ -220,7 +220,7 @@ def mcp_servers_used(p: "Project") -> set[str]:
     return used
 
 
-# --- vstupy -----------------------------------------------------------------------
+# --- inputs -----------------------------------------------------------------------
 
 def _matches(t: str, v) -> bool:
     if t == "integer":
@@ -229,23 +229,23 @@ def _matches(t: str, v) -> bool:
 
 
 def resolve_inputs(scenario: dict, given: dict, from_text: bool = False) -> dict:
-    """Vstupy běhu po doplnění default; chyba = běh vůbec nezačne (scenario.md inputs)."""
+    """Run inputs with defaults applied; errors prevent the run from starting (scenario.md inputs)."""
     import json
     specs, errs, out = scenario.get("inputs") or {}, [], {}
     for name in given:
         if name not in specs:
-            errs.append(f"neznámý vstup '{name}' (scénář má: {', '.join(specs) or 'žádné vstupy'})")
+            errs.append(f"unknown input '{name}' (scenario has: {', '.join(specs) or 'no inputs'})")
     for name, sp in specs.items():
         t = sp["type"]
         if name not in given:
             if sp.get("required"):
-                errs.append(f"chybí povinný vstup '{name}' ({t})")
+                errs.append(f"missing required input '{name}' ({t})")
             else:
                 out[name] = sp["default"]
             continue
         v = given[name]
         if t == "file":
-            errs.append(f"vstup '{name}' je typu file — ten jde předat jen přes call, ne z CLI ani webhooku")
+            errs.append(f"input '{name}' has type file — it can only be passed via call, not the CLI or a webhook")
             continue
         if from_text and t != "string":
             try:
@@ -253,24 +253,24 @@ def resolve_inputs(scenario: dict, given: dict, from_text: bool = False) -> dict
             except ValueError:
                 pass
         if not _matches(t, v):
-            errs.append(f"vstup '{name}' má být {t}, dostal {kind(v)}")
+            errs.append(f"input '{name}' must be {t}, got {kind(v)}")
         out[name] = v
     if errs:
         raise ConfigErrors(errs)
     return out
 
 
-# --- scénář -----------------------------------------------------------------------
+# --- scenario -----------------------------------------------------------------------
 
 def validate(scenario_path, *, transport=None, check_models: bool = True) -> Project:
-    """Načte a ověří scénář, config, agenty a skilly. Chyby → ConfigErrors."""
+    """Load and validate a scenario, config, agents and skills. Errors → ConfigErrors."""
     path = Path(scenario_path).resolve()
     where = path.name
     if not path.is_file():
-        raise ConfigErrors([f"{scenario_path}: soubor neexistuje"])
+        raise ConfigErrors([f"{scenario_path}: file does not exist"])
     if path.parent.name != "scenarios":
-        raise ConfigErrors([f"{scenario_path}: spustit jde jen scénář uložený přímo ve složce "
-                            "workflows/scenarios/ — přesuň ho tam (podsložky, třeba archiv/, se ignorují)"])
+        raise ConfigErrors([f"{scenario_path}: only scenarios stored directly in the folder can run: "
+                            "workflows/scenarios/ — move it there (subfolders such as archive/ are ignored)"])
     wf = path.parent.parent
     errs = []
     config = load_config(wf, errs)
@@ -305,7 +305,7 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
 
 
 def _read_scenario(path: Path, errs: list) -> dict | None:
-    """Soubor scénáře: YAML, verze, JSON Schema, jméno = soubor. Chyby do `errs`."""
+    """Scenario file: YAML, version, JSON Schema, name = file. Append errors to `errs`."""
     where = path.name
     try:
         sc = read_yaml(path, where)
@@ -318,12 +318,12 @@ def _read_scenario(path: Path, errs: list) -> dict | None:
     n = len(errs)
     errs += scenario_schema_errors(sc, where)
     if sc.get("name") != path.stem:
-        errs.append(f"{where}: name '{sc.get('name')}' se neshoduje se jménem souboru")
+        errs.append(f"{where}: name '{sc.get('name')}' does not match the file name")
     return sc if len(errs) == n else None
 
 
 def check_models_list(config: dict, needs: dict, models: list, image_models: list = ()) -> list[str]:
-    """Aliasy proti GET /models nebo /images/models (scenario.md §7, §5.5, §5.7)."""
+    """Check aliases against GET /models or /images/models (scenario.md §7, §5.5, §5.7)."""
     by_id, image_by_id, errs = {m["id"]: m for m in models}, {m["id"]: m for m in image_models}, []
     for alias, need in sorted(needs.items()):
         model, mid = config["models"][alias], config["models"][alias]["id"]
@@ -331,10 +331,10 @@ def check_models_list(config: dict, needs: dict, models: list, image_models: lis
         if images_api and "image" in need:
             m = image_by_id.get(mid)
             if not m:
-                errs.append(f"config.yaml: models.{alias}.id '{mid}' není v GET /images/models")
+                errs.append(f"config.yaml: models.{alias}.id '{mid}' is not in GET /images/models")
             else:
                 if "image" not in m["output_modalities"]:
-                    errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí výstup obrázku")
+                    errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not support image output")
                 for requirement in need - {"image"}:
                     parameter, _, requested = requirement.partition(":")
                     if parameter not in ("aspect_ratio", "quality", "resolution"):
@@ -343,7 +343,7 @@ def check_models_list(config: dict, needs: dict, models: list, image_models: lis
                     supported = m["supported_parameters"].get(parameter) or {}
                     values = supported.get("values") if isinstance(supported, dict) else None
                     if values is not None and value not in values:
-                        errs.append(f"config.yaml: model '{mid}' (alias {alias}) nepodporuje {parameter} {value}"
+                        errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not support {parameter} {value}"
                                     + (f" ({source})" if source else ""))
         chat_need = need - {"image"} - {n for n in need if n.startswith(
             ("aspect_ratio:", "quality:", "resolution:"))} if images_api else need
@@ -352,24 +352,24 @@ def check_models_list(config: dict, needs: dict, models: list, image_models: lis
         m = by_id.get(mid)
         if not m:
             if not images_api and "image" in need and mid in image_by_id:
-                errs.append(f"config.yaml: model '{mid}' (alias {alias}) je jen v Images API — "
-                            f"nastav models.{alias}.api: images")
+                errs.append(f"config.yaml: model '{mid}' (alias {alias}) is only available in the Images API — "
+                            f"set models.{alias}.api: images")
                 continue
-            errs.append(f"config.yaml: models.{alias}.id '{mid}' není v GET /models — překlep? "
-                        "(např. claude-haiku-4.5, ne -4-5)")
+            errs.append(f"config.yaml: models.{alias}.id '{mid}' is not in GET /models — typo? "
+                        "(e.g. claude-haiku-4.5, not -4-5)")
             continue
         if "image" in chat_need and "image" not in m["output_modalities"]:
-            errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí výstup obrázku")
+            errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not support image output")
         if "tools" in chat_need and "tools" not in m["supported_parameters"]:
-            errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí tools — agent s ním nemůže běžet v kroku task")
+            errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not support tools — an agent using it cannot run in a task step")
         if "schema" in chat_need and not {"structured_outputs", "tools"} & set(m["supported_parameters"]):
-            errs.append(f"config.yaml: model '{mid}' (alias {alias}) neumí structured_outputs ani tools — "
-                        "krok se schema by nešel vynutit")
+            errs.append(f"config.yaml: model '{mid}' (alias {alias}) supports neither structured_outputs nor tools — "
+                        "the step's schema could not be enforced")
     return errs
 
 
 def _strings(obj, path=(), skip=()):
-    """(cesta, text) všech textů včetně klíčů; `skip` = vnořené seznamy kroků."""
+    """(path, text) for all strings, including keys; `skip` = nested step lists."""
     if path in skip:
         return
     if isinstance(obj, str):
@@ -377,7 +377,7 @@ def _strings(obj, path=(), skip=()):
     elif isinstance(obj, dict):
         for k, v in obj.items():
             if isinstance(k, str):
-                yield path + (k, "#klíč"), k
+                yield path + (k, "#key"), k
             yield from _strings(v, path + (k,), skip)
     elif isinstance(obj, list):
         for i, v in enumerate(obj):
@@ -391,7 +391,7 @@ def _template_field(p) -> bool:
 class _Checker:
     def __init__(self, sc: dict, config: dict, wf: Path, where: str, stack: tuple = (), model_needs=None):
         self.sc, self.config, self.wf, self.where = sc, config, wf, where
-        self.stack = stack + (sc["name"],)  # 3b: řetěz call od nejvyššího scénáře (cykly, hloubka)
+        self.stack = stack + (sc["name"],)  # 3b: call chain from the top-level scenario (cycles, depth)
         self.errs: list[str] = []
         self.steps: dict[str, StepInfo] = {}
         self.order: list[StepInfo] = []
@@ -401,46 +401,46 @@ class _Checker:
         self.inputs_type = {k: INPUT_TYPES[v["type"]] for k, v in (sc.get("inputs") or {}).items()}
         self.mcp = load_mcp(wf, self.errs)
         own = {name: path for path, name in env_fields(config)}
-        for name in secret_names(self.mcp):  # klíč z config.yaml by odešel MCP serveru (např. OPENROUTER_API_KEY)
+        for name in secret_names(self.mcp):  # a config.yaml key would be sent to an MCP server (e.g. OPENROUTER_API_KEY)
             if name in own:
-                self.errs.append(f"mcp.yaml: proměnná {name} je už v config.yaml ({own[name]}) — "
-                                 "MCP server musí mít vlastní tajemství")
+                self.errs.append(f"mcp.yaml: variable {name} is already used in config.yaml ({own[name]}) — "
+                                 "the MCP server must have its own secret")
 
     def project(self, path: Path) -> Project:
         return Project(path, self.wf, self.sc, self.config, self.agents, self.steps, self.order, self.callees, self.mcp)
 
     def err(self, step, fld, msg):
-        prefix = f'{self.where}: krok "{step}"' if step else self.where
+        prefix = f'{self.where}: step "{step}"' if step else self.where
         self.errs.append(f"{prefix}, {fld}: {msg}" if fld else f"{prefix}: {msg}")
 
     def run(self):
         for name, sp in (self.sc.get("inputs") or {}).items():
             if "default" in sp and not _matches(sp["type"], sp["default"]):
-                self.err(None, f"inputs.{name}.default", f"hodnota neodpovídá type {sp['type']}")
+                self.err(None, f"inputs.{name}.default", f"value does not match type {sp['type']}")
         self.number(self.sc["steps"], frozenset(), frozenset())
         header = {k: v for k, v in self.sc.items() if k != "steps"}
         for p, s in _strings(header):
             if "{{" in s:
-                self.err(None, ".".join(map(str, p)), "šablona {{ }} v hlavičce scénáře být nesmí")
+                self.err(None, ".".join(map(str, p)), "template {{ }} is not allowed in the scenario header")
         for info in self.order:
             skip = {p for p, _ in nested_lists(info.data)}
             for p, s in _strings(info.data, skip=skip):
                 if "{{" in s and not _template_field(p):
                     line = s.replace("\n", " ")
-                    self.err(info.id, ".".join(map(str, p)).replace(".#klíč", " (klíč)"),
-                             str(ExprError("šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, "
-                                           "jev.questions (instructions, criteria), fail, hodnotách output, "
-                                           "call.inputs a dedupe_key", line.index("{{"), line)))
+                    self.err(info.id, ".".join(map(str, p)).replace(".#key", " (key)"),
+                             str(ExprError("template {{ }} is not allowed here — allowed only in prompt, jev.state, "
+                                           "jev.questions (instructions, criteria), fail, output values, "
+                                           "call.inputs and dedupe_key", line.index("{{"), line)))
         self.walk(self.sc["steps"], {}, top=True)
         outs = self.sc.get("outputs") or {}
         if len(self.stack) == 1 and self.config["storage"]["type"] == "r2" and any(o["type"] == "file" for o in outs.values()):
-            self.err(None, None, "výstup typu file potřebuje úložiště, ale storage.type: r2 framework zatím neumí "
-                                 "— nastav v config.yaml storage.type: local")
+            self.err(None, None, "file output requires storage, but the framework does not yet support storage.type: r2 "
+                                 "— set storage.type: local in config.yaml")
         last = self.sc["steps"][-1]
         if self.sc.get("outputs") and step_kind(last) != "output":
-            self.err(None, None, "scénář má outputs, ale poslední krok není output")
+            self.err(None, None, "scenario has outputs, but the last step is not output")
 
-    # -- první průchod: čísla, unikátní id, podmíněnost --
+    # -- first pass: numbers, unique IDs, conditions --
     def number(self, steps, anc, cond):
         for st in steps:
             sid, k = st["id"], step_kind(st)
@@ -448,7 +448,7 @@ class _Checker:
             info = StepInfo(sid, k, len(self.order) + 1, st, cond | own, anc)
             self.order.append(info)
             if sid in self.steps:
-                self.err(sid, None, "id není unikátní (platí pro celý soubor včetně větví)")
+                self.err(sid, None, "id is not unique (must be unique across the entire file, including branches)")
             else:
                 self.steps[sid] = info
             for p, lst in nested_lists(st):
@@ -459,43 +459,43 @@ class _Checker:
         reasons = []
         for c in sorted(x.cond):
             if c == x.id:
-                reasons.append("má when" if "when" in x.data else "má on_error: continue")
+                reasons.append("has when" if "when" in x.data else "has on_error: continue")
             elif ":switch/" in c:
-                reasons.append(f"je ve větvi switch '{c.split(':')[0]}'")
+                reasons.append(f"is in a switch branch '{c.split(':')[0]}'")
             else:
-                reasons.append(f"je uvnitř kroku '{c}', který nemusí proběhnout")
+                reasons.append(f"is inside step '{c}', which may not run")
         return ", ".join(reasons)
 
     def resolver(self, scope: dict, r: StepInfo):
         def resolve(key):
             x = self.steps.get(key)
             if x is r:
-                raise ExprError(f"krok '{key}' nemůže číst svůj vlastní výstup")
+                raise ExprError(f"step '{key}' cannot read its own output")
             if x and x.kind in ("parallel", "switch", "fail", "output"):
-                raise ExprError(f"krok '{key}' ({x.kind}) nemá výstup — výstupy mají kroky uvnitř")
+                raise ExprError(f"step '{key}' ({x.kind}) has no output — its nested steps have outputs")
             if key in scope:
                 if not x.cond <= r.anc and "default" not in x.data:
-                    raise ExprError(f"krok '{key}' nemusí proběhnout ({self.why(x)}) a nemá default — doplň mu "
-                                    "default se všemi poli výstupu (§5.4)")
+                    raise ExprError(f"step '{key}' may not run ({self.why(x)}) and has no default — add a "
+                                    "default with all output fields (§5.4)")
                 return scope[key]
             if x and x.nn > r.nn:
-                raise ExprError(f"krok '{key}' je až níž — výraz vidí jen kroky nad sebou")
+                raise ExprError(f"step '{key}' comes later — expressions can only reference preceding steps")
             if x:
-                raise ExprError(f"krok '{key}' je v jiné větvi parallel — nevíme, co doběhne dřív")
+                raise ExprError(f"step '{key}' is in another parallel branch — completion order is unknown")
             avail = [k for k, v in scope.items() if v is not NOOUT]
-            raise ExprError(f"krok '{key}' neexistuje (dostupné: {', '.join(avail) or '—'})")
+            raise ExprError(f"step '{key}' does not exist (available: {', '.join(avail) or '—'})")
         return resolve
 
     def expr_type(self, info, fld, expr, res, want=None):
         if "{{" in expr:
-            return None  # už nahlášeno v run(): šablona ve výrazu není povolená
+            return None  # already reported in run(): templates are not allowed in expressions
         try:
             t = infer(expr, self.inputs_type, res)
         except ExprError as e:
             self.err(info.id, fld, str(e))
             return None
         if want and tkind(t) and tkind(t) != want:
-            self.err(info.id, fld, f"výraz musí dát {'true/false' if want == 'boolean' else want}, dá {tkind(t)}"
+            self.err(info.id, fld, f"expression must return {'true/false' if want == 'boolean' else want}, got {tkind(t)}"
                                    f"\n  {expr}")
         return t
 
@@ -509,13 +509,13 @@ class _Checker:
     def need(self, alias, what=None):
         self.model_needs.setdefault(alias, set()).update({what} if what else set())
 
-    # -- druhý průchod: odkazy, typy, šablony, pravidla kroků --
+    # -- second pass: references, types, templates, step rules --
     def walk(self, steps, scope, top=False):
         added = {}
         for i, st in enumerate(steps):
             info = self.steps.get(st["id"])
             if info is None or info.data is not st:
-                continue  # duplicitní id, už nahlášeno
+                continue  # duplicate id, already reported
             sid, k = info.id, info.kind
             res = self.resolver(scope, info)
             if "when" in st:
@@ -540,7 +540,7 @@ class _Checker:
                 scope.update(merged)
                 added.update(merged)
             if k == "fail" and "when" not in st and i < len(steps) - 1:
-                self.err(steps[i + 1].get("id"), None, f"krok je nedosažitelný — nad ním je nepodmíněný fail '{sid}'")
+                self.err(steps[i + 1].get("id"), None, f"step is unreachable — preceded by unconditional fail '{sid}'")
             if "default" in st and isinstance(out, dict):
                 self.check_default(info, out)
             info.out = out
@@ -549,7 +549,7 @@ class _Checker:
 
     def agent(self, name, info) -> Agent | None:
         if name not in self.agents:
-            self.agents[name] = load_agent(self.wf, name, self.config, self.errs, f'{self.where}: krok "{info.id}"',
+            self.agents[name] = load_agent(self.wf, name, self.config, self.errs, f'{self.where}: step "{info.id}"',
                                            self.mcp)
         return self.agents[name]
 
@@ -561,15 +561,15 @@ class _Checker:
             self.need(agent.data["model"], "schema" if "schema" in a else None)
             lim = agent.data["limits"]
             if st.get("budget_usd", 0) > lim["budget_usd"]:
-                self.err(info.id, "budget_usd", f"{st['budget_usd']} je víc než limits.budget_usd agenta "
-                                                f"'{agent.name}' ({lim['budget_usd']}) — krok limity jen snižuje")
+                self.err(info.id, "budget_usd", f"{st['budget_usd']} exceeds limits.budget_usd of agent "
+                                                f"'{agent.name}' ({lim['budget_usd']}) — steps may only lower limits")
             if "timeout" in st and "timeout" in lim and seconds(st["timeout"]) > seconds(lim["timeout"]):
-                self.err(info.id, "timeout", f"{st['timeout']} je víc než limits.timeout agenta '{agent.name}' "
-                                             f"({lim['timeout']}) — krok limity jen snižuje")
+                self.err(info.id, "timeout", f"{st['timeout']} exceeds limits.timeout of agent '{agent.name}' "
+                                             f"({lim['timeout']}) — steps may only lower limits")
         return shape_type(a["schema"]) if "schema" in a else {"text": "string"}
 
     def task(self, info, res):
-        """Krok task: limity a oprávnění krok ⊆ agent ⊆ mcp.yaml (agent.md Oprávnění, §5.2, §5.8)."""
+        """Task step: limits and permissions step ⊆ agent ⊆ mcp.yaml (agent.md Permissions, §5.2, §5.8)."""
         st, t = info.data, info.data["task"]
         out = self.ask(info, res, "task")
         if "dedupe_key" in st:
@@ -580,34 +580,34 @@ class _Checker:
         a, name = agent.data, agent.name
         self.need(a["model"], "tools")
         if "max_turns" not in a["limits"]:
-            self.err(info.id, "task.agent", f"agent '{name}' nemá limits.max_turns — task musí mít limit tahů (§5.1)")
+            self.err(info.id, "task.agent", f"agent '{name}' has no limits.max_turns — task requires a turn limit (§5.1)")
         elif t.get("max_turns", 0) > a["limits"]["max_turns"]:
-            self.err(info.id, "task.max_turns", f"{t['max_turns']} je víc než limits.max_turns agenta '{name}' "
-                                                f"({a['limits']['max_turns']}) — krok limity jen snižuje")
+            self.err(info.id, "task.max_turns", f"{t['max_turns']} exceeds limits.max_turns of agent '{name}' "
+                                                f"({a['limits']['max_turns']}) — steps may only lower limits")
         for srv in t.get("mcp", []):
             if srv not in a.get("mcp", []):
-                self.err(info.id, "task.mcp", f"server '{srv}' agent '{name}' nepovoluje (mcp: "
-                                              f"{', '.join(a.get('mcp', [])) or '—'}) — krok oprávnění jen zužuje")
+                self.err(info.id, "task.mcp", f"server '{srv}' is not allowed by agent '{name}' (mcp: "
+                                              f"{', '.join(a.get('mcp', [])) or '—'}) — steps may only narrow permissions")
         eff = effective_tools(a, t)
         for srv, tools in (t.get("tools") or {}).items():
             if srv not in eff:
-                self.err(info.id, f"task.tools.{srv}", f"server '{srv}' krok nepoužívá (task.mcp / mcp agenta)")
+                self.err(info.id, f"task.tools.{srv}", f"server '{srv}' is not used by this step (task.mcp / agent mcp)")
                 continue
             for tool in tools:
                 if tool not in a.get("tools", {}).get(srv, []):
-                    self.err(info.id, "task.tools", f"krok chce nástroj {srv}.{tool}, agent '{name}' ho nepovoluje "
+                    self.err(info.id, "task.tools", f"step requests tool {srv}.{tool}, which agent '{name}' does not allow "
                                                     f"(tools.{srv})")
         names = {}
         for srv, tools in eff.items():
             s = self.mcp.get(srv)
             if s and "scenarios" in s and self.sc["name"] not in s["scenarios"]:
-                self.err(info.id, None, f"scénář '{self.sc['name']}' nesmí spustit agenta se serverem '{srv}' "
+                self.err(info.id, None, f"scenario '{self.sc['name']}' cannot run an agent with server '{srv}' "
                                         f"(mcp.yaml → servers.{srv}.scenarios: {', '.join(s['scenarios'])})")
             for tool in tools:
                 n = api_name(srv, tool)
                 if n in names and names[n] != (srv, tool):
-                    self.err(info.id, None, f"nástroje {'.'.join(names[n])} a {srv}.{tool} mají po normalizaci "
-                                            f"stejné jméno {n} (jen [a-zA-Z0-9_-], max 64 znaků)")
+                    self.err(info.id, None, f"tools {'.'.join(names[n])} and {srv}.{tool} have "
+                                            f"the same normalized name {n} (only [a-zA-Z0-9_-], max 64 characters)")
                 names[n] = (srv, tool)
         return out
 
@@ -627,8 +627,8 @@ class _Checker:
     def image(self, info, res):
         im = info.data["image"]
         if im["model"] not in self.config["models"]:
-            self.err(info.id, "image.model", f"'{im['model']}' není alias v config.yaml "
-                                             f"(aliasy: {', '.join(self.config['models'])})")
+            self.err(info.id, "image.model", f"'{im['model']}' is not an alias in config.yaml "
+                                             f"(aliases: {', '.join(self.config['models'])})")
         else:
             self.need(im["model"], "image")
         for field, pattern in (("aspect_ratio", r"[1-9][0-9]*:[1-9][0-9]*"),
@@ -641,14 +641,14 @@ class _Checker:
             if "{{" in value:
                 typ = tkind(self.template(info, f"image.{field}", value, res))
                 if typ and typ != "string":
-                    self.err(info.id, f"image.{field}", f"šablona musí dát text, dá {typ}")
+                    self.err(info.id, f"image.{field}", f"template must return a string, got {typ}")
                 ref = re.fullmatch(r"\{\{\s*inputs\.([a-z][a-z0-9_]*)\s*\}\}", value)
                 spec = (self.sc.get("inputs") or {}).get(ref[1], {}) if ref else {}
                 if "default" not in spec:
                     continue
-                value, source = spec["default"], f"default vstupu {ref[1]}"
+                value, source = spec["default"], f"input default for {ref[1]}"
             if not isinstance(value, str) or not re.fullmatch(pattern, value):
-                self.err(info.id, f"image.{field}", f"neplatná hodnota {value!r}"
+                self.err(info.id, f"image.{field}", f"invalid value {value!r}"
                          + (f" ({source})" if source else ""))
             elif im["model"] in self.config["models"]:
                 self.need(im["model"], f"{field}:{value}" + (f"\t{source}" if source else ""))
@@ -656,7 +656,7 @@ class _Checker:
         return {"file": "file"}
 
     def call(self, info, res):
-        """Krok call (scenario.md call, §5.3): volaný scénář, jeho inputs a outputs."""
+        """Call step (scenario.md call, §5.3): called scenario, its inputs and outputs."""
         c = info.data["call"]
         given = c.get("inputs") or {}
         types = {k: self.template(info, f"call.inputs.{k}", v, res) if isinstance(v, str) else kind(v)
@@ -666,28 +666,28 @@ class _Checker:
             return None
         specs, name = callee.scenario.get("inputs") or {}, c["scenario"]
         if extra := [k for k in given if k not in specs]:
-            self.err(info.id, "call.inputs", f"scénář '{name}' nemá vstupy: {', '.join(extra)} "
-                                             f"(má: {', '.join(specs) or 'žádné'})")
+            self.err(info.id, "call.inputs", f"scenario '{name}' has no inputs named: {', '.join(extra)} "
+                                             f"(has: {', '.join(specs) or 'none'})")
         if missing := [k for k, sp in specs.items() if sp.get("required") and k not in given]:
-            self.err(info.id, "call.inputs", f"chybí povinné vstupy scénáře '{name}': {', '.join(missing)}")
+            self.err(info.id, "call.inputs", f"missing required inputs for scenario '{name}': {', '.join(missing)}")
         for k, t in types.items():
             if k in specs and tkind(t) and tkind(t) != INPUT_TYPES[specs[k]["type"]]:
-                self.err(info.id, f"call.inputs.{k}", f"vstup má typ {specs[k]['type']}, hodnota je {tkind(t)}")
+                self.err(info.id, f"call.inputs.{k}", f"input has type {specs[k]['type']}, value is {tkind(t)}")
         return {k: INPUT_TYPES[o["type"]] for k, o in (callee.scenario.get("outputs") or {}).items()}
 
     def callee(self, name: str, info) -> Project | None:
-        """Ověří volaný scénář (rekurzivně); cyklus a hloubka jsou chyba config."""
+        """Validate a called scenario recursively; cycles and excessive depth are config errors."""
         path = self.wf / "scenarios" / f"{name}.yaml"
         if not path.is_file():
-            self.err(info.id, "call.scenario", f"scénář '{name}' neexistuje (scenarios/{name}.yaml)"
+            self.err(info.id, "call.scenario", f"scenario '{name}' does not exist (scenarios/{name}.yaml)"
                      + in_subdir(self.wf, "scenarios", f"{name}.yaml"))
             return None
         if name in self.stack:
-            self.err(info.id, "call.scenario", f"cyklus call: {' → '.join(self.stack + (name,))}")
+            self.err(info.id, "call.scenario", f"call cycle: {' → '.join(self.stack + (name,))}")
             return None
         depth, limit = len(self.stack), self.config["limits"]["max_call_depth"]
         if depth > limit:
-            self.err(info.id, "call.scenario", f"hloubka call {depth} je nad limits.max_call_depth ({limit}): "
+            self.err(info.id, "call.scenario", f"call depth {depth} exceeds limits.max_call_depth ({limit}): "
                                                f"{' → '.join(self.stack + (name,))}")
             return None
         errs = []
@@ -696,8 +696,8 @@ class _Checker:
         if sc is None:
             return None
         if sc.get("callable") is not True:
-            self.err(info.id, "call.scenario", f"scénář '{name}' nemá callable: true — volat ho nejde "
-                                               "(chrání schvalování v n8n, §5.2)")
+            self.err(info.id, "call.scenario", f"scenario '{name}' has no callable: true — it cannot be called "
+                                               "(protects approval in n8n, §5.2)")
             return None
         chk = _Checker(sc, self.config, self.wf, path.name, self.stack, self.model_needs)
         chk.run()
@@ -710,7 +710,7 @@ class _Checker:
         try:
             tree = parse(sw["value"])
         except ExprError:
-            return  # už nahlášeno
+            return  # already reported
         match tree:
             case ast.Attribute(value=ast.Attribute(value=ast.Name(id="steps"), attr=sid), attr=q):
                 x = self.steps.get(sid)
@@ -718,8 +718,8 @@ class _Checker:
                 if spec and spec["type"] == "choice":
                     extra = [c for c in sw["cases"] if c not in spec["criteria"]]
                     if extra:
-                        self.err(info.id, "switch.cases", f"{', '.join(extra)} není mezi možnostmi criteria "
-                                                          f"otázky '{q}' ({', '.join(spec['criteria'])})")
+                        self.err(info.id, "switch.cases", f"{', '.join(extra)} is not among the criteria choices for "
+                                                          f"question '{q}' ({', '.join(spec['criteria'])})")
 
     def check_default(self, info, out: dict):
         d = info.data["default"]
@@ -727,33 +727,33 @@ class _Checker:
         missing = [k for k in fields if k not in d]
         extra = [k for k in d if k not in out]
         if missing:
-            self.err(info.id, "default", f"musí obsahovat všechna pole výstupu, chybí: {', '.join(missing)}")
+            self.err(info.id, "default", f"must contain all output fields, missing: {', '.join(missing)}")
         if extra:
-            self.err(info.id, "default", f"pole, která krok nevrací: {', '.join(extra)}")
+            self.err(info.id, "default", f"fields not returned by the step: {', '.join(extra)}")
         for k, v in d.items():
             want = tkind(fields.get(k))
             if want and v is not None and kind(v) != want:
-                self.err(info.id, f"default.{k}", f"má být {want} nebo null, je {kind(v)}")
+                self.err(info.id, f"default.{k}", f"expected {want} or null, got {kind(v)}")
 
     def output(self, info, res, last):
         if not last:
-            self.err(info.id, None, "output smí být jen jednou a jen jako poslední krok hlavního seznamu steps")
+            self.err(info.id, None, "output is allowed only once and only as the last step in the main steps list")
         outs = self.sc.get("outputs")
         if not outs:
-            self.err(info.id, None, "scénář bez outputs nesmí mít krok output — doplň outputs do hlavičky")
+            self.err(info.id, None, "scenario without outputs cannot have an output step — add outputs to the header")
             return
         o = info.data["output"]
         if missing := [k for k in outs if k not in o]:
-            self.err(info.id, "output", f"chybí výstupy z hlavičky: {', '.join(missing)}")
+            self.err(info.id, "output", f"missing outputs declared in the header: {', '.join(missing)}")
         if extra := [k for k in o if k not in outs]:
-            self.err(info.id, "output", f"výstupy, které hlavička nemá: {', '.join(extra)}")
+            self.err(info.id, "output", f"outputs not declared in the header: {', '.join(extra)}")
         for k, v in o.items():
             if k not in outs:
                 continue
             want = outs[k]["type"]
             t = tkind(self.template(info, f"output.{k}", v, res) if isinstance(v, str) else kind(v))
             if want == "file" and t and t != "file":
-                self.err(info.id, f"output.{k}", "výstup typu file musí být šablona na soubor z kroku image "
-                                                 f"(např. {{{{ steps.foto.file }}}}), ne {t}")
+                self.err(info.id, f"output.{k}", "file output must be a template referencing a file from an image step "
+                                                 f"(e.g. {{{{ steps.photo.file }}}}), not {t}")
             elif want != "file" and t and t != INPUT_TYPES[want]:
-                self.err(info.id, f"output.{k}", f"výstup má typ {want}, hodnota je {t}")
+                self.err(info.id, f"output.{k}", f"output has type {want}, value is {t}")

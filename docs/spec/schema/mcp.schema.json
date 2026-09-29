@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/rychidesign/agencast/main/docs/spec/schema/mcp.schema.json",
-  "title": "mcp.yaml, formát v1",
-  "description": "Viz docs/spec/config.md. Server je buď místní (command, stdio), nebo vzdálený (url, Streamable HTTP / SSE). Oprávnění drží vlastník: agents, scenarios, tools.",
+  "title": "mcp.yaml, format v1",
+  "description": "See docs/spec/config.md. A server is either local (command, stdio) or remote (url, Streamable HTTP / SSE). Permissions are held by the project owner: agents, scenarios, tools.",
   "type": "object",
   "additionalProperties": false,
   "required": [

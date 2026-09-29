@@ -1,19 +1,19 @@
-# Začínáme s AgenCast
+# Getting started with AgenCast
 
-Ověřeno na Linuxu a WSL s Pythonem 3.12; použijte `uv`.
-Pro sestavení GUI a ukázkové MCP přes `npx` potřebujete Node.js
-`^20.19.0 || >=22.12.0` (podle `ui/package.json`, ověřeno s Node 24).
-Nativní Windows není podporován (`fcntl` v `projects.py` a `task.py`);
-macOS není ověřen.
+Verified on Linux and WSL with Python 3.12; use `uv`.
+To build the GUI and to run the sample MCP server via `npx` you need Node.js
+`^20.19.0 || >=22.12.0` (per `ui/package.json`, verified with Node 24).
+Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
+macOS is not verified.
 
-Balíček obsahuje CLI, API, dokumentaci, skilly i příklady.
-Instalace přímo z GitHubu (bez GUI):
+The package contains the CLI, the API, the documentation, the skills and the examples.
+Install straight from GitHub (without the GUI):
 
 ```bash
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
 ```
 
-Pro GUI naklonujte repozitář a sestavte frontend pomocí Node.js:
+For the GUI, clone the repository and build the frontend with Node.js:
 
 ```bash
 git clone https://github.com/rychidesign/agencast
@@ -22,65 +22,65 @@ cd agencast
 uv tool install --editable framework
 ```
 
-Vlastní projekt vytvoříte příkazem `agencast new project ~/muj-projekt`.
-Dostanete kostru s agentem `pisatel` a scénářem `ukazka`.
-Pro hotový příklad včetně deterministických odpovědí použijte:
+Create your own project with `agencast new project ~/my-project`.
+You get a skeleton with the agent `writer` and the scenario `demo`.
+For a finished example with deterministic responses, use:
 
 ```bash
 agencast new project ~/agencast-demo --example showcase
 cd ~/agencast-demo
 agencast validate ig-post --offline
-agencast run ig-post -i tema="nová káva" --dry-run --fake fake/ig-post.yaml
-agencast run ig-post -i tema="nová káva" --fake fake/ig-post.yaml
+agencast run ig-post -i topic="new coffee" --dry-run --fake fake/ig-post.yaml
+agencast run ig-post -i topic="new coffee" --fake fake/ig-post.yaml
 ```
 
-`--dry-run` vytvoří plán; přidané `--fake` vynechá i síťovou kontrolu modelů.
-Bez fixtury lze použít samotné `--fake`, ale vymyšlené odpovědi nemusí projít
-podmínkami scénáře. Kostru vyzkoušíte přes `agencast run ukazka --fake`.
+`--dry-run` produces a plan; adding `--fake` also skips the network check of the models.
+Without a fixture you can use `--fake` alone, but the made-up responses may not pass
+the scenario's conditions. You can try the skeleton with `agencast run demo --fake`.
 
-`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
-Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
-`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
-`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
-Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
-a bez `--callback-url`, například `ig-post`.
+`--fake` replaces only the model calls: no model cost and no OpenRouter key.
+A `task` step still starts the real MCP servers from `mcp.yaml`; the sample
+`filesystem` server uses `npx`, needs Node.js and downloads its package on first start.
+`--callback-url` sends a real callback (and needs its signing secret).
+Only scenarios without `task` (including in called scenarios)
+and without `--callback-url` are guaranteed to be offline, for example `ig-post`.
 
-Teprve pro ostrý běh zkopírujte `.env.example` do `.env` a doplňte
-`OPENROUTER_API_KEY`. Klíče nikdy necommitujte ani nevypisujte.
-Po kontrole plánu a výsledku falešného běhu spusťte:
+Only for a live run, copy `.env.example` to `.env` and fill in
+`OPENROUTER_API_KEY`. Never commit or print keys.
+After checking the plan and the result of the fake run, start:
 
 ```bash
-agencast run ig-post -i tema="nová káva"
+agencast run ig-post -i topic="new coffee"
 ```
 
-Záznam je v `runs/<run_id>/summary.md`, strojový výsledek v `callback.json`,
-report v `report.html`; exporty jsou v `outputs/`. CLI vypíše přesné cesty.
-`agencast runs list` a `agencast runs show <run_id>` zobrazí historii.
+The record is in `runs/<run_id>/summary.md`, the machine-readable result in `callback.json`,
+the report in `report.html`; exports are in `outputs/`. The CLI prints the exact paths.
+`agencast runs list` and `agencast runs show <run_id>` show the history.
 
-Skilly pro Claude Code, Codex, OpenCode a OMP nainstalujete takto:
+Install the skills for Claude Code, Codex, OpenCode and OMP like this:
 
 ```bash
 agencast skills list
-agencast skills install                 # nástroje s existující základní složkou
-agencast skills install --to all        # všechny čtyři
+agencast skills install                 # tools whose base folder already exists
+agencast skills install --to all        # all four
 ```
 
-Výchozí jsou symlinky; `--copy` vytvoří kopie, `--prefix DIR` změní domovskou
-složku a `--force` dovolí přepsat existující kopie. `agencast skills path`
-vypíše zdrojovou složku. Po aktualizaci balíčku obnovte instalované kopie.
+Symlinks are the default; `--copy` creates copies, `--prefix DIR` changes the home
+folder and `--force` allows overwriting existing copies. `agencast skills path`
+prints the source folder. After updating the package, refresh the installed copies.
 
 ```bash
 agencast docs
 agencast docs show spec/scenario.md
 agencast new project ~/agencast-tutorial --example tutorial
-agencast docs show tutorials/01-prvni-agent-a-scenar.md
+agencast docs show tutorials/01-first-agent-and-scenario.md
 ```
 
-[Tutoriály](tutorials/README.md) mají sedm dílů; formáty popisuje
-[specifikace scénáře](spec/scenario.md), [agenta](spec/agent.md) a
-[konfigurace](spec/config.md). Zdrojový kód: [GitHub](https://github.com/rychidesign/agencast).
+The [tutorials](tutorials/README.md) have seven parts; the formats are described by
+the [scenario](spec/scenario.md), [agent](spec/agent.md) and
+[config](spec/config.md) specifications. Source code: [GitHub](https://github.com/rychidesign/agencast).
 
-`agencast serve` spustí API a případné sestavené GUI. Nové projekty se zapisují
-do registru pro GUI automaticky. Server a GUI vystavujte jen v privátní síti;
-pro režim registru nastavte `AGENCAST_TOKEN`, pro jeden projekt `WEBHOOK_TOKEN`
-podle `.env.example`. Podrobnosti: `agencast docs show spec/webhook.md`.
+`agencast serve` starts the API and the built GUI, if there is one. New projects are added
+to the registry for the GUI automatically. Expose the server and the GUI only on a private network;
+for registry mode set `AGENCAST_TOKEN`, for a single project `WEBHOOK_TOKEN`
+as in `.env.example`. Details: `agencast docs show spec/webhook.md`.

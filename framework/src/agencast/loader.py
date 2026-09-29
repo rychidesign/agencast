@@ -1,7 +1,7 @@
-"""Čtení souborů: YAML 1.2 core, frontmatter, `.env`, JSON Schema ze spec.
+"""File loading: YAML 1.2 core, frontmatter, `.env`, JSON Schema from the spec.
 
-Schémata se čtou z `docs/spec/schema/` — spec je jediný zdroj pravdy,
-framework je neduplikuje (DESIGN §5.6).
+Schemas are read from `docs/spec/schema/` — the spec is the single source of truth;
+the framework does not duplicate them (DESIGN §5.6).
 """
 import json
 import os
@@ -20,9 +20,9 @@ STEP_KINDS = ("ask", "task", "jev", "image", "parallel", "switch", "call", "set"
 
 
 class Yaml12Loader(yaml.SafeLoader):
-    """SafeLoader bez resolverů YAML 1.1: booleany jen true/false, `yes`/`on`
-    a `4:5` a datum jsou text, duplicitní klíč je chyba s řádkem (spec B6)."""
-    line_offset = 0  # řádky před YAML v souboru (frontmatter .md), ať „poprvé na řádku N“ sedí se souborem
+    """SafeLoader without YAML 1.1 resolvers: only true/false are booleans; `yes`/`on`,
+    `4:5` and dates are strings; duplicate keys raise an error with a line number (spec B6)."""
+    line_offset = 0  # lines before YAML (.md frontmatter), so 'first on line N' matches the file
 
     def construct_mapping(self, node, deep=False):
         seen = {}
@@ -30,7 +30,7 @@ class Yaml12Loader(yaml.SafeLoader):
             key = self.construct_object(key_node, deep=deep)
             if isinstance(key, (str, int, float, bool)) and key in seen:
                 raise yaml.constructor.ConstructorError(
-                    None, None, f"duplicitní klíč '{key}' (poprvé na řádku {seen[key]})", key_node.start_mark)
+                    None, None, f"duplicate key '{key}' (first on line {seen[key]})", key_node.start_mark)
             seen[key] = key_node.start_mark.line + 1 + self.line_offset
         return super().construct_mapping(node, deep)
 
@@ -58,7 +58,7 @@ Yaml12Loader.add_constructor("tag:yaml.org,2002:int", _int12)
 
 
 class LoadError(Exception):
-    """Soubor nejde přečíst (třída `config`)."""
+    """The file cannot be read (error class `config`)."""
 
 
 def load_yaml(text: str, where: str, line_offset: int = 0):
@@ -68,11 +68,11 @@ def load_yaml(text: str, where: str, line_offset: int = 0):
         return loader.get_single_data()
     except yaml.YAMLError as e:
         mark = getattr(e, "problem_mark", None)
-        line = f", řádek {mark.line + 1 + line_offset}" if mark else ""
+        line = f", line {mark.line + 1 + line_offset}" if mark else ""
         problem = getattr(e, "problem", None) or str(e)
-        if not isinstance(e, yaml.constructor.ConstructorError):  # syntaxe; duplicitní klíč má vlastní hlášku
-            problem = ("YAML nejde přečíst — hodnota s {, [, ': ' nebo ' #' patří do uvozovek "
-                       f"(scenario.md §5 „Pozor na YAML“)\n  {problem}")
+        if not isinstance(e, yaml.constructor.ConstructorError):  # syntax; duplicate keys have their own message
+            problem = ("cannot read YAML — a value containing {, [, ': ' or ' #' must be quoted "
+                       f"(scenario.md §5 'YAML pitfalls')\n  {problem}")
         raise LoadError(f"{where}{line}: {problem}") from None
     finally:
         loader.dispose()
@@ -83,15 +83,15 @@ def read_yaml(path: Path, where: str | None = None):
 
 
 def read_frontmatter(path: Path, where: str):
-    """(frontmatter, tělo) souboru Markdown s YAML mezi řádky `---`."""
+    """(frontmatter, body) of a Markdown file with YAML between `---` lines."""
     m = re.match(r"---\n(.*?)\n---\n(.*)", path.read_text(encoding="utf-8").replace("\r\n", "\n"), re.S)
     if not m:
-        raise LoadError(f"{where}: chybí frontmatter mezi řádky ---")
+        raise LoadError(f"{where}: missing frontmatter between --- lines")
     return load_yaml(m.group(1), where, line_offset=1), m.group(2)
 
 
 def load_dotenv(path: Path):
-    """Doplní proměnné z `.env` (existující v prostředí mají přednost). Snese CRLF (DESIGN §7 bod 8)."""
+    """Load variables from `.env` (existing environment variables take precedence). Accept CRLF (DESIGN §7 item 8)."""
     if not path.is_file():
         return
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -107,19 +107,19 @@ def load_dotenv(path: Path):
 
 
 def seconds(duration: str) -> int:
-    """Trvání `<číslo>s|m|h` v sekundách."""
+    """Duration `<number>s|m|h` in seconds."""
     return int(duration[:-1]) * {"s": 1, "m": 60, "h": 3600}[duration[-1]]
 
 
 def version_error(data, where: str) -> str | None:
-    """Neznámou verzi framework odmítne, nikdy ji nečte po svém (§5.9 bod 6)."""
+    """Reject unknown versions instead of guessing how to interpret them (§5.9 item 6)."""
     if not isinstance(data, dict):
-        return f"{where}: soubor musí být mapa (klíč: hodnota)"
+        return f"{where}: file must be a mapping (key: value)"
     if "version" not in data:
-        return f"{where}: chybí pole version (zatím jen version: 1)"
+        return f"{where}: missing field version (currently only version: 1)"
     v = data["version"]
     if isinstance(v, bool) or v not in FORMAT_VERSIONS:
-        return f"{where}: neznámá verze formátu {v!r} — framework umí version: {', '.join(map(str, FORMAT_VERSIONS))}"
+        return f"{where}: unknown format version {v!r} — the framework supports version: {', '.join(map(str, FORMAT_VERSIONS))}"
     return None
 
 
@@ -133,7 +133,7 @@ def schema(kind: str) -> dict:
 @cache
 def _validator(kind: str, ref: str | None = None) -> Draft202012Validator:
     s = schema(kind)
-    if ref:  # jen jedna definice, např. ask_step (přesnější hlášky než oneOf přes všechny kroky)
+    if ref:  # a single definition, e.g. ask_step (clearer messages than oneOf across all step types)
         s = {"$schema": s["$schema"], "$defs": s["$defs"], "$ref": f"#/$defs/{ref}"}
     return Draft202012Validator(s)
 
@@ -146,50 +146,50 @@ def path_str(parts) -> str:
 
 
 def _jkind(v) -> str:
-    return {dict: "mapa", list: "seznam", str: "text", bool: "true/false", int: "číslo",
-            float: "číslo", type(None): "null"}.get(type(v), type(v).__name__)
+    return {dict: "mapping", list: "list", str: "string", bool: "true/false", int: "number",
+            float: "number", type(None): "null"}.get(type(v), type(v).__name__)
 
 
 def describe_error(e) -> str:
-    """Česká hláška bez vypsání hodnoty (u `*_env` by to mohl být klíč)."""
+    """An English message without the value (a `*_env` field could contain a secret key)."""
     v, val, inst = e.validator, e.validator_value, e.instance
     match v:
         case "required":
-            return "chybí povinné pole " + ", ".join(f"'{k}'" for k in val if k not in inst)
+            return "missing required field " + ", ".join(f"'{k}'" for k in val if k not in inst)
         case "additionalProperties":
             known = e.schema.get("properties", {})
-            return "neznámé pole " + ", ".join(f"'{k}'" for k in inst if k not in known) + " (překlep?)"
+            return "unknown field " + ", ".join(f"'{k}'" for k in inst if k not in known) + " (typo?)"
         case "type":
-            want = val if isinstance(val, str) else " nebo ".join(val)
-            return f"má být {want}, je {_jkind(inst)}"
+            want = val if isinstance(val, str) else " or ".join(val)
+            return f"expected {want}, got {_jkind(inst)}"
         case "const":
-            return f"má být {json.dumps(val, ensure_ascii=False)}"
+            return f"expected {json.dumps(val, ensure_ascii=False)}"
         case "enum":
-            return "povolené hodnoty: " + ", ".join(json.dumps(x, ensure_ascii=False) for x in val)
+            return "allowed values: " + ", ".join(json.dumps(x, ensure_ascii=False) for x in val)
         case "pattern":
             if "propertyNames" in e.relative_schema_path:
-                return f"jméno '{inst}' neodpovídá tvaru {val}"
-            return f"hodnota neodpovídá tvaru {val}"
+                return f"name '{inst}' does not match pattern {val}"
+            return f"value does not match pattern {val}"
         case "minItems" | "minProperties":
-            return f"musí mít aspoň {val} položk{'u' if val == 1 else 'y'}"
+            return f"must contain at least {val} item{'' if val == 1 else 's'}"
         case "maxItems":
-            return f"smí mít nejvýš {val} položku"
+            return f"must contain at most {val} item{'' if val == 1 else 's'}"
         case "minLength":
-            return "nesmí být prázdné"
+            return "must not be empty"
         case "minimum":
-            return f"musí být aspoň {val}"
+            return f"must be at least {val}"
         case "exclusiveMinimum":
-            return f"musí být větší než {val}"
+            return f"must be greater than {val}"
         case "uniqueItems":
-            return "položky se opakují"
+            return "duplicate items"
         case "not":
-            return f"'{inst}' je vyhrazené slovo" if isinstance(inst, str) else "nepovolená hodnota"
+            return f"'{inst}' is a reserved word" if isinstance(inst, str) else "disallowed value"
         case "dependentRequired":
             if "mcp" in inst and "tools" not in inst and isinstance(inst["mcp"], list):  # BUGS 9
-                return ("s polem 'mcp' je povinné i 'tools' — výslovný seznam nástrojů pro každý server: tools: { "
-                        + ", ".join(f"{s}: [nástroj, …]" for s in inst["mcp"])
-                        + " }; co servery nabízejí, vypíše plan.md z agencast run <scénář> --dry-run")
-            return "s polem " + " / ".join(f"'{k}' je povinné i {', '.join(map(repr, r))}"
+                return ("field 'mcp' requires 'tools' — an explicit list of tools for each server: tools: { "
+                        + ", ".join(f"{s}: [tool, …]" for s in inst["mcp"])
+                        + " }; plan.md from agencast run <scenario> --dry-run lists the tools offered by each server")
+            return "field " + " / ".join(f"'{k}' also requires {', '.join(map(repr, r))}"
                                           for k, r in val.items() if k in inst)
         case "oneOf":
             return _one_of(e)
@@ -199,21 +199,21 @@ def describe_error(e) -> str:
 def _one_of(e) -> str:
     branches, inst = e.validator_value, e.instance
     if sorted(tuple(b.get("required", ())) for b in branches) == [("default",), ("required",)]:
-        return "vstup má mít buď required: true, nebo default (ne obojí ani nic)"
+        return "input must have either required: true or default (exactly one)"
     types = [b.get("properties", {}).get("type", {}).get("const") for b in branches]
-    if isinstance(inst, dict) and all(types):  # otázka Jev: chyby větve podle type
+    if isinstance(inst, dict) and all(types):  # Jev question: branch errors selected by type
         if inst.get("type") not in types:
-            return f"type musí být jedno z: {', '.join(types)}"
+            return f"type must be one of: {', '.join(types)}"
         i = types.index(inst["type"])
         return "; ".join(f"{path_str(c.relative_path) + ': ' if c.relative_path else ''}{describe_error(c)}"
                          for c in e.context if c.schema_path and c.schema_path[0] == i)
-    if e.schema.get("description", "").startswith("Zkrácený"):
-        return "tvar schema: string, number, integer, boolean, [typ] nebo mapa pole: typ"
-    return "hodnota neodpovídá žádné povolené podobě"
+    if e.schema.get("description", "").startswith("Shorthand schema"):
+        return "schema format: string, number, integer, boolean, [type] or a field: type mapping"
+    return "value does not match any allowed form"
 
 
 def _yaml_line(data, path) -> int | None:
-    """YAML řádek klíče/cesty v ruamel round-trip stromu."""
+    """YAML line of a key/path in a ruamel round-trip tree."""
     node, line = data, None
     for key in path:
         try:
@@ -230,17 +230,17 @@ def _yaml_line(data, path) -> int | None:
 
 
 def schema_errors(kind: str, data, where: str, ref: str | None = None, skip=(), source: str | None = None) -> list[str]:
-    """Chyby proti JSON Schema ze spec; `skip` = cesty, které se kontrolují zvlášť."""
+    """Errors against the spec's JSON Schema; `skip` = paths checked separately."""
     out, line_data = [], None
     if source is not None:
         try:
             from ruamel.yaml import YAML
             line_data = YAML(typ="rt").load(source)
         except Exception:
-            pass  # syntaxi už zkontroloval PyYAML; bez pozic zůstane původní hláška
+            pass  # PyYAML already checked syntax; keep the original message without positions
     def at(p) -> str:
         line = _yaml_line(line_data, p) if line_data is not None else None
-        return f"{where}, řádek {line}: " if line else f"{where}: "
+        return f"{where}, line {line}: " if line else f"{where}: "
 
     for e in sorted(_validator(kind, ref).iter_errors(data), key=lambda e: list(map(str, e.absolute_path))):
         p = tuple(e.absolute_path)
@@ -249,7 +249,7 @@ def schema_errors(kind: str, data, where: str, ref: str | None = None, skip=(), 
         if e.validator == "additionalProperties" and isinstance(e.instance, dict):
             known = e.schema.get("properties", {})
             if extra := [k for k in e.instance if k not in known]:
-                out += [f"{at(p + (key,))}{path_str(p + (key,))}: neznámé pole '{key}' (překlep?)" for key in extra]
+                out += [f"{at(p + (key,))}{path_str(p + (key,))}: unknown field '{key}' (typo?)" for key in extra]
                 continue
         out.append(f"{at(p)}{path_str(p) + ': ' if p else ''}{describe_error(e)}")
     return out
@@ -261,7 +261,7 @@ def step_kind(step) -> str | None:
 
 
 def nested_lists(step) -> list[tuple[tuple, list]]:
-    """Seznamy kroků uvnitř `parallel`/`switch`: (cesta v kroku, seznam)."""
+    """Step lists inside `parallel`/`switch`: (path within the step, list)."""
     match step_kind(step):
         case "parallel" if isinstance(step["parallel"], dict):
             return [(("parallel", b), v) for b, v in step["parallel"].items() if isinstance(v, list)]
@@ -275,21 +275,21 @@ def nested_lists(step) -> list[tuple[tuple, list]]:
 
 
 def scenario_schema_errors(data: dict, where: str) -> list[str]:
-    """Scénář: hlavička proti celému schématu, každý krok zvlášť proti schématu svého typu."""
+    """Scenario: validate the header against the full schema and each step against its type's schema."""
     errs = schema_errors("scenario", data, where, skip=[("steps",)])
 
     def steps(lst, path, in_branch):
         for i, st in enumerate(lst):
-            label = f"{where}: krok {st.get('id')!r}" if isinstance(st, dict) and "id" in st \
+            label = f"{where}: step {st.get('id')!r}" if isinstance(st, dict) and "id" in st \
                 else f"{where}: {path_str(path + (i,))}"
             kind = step_kind(st)
             if kind is None:
                 have = [k for k in STEP_KINDS if isinstance(st, dict) and k in st]
-                errs.append(f"{label}: krok musí mít právě jeden typ ({', '.join(STEP_KINDS)}), má: "
-                            f"{', '.join(have) or 'žádný'}")
+                errs.append(f"{label}: step must have exactly one type ({', '.join(STEP_KINDS)}), has: "
+                            f"{', '.join(have) or 'none'}")
                 continue
             if in_branch and kind == "output":
-                errs.append(f"{label}: output nesmí být uvnitř větve parallel/switch")
+                errs.append(f"{label}: output must not be inside a parallel/switch branch")
                 continue
             nested = nested_lists(st)
             errs.extend(schema_errors("scenario", st, label, ref=f"{kind}_step", skip=[p for p, _ in nested]))

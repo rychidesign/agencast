@@ -1,20 +1,20 @@
-// Údaje běhu po krocích z `GET …/runs/<id>` (`steps`: stav, čas, cena, chyba, volání, odpovědi Jev).
-import { t } from "./i18n";
+// Per-step run data from `GET …/runs/<id>` (`steps`: status, time, cost, error, calls, Jev answers).
+import { locale, t } from "./i18n";
 import type { RunStep, Step, StepType } from "./types";
 
 export interface RunCtx {
   steps: Map<string, RunStep>;
-  /** Kroky volaného scénáře mají cestu `navrh/copy`; tady prefix `navrh/`. */
+  /** Steps of a called scenario have the path `propose/copy`; this is the `propose/` prefix. */
   prefix: string;
-  /** Teď (ms) pro tikající čas běžícího kroku. */
+  /** Now (ms), for the ticking time of a running step. */
   now: number;
-  /** Stromy volaných scénářů ze snímku běhu (`callees`). */
+  /** Trees of called scenarios from the run snapshot (`callees`). */
   callees: Record<string, Step[]>;
 }
 
-const num = (v: unknown) => (typeof v === "number" ? v.toLocaleString("cs", { maximumFractionDigits: 2 }) : String(v));
+const num = (v: unknown) => (typeof v === "number" ? v.toLocaleString(locale, { maximumFractionDigits: 2 }) : String(v));
 
-/** Druhý řádek karty v prohlížeči běhu; prázdný = ukázat hodnotu z editoru. */
+/** Second line of a card in the run viewer; empty = show the value from the editor. */
 export function runValue(kind: StepType | null, rs: RunStep | undefined): string {
   if (!rs) return "";
   if (rs.status === "skipped") return t("run.skipped", { reason: rs.reason ?? rs.reason_code ?? "" });
@@ -25,7 +25,7 @@ export function runValue(kind: StepType | null, rs: RunStep | undefined): string
   return "";
 }
 
-/** Přímí potomci kroku `call` v záznamu (`navrh/copy`, ne `navrh/x/y`). */
+/** Direct children of a `call` step in the record (`propose/copy`, not `propose/x/y`). */
 export function callChildren(ctx: RunCtx, path: string): RunStep[] {
   const prefix = `${path}/`;
   return [...ctx.steps.values()].filter((s) => s.step.startsWith(prefix) && !s.step.slice(prefix.length).includes("/"));

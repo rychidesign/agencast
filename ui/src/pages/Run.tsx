@@ -1,4 +1,4 @@
-// §2.5 Detail běhu (fidelity §8: titul mono 32 + ↗, run_id pod ním, VSTUPY jako karta): karty se stavem, časem a cenou; záložky Kroky · Souhrn · Report · Soubory; živý běh (§4.8).
+// §2.5 Run detail (fidelity §8: mono title 32 + ↗, run_id below it, INPUTS as a card): cards with status, time and cost; tabs Steps · Summary · Report · Files; live run (§4.8).
 import { ArrowUpRight, Clock, ExternalLink, FileText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { enc, getText, useApi } from "../api";
@@ -17,10 +17,10 @@ import { flatten } from "../steps";
 import type { Run, Step } from "../types";
 import { closeOnEsc, errorsByStep, PanelSlot, useScrollToCard } from "./Scenario";
 
-/** §4.8: dokud běh čeká nebo běží, každé 2 s, po 2 min každých 5 s. */
+/** §4.8: while the run is queued or running, every 2 s, after 2 min every 5 s. */
 export const pollDelay = (elapsedMs: number) => (elapsedMs > 120_000 ? 5000 : 2000);
 
-const RUN_TABS = ["kroky", "souhrn", "report", "soubory"] as const;
+const RUN_TABS = ["steps", "summary", "report", "files"] as const;
 
 const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
 
@@ -29,7 +29,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
   const base = `/projects/${enc(project)}`;
   const runPath = `${base}/runs/${enc(runId)}`;
   const opened = useRef(Date.now());
-  // Čerstvý běh je od 0.8.0 hned `queued` → `running` (nalezy-api.md bod 15); přerušený se nečte.
+  // A fresh run has been `queued` → `running` right away since 0.8.0 (api-findings.md item 15); an interrupted one is not polled.
   const loaded = useApi<Run>(runPath, (d) => (isLive(d.state) ? pollDelay(Date.now() - opened.current) : null));
   const run = loaded.data;
   const inputs = useApi<string>(run?.files?.includes("inputs.json") ? `${runPath}/files/inputs.json` : null, undefined, getText);
@@ -45,11 +45,11 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
   const wasLive = useRef(false);
   if (live) wasLive.current = true;
 
-  const selected = query.get("krok") ?? undefined;
-  const tab = (RUN_TABS as readonly string[]).includes(query.get("zalozka") ?? "") ? query.get("zalozka")! : "kroky";
+  const selected = query.get("step") ?? undefined;
+  const tab = (RUN_TABS as readonly string[]).includes(query.get("tab") ?? "") ? query.get("tab")! : "steps";
   const [follow, setFollow] = useState(false);
 
-  // Kroky: strom ze snímku scénáře (`tree`); bez souboru scénáře rovný seznam ze záznamu běhu.
+  // Steps: tree from the scenario snapshot (`tree`); without a scenario file a flat list from the run record.
   const steps: Step[] = useMemo(() => {
     if (run?.tree?.length) return run.tree;
     return (run?.steps ?? []).filter((s) => !s.step.includes("/")).map((s, i) => ({
@@ -57,14 +57,14 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
     }));
   }, [run?.tree, run?.steps]);
   const all = useMemo(() => flatten(steps), [steps]);
-  // Krok bez konce v běhu, který už neběží (pád, restart `serve`), ukážeme jako přerušený, ne „běží“ (nalezy-api.md bod 22).
+  // A step without an end in a run that is no longer running (crash, `serve` restart) is shown as interrupted, not "running" (api-findings.md item 22).
   const runSteps = useMemo(() => new Map((run?.steps ?? []).map((s) =>
     [s.step, !live && s.status === "running" ? { ...s, status: "interrupted" as const } : s])), [run?.steps, live]);
   const running = [...runSteps.values()].filter((s) => s.status === "running").pop()?.step;
   const ctxRun: RunCtx = { steps: runSteps, prefix: "", now, callees: run?.callees ?? {} };
   const ctx: ListCtx = {
     project, selected, errors: errorsByStep([]), run: ctxRun,
-    onSelect: (key) => setQuery({ krok: key === selected ? undefined : key }),
+    onSelect: (key) => setQuery({ step: key === selected ? undefined : key }),
   };
   useScrollToCard(follow && live ? running : selected);
 
@@ -81,9 +81,9 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
   return (
     <div onKeyDown={closeOnEsc(selected)}>
       <PageHeader sticky
-        back={<BackLink href={href(project, "behy")}>{t("project.tab.behy")}</BackLink>}
+        back={<BackLink href={href(project, "runs")}>{t("project.tab.runs")}</BackLink>}
         title={run && (
-          <a href={href(project, "scenare", runScenario(run))} className="font-mono hover:underline md:text-[26px] md:leading-[39px]">
+          <a href={href(project, "scenarios", runScenario(run))} className="font-mono hover:underline md:text-[26px] md:leading-[39px]">
             {runScenario(run)}<ArrowUpRight className="ml-3 inline size-5 shrink-0 align-[-2px]" aria-hidden />
           </a>
         )}
@@ -104,23 +104,23 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
               {run.cost_usd != null && <span data-testid="run-cost">{formatCost(run.cost_usd)} USD</span>}
             </span>
           )}
-          <a className={`${btn.secondary} max-md:hidden`} href={href(project, "scenare", runScenario(run))}>
+          <a className={`${btn.secondary} max-md:hidden`} href={href(project, "scenarios", runScenario(run))}>
             <ExternalLink className="size-4" aria-hidden />{t("run.openScenario")}
           </a>
         </>}>
         {inputEntries.length > 0 && (
-          // návrh 12 (změřeno z .pen): `nested` r8 p14 gap 12, štítek 10 verzálky, hodnoty mono 12
+          // design 12 (measured from .pen): `nested` r8 p14 gap 12, label 10 uppercase, values mono 12
           <p className="flex w-full items-center gap-3 truncate rounded-control bg-nested p-3.5 font-mono text-xs leading-[18px] text-fg-secondary"
             title={inputEntries.map(([k, v]) => `${k} = ${show(v)}`).join("\n")}>
             <span className="font-sans text-[10px] leading-[15px] tracking-[0.08em] text-fg-muted uppercase">{t("run.inputs")}</span>
-            <span className="truncate">{inputEntries.map(([k, v]) => `${k} = „${show(v)}“`).join(" · ")}</span>
+            <span className="truncate">{inputEntries.map(([k, v]) => `${k} = ${t("common.quoted", { text: show(v) })}`).join(" · ")}</span>
           </p>
         )}
         {!loaded.error && (
-          // záložky podtržené přes celou šířku, „sledovat běh“ vpravo na stejné čáře (návrh V3 / RunTabs)
+          // tabs underlined across the full width, "follow run" on the right on the same line (design V3 / RunTabs)
           <div className="flex w-full flex-wrap items-center gap-x-4 border-b border-line [&>nav]:border-b-0">
             <TabLinks label={t("run.tabs")} active={tab}
-              tabs={RUN_TABS.map((k) => ({ key: k, label: t(`run.tab.${k}`), href: href(project, "behy", runId, { zalozka: k === "kroky" ? undefined : k }) }))} />
+              tabs={RUN_TABS.map((k) => ({ key: k, label: t(`run.tab.${k}`), href: href(project, "runs", runId, { tab: k === "steps" ? undefined : k }) }))} />
             {live && (
               <label className="ml-auto inline-flex min-h-11 items-center gap-2.5 text-[13px] text-fg-secondary">
                 <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> {t("run.follow")}
@@ -138,14 +138,14 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
       <div>
         {loaded.error && loaded.error.status !== 0 && <ErrorText error={loaded.error} />}
         {!run && !loaded.error && <div className="mx-auto max-w-[676px]"><Loading rows={4} pill /></div>}
-        {run && tab === "kroky" && (
+        {run && tab === "steps" && (
           state === "queued" ? (
             <div className="space-y-6">
               {run.queue_position != null && <p className="flex items-center gap-3 font-mono text-xs text-neutral"><Clock className="size-4" aria-hidden />{t("runs.queued", { n: run.queue_position })}</p>}
               <EmptyState tall icon={Clock} text={t("run.queuedHint")} hint={t("run.queuedWhen")} />
             </div>
           ) : state === "dry_run" ? (
-            // návrh 16: řádek stavu 12 `neutral`, plán v kartě `surface` r12 p24 s eyebrow
+            // design 16: status row 12 `neutral`, plan in a `surface` card r12 p24 with eyebrow
             <div className="space-y-6">
               <p className="flex items-center gap-3 text-xs text-neutral"><FileText className="size-4" aria-hidden />{t("run.dryRun")}</p>
               <section className="space-y-5 rounded-card bg-surface p-6" aria-labelledby="plan-title">
@@ -154,7 +154,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
               </section>
             </div>
           ) : (
-            // návrh 12 (změřeno z .pen): sloupec do 676, mezera 28, panel kroku 520
+            // design 12 (measured from .pen): column up to 676, gap 28, step panel 520
             <div className="flex justify-center gap-7">
               <section className="w-full max-w-[676px] min-w-0" aria-label={t("step.list")} onKeyDown={onColumnKey}>
                 {!run.tree?.length ? <p className="mb-4 text-sm text-fg-muted">{t("run.scenarioMissing", { name: runScenario(run) })}</p>
@@ -164,15 +164,15 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
               {selected && sel && (
                 <PanelSlot wide align={selected}>
                   <RunStepPanel key={`${selected}:${sel.rs?.status}`} project={project} runId={runId} path={selected} rs={sel.rs}
-                    kind={sel.step?.type ?? sel.rs?.kind ?? null} onClose={() => setQuery({ krok: undefined })} />
+                    kind={sel.step?.type ?? sel.rs?.kind ?? null} onClose={() => setQuery({ step: undefined })} />
                 </PanelSlot>
               )}
             </div>
           )
         )}
-        {run && tab === "souhrn" && <div className="mx-auto max-w-4xl"><Summary key={run.status} path={`${runPath}/files/summary.md`} has={!!run.files?.includes("summary.md")} /></div>}
+        {run && tab === "summary" && <div className="mx-auto max-w-4xl"><Summary key={run.status} path={`${runPath}/files/summary.md`} has={!!run.files?.includes("summary.md")} /></div>}
         {run && tab === "report" && (run.files?.includes("report.html") ? <div><ReportTab key={run.status} project={project} runId={runId} /></div> : <EmptyState text={t("run.noFile")} />)}
-        {run && tab === "soubory" && <div><FilesTab project={project} runId={runId} files={run.files ?? []} current={query.get("soubor") ?? undefined} /></div>}
+        {run && tab === "files" && <div><FilesTab project={project} runId={runId} files={run.files ?? []} current={query.get("file") ?? undefined} /></div>}
       </div>
     </div>
   );

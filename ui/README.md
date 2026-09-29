@@ -1,44 +1,47 @@
-# ui — GUI AgenCast
+# ui — AgenCast GUI
 
-Tenká obálka nad HTTP API `agencast serve` (`docs/spec/api.md`), návrh `docs/ui/navrh-gui.md`.
-React 18 + Vite + TypeScript + Tailwind; nic neparsuje ani nevaliduje samo.
+A thin shell over the `agencast serve` HTTP API (`docs/spec/api.md`), design in `docs/ui/gui-design.md`.
+React 18 + Vite + TypeScript + Tailwind; it parses and validates nothing itself.
 
-- **Editace (část 2, API 0.10.0):** soubor je pravda, žádný autosave. Form režim drží
-  rozpracovaný strom kroků (`src/edit.ts`, `src/scenarioDraft.ts`), průběžně ho validuje přes
-  `POST …/render` a při Uložit / Ctrl+S ho pošle jednou dávkou `POST …/batch` s otiskem `etag`
-  (vše, nebo nic); YAML/Markdown režim drží text (`src/textfile.ts`) a validuje ho přes
-  `POST …/validate`; YAML → Form převádí neuložený text přes `POST …/render {text}`. Rozpracovaný stav je v `localStorage` (`agencast.draft.*`), změnu na disku
-  hlídá `HEAD …/files/<cesta>` každých 5 s a při fokusu okna (konflikt → `ConflictBar`).
-  Co API chybí: `docs/ui/nalezy-api.md`.
+- **Editing (part 2, API 0.10.0):** the file is the source of truth, no autosave. Form mode holds the
+  draft step tree (`src/edit.ts`, `src/scenarioDraft.ts`), validates it continuously via
+  `POST …/render` and on Save / Ctrl+S sends it in a single `POST …/batch` with an `etag` fingerprint
+  (all or nothing); YAML/Markdown mode holds the text (`src/textfile.ts`) and validates it via
+  `POST …/validate`; YAML → Form converts unsaved text via `POST …/render {text}`. Draft state is kept in `localStorage` (`agencast.draft.*`), and changes on disk
+  are watched by `HEAD …/files/<path>` every 5 s and on window focus (conflict → `ConflictBar`).
+  What the API lacks: `docs/ui/api-findings.md`.
 
-- **Projekty (část 5, API 0.10.0):** karty berou počty a dnešní útratu z `GET /projects`, bez
-  dalších dotazů na detail ani útratu každé karty. „Přidat projekt“ založí nový (`POST /projects/new`) nebo přidá
-  existující (`POST /projects`), menu karty odebere z registru (`DELETE /projects/<p>`); bez
-  `writable` jen příkaz pro CLI.
+- **Projects (part 5, API 0.10.0):** cards take counts and today's spend from `GET /projects`, with
+  no extra requests for the detail or the spend of each card. “Add project” creates a new one (`POST /projects/new`) or adds an
+  existing one (`POST /projects`), the card menu removes it from the registry (`DELETE /projects/<p>`); without
+  `writable` there is only a command for the CLI.
 
-- **Běhy (část 3, API 0.10.0):** stav jen z `state` (dotazuje se jen `queued`/`running`, `interrupted`
-  má vlastní štítek), karty běhu ze snímku `tree`/`callees`, údaje kroků ze `steps`, panel kroku
-  z `GET …/runs/<id>/steps/<cesta>` (events.jsonl se nestahuje). Karty scénářů a projektů berou
-  `types`, počty a `last_run` z přehledu; seznam běhů stránkuje přes `?scenario=&limit=&before=`. Co API chybí:
-  `docs/ui/nalezy-api.md`, část 3.
+- **Runs (part 3, API 0.10.0):** status only from `state` (only `queued`/`running` are polled, `interrupted`
+  has its own label), run cards from the `tree`/`callees` snapshot, step data from `steps`, the step panel
+  from `GET …/runs/<id>/steps/<path>` (events.jsonl is not downloaded). Scenario and project cards take
+  `types`, counts and `last_run` from the overview; the run list paginates via `?scenario=&limit=&before=`. What the API lacks:
+  `docs/ui/api-findings.md`, part 3.
 
-- **Vývoj:** ve složce `ui/` spusťte `npm install`, pak v druhém terminálu
-  z kořene repozitáře `uv run --project framework agencast serve --port 8787 --cors http://localhost:5173`
-  (pro režim registru nastavte `AGENCAST_TOKEN`) a ve složce `ui/` spusťte `npm run dev`
-  (GUI volá `http://127.0.0.1:8787`, jinou adresu dej do `VITE_AGENCAST_URL`).
-- **Build:** `npm run build` zapíše do `framework/src/agencast/ui/` (v `.gitignore`), `serve` ho podává na `/`.
-- **Token:** GUI se ho zeptá (`AGENCAST_TOKEN` v režimu registru, jinak `webhook.token_env`) a drží
-  ho jen v `localStorage` prohlížeče; při 401 se zeptá znovu.
-- **Kontroly:** `npm test`, `npm run typecheck`. Řetězce jsou v `src/locales/cs.json` (ICU plurály).
+- **Development:** in the `ui/` folder run `npm install`, then in a second terminal
+  from the repository root `uv run --project framework agencast serve --port 8787 --cors http://localhost:5173`
+  (set `AGENCAST_TOKEN` for registry mode) and in the `ui/` folder run `npm run dev`
+  (the GUI calls `http://127.0.0.1:8787`; put a different address in `VITE_AGENCAST_URL`).
+- **Build:** `npm run build` writes to `framework/src/agencast/ui/` (in `.gitignore`), `serve` serves it at `/`.
+- **Token:** the GUI asks for it (`AGENCAST_TOKEN` in registry mode, otherwise `webhook.token_env`) and keeps
+  it only in the browser's `localStorage`; on a 401 it asks again.
+- **Checks:** `npm test`, `npm run typecheck`.
+- **Languages:** the GUI is English by default. Strings are in `src/locales/en.json` (the source of truth) and
+  `src/locales/cs.json` (Czech translation), with ICU plurals; every string goes through `t()` and is added to both
+  files (`i18n.test.ts` checks that the keys match).
 
 ## E2E (Playwright)
 
-- `npm run e2e` sestaví GUI a spustí `e2e/*.spec.ts` v headless Chromiu; `npm run e2e:report` otevře HTML report.
-- Předpoklad: `uv sync --project ../framework` (binárka `framework/.venv/bin/agencast`, jinak `AGENCAST_BIN`)
-  a prohlížeč Playwrightu 1.62 (`npx playwright install chromium`).
-- Každý worker pouští vlastní `agencast serve --fake` (port od `E2E_PORT`, výchozí 18700) s `AGENCAST_CONFIG_DIR`
-  v tmp; každý test si založí projekt přes `POST /projects/new` (`e2e/fixtures.ts`). Síť jen na localhost.
-- Testy pokrývají cesty C1–C18 a stavy N1–N6 z `docs/ui/uzivatelske-cesty.md`.
+- `npm run e2e` builds the GUI and runs `e2e/*.spec.ts` in headless Chromium; `npm run e2e:report` opens the HTML report.
+- Prerequisite: `uv sync --project ../framework` (the `framework/.venv/bin/agencast` binary, otherwise `AGENCAST_BIN`)
+  and the Playwright 1.62 browser (`npx playwright install chromium`).
+- Each worker runs its own `agencast serve --fake` (port from `E2E_PORT`, default 18700) with `AGENCAST_CONFIG_DIR`
+  in tmp; each test creates a project via `POST /projects/new` (`e2e/fixtures.ts`). Network only on localhost.
+- The tests cover journeys C1–C18 and states N1–N6 from `docs/ui/user-journeys.md`.
 
-Ukázkové projekty pro ruční zkoušení najdete v `../examples/showcase/` a
-`../examples/tutorial/`; pro GUI je přidejte příkazem `agencast projects add <cesta>`.
+Example projects for manual testing are in `../examples/showcase/` and
+`../examples/tutorial/`; add them to the GUI with `agencast projects add <path>`.

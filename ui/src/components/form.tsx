@@ -1,23 +1,24 @@
-// Editační prvky (§3 inventář): pole se štítkem, výraz/šablona s našeptávačem, JSON, modál rozhodnutí.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+// Editing elements (§3 inventory): labeled field, expression/template with autocomplete, JSON, decision modal.
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Braces, Check, CircleX, Plus, X } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn, trapTab, usePopoverPosition } from "./ui";
+import { Expression } from "./yaml";
 
 const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:8px_8px] [&:is(select)]:bg-[position:calc(100%-25px)_55%,calc(100%-17px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-10";
-/** Pole (návrh `V3 / TextInput`, změřeno z .pen): 44 px, `nested`, r6, v klidu bez rámečku; fokus ring 2 `accent`
- *  bez odsazení, neplatné ring 2 `error`. */
+/** Field (design `V3 / TextInput`, measured from .pen): 44 px, `nested`, r6, no border at rest; focus ring 2 `accent`
+ *  without offset, invalid ring 2 `error`. */
 export const inputCls =
   `w-full min-h-11 rounded-[6px] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-0 aria-invalid:ring-2 aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:text-base [&:is(textarea)]:p-3 ${selectArrow}`;
 const mono = "font-mono text-[13px]";
 
-/** Vlastnosti pole od `FormField`; `label` jen u `boxed` (štítek v toolbaru `CodeBox`). */
+/** Field properties from `FormField`; `label` only for `boxed` (label in the `CodeBox` toolbar). */
 export type A11y = { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean; label?: ReactNode };
 
-/** Pole se štítkem nad sebou (§6): `aria-describedby` na nápovědu i chybu. `boxed` = štítek kreslí pole samo
- *  (víceřádkový `CodeInput`, `JsonInput`). */
+/** Field with the label above (§6): `aria-describedby` on the help and the error. `boxed` = the field draws the label itself
+ *  (multi-line `CodeInput`, `JsonInput`). */
 export function FormField({ label, help, errors = [], required, children, action, boxed = false }: {
   label: string; help?: ReactNode; errors?: (ErrorItem | string)[]; required?: boolean; action?: ReactNode; boxed?: boolean;
   children: (a11y: A11y) => ReactNode;
@@ -50,16 +51,16 @@ export function FormField({ label, help, errors = [], required, children, action
   );
 }
 
-/** „+ Přidat …“ vpravo od štítku sekce: sekundární tlačítko (návrh 09, změřeno z .pen). */
+/** "+ Add …" to the right of a section label: secondary button (design 09, measured from .pen). */
 export const AddPill = ({ label, onClick }: { label: string; onClick: () => void }) => (
   <button type="button" onClick={onClick} className={btn.secondary}>
     <Plus className="size-4" aria-hidden />{label}
   </button>
 );
 
-// --- výraz a šablona s našeptávačem -------------------------------------------------------
+// --- expression and template with autocomplete --------------------------------------------
 
-/** Slovo před kurzorem, které se doplňuje (`steps.co`), nebo null (v šabloně jen uvnitř `{{ }}`). */
+/** Word before the cursor that is being completed (`steps.co`), or null (in a template only inside `{{ }}`). */
 export function tokenAt(text: string, caret: number, template: boolean): string | null {
   const before = text.slice(0, caret);
   if (template && before.lastIndexOf("{{") <= before.lastIndexOf("}}")) return null;
@@ -67,7 +68,7 @@ export function tokenAt(text: string, caret: number, template: boolean): string 
   return m && /^(i|s)/.test(m[0]) ? m[0] : null;
 }
 
-/** `ExprInput` / `TemplateInput` (§3): mono pole; `candidates` = `inputs.x`, `steps.<id>.<pole>` z kroků nad. */
+/** `ExprInput` / `TemplateInput` (§3): mono field; `candidates` = `inputs.x`, `steps.<id>.<field>` from the steps above. */
 export function CodeInput({ value, onChange, candidates, template = false, multiline = false, a11y: { label, ...a11y }, placeholder }: {
   value: string; onChange: (v: string) => void; candidates: string[]; template?: boolean; multiline?: boolean;
   a11y: A11y; placeholder?: string;
@@ -79,8 +80,16 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   const menu = useRef<HTMLDivElement>(null);
   const suggestionsRef = useRef<HTMLUListElement>(null);
   const variableRef = useRef<HTMLButtonElement>(null);
+  const colored = useRef<HTMLDivElement>(null);
   const [token, setToken] = useState<string | null>(null);
-  // kurzor za doplněnou hodnotu hned po jejím vykreslení (rAF by předběhlo další úhoz)
+  // the highlighted text sits over the field's transparent text and scrolls with it
+  const syncScroll = () => {
+    if (!colored.current || !ref.current) return;
+    colored.current.scrollLeft = ref.current.scrollLeft;
+    colored.current.scrollTop = ref.current.scrollTop;
+  };
+  useLayoutEffect(syncScroll, [value]);
+  // cursor after the completed value right after it renders (rAF would run ahead of the next keystroke)
   useLayoutEffect(() => {
     if (caretAt.current == null) return;
     ref.current?.setSelectionRange(caretAt.current, caretAt.current);
@@ -186,9 +195,9 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     ref, value, placeholder, ...a11y,
     role: "combobox", "aria-expanded": open, "aria-controls": listId, "aria-autocomplete": "list" as const,
     "aria-activedescendant": open ? `${listId}-${active}` : undefined,
-    className: `${inputCls} ${mono}`, spellCheck: false,
-    onKeyDown: onKey,
-    onSelect: (e: React.SyntheticEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
+    spellCheck: false,
+    onKeyDown: onKey, onScroll: syncScroll,
+    onSelect: (e: React.SyntheticEvent<HTMLInputElement & HTMLTextAreaElement>) => (rememberSelection(e.currentTarget), syncScroll()),
     onKeyUp: (e: React.KeyboardEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
     onClick: (e: React.MouseEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
     onBlur: (e: React.FocusEvent<HTMLInputElement & HTMLTextAreaElement>) => {
@@ -254,9 +263,12 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     </div>
   );
   if (!multiline) return (
-    // `V3 / VariableInput`: jeden box 44 px, `{}` uvnitř vpravo bez výplně a bez rámečku
+    // `V3 / VariableInput`: a single 44 px box, `{}` inside on the right without fill and without border
     <div ref={root} className="relative">
-      <input {...props} className={`${inputCls} ${mono} pr-12`} />
+      <input {...props} className={`${inputCls.replace("text-fg ", clearText)} ${mono} pr-12`} />
+      <div aria-hidden className={`pointer-events-none absolute inset-0 flex items-center px-3 py-2 pr-12 text-sm text-fg ${mono} pointer-coarse:text-base`}>
+        <div ref={colored} className="min-w-0 flex-1 overflow-hidden whitespace-pre"><Expression text={value} template={template} /></div>
+      </div>
       <div className="absolute top-0 right-0">{variableButton}</div>
       {variableMenu && createPortal(variableMenu, document.body)}
       {suggestions && createPortal(suggestions, document.body)}
@@ -270,7 +282,10 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
         status={template && value.includes("{{") ? (opened === closed ? ["ok", t("form.template.ok")] : ["bad", t("form.template.bad")]) : undefined}
         shortcut={candidates.length ? t("form.variables.shortcut") : undefined}>
         <div className="relative">
-          <textarea {...props} className={codeArea} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
+          <textarea {...props} className={`${codeArea.replace("text-fg ", clearText)} [scrollbar-gutter:stable]`} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
+          <div ref={colored} aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden p-4 ${mono} leading-5 break-words whitespace-pre-wrap text-fg pointer-coarse:text-base [scrollbar-gutter:stable]`}>
+            <Expression text={value} template={template} />{" "}
+          </div>
           {suggestions && createPortal(suggestions, document.body)}
         </div>
       </CodeBox>
@@ -279,17 +294,20 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   );
 }
 
-/** Editor uvnitř `CodeBox`: bez vlastní výplně a prstence (fokus nese box). */
+/** Field text under the `CodeInput` highlighting: only the cursor and selection are visible. */
+const clearText = "text-transparent caret-fg selection:bg-accent/30 selection:text-transparent ";
+
+/** Editor inside `CodeBox`: no own fill and ring (the box carries the focus). */
 const codeArea = `block w-full resize-y bg-transparent p-4 ${mono} leading-5 text-fg placeholder:text-fg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 pointer-coarse:text-base`;
 
-/** Víceřádkové pole (návrh `V3 / CodeInput`, změřeno z .pen): box `nested` r8 bez rámečku; toolbar p 12 16 s linkou
- *  (štítek 13 `fg-secondary`, vpravo jazyk mono 11 `text-type` + nástroje), editor p 16, patička p 10 16 s linkou
- *  (stav 12 s ikonou 14, vpravo zkratka mono 11 `fg-muted`). Fokus ring 2 `accent` na celém boxu. */
+/** Multi-line field (design `V3 / CodeInput`, measured from .pen): `nested` r8 box without border; toolbar p 12 16 with a line
+ *  (label 13 `fg-secondary`, on the right mono 11 `text-type` language + tools), editor p 16, footer p 10 16 with a line
+ *  (status 12 with a 14 icon, on the right mono 11 `fg-muted` shortcut). Focus ring 2 `accent` on the whole box. */
 function CodeBox({ label, kind, tools, status, shortcut, invalid, children }: {
   label?: ReactNode; kind: string; tools?: ReactNode; status?: ["ok" | "bad", string]; shortcut?: string; invalid?: boolean; children: ReactNode;
 }) {
   return (
-    // DOM: editor, pak toolbar (Tab z pole jde na `{}` jako u jednořádkového); vizuálně toolbar nahoře (`order-first`)
+    // DOM: editor, then toolbar (Tab from the field goes to `{}` like in the single-line one); visually the toolbar is on top (`order-first`)
     <div className={`code-box relative flex flex-col rounded-control bg-nested ${invalid ? "ring-2 ring-error" : "has-[textarea:focus]:ring-2 has-[textarea:focus]:ring-accent"}`}>
       {children}
       <div className="order-first flex min-h-11 items-center justify-between gap-4 border-b border-line px-4 py-3">
@@ -313,9 +331,9 @@ function CodeBox({ label, kind, tools, status, shortcut, invalid, children }: {
   );
 }
 
-// --- JSON pro vnořené hodnoty (schema, tools, default, criteria) ----------------------------
+// --- JSON for nested values (schema, tools, default, criteria) ------------------------------
 
-/** Mapa nebo seznam jako JSON text; nevalidní JSON se nezapíše a ukáže chybu. Prázdné = pole se smaže. */
+/** Map or list as JSON text; invalid JSON is not written and shows an error. Empty = the field is deleted. */
 export function JsonInput({ value, onChange, a11y: { label, ...a11y }, onError }: {
   value: unknown; onChange: (v: unknown) => void; a11y: A11y; onError?: (msg: string | null) => void;
 }) {
@@ -351,7 +369,7 @@ export function JsonInput({ value, onChange, a11y: { label, ...a11y }, onError }
   );
 }
 
-// --- modál jen pro rozhodnutí (§1) ------------------------------------------------------------
+// --- modal only for decisions (§1) ------------------------------------------------------------
 
 export interface ModalAction {
   label: string;
@@ -360,8 +378,8 @@ export interface ModalAction {
   danger?: boolean;
 }
 
-/** Modál rozhodnutí: fokus na první akci, Esc = zrušit, Tab zůstává uvnitř. */
-/** Fokus dostane první akce dialogu (ne Zrušit ani křížek) — jako před přeskupením patičky. */
+/** Decision modal: focus on the first action, Esc = cancel, Tab stays inside. */
+/** The first dialog action gets the focus (not Cancel or the cross) — as before the footer reorder. */
 const firstAction = (root: HTMLElement | null) =>
   root?.querySelector<HTMLElement>("[data-action]") ?? root?.querySelector<HTMLElement>("button:not([data-close])");
 
@@ -377,7 +395,7 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
     (root.current?.querySelector<HTMLElement>("[data-autofocus]") ?? firstAction(root.current))?.focus();
     return () => { document.documentElement.style.overflow = overflow; prev?.focus?.(); };
   }, []);
-  // fokusované tlačítko zmizelo (např. „Smazat“ po odmítnutí z API) → fokus zpět do dialogu, jinak nefunguje Esc ani Tab
+  // the focused button disappeared (e.g. "Delete" after rejection by the API) → focus back to the dialog, otherwise Esc and Tab do not work
   useEffect(() => {
     if (!root.current?.contains(document.activeElement)) firstAction(root.current)?.focus();
   });
@@ -389,14 +407,14 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
   };
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-canvas/70 md:items-center md:p-4" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
-      {/* návrh „ModalShell“ (změřeno z .pen): r14, hlavička p24 s linkou (titul 22 + zavřít 44), obsah p24 gap 18,
-          patička p 18 24 s linkou: Zrušit, pak akce */}
+      {/* design "ModalShell" (measured from .pen): r14, header p24 with a line (title 22 + close 44), content p24 gap 18,
+          footer p 18 24 with a line: Cancel, then the actions */}
       <div ref={root} role="dialog" aria-modal="true" aria-labelledby={id} onKeyDown={onKey}
         className="sheet-enter sheet-shadow flex max-h-[calc(100dvh-48px)] w-full max-w-lg flex-col rounded-t-tile bg-surface md:rounded-tile md:shadow-[var(--shadow-pop)]">
         <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-fg-muted/40 md:hidden" aria-hidden />
         <div className="flex items-center gap-4 border-b border-line py-4 pr-4 pl-6">
           <h2 id={id} className="min-w-0 flex-1 text-[22px] leading-8 font-semibold">{title}</h2>
-          {/* informační dialog (bez akcí) má jediné „Zavřít“ dole */}
+          {/* an informational dialog (no actions) has a single "Close" at the bottom */}
           {actions.length > 0 && (
             <button type="button" data-close className={btn.icon} onClick={onCancel} aria-label={t("common.close")} title={t("common.close")}>
               <X className="size-4" aria-hidden />
@@ -418,7 +436,7 @@ export function Modal({ title, children, actions, onCancel, cancelLabel = t("com
   );
 }
 
-/** Enter v textovém poli dialogu = hlavní akce (formulář s víc poli bez submit tlačítka se sám neodešle). */
+/** Enter in a dialog text field = the main action (a form with several fields and no submit button does not submit by itself). */
 export const submitOnEnter = (submit: () => unknown) => (e: KeyboardEvent) => {
   if (e.key === "Enter" && (e.target as HTMLElement).matches("input:not([type=checkbox]):not([type=radio])")) {
     e.preventDefault();
@@ -426,11 +444,38 @@ export const submitOnEnter = (submit: () => unknown) => (e: KeyboardEvent) => {
   }
 };
 
-/** Dialog se jménem (nový scénář / agent / skill): slug s kontrolou na místě; `models` = výběr aliasu (agent). */
+/** Name by the rule already while typing: no diacritics, lowercase, other characters as `sep` (several in a row as one),
+ *  only a letter at the start (`letterFirst`), e.g. "Café Crème" → `cafe-creme`. */
+export function slugify(text: string, sep: "-" | "_" = "-", letterFirst = true) {
+  const s = text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, sep);
+  return s.replace(letterFirst ? /^[^a-z]+/ : /^[^a-z0-9]+/, "");
+}
+
+/** `onChange` of a name field: `normalize` edits the text right away and leaves the cursor in place; during character composition
+ *  (dead key, IME) it waits for the end. */
+export function slugProps(set: (v: string) => void, normalize: (s: string) => string) {
+  const apply = (el: HTMLInputElement) => {
+    const next = normalize(el.value);
+    if (next !== el.value) {
+      const at = normalize(el.value.slice(0, el.selectionStart ?? el.value.length)).length;
+      el.value = next; // the DOM already has the new value, so React does not move the cursor to the end
+      el.setSelectionRange(at, at);
+    }
+    set(next);
+  };
+  return {
+    onChange: (e: ChangeEvent<HTMLInputElement>) => ((e.nativeEvent as InputEvent).isComposing ? set(e.target.value) : apply(e.target)),
+    onCompositionEnd: (e: React.CompositionEvent<HTMLInputElement>) => apply(e.currentTarget),
+  };
+}
+
+/** Dialog with a name (new scenario / agent / skill): slug with an in-place check; `models` = alias picker (agent);
+ *  `normalize` edits the name while typing (`null` = leave as typed). */
 export function NameDialog({ title, taken, onSubmit, onCancel, withDescription = false, models, pattern = /^[a-z][a-z0-9-]*$/,
-  initialName = "", submitLabel = t("common.create") }: {
+  normalize = slugify, initialName = "", submitLabel = t("common.create") }: {
   title: string; taken: string[]; onSubmit: (name: string, description: string, model: string) => Promise<void> | void;
-  onCancel: () => void; withDescription?: boolean; models?: string[]; pattern?: RegExp; initialName?: string; submitLabel?: string;
+  onCancel: () => void; withDescription?: boolean; models?: string[]; pattern?: RegExp; normalize?: ((s: string) => string) | null;
+  initialName?: string; submitLabel?: string;
 }) {
   const [name, setName] = useState(initialName);
   const [desc, setDesc] = useState("");
@@ -440,7 +485,7 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
   const problem = !name ? null : !pattern.test(name) ? t("form.slug") : taken.includes(name) ? t("form.taken", { name }) : null;
   const submit = async () => {
     if (!name || problem || busy) return;
-    if (initialName && name === initialName) return onCancel(); // přejmenování na totéž jméno nic nedělá
+    if (initialName && name === initialName) return onCancel(); // renaming to the same name does nothing
     setBusy(true);
     try {
       await onSubmit(name, desc, model);
@@ -454,7 +499,8 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
       actions={[{ label: busy ? t("common.saving") : submitLabel, primary: true, onSelect: submit }]}>
       <form onSubmit={(e) => (e.preventDefault(), submit())} onKeyDown={submitOnEnter(submit)} className="space-y-3">
         <FormField label={t("form.name")} help={t("form.slugHelp")} errors={problem ? [problem] : []} required>
-          {(a) => <input {...a} data-autofocus value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} ${mono}`} autoComplete="off" />}
+          {(a) => <input {...a} data-autofocus value={name} {...(normalize ? slugProps(setName, normalize) : { onChange: (e: ChangeEvent<HTMLInputElement>) => setName(e.target.value) })}
+            className={`${inputCls} ${mono}`} autoComplete="off" />}
         </FormField>
         {withDescription && (
           <FormField label={t("agent.description")}>
@@ -476,7 +522,7 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
   );
 }
 
-/** Hodnota vstupu podle `type` scénáře (formulář spuštění, výchozí hodnota vstupu). */
+/** Value of an input by the scenario `type` (run form, default value of an input). */
 export function ValueInput({ type, value, onChange, a11y }: {
   type?: string; value: unknown; onChange: (v: unknown) => void;
   a11y: { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean };

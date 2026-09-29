@@ -1,4 +1,4 @@
-// §2.2 Záložka Scénáře: mřížka karet scénářů.
+// §2.2 Scenarios tab: grid of scenario cards.
 import { ArrowUpRight, Plus } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send } from "../api";
@@ -11,7 +11,7 @@ import { href, navigate } from "../router";
 import type { ErrorItem, Project, ScenarioSummary } from "../types";
 import type { SectionHeader } from "./Project";
 
-/** Příkaz spuštění z CLI; povinné vstupy bez `default` jako `-i jmeno=…`. */
+/** CLI run command; required inputs without `default` as `-i name=…`. */
 export function runCommand(root: string, s: ScenarioSummary): string {
   const inputs = Object.entries(s.inputs ?? {})
     .filter(([, v]) => v.required && v.default === undefined)
@@ -24,7 +24,7 @@ export function ScenariosTab({ project, header, onChanged }: { project: Project;
   const [creating, setCreating] = useState(false);
   const [checked, setChecked] = useState<{ name: string; errors: ErrorItem[] | string }>();
   const base = `/projects/${enc(project.name)}`;
-  /** Validovat (⋯): `POST …/validate` bez těla = projekt jak je na disku, chyby jen tohoto souboru. */
+  /** Validate (⋯): `POST …/validate` without a body = the project as it is on disk, errors only for this file. */
   const validate = async (name: string) => {
     setChecked({ name, errors: t("common.loading") });
     try {
@@ -59,14 +59,14 @@ export function ScenariosTab({ project, header, onChanged }: { project: Project;
             await send("POST", `${base}/scenarios`, { name, ...(description ? { description } : {}) });
             setCreating(false);
             onChanged();
-            navigate(href(project.name, "scenare", name, { krok: "_hlavicka" }));
+            navigate(href(project.name, "scenarios", name, { step: "_header" }));
           }} />
       )}
       {checked && (
         <Modal title={t("scenarios.validated", { name: checked.name })} onCancel={() => setChecked(undefined)} actions={[]} cancelLabel={t("common.close")}>
           <div aria-live="polite">
             {typeof checked.errors === "string" ? <p>{checked.errors}</p>
-              : checked.errors.length ? <ErrorList errors={checked.errors} hrefFor={(e) => e.step ? href(project.name, "scenare", checked.name, { krok: e.step }) : undefined} />
+              : checked.errors.length ? <ErrorList errors={checked.errors} hrefFor={(e) => e.step ? href(project.name, "scenarios", checked.name, { step: e.step }) : undefined} />
               : <StatusChip status="succeeded">{t("scenarios.valid")}</StatusChip>}
           </div>
         </Modal>
@@ -76,17 +76,17 @@ export function ScenariosTab({ project, header, onChanged }: { project: Project;
 }
 
 function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; scenario: ScenarioSummary; onValidate: () => void }) {
-  const open = href(project.name, "scenare", s.name);
+  const open = href(project.name, "scenarios", s.name);
   const agents = project.links.scenario_agent.filter(([sc]) => sc === s.name).map(([, a]) => a);
   const menu = [
     { label: t("common.open"), onSelect: () => navigate(open) },
-    { label: t("scenarios.runsOf"), onSelect: () => navigate(href(project.name, "behy", undefined, { scenar: s.name })) },
+    { label: t("scenarios.runsOf"), onSelect: () => navigate(href(project.name, "runs", undefined, { scenario: s.name })) },
     { label: t("scenarios.copyRun"), onSelect: () => navigator.clipboard.writeText(runCommand(project.root, s)) },
     { label: t("scenarios.validate"), onSelect: onValidate },
   ];
   return (
     <li data-testid={`scenario-card-${s.name}`} className="relative flex min-h-[292px] flex-col gap-[18px] rounded-tile bg-surface p-6 hover:bg-surface-hover max-md:min-h-0 max-md:p-5">
-      {/* návrh 03 (změřeno z .pen): řádek ikon 32 px, ⋯ 32 px ghost (klikací plocha 44), titul 18/26, meta mono 11 */}
+      {/* design 03 (measured from .pen): icon row 32 px, ⋯ 32 px ghost (click area 44), title 18/26, meta mono 11 */}
       <div className="flex h-8 items-center gap-3">
         <div className="min-w-0 flex-1 overflow-hidden"><IconChain types={s.types} /></div>
         <div className="relative z-10 -mr-3"><Menu ghost items={menu} label={t("common.menuFor", { name: s.name })} /></div>
@@ -109,7 +109,7 @@ function ScenarioCard({ project, scenario: s, onValidate }: { project: Project; 
             <LastRun run={s.last_run} />
           )}
         </span>
-        {/* celá karta je odkaz (titul); „Otevřít ↗“ je jen vizuální výzva, ne druhý odkaz */}
+        {/* the whole card is a link (title); "Open ↗" is only a visual hint, not a second link */}
         <span className="inline-flex shrink-0 items-center gap-2 text-[13px] text-fg" aria-hidden>
           {t("common.open")}<ArrowUpRight className="size-4" />
         </span>

@@ -1,0 +1,38 @@
+version: 1
+name: demo-task
+description: Example of a task step — the librarian writes a book catalog to the run workspace through the filesystem MCP server
+
+inputs:
+  books:
+    type: string
+    required: true
+    description: Books as free text (author, title, year)
+
+outputs:
+  path:
+    type: string
+    description: Path to the written catalog
+  count:
+    type: integer
+    description: How many books are in the catalog
+
+steps:
+  # 1. The librarian is an agent with tools: it finds the folder itself, loads the
+  #    catalog skill, writes the file and reads it back. Tools are allowed by mcp.yaml
+  #    (owner) and the agent; the step could only narrow them.
+  - id: catalog
+    task:
+      agent: librarian
+      prompt: |
+        Add these books to the catalog: {{ inputs.books }}
+        Then read the catalog back and check it.
+      max_turns: 6
+      schema:
+        path: string
+        count: integer
+
+  # 2. Result: path to the catalog and the number of books.
+  - id: out
+    output:
+      path: "{{ steps.catalog.path }}"
+      count: "{{ steps.catalog.count }}"

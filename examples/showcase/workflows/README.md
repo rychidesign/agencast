@@ -1,25 +1,25 @@
-# Showcase — ukázkové workflows
+# Showcase — sample workflows
 
-Kurátorované ukázky pro fiktivní kavárnu a pražírnu Lumen a katalog knih.
-Projekt spouštějte z kořene repozitáře přes `agencast --project examples/showcase`.
+Curated examples for Lumen, a fictional café and coffee roastery, and a book catalog.
+Run the project from the repository root with `agencast --project examples/showcase`.
 
 ```
-agents/        *.md   — agenti: YAML frontmatter (model alias, skilly, MCP,
-                        nástroje, limity) + instrukce v těle
-scenarios/     *.yaml — scénáře: inputs, steps, output; volají agenty jménem
+agents/        *.md   — agents: YAML frontmatter (model alias, skills, MCP,
+                        tools, limits) + instructions in the body
+scenarios/     *.yaml — scenarios: inputs, steps, output; call agents by name
 skills/        <name>/SKILL.md
-config.yaml    OpenRouter, aliasy modelů, úložiště výstupů, limity   ← jen vlastník
-mcp.yaml       registr MCP serverů + odkazy na tajné klíče           ← jen vlastník
-commands.example.yaml  návrh příkazů pro budoucí krok `run`                       ← jen vlastník
+config.yaml    OpenRouter, model aliases, output storage, limits     ← owner only
+mcp.yaml       MCP server registry + references to secret keys       ← owner only
+commands.example.yaml  draft commands for a future `run` step        ← owner only
 ```
 
-Přesné formáty definuje specifikace v [`docs/spec/`](../../../docs/spec/) (v1, schválena
-2026-09-25; změny jen podle pravidel kompatibility v [`docs/DESIGN.md`](../../../docs/DESIGN.md) §5.9). Referenční ukázky: `agents/*.md`, `scenarios/ig-post.yaml`, `scenarios/ukazka-call.yaml` (volá `kontrola-tonu.yaml` krokem `call`), `scenarios/ukazka-task.yaml` (krok task s MCP serverem),
-`*.example.yaml` (skutečné `config.yaml`, `mcp.yaml`, `commands.yaml`
-vytváří jen vlastník). Krok `run` není součástí v1;
-`commands.example.yaml` je pouze návrh pro budoucí rozšíření.
+The exact formats are defined by the specification in [`docs/spec/`](../../../docs/spec/) (v1, approved
+2026-09-25; changes only under the compatibility rules in [`docs/DESIGN.md`](../../../docs/DESIGN.md) §5.9). Reference examples: `agents/*.md`, `scenarios/ig-post.yaml`, `scenarios/demo-call.yaml` (calls `tone-check.yaml` with a `call` step), `scenarios/demo-task.yaml` (a task step with an MCP server),
+`*.example.yaml` (the real `config.yaml`, `mcp.yaml` and `commands.yaml`
+are created by the owner only). The `run` step is not part of v1;
+`commands.example.yaml` is only a draft for a future extension.
 
-Podsložky v `agents/` a `scenarios/` (třeba `archiv/`) se ignorují — čtou
-se jen soubory přímo ve složce.
+Subfolders in `agents/` and `scenarios/` (such as `archive/`) are ignored — only
+files directly in the folder are read.
 
-Tajné klíče do těchto souborů nepatří — odkazuje se na proměnné prostředí.
+Secret keys do not belong in these files — they are referenced through environment variables.

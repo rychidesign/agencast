@@ -4,137 +4,139 @@
 
 AgenCast is an open-source framework for defining and running LLM-agent workflows. Scenarios use YAML, agents use Markdown, and each run leaves a readable record.
 
-AgenCast je framework pro vývojáře a týmy, které chtějí skládat opakovatelné úlohy s LLM agenty ze souborů, které lze číst, verzovat a kontrolovat. Scénář popisuje průběh práce, agent jeho roli a nástroje.
+AgenCast is for developers and teams who want to compose repeatable LLM-agent tasks from files that can be read, versioned and reviewed. A scenario describes the flow of work; an agent describes its role and tools.
 
-## English quick start
+## Quick start
 
-AgenCast runs LLM-agent workflows defined in YAML and Markdown.
 Tested on Linux/WSL with Python 3.12 and `uv`; native Windows is unsupported, macOS untested.
 GUI builds and example MCP servers need Node `^20.19.0 || >=22.12.0` (tested: 24).
+
 ```bash
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
 agencast new project ~/demo --example showcase
 cd ~/demo
-agencast run ig-post -i tema="coffee" --fake fake/ig-post.yaml
+agencast run ig-post -i topic="coffee" --fake fake/ig-post.yaml
 ```
+
 This example needs no model key or payment; `--fake` still uses real MCP servers and callbacks.
 Offline runs require no `task` steps (including called scenarios) and no `--callback-url`, as above.
-Docs and GUI are in Czech; a multilingual GUI is planned. Deploy the GUI only on a private network.
+The GUI is English by default with a Czech translation. Deploy the GUI only on a private network.
 The command above installs the CLI/API; build the GUI from a clone as described below.
 
-## Co umí
+## What it does
 
-- Scénáře v YAML, agenti a skilly v Markdownu.
-- Deset typů kroků: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail` a `output`.
-- `task` volá povolené nástroje MCP; `parallel`, `switch` a `call` skládají větve a scénáře.
-- Falešný poskytovatel nahrazuje volání modelů bez ceny a bez klíče; MCP a callbacky zůstávají skutečné.
-- Každý běh ukládá `summary.md`, `callback.json` a samostatný `report.html`.
-- `agencast serve` přijímá webhooky a nabízí GUI pro registrované projekty.
-- Skilly pro kódovací agenty pomáhají scénáře spouštět i vytvářet.
+- Scenarios in YAML, agents and skills in Markdown.
+- Ten step types: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail` and `output`.
+- `task` calls permitted MCP tools; `parallel`, `switch` and `call` compose branches and scenarios.
+- A fake provider replaces model calls with no cost and no key; MCP and callbacks stay real.
+- Every run stores `summary.md`, `callback.json` and a standalone `report.html`.
+- `agencast serve` accepts webhooks and offers a GUI for registered projects.
+- Skills for coding agents help both run and create scenarios.
 
-![Editor scénáře ig-post v GUI AgenCast](docs/ui/screenshots/editor.png)
+![The ig-post scenario editor in the AgenCast GUI](docs/ui/screenshots/editor.png)
 
-## Instalace
+## Installation
 
-Ověřeno na Linuxu a WSL s Pythonem 3.12; použijte `uv`.
-Pro sestavení GUI a ukázkové MCP přes `npx` potřebujete Node.js
-`^20.19.0 || >=22.12.0` (podle `ui/package.json`, ověřeno s Node 24).
-Nativní Windows není podporován (`fcntl` v `projects.py` a `task.py`);
-macOS není ověřen.
+Verified on Linux and WSL with Python 3.12; use `uv`.
+To build the GUI and run the example MCP server via `npx` you need Node.js
+`^20.19.0 || >=22.12.0` (per `ui/package.json`, verified with Node 24).
+Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
+macOS is not verified.
 
-Z klonu repozitáře včetně GUI:
+From a clone of the repository, including the GUI:
 
 ```bash
 git clone https://github.com/rychidesign/agencast
 cd agencast
-(cd ui && npm install && npm run build)   # sestaví GUI do balíčku
+(cd ui && npm install && npm run build)   # builds the GUI into the package
 uv tool install --editable framework
 ```
 
-Přímo z GitHubu bez klonu se nainstaluje jen příkaz `agencast` a server
-s API, bez GUI:
+Directly from GitHub without a clone, only the `agencast` command and the server
+with the API are installed, without the GUI:
 
 ```bash
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
 ```
 
-Příklady, tutoriály, dokumentace a skilly jsou přibalené i bez klonu.
+Examples, tutorials, documentation and skills are bundled even without a clone.
 
-## Rychlý start
+## Getting started
 
-Celý postup pro balíček i klon: [Začínáme s AgenCast](docs/getting-started.md).
+The whole procedure for the package and for a clone: [Getting started with AgenCast](docs/getting-started.md).
 
-`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
-Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
-`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
-`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
-Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
-a bez `--callback-url`, například `ig-post`.
+`--fake` replaces only model calls: no model cost and no OpenRouter key.
+A `task` step still runs the real MCP servers from `mcp.yaml`; the example
+`filesystem` uses `npx`, needs Node.js and downloads a package on first run.
+`--callback-url` sends a real callback (and needs its signing secret).
+Only scenarios without `task` (including called scenarios)
+and without `--callback-url` are guaranteed to run offline, for example `ig-post`.
 
-Příklad `ig-post` z klonu spustíte offline (nemá `task`, nepřidávejte `--callback-url`):
+You can run the `ig-post` example from a clone offline (it has no `task`; do not add `--callback-url`):
 
 ```bash
-agencast --project examples/showcase run ig-post -i tema="nová káva" --fake examples/showcase/fake/ig-post.yaml
+agencast --project examples/showcase run ig-post -i topic="new coffee" --fake examples/showcase/fake/ig-post.yaml
 ```
 
-Další ukázky najdete v [examples/](examples/). Pro vlastní práci vytvořte projekt, doplňte klíč OpenRouteru do `.env` a projděte nejprve kontroly bez ostrého volání:
+More examples are in [examples/](examples/). For your own work, create a project, add your OpenRouter key to `.env` and go through the checks without a live call first:
 
 ```bash
-agencast new project ~/muj-projekt
-cd ~/muj-projekt
+agencast new project ~/my-project
+cd ~/my-project
 cp .env.example .env
-# Do .env nastavte OPENROUTER_API_KEY.
-agencast validate ukazka
-agencast run ukazka --dry-run
-agencast run ukazka --fake
-agencast run ukazka
+# Set OPENROUTER_API_KEY in .env.
+agencast validate demo
+agencast run demo --dry-run
+agencast run demo --fake
+agencast run demo
 ```
 
-## Skilly pro kódovací agenty
+## Skills for coding agents
 
-`agencast skills install` nainstaluje skilly pro nalezené nástroje Claude Code,
-Codex, OpenCode a OMP; `--to all` vybere všechny. Více: [skills/](skills/).
+`agencast skills install` installs the skills for the Claude Code, Codex,
+OpenCode and OMP tools it finds; `--to all` selects all of them. More: [skills/](skills/).
 
-## Struktura repozitáře
+## Repository structure
 
-| Cesta | Obsah |
+| Path | Contents |
 |---|---|
-| `framework/` | Python balík a příkaz `agencast` |
-| `ui/` | Zdrojový kód GUI |
-| `examples/` | Samostatné projekty showcase a tutorial |
-| `docs/` | Specifikace, návrh a tutoriály |
-| `skills/` | Skilly pro kódovací agenty |
+| `framework/` | Python package and the `agencast` command |
+| `ui/` | GUI source code |
+| `examples/` | Standalone showcase and tutorial projects |
+| `docs/` | Specification, design and tutorials |
+| `skills/` | Skills for coding agents |
 
-## Dokumentace
+## Documentation
 
-- [Specifikace formátů](docs/spec/)
-- [Tutoriály](docs/tutorials/)
-- [Návrh frameworku](docs/DESIGN.md)
-- [README frameworku](framework/README.md)
-- [README GUI](ui/README.md)
-- [Skilly pro kódovací agenty](skills/)
+- [Format specification](docs/spec/)
+- [Tutorials](docs/tutorials/)
+- [Framework design](docs/DESIGN.md)
+- [Framework README](framework/README.md)
+- [GUI README](ui/README.md)
+- [Skills for coding agents](skills/)
 
-## GUI a server
+## GUI and server
 
-`agencast serve` umí běžet v režimu registru projektů. Na hostu nastavte
-`AGENCAST_TOKEN`, `AGENCAST_HOST` a `AGENCAST_PORT` v
-`~/.config/agencast/serve.env` (systemd `EnvironmentFile`). GUI vystavujte
-jen v privátní síti. Adresu zjistíte přečtením pouze hostu a portu:
+`agencast serve` can run in project registry mode. On the host, set
+`AGENCAST_TOKEN`, `AGENCAST_HOST` and `AGENCAST_PORT` in
+`~/.config/agencast/serve.env` (systemd `EnvironmentFile`). Expose the GUI
+only on a private network. You can find the address by reading only the host and port:
 
 ```bash
 grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env
 ```
 
-Hodnotu tokenu nikdy nevypisujte.
+Never print the token value.
 
-## Stav a licence
+The GUI is English by default. The Czech translation is in `ui/src/locales/cs.json`;
+choose the language in the GUI.
 
-Aktuální verze frameworku je **0.17.0** (řada 0.17.x); historii změn najdete
-v [changelogu](framework/CHANGELOG.md). Projekt je dostupný pod licencí
-[WTFPL verze 2](LICENSE).
+## Status and license
 
-Plánováno: vícejazyčné GUI.
+The current framework version is **0.17.0** (the 0.17.x line); the history of changes is in
+the [changelog](framework/CHANGELOG.md). The project is available under the
+[WTFPL version 2](LICENSE) license.
 
-Software je poskytován bez jakékoli záruky. / This program comes without any warranty, to the extent permitted by applicable law.
+This program comes without any warranty, to the extent permitted by applicable law.
 
-[Přispívání / Contributing](CONTRIBUTING.md) · [Bezpečnost / Security](SECURITY.md)
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)

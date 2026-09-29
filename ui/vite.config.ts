@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// Sestavené GUI podává `agencast serve` na `/` (docs/spec/api.md „GUI a CORS“).
+// The built GUI is served by `agencast serve` at `/` (docs/spec/api.md "GUI and CORS").
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: "./",

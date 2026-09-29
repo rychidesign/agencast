@@ -1,0 +1,35 @@
+version: 1
+name: tutorial-07-archive
+description: Writes the day's note to the archive at most once, even when the request comes again (tutorial, part 7)
+
+inputs:
+  day:
+    type: string
+    required: true
+    description: Date of the entry, e.g. 2026-09-25
+  text:
+    type: string
+    required: true
+    description: The note as free text
+
+outputs:
+  message:
+    type: string
+    description: What the archivist wrote (on a repeat, the reply from the first run)
+
+steps:
+  # 1. A step with a side effect (writing). dedupe_key: for the same day it runs
+  #    at most once — the next run takes the output from <runs>/_dedupe/ and skips the step.
+  - id: write
+    dedupe_key: "archive-{{ inputs.day }}"
+    task:
+      agent: tutorial-archivist
+      prompt: |
+        Day: {{ inputs.day }}
+        Note: {{ inputs.text }}
+        Write the note to the archive and check it.
+      max_turns: 5
+
+  - id: out
+    output:
+      message: "{{ steps.write.text }}"

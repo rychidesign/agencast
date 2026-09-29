@@ -1,20 +1,20 @@
-// `YamlEditor` (§3, §4.5): textarea nad zvýrazněným textem, čísla řádků,
-// chybné řádky a seznam chyb s odkazem na řádek. `ConflictBar` a rozdíl (§4.6).
+// `YamlEditor` (§3, §4.5): textarea over highlighted text, line numbers,
+// erroneous lines and an error list linking to the line. `ConflictBar` and the diff (§4.6).
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, FileCode2, GitCompareArrows, RotateCcw, TriangleAlert } from "lucide-react";
 import { t } from "../i18n";
 import { lineDiff, type Conflict } from "../textfile";
 import type { ErrorItem } from "../types";
-import { lineContexts, Line } from "./CodeView";
 import { Modal } from "./form";
 import { btn, ErrorList } from "./ui";
+import { highlight } from "./yaml";
 
 const LINE_PX = 27;
 const PAD_PX = 16;
 
 export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, label, readOnly = false }: {
   text: string; onChange: (t: string) => void; file: string; errors: ErrorItem[];
-  /** Řádky (od 1) k podbarvení a kurzoru (Form → YAML drží vybraný krok). */
+  /** Lines (from 1) to highlight and for the cursor (Form → YAML keeps the selected step). */
   focus?: [number, number]; onCaretLine?: (line: number) => void; label?: string; readOnly?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -24,7 +24,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
   const [flash, setFlash] = useState(focus);
   const [position, setPosition] = useState<[number, number]>([1, 1]);
   const lines = text.split("\n");
-  const contexts = lineContexts(lines);
+  const colored = highlight(lines, file.endsWith(".md"));
   const bad = new Set(errors.map((e) => e.line).filter(Boolean));
 
   const goTo = (line: number) => {
@@ -42,7 +42,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
     setFlash(focus);
     const timer = setTimeout(() => setFlash(undefined), 1500);
     return () => clearTimeout(timer);
-    // jen při přepnutí do YAML / změně kroku
+    // only when switching to YAML / changing the step
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.[0]]);
 
@@ -55,7 +55,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
     onCaretLine?.(line);
   };
   return (
-    // návrh 11 (změřeno z .pen): r16, lišta p 14 18 s linkou, řádek 27 px (13/19 + 4 + 4), patička mono 11
+    // design 11 (measured from .pen): r16, toolbar p 14 18 with a line, 27 px row (13/19 + 4 + 4), mono 11 footer
     <div className="overflow-hidden rounded-[var(--radius-panel)] bg-surface focus-within:ring-1 focus-within:ring-accent">
       <div className="flex items-center gap-2.5 border-b border-line px-[18px] py-3.5">
         <FileCode2 className="size-[18px] text-fg-secondary" aria-hidden />
@@ -72,10 +72,10 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
           </div>
           <div className="relative flex-1 py-4 pr-4">
             <pre aria-hidden className="pointer-events-none whitespace-pre">
-              {lines.map((l, i) => {
+              {colored.map((line, i) => {
                 const n = i + 1;
                 const hi = flash && n >= flash[0] && n <= flash[1];
-                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-active transition-colors" : ""}><Line text={l || " "} {...contexts[i]} /></div>;
+                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-active transition-colors" : ""}>{line}</div>;
               })}
             </pre>
             <textarea
@@ -108,14 +108,14 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
   );
 }
 
-/** Sticky pruh nad kartami (§4.6): soubor se na disku změnil a GUI drží neuložené změny. */
+/** Sticky bar above the cards (§4.6): the file changed on disk and the GUI holds unsaved changes. */
 export function ConflictBar({ conflict, onDiff, onReload, onKeep, inHeader = false }: {
   conflict: Conflict; onDiff: () => void; onReload: () => void; onKeep: () => void;
-  /** V přilepené hlavičce editoru scénáře: pruh zůstane nad panelem. */
+  /** In the sticky header of the scenario editor: the bar stays above the panel. */
   inHeader?: boolean;
 }) {
   return (
-    // návrh 11 (změřeno z .pen): plocha warning, levý pruh 3 px, r8, p 20, mezery 16; titul 15, popis 13, akce pod textem
+    // design 11 (measured from .pen): warning surface, 3 px left bar, r8, p 20, gaps 16; title 15, description 13, actions below the text
     <div role="alert" data-testid="conflict-bar" className={`${inHeader ? "w-full" : "sticky top-[calc(var(--page-header-h,0px)+0.5rem)] z-10 mb-4"} space-y-4 rounded-control border-l-[3px] border-warning bg-[color-mix(in_srgb,var(--color-warning)_14%,var(--color-canvas))] p-5`}>
       <div className="space-y-1">
         <p className="flex items-center gap-3 text-[15px] leading-[23px] text-warning"><TriangleAlert className="size-4 shrink-0" aria-hidden />{t("conflict.title")}</p>
@@ -130,18 +130,24 @@ export function ConflictBar({ conflict, onDiff, onReload, onKeep, inHeader = fal
   );
 }
 
-/** Rozdíl dvou textů po řádcích (jen změny s dvěma řádky kontextu). */
-export function DiffModal({ title, before, after, onClose, note }: { title: string; before: string; after: string; onClose: () => void; note?: string }) {
+/** Line-by-line diff of two texts (only changes with two lines of context); `markdown` highlights only the frontmatter. */
+export function DiffModal({ title, before, after, onClose, note, markdown = false }: {
+  title: string; before: string; after: string; onClose: () => void; note?: string; markdown?: boolean;
+}) {
   const diff = lineDiff(before, after);
   const near = (i: number) => diff.slice(Math.max(0, i - 2), i + 3).some((d) => d.op !== " ");
+  // diff rows go in order: "-" and " " from `before`, "+" and " " from `after` (as in `lineDiff`)
+  const [old, now] = [before, after].map((s) => highlight(s.replace(/\n$/, "").split("\n"), markdown));
+  let x = 0, y = 0;
+  const colored = diff.map((d) => d.op === "+" ? now[y++] : d.op === "-" ? old[x++] : (y++, old[x++]));
   return (
     <Modal title={title} onCancel={onClose} actions={[]} cancelLabel={t("common.close")}>
       {note && <p>{note}</p>}
       <pre className="max-h-[60vh] scroll-thin overflow-auto rounded-[var(--radius-control)] bg-nested p-3 font-mono text-[13px] leading-5">
         {diff.every((d) => d.op === " ") && <span className="text-fg-muted">{t("conflict.same")}</span>}
         {diff.map((d, i) => near(i) && (
-          <div key={i} className={d.op === "+" ? "bg-success/10 text-success" : d.op === "-" ? "bg-error/10 text-error" : "text-fg-muted"}>
-            {d.op} {d.text}
+          <div key={i} className={d.op === "+" ? "bg-success/10" : d.op === "-" ? "bg-error/10" : "opacity-60"}>
+            <span className={d.op === "+" ? "text-success" : d.op === "-" ? "text-error" : "text-fg-muted"}>{d.op} </span>{colored[i]}
           </div>
         ))}
       </pre>

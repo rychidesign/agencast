@@ -1,8 +1,8 @@
-// Hash routing (§1 návrhu): GUI běží i v iframe Skynet Soul, proto `#/…`.
+// Hash routing (design §1): the GUI also runs in a Skynet Soul iframe, hence `#/…`.
 import { useSyncExternalStore } from "react";
 
-export type Tab = "scenare" | "agenti" | "config" | "skilly" | "behy";
-export const TABS: Tab[] = ["scenare", "agenti", "config", "skilly", "behy"];
+export type Tab = "scenarios" | "agents" | "config" | "skills" | "runs";
+export const TABS: Tab[] = ["scenarios", "agents", "config", "skills", "runs"];
 
 export type Route =
   | { page: "projects" }
@@ -25,14 +25,14 @@ export function parseHash(hash: string): Location {
   if (seg.length === 0) return at({ page: "projects" });
   if (seg[0] !== "p" || !seg[1]) return at({ page: "notFound" });
   const project = seg[1];
-  const tab = (seg[2] ?? "scenare") as Tab;
+  const tab = (seg[2] ?? "scenarios") as Tab;
   if (!TABS.includes(tab) || seg.length > 4) return at({ page: "notFound" });
-  if (tab === "scenare" && seg[3]) return at({ page: "scenario", project, scenario: seg[3] });
-  if (tab === "behy" && seg[3]) return at({ page: "run", project, runId: seg[3] });
+  if (tab === "scenarios" && seg[3]) return at({ page: "scenario", project, scenario: seg[3] });
+  if (tab === "runs" && seg[3]) return at({ page: "run", project, runId: seg[3] });
   return at({ page: "project", project, tab, item: seg[3] });
 }
 
-/** `href("repo", "scenare", "ig-post", {krok: "copy"})` → `#/p/repo/scenare/ig-post?krok=copy`. */
+/** `href("repo", "scenarios", "ig-post", {step: "copy"})` → `#/p/repo/scenarios/ig-post?step=copy`. */
 export function href(project?: string, tab?: Tab, item?: string, query?: Record<string, string | undefined>): string {
   const parts = project ? ["p", project, tab, item].filter(Boolean) as string[] : [];
   const qs = new URLSearchParams(Object.entries(query ?? {}).filter((e): e is [string, string] => !!e[1]));
@@ -40,7 +40,7 @@ export function href(project?: string, tab?: Tab, item?: string, query?: Record<
   return `#/${parts.map(encodeURIComponent).join("/")}${q ? `?${q}` : ""}`;
 }
 
-// Deep link z dashboardu: iframe hlásí rodiči aktuální cestu (§1).
+// Deep link from the dashboard: the iframe reports the current path to its parent (§1).
 window.addEventListener("hashchange", () => {
   if (window.parent !== window) window.parent.postMessage({ type: "agencast:route", hash: location.hash }, "*");
 });
@@ -54,7 +54,7 @@ export function navigate(to: string, opts: { replace?: boolean } = {}) {
   }
 }
 
-/** Změní jen query aktuální cesty (bez nového záznamu historie). */
+/** Changes only the query of the current path (without a new history entry). */
 export function setQuery(patch: Record<string, string | undefined>) {
   const { query } = parseHash(location.hash);
   for (const [k, v] of Object.entries(patch)) v ? query.set(k, v) : query.delete(k);

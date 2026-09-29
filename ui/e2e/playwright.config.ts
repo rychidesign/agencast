@@ -1,5 +1,5 @@
-// E2E podle docs/ui/uzivatelske-cesty.md: sestavené GUI ze `agencast serve --fake` (jeden server na worker,
-// fixtures.ts), headless Chromium. Spouští `npm run e2e` (nejdřív `npm run build`).
+// E2E per docs/ui/user-journeys.md: the built GUI from `agencast serve --fake` (one server per worker,
+// fixtures.ts), headless Chromium. Run by `npm run e2e` (which runs `npm run build` first).
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
@@ -13,7 +13,7 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     viewport: { width: 1400, height: 900 },
-    locale: "cs-CZ",
+    locale: "en-US",
     timezoneId: "Europe/Prague",
     trace: "retain-on-failure",
     actionTimeout: 10_000,

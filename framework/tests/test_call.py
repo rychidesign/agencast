@@ -1,5 +1,5 @@
-"""Krok call (scenario.md call, DESIGN §5.3): vnořený scénář ve stejném běhu,
-kontrakt inputs/outputs, callable, cykly a hloubka, sdílený rozpočet."""
+"""The call step (scenario.md call, DESIGN §5.3): nested scenario in the same run,
+inputs/outputs contract, callable, cycles and depth, shared budget."""
 import json
 from pathlib import Path
 
@@ -10,31 +10,31 @@ from agencast import ConfigErrors
 from agencast.loader import read_yaml
 from agencast.validate import validate
 
-GOLDEN = Path(__file__).resolve().parents[2] / "examples" / "showcase" / "fake" / "ukazka-call.yaml"
+GOLDEN = Path(__file__).resolve().parents[2] / "examples" / "showcase" / "fake" / "demo-call.yaml"
 
 CALLEE = """
 version: 1
 name: NAME
-description: Volaný scénář
+description: Called scenario
 callable: CALLABLE
 inputs:
   text: { type: string, required: true }
   n: { type: number, default: 1 }
 outputs:
-  delka: { type: number }
+  length: { type: number }
   text: { type: string }
 steps:
-  - id: spocitej
-    set: { delka: len(inputs.text) + inputs.n }
+  - id: calculate
+    set: { length: len(inputs.text) + inputs.n }
   - id: STOP
     when: inputs.n > 5
-    fail: "moc velké n: {{ inputs.n }}"
+    fail: "n is too large: {{ inputs.n }}"
   - id: out
-    output: { delka: "{{ steps.spocitej.delka }}", text: "{{ inputs.text }}" }
+    output: { length: "{{ steps.calculate.length }}", text: "{{ inputs.text }}" }
 """
 
 
-def callee(wf, name="volany", callable_=True):
+def callee(wf, name="callee", callable_=True):
     return scenario(wf, CALLEE.replace("CALLABLE", str(callable_).lower()).replace("STOP", "stop"), name)
 
 
@@ -42,12 +42,12 @@ def caller(wf, call_body, rest="", name="test", extra_inputs=""):
     return scenario(wf, f"""
         version: 1
         name: NAME
-        description: Volající scénář
+        description: Calling scenario
         inputs:
-          tema: {{ type: string, default: kava }}
+          topic: {{ type: string, default: coffee }}
           {extra_inputs}
         steps:
-          - id: navrh
+          - id: draft
             {call_body}
         {rest}
         """, name)
@@ -59,66 +59,66 @@ def config_errors(path) -> str:
     return "\n".join(e.value.errors)
 
 
-# --- zlatý referenční scénář ------------------------------------------------------------------
+# --- golden reference scenario ------------------------------------------------------------------
 
 def test_golden_call_record_and_outputs(wf):
-    r, fake = run(wf / "scenarios" / "ukazka-call.yaml", {"tema": "káva"}, read_yaml(GOLDEN))
+    r, fake = run(wf / "scenarios" / "demo-call.yaml", {"topic": "coffee"}, read_yaml(GOLDEN))
     assert r.status == "succeeded", r.error
     d = r.rec.dir
-    for f in ("steps/02-ton/inputs.json", "steps/02-ton/output.json",
-              "steps/02-ton/steps/01-kontrola/calls/01.request.json", "steps/02-ton/steps/03-out/output.json"):
+    for f in ("steps/02-tone/inputs.json", "steps/02-tone/output.json",
+              "steps/02-tone/steps/01-check/calls/01.request.json", "steps/02-tone/steps/03-out/output.json"):
         assert (d / f).is_file(), f
-    assert json.loads((d / "steps/02-ton/inputs.json").read_text()) == {
-        "text": "Ranní káva, co tě nakopne. Dáš si?", "prah": 0.7}
-    assert json.loads((d / "steps/02-ton/output.json").read_text()) == {"on_brand": 0.91, "v_poradku": True}
+    assert json.loads((d / "steps/02-tone/inputs.json").read_text()) == {
+        "text": "Morning coffee that gets you going. Want one?", "threshold": 0.7}
+    assert json.loads((d / "steps/02-tone/output.json").read_text()) == {"on_brand": 0.91, "passed": True}
     steps = [e.get("step") for e in events(r, "step_started")]
-    assert steps == ["copy", "ton", "ton/kontrola", "ton/vysledek", "ton/out", "out"]
-    assert events(r, "jev_call")[0]["request_file"] == "steps/02-ton/steps/01-kontrola/calls/01.request.json"
-    assert [c[0] for c in fake.calls] == ["copy", "ton/kontrola"]
-    ton = next(e for e in events(r, "step_finished") if e["step"] == "ton")
-    assert ton["cost_usd"] == 0.0001 and ton["kind"] == "call"  # cena jev volání uvnitř
+    assert steps == ["copy", "tone", "tone/check", "tone/result", "tone/out", "out"]
+    assert events(r, "jev_call")[0]["request_file"] == "steps/02-tone/steps/01-check/calls/01.request.json"
+    assert [c[0] for c in fake.calls] == ["copy", "tone/check"]
+    tone = next(e for e in events(r, "step_finished") if e["step"] == "tone")
+    assert tone["cost_usd"] == 0.0001 and tone["kind"] == "call"  # cost of the nested jev call
     assert r.cost == pytest.approx(0.0002)
     assert json.loads((d / "callback.json").read_text())["outputs"] == {
-        "caption": "Ranní káva, co tě nakopne. Dáš si?", "on_brand": 0.91}
-    assert [e["type"] for e in events(r)].count("run_started") == 1  # call nezakládá nový běh
-    assert "scénář kontrola-tonu" in (d / "plan.md").read_text()
+        "caption": "Morning coffee that gets you going. Want one?", "on_brand": 0.91}
+    assert [e["type"] for e in events(r)].count("run_started") == 1  # call does not create a new run
+    assert "scenario tone-check" in (d / "plan.md").read_text()
 
 
 def test_nested_error_is_error_of_call_step(wf):
     callee(wf)
-    r, _ = run(caller(wf, 'call: { scenario: volany, inputs: { text: "{{ inputs.tema }}", n: 9 } }'))
+    r, _ = run(caller(wf, 'call: { scenario: callee, inputs: { text: "{{ inputs.topic }}", n: 9 } }'))
     assert r.status == "failed"
-    assert r.error["class"] == "fail" and r.error["step"] == "navrh/stop" and r.error["message"] == "moc velké n: 9"
+    assert r.error["class"] == "fail" and r.error["step"] == "draft/stop" and r.error["message"] == "n is too large: 9"
     fin = {e["step"]: e["status"] for e in events(r, "step_finished")}
-    assert fin["navrh/stop"] == "failed" and fin["navrh"] == "failed"
-    assert json.loads((r.rec.dir / "callback.json").read_text())["error"]["step"] == "navrh/stop"
+    assert fin["draft/stop"] == "failed" and fin["draft"] == "failed"
+    assert json.loads((r.rec.dir / "callback.json").read_text())["error"]["step"] == "draft/stop"
 
 
 def test_on_error_continue_on_call_uses_default(wf):
     callee(wf)
-    r, _ = run(caller(wf, 'on_error: continue\n            default: { delka: 0, text: "" }\n'
-                          '            call: { scenario: volany, inputs: { text: x, n: 9 } }',
-                      "  - id: po\n            set: { d: steps.navrh.delka }"))
+    r, _ = run(caller(wf, 'on_error: continue\n            default: { length: 0, text: "" }\n'
+                          '            call: { scenario: callee, inputs: { text: x, n: 9 } }',
+                      "  - id: after\n            set: { d: steps.draft.length }"))
     assert r.status == "succeeded", r.error
-    assert r.values["steps"]["po"] == {"d": 0}
-    assert any("krok navrh selhal (fail" in w for w in r.warnings)
+    assert r.values["steps"]["after"] == {"d": 0}
+    assert any("step draft failed (fail" in w for w in r.warnings)
 
 
 def test_outputs_and_defaults_of_callee(wf):
     callee(wf)
-    r, _ = run(caller(wf, 'call: { scenario: volany, inputs: { text: "{{ inputs.tema }}" } }',
-                      "  - id: po\n            set: { d: steps.navrh.delka, t: steps.navrh.text }"))
+    r, _ = run(caller(wf, 'call: { scenario: callee, inputs: { text: "{{ inputs.topic }}" } }',
+                      "  - id: after\n            set: { d: steps.draft.length, t: steps.draft.text }"))
     assert r.status == "succeeded", r.error
-    assert r.values["steps"]["po"] == {"d": 5, "t": "kava"}  # n = default 1
-    assert json.loads((r.rec.dir / "steps/01-navrh/inputs.json").read_text()) == {"text": "kava", "n": 1}
+    assert r.values["steps"]["after"] == {"d": 7, "t": "coffee"}  # n = default 1
+    assert json.loads((r.rec.dir / "steps/01-draft/inputs.json").read_text()) == {"text": "coffee", "n": 1}
 
 
 def test_shared_run_budget(wf):
     (wf / "config.yaml").write_text((wf / "config.yaml").read_text().replace("run_budget_usd: 1.00",
                                                                              "run_budget_usd: 0.0001"))
-    r, _ = run(wf / "scenarios" / "ukazka-call.yaml", {"tema": "káva"})
-    assert r.status == "failed" and r.error["class"] == "budget" and r.error["step"] == "ton/kontrola"
-    assert "běhu" in r.error["message"]
+    r, _ = run(wf / "scenarios" / "demo-call.yaml", {"topic": "coffee"})
+    assert r.status == "failed" and r.error["class"] == "budget" and r.error["step"] == "tone/check"
+    assert "run" in r.error["message"]
 
 
 def test_call_own_budget_is_covered_by_its_on_error(wf):
@@ -128,82 +128,82 @@ def test_call_own_budget_is_covered_by_its_on_error(wf):
   - id: j2
     jev: { state: x, questions: { q: { type: noul, instructions: y } } }
   - id: out""")
-    scenario(wf, callee_text, "volany")
-    r, _ = run(caller(wf, 'budget_usd: 0.0001\n            on_error: continue\n            default: { delka: 0, text: "" }\n'
-                          '            call: { scenario: volany, inputs: { text: x } }'))
+    scenario(wf, callee_text, "callee")
+    r, _ = run(caller(wf, 'budget_usd: 0.0001\n            on_error: continue\n            default: { length: 0, text: "" }\n'
+                          '            call: { scenario: callee, inputs: { text: x } }'))
     assert r.status == "succeeded", r.error
-    assert any("krok navrh selhal (budget" in w for w in r.warnings)
+    assert any("step draft failed (budget" in w for w in r.warnings)
 
 
 def test_runtime_input_type_mismatch_is_expression(wf):
     callee(wf)
-    r, _ = run(caller(wf, 'call: { scenario: volany, inputs: { text: x, n: "{{ inputs.data.a }}" } }',
+    r, _ = run(caller(wf, 'call: { scenario: callee, inputs: { text: x, n: "{{ inputs.data.a }}" } }',
                       extra_inputs="data: { type: object, default: { a: text } }"))
     assert r.error["class"] == "expression" and "call.inputs.n" in r.error["message"], r.error
-    assert r.error["step"] == "navrh"
+    assert r.error["step"] == "draft"
 
 
 def test_file_passes_through_call_and_uploads_once(wf):
     scenario(wf, """
         version: 1
         name: NAME
-        description: Fotka
+        description: Photo
         callable: true
-        outputs: { foto: { type: file } }
+        outputs: { photo: { type: file } }
         steps:
           - id: img
-            image: { model: gemini-image, prompt: kava, aspect_ratio: "4:5" }
+            image: { model: gemini-image, prompt: coffee, aspect_ratio: "4:5" }
           - id: out
-            output: { foto: "{{ steps.img.file }}" }
-        """, "fotka")
+            output: { photo: "{{ steps.img.file }}" }
+        """, "photo")
     scenario(wf, """
         version: 1
         name: NAME
-        description: Použije fotku
+        description: Use the photo
         callable: true
-        inputs: { obr: { type: file, required: true } }
-        outputs: { obr: { type: file } }
+        inputs: { image: { type: file, required: true } }
+        outputs: { image: { type: file } }
         steps:
           - id: out
-            output: { obr: "{{ inputs.obr }}" }
-        """, "predej")
+            output: { image: "{{ inputs.image }}" }
+        """, "forward")
     path = scenario(wf, """
         version: 1
         name: NAME
-        description: Hlavní
+        description: Main
         outputs: { image: { type: file } }
         steps:
           - id: f
-            call: { scenario: fotka }
+            call: { scenario: photo }
           - id: p
-            call: { scenario: predej, inputs: { obr: "{{ steps.f.foto }}" } }
+            call: { scenario: forward, inputs: { image: "{{ steps.f.photo }}" } }
           - id: out
-            output: { image: "{{ steps.p.obr }}" }
+            output: { image: "{{ steps.p.image }}" }
         """)
     r, _ = run(path)
     assert r.status == "succeeded", r.error
     assert (r.rec.dir / "steps/01-f/steps/01-img/image.png").is_file()
     up = events(r, "file_uploaded")
-    assert [u["output"] for u in up] == ["image", "report"]  # vnořené výstupy se nenahrávají
+    assert [u["output"] for u in up] == ["image", "report"]  # nested outputs are not uploaded
     assert up[0]["path"] == "steps/01-f/steps/01-img/image.png"
-    assert json.loads((r.rec.dir / "steps/01-f/output.json").read_text()) == {"foto": "steps/01-f/steps/01-img/image.png"}
+    assert json.loads((r.rec.dir / "steps/01-f/output.json").read_text()) == {"photo": "steps/01-f/steps/01-img/image.png"}
 
 
 # --- validate --------------------------------------------------------------------------------
 
 def test_call_to_not_callable_is_config(wf):
     callee(wf, callable_=False)
-    assert "nemá callable: true" in config_errors(caller(wf, "call: { scenario: volany, inputs: { text: x } }"))
+    assert "has no callable: true" in config_errors(caller(wf, "call: { scenario: callee, inputs: { text: x } }"))
 
 
 def test_call_contract_errors(wf):
     callee(wf)
-    got = config_errors(caller(wf, "call: { scenario: volany, inputs: { navic: 1, n: x } }",
-                               "  - id: po\n            set: { d: steps.navrh.nic }"))
-    assert "nemá vstupy: navic" in got
-    assert "chybí povinné vstupy scénáře 'volany': text" in got
-    assert "call.inputs.n: vstup má typ number, hodnota je string" in got
-    assert "'steps.navrh' nemá klíč 'nic'" in got
+    got = config_errors(caller(wf, "call: { scenario: callee, inputs: { extra: 1, n: x } }",
+                               "  - id: after\n            set: { d: steps.draft.missing }"))
+    assert "has no inputs named: extra" in got
+    assert "missing required inputs for scenario 'callee': text" in got
+    assert "call.inputs.n: input has type number, value is string" in got
+    assert "'steps.draft' has no key 'missing'" in got
 
 
 def test_file_input_only_from_file(wf):
@@ -212,17 +212,17 @@ def test_file_input_only_from_file(wf):
         name: NAME
         description: x
         callable: true
-        inputs: { obr: { type: file, required: true } }
+        inputs: { image: { type: file, required: true } }
         steps: [{ id: a, set: { x: 1 } }]
-        """, "predej")
-    assert "vstup má typ file, hodnota je string" in config_errors(
-        caller(wf, 'call: { scenario: predej, inputs: { obr: "/home/x/.env" } }'))
+        """, "forward")
+    assert "input has type file, value is string" in config_errors(
+        caller(wf, 'call: { scenario: forward, inputs: { image: "/home/x/.env" } }'))
 
 
 def test_errors_in_callee_are_reported_with_its_file(wf):
     scenario(wf, CALLEE.replace("callable: CALLABLE", "callable: true").replace("STOP", "stop")
-             .replace("len(inputs.text)", "len(inputs.nic)"), "volany")
-    assert "volany.yaml: krok \"spocitej\"" in config_errors(caller(wf, "call: { scenario: volany, inputs: { text: x } }"))
+             .replace("len(inputs.text)", "len(inputs.missing)"), "callee")
+    assert "callee.yaml: step \"calculate\"" in config_errors(caller(wf, "call: { scenario: callee, inputs: { text: x } }"))
 
 
 def test_cycle_is_config(wf):
@@ -234,10 +234,10 @@ def test_cycle_is_config(wf):
             callable: true
             steps: [{{ id: s, call: {{ scenario: {b} }} }}]
             """, a)
-    assert "cyklus call: a → b → a" in config_errors(wf / "scenarios" / "a.yaml")
-    scenario(wf, "version: 1\nname: NAME\ndescription: x\ncallable: true\nsteps: [{ id: s, call: { scenario: sam } }]\n",
-             "sam")
-    assert "cyklus call: sam → sam" in config_errors(wf / "scenarios" / "sam.yaml")
+    assert "call cycle: a → b → a" in config_errors(wf / "scenarios" / "a.yaml")
+    scenario(wf, "version: 1\nname: NAME\ndescription: x\ncallable: true\nsteps: [{ id: s, call: { scenario: self } }]\n",
+             "self")
+    assert "call cycle: self → self" in config_errors(wf / "scenarios" / "self.yaml")
 
 
 def test_depth_limit_is_config(wf):
@@ -245,12 +245,12 @@ def test_depth_limit_is_config(wf):
         scenario(wf, f"version: 1\nname: NAME\ndescription: x\ncallable: true\n"
                      f"steps: [{{ id: s, call: {{ scenario: {b} }} }}]\n", a)
     scenario(wf, "version: 1\nname: NAME\ndescription: x\ncallable: true\nsteps: [{ id: s, set: { x: 1 } }]\n", "c")
-    run(wf / "scenarios" / "a.yaml")  # hloubka 2 ≤ výchozí 3
+    run(wf / "scenarios" / "a.yaml")  # depth 2 ≤ default 3
     (wf / "config.yaml").write_text((wf / "config.yaml").read_text().replace("run_timeout: 1h",
                                                                              "run_timeout: 1h\n  max_call_depth: 1"))
-    assert "hloubka call 2 je nad limits.max_call_depth (1): a → b → c" in config_errors(wf / "scenarios" / "a.yaml")
+    assert "call depth 2 exceeds limits.max_call_depth (1): a → b → c" in config_errors(wf / "scenarios" / "a.yaml")
 
 
 def test_callable_scenario_runs_standalone(wf):
-    p = validate(wf / "scenarios" / "kontrola-tonu.yaml", check_models=False)
+    p = validate(wf / "scenarios" / "tone-check.yaml", check_models=False)
     assert p.scenario["callable"] is True

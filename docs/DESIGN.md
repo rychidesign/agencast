@@ -1,512 +1,513 @@
-# AgenCast — návrh
+# AgenCast — design
 
-Tento dokument zachycuje architektonická rozhodnutí a omezení frameworku.
-Aktuální verze a stav implementace jsou v [README](../README.md) a
-[changelogu](../framework/CHANGELOG.md); formáty popisuje [specifikace](spec/).
-
----
-
-## 1. Cíl
-
-Framework, ve kterém se workflowy s LLM agenty píší v dobře čitelných
-souborech (scénáře v YAML, agenti v Markdownu). Uživatel je programátor
-začátečník: musí ze souboru scénáře i ze záznamu běhu rozumět tomu, co se
-děje. Vnitřek frameworku ho nezajímá. Modely a Jev jdou přes jednoho
-poskytovatele (OpenRouter). Běh na vlastním serveru nebo na Modal.com,
-spouštění webhookem (typicky z n8n).
-
-Referenční případ: příspěvek na Instagram (copywriter → kontrola Jev →
-obrázek → návrh ke schválení → publikace).
+This document captures the architectural decisions and constraints of the framework.
+The current version and the implementation status are in the [README](../README.md) and the
+[changelog](../framework/CHANGELOG.md); the formats are described by the [specification](spec/).
 
 ---
 
-## 2. Požadavky
+## 1. Goal
 
-| # | Požadavek |
+A framework in which workflows with LLM agents are written in easily readable
+files (scenarios in YAML, agents in Markdown). The user is a beginner programmer:
+from the scenario file and from the run record they must understand what is
+going on. The framework's internals are of no interest to them. Models and Jev go through a single
+provider (OpenRouter). Runs on your own server or on Modal.com,
+triggered by a webhook (typically from n8n).
+
+Reference case: an Instagram post (copywriter → Jev check →
+image → draft for approval → publication).
+
+---
+
+## 2. Requirements
+
+| # | Requirement |
 |---|---|
-| R1 | Workflow (scénář) se píše v dobře čitelném souboru. |
-| R2 | Uživatel rozumí tomu, co workflow dělá, ze souboru scénáře **a** ze záznamu běhu. Vnitřek frameworku ho nezajímá. |
-| R3 | Agenti jsou definovaní centrálně, každý ve vlastním souboru (model, instrukce, MCP servery, skilly, nástroje, limity). Scénář je volá jménem. |
-| R4 | Poskytovatel napevno OpenRouter: LLM, Jev (System One API), generování obrázků. |
-| R5 | Běh na vlastním serveru nebo na Modal.com; spouštění webhookem. Cron, události a schvalování řeší n8n mimo framework. |
-| R6 | Framework je nástroj, do kterého uživatel nesahá. Pokud je vlastní, ladí a rozvíjí ho agenti (workeři). |
-| R7 | Aktualizace frameworku ani jeho závislostí nesmí vyžadovat změnu agentů a scénářů. Formáty jsou naše, verzované. |
-| R8 | **Stávající scénáře a agenti se při vylepšování frameworku nesmí rozsypat.** Pravidla kompatibility viz §5.9. (Přidáno 2026-09-25 při schválení spec v1.) |
+| R1 | A workflow (scenario) is written in an easily readable file. |
+| R2 | The user understands what the workflow does from the scenario file **and** from the run record. The framework's internals are of no interest to them. |
+| R3 | Agents are defined centrally, each in its own file (model, instructions, MCP servers, skills, tools, limits). A scenario calls them by name. |
+| R4 | The provider is hard-wired to OpenRouter: LLM, Jev (System One API), image generation. |
+| R5 | Runs on your own server or on Modal.com; triggered by a webhook. Cron, events and approvals are handled by n8n outside the framework. |
+| R6 | The framework is a tool the user does not touch. If it is your own, agents (workers) tune and develop it. |
+| R7 | Updating the framework or its dependencies must not require changes to agents and scenarios. The formats are ours, versioned. |
+| R8 | **Existing scenarios and agents must not fall apart when the framework is improved.** For the compatibility rules see §5.9. (Added 2026-09-25 when spec v1 was approved.) |
 
 ---
 
-## 3. Rozhodnutí
+## 3. Decisions
 
-### D1 — Formáty
+### D1 — Formats
 
-**D1a Agent = Markdown s frontmatter.** Konfigurace nahoře (YAML
-frontmatter), instrukce jako tělo souboru. Ilustrativně:
+**D1a Agent = Markdown with frontmatter.** Configuration at the top (YAML
+frontmatter), instructions as the body of the file. Illustratively:
 
 ```markdown
 ---
 name: copywriter
-description: Copywriter pro sociální sítě značky Lumen
-model: chytry                 # alias z config.yaml, ne konkrétní model
+description: Copywriter for social networks of the Lumen brand
+model: smart                 # an alias from config.yaml, not a concrete model
 skills: [marketing-copy]
 mcp: []
 tools: {}
 limits: { max_turns: 8, budget_usd: 0.5 }
 ---
-Jsi copywriter značky … (instrukce)
+You are the copywriter of the brand … (instructions)
 ```
 
-Poznámka: tvar připomíná agenty Claude Code, ale **nejde o kompatibilní
-formát** (jiná pole, jiné nástroje). Konvertor případně později.
+Note: the shape resembles Claude Code agents, but it is **not a compatible
+format** (different fields, different tools). A converter may come later.
 
-**D1b Dva typy kroků pro agenta.** `ask` = jedno volání modelu s instrukcemi
-agenta (žádná smyčka nástrojů). `task` = autonomní smyčka model ↔ nástroje
-s limity tahů a peněz. Ve scénáři je hned vidět, kde se co děje.
+**D1b Two step types for an agent.** `ask` = one model call with the agent's
+instructions (no tool loop). `task` = an autonomous model ↔ tools loop
+with turn and money limits. In a scenario it is immediately visible where
+what happens.
 
-**D1c Výrazy — rozhodnuto 2026-09-25.** `{{ steps.copy.caption }}` slouží
-**jen na vkládání hodnot** (prompty, parametry). Pro `when`, `switch` a
-`set` se používají **bezpečně vyhodnocované výrazy v pythonovském stylu**,
-např. `steps.kontrola.on_brand < 0.7 and inputs.jazyk == "cs"`:
-tečkový přístup k `inputs`, `steps`, `item`; porovnání, `and`/`or`/`not`,
-aritmetika, indexování, malá sada povolených funkcí (`len`, `min`, `max`,
-`round`, `str`, `int`, `float`, `join`). Žádný přístup k systému, žádné
-volání metod, žádný import. Pevná pravidla viz §5.4.
+**D1c Expressions — decided 2026-09-25.** `{{ steps.copy.caption }}` is used
+**only for inserting values** (prompts, parameters). For `when`, `switch` and
+`set`, **safely evaluated Python-style expressions** are used,
+e.g. `steps.tone_check.on_brand < 0.7 and inputs.language == "en"`:
+dot access to `inputs`, `steps`, `item`; comparison, `and`/`or`/`not`,
+arithmetic, indexing, a small set of allowed functions (`len`, `min`, `max`,
+`round`, `str`, `int`, `float`, `join`). No access to the system, no
+method calls, no import. The fixed rules are in §5.4.
 
-Spike (c) 2026-09-25 (report spiku expressions, vyřazen ze stromu; v historii do commitu fe90e05): rozhodnuto **vlastní
-evaluátor nad `ast`**, žádná knihovna. Z 8 konfigurací (simpleeval, asteval,
-evalidate, RestrictedPython, cel-python, cel-rust, vlastní) splnil D1c + §5.4
-jen vlastní prototyp (207 řádků; odhad s validací 350–500). Knihovny
-v pythonovské syntaxi rozbíjí tečkový přístup u kroku jménem `copy`
-(vrátí `dict.copy`) a tiše vrací `False` u `3 == "3"`; asteval přečte
-soubor přes `open()`; CEL má jinou syntaxi. Z toho pevně: **tečka = čtení
-klíče, ne atribut**; limit délky výrazu **před** parserem; `and/or/not`
-jen nad bool; `round` půlku od nuly; `str(None)` = `"null"`; bez ternáru,
-řezů, `**` a volání metod. Chyba výrazu za běhu = třída `expression`.
+Spike (c) 2026-09-25 (the expressions spike report, removed from the tree; in history up to commit fe90e05): decided on a **custom
+evaluator over `ast`**, no library. Of 8 configurations (simpleeval, asteval,
+evalidate, RestrictedPython, cel-python, cel-rust, custom) only the custom prototype
+met D1c + §5.4 (207 lines; estimate with validation 350–500). The libraries
+in Python syntax break dot access for a step named `copy`
+(they return `dict.copy`) and silently return `False` for `3 == "3"`; asteval reads a
+file through `open()`; CEL has a different syntax. Hence, firmly: **dot = key
+read, not an attribute**; the expression length limit **before** the parser; `and/or/not`
+only over bool; `round` half away from zero; `str(None)` = `"null"`; no ternary,
+slices, `**` or method calls. An expression error at run time = class `expression`.
 
-**D1d Typy kroků.**
+**D1d Step types.**
 
-v1 (implementuje se):
+v1 (being implemented):
 
-| Krok | Co dělá |
+| Step | What it does |
 |---|---|
-| `ask` | jedno volání modelu přes agenta; `schema` vynutí JSON výstup |
-| `task` | autonomní agent s nástroji/MCP/skilly, limity tahů a rozpočtu |
-| `jev` | rozhodnutí přes Jev (`noul` / `choice` / `score`), vrací hodnoty i pravděpodobnosti |
-| `image` | generování obrázku přes OpenRouter; výsledek je soubor ve složce běhu |
-| `parallel` | souběžné větve uvnitř jednoho běhu, pojmenované výstupy |
-| `switch` | větvení podle hodnoty; `default` je **povinný** |
-| `call` | vnořené spuštění jiného scénáře (viz §5.3) |
-| `set` | výpočet/přetvoření hodnot bez LLM |
-| `fail` | záměrné ukončení běhu s chybou a zprávou |
-| `output` | co běh vrací (JSON + soubory); soubory se nahrají do úložiště a callback nese URL |
+| `ask` | one model call through an agent; `schema` enforces JSON output |
+| `task` | an autonomous agent with tools/MCP/skills, turn and budget limits |
+| `jev` | a decision through Jev (`noul` / `choice` / `score`), returns values and probabilities |
+| `image` | image generation through OpenRouter; the result is a file in the run folder |
+| `parallel` | concurrent branches within one run, named outputs |
+| `switch` | branching by value; `default` is **mandatory** |
+| `call` | a nested run of another scenario (see §5.3) |
+| `set` | computing/transforming values without an LLM |
+| `fail` | deliberately ending the run with an error and a message |
+| `output` | what the run returns (JSON + files); files are uploaded to storage and the callback carries the URL |
 
-Vlastnosti kroků: `id`, `when` (každý krok); `retry`, `timeout`,
-`budget_usd`, `on_error` (jen kroky, kde mají smysl — určuje spec);
-`schema` uvnitř `ask`/`task`. (Upřesněno specifikací v1, viz
+Step properties: `id`, `when` (every step); `retry`, `timeout`,
+`budget_usd`, `on_error` (only steps where they make sense — set by the spec);
+`schema` inside `ask`/`task`. (Refined by spec v1, see
 `docs/spec/OPEN-QUESTIONS.md`.)
 
-Plánováno (implementuje se **až když ho potřebuje konkrétní scénář**):
-`foreach`, `repeat`, `http`, `tool` (přímé volání MCP bez modelu), `file`,
-`run` (jen pojmenované příkazy z `commands.yaml`), `state` (paměť mezi
-běhy, atomické `claim`).
+Planned (implemented **only when a concrete scenario needs it**):
+`foreach`, `repeat`, `http`, `tool` (a direct MCP call without a model), `file`,
+`run` (only named commands from `commands.yaml`), `state` (memory between
+runs, atomic `claim`).
 
-Zamítnuto: `race`, `approve`/`human`, `wait` (schvalování a čekání řeší
+Rejected: `race`, `approve`/`human`, `wait` (approvals and waiting are handled by
 n8n), `embed`/`search`.
 
-### D2 — Model běhu
+### D2 — Run model
 
-- **Běhy jdou jeden za druhým** (fronta). Paralelní kroky *uvnitř* běhu
-  (`parallel`) zůstávají. Návrh nesmí paralelním běhům bránit do budoucna:
-  běhy si nesdílí soubory (kromě `state`, úložiště výstupů a `_dedupe` —
-  klíčů vedlejších účinků, které jsou samostatné atomicky vytvářené
-  soubory, nikdy jeden sdílený log; jediná ohraničená výjimka je denní
-  kniha útraty `_ledger/` od 0.3.1 — jeden řádek na dokončený běh pod
-  `flock`, viz ISSUES 40). Výchozí zůstává jeden za druhým;
-  `agencast serve --workers N` (od 0.3.0) volitelně pouští N běhů nad
-  jednou frontou — kolize `run_id` řeší nový suffix, cache `/models` se
-  zapisuje atomicky, `_dedupe` je za rozhraním `DedupeStore` (ISSUES 39).
-- **Webhook je asynchronní:** hned vrátí `run_id` a pozici ve frontě,
-  výsledek přijde na **callback URL** (n8n). Callback se posílá **vždy**,
-  při úspěchu i při chybě.
-- Délka běhu minuty až hodina. Časový limit v n8n musí počítat i s čekáním
-  ve frontě.
-- **Schvalování člověkem není ve frameworku.** Workflow se dělí na části,
-  n8n drží stav mezi nimi. Smlouva o předání: výstup = JSON + URL souborů.
-- Oba režimy agenta: `ask` (jedno volání) i `task` (autonomní).
-- **Záznam běhu** je složka: `events.jsonl` (strojově čitelný log),
-  výstupy každého kroku (prompt, odpověď, model, tokeny, cena, čas),
-  `summary.md` pro člověka a **jeden samostatný HTML soubor** nahraný do
-  úložiště (odkaz v callbacku). GUI nad `events.jsonl` později.
-- Scénáře píše uživatel, jeho agenti, případně další lidé a jejich agenti
-  → přísné JSON Schema formátů, `validate` před během, výslovná oprávnění,
-  tajné klíče nikdy v souborech workflow.
+- **Runs go one after another** (a queue). Parallel steps *within* a run
+  (`parallel`) remain. The design must not prevent parallel runs in the future:
+  runs do not share files (except `state`, the output storage and `_dedupe` —
+  keys of side effects, which are separate atomically created
+  files, never one shared log; the only bounded exception is the daily
+  spend ledger `_ledger/` since 0.3.1 — one line per finished run under
+  `flock`, see ISSUES 40). The default stays one after another;
+  `agencast serve --workers N` (since 0.3.0) optionally runs N runs over
+  one queue — a `run_id` collision is resolved by a new suffix, the `/models` cache is
+  written atomically, `_dedupe` sits behind the `DedupeStore` interface (ISSUES 39).
+- **The webhook is asynchronous:** it immediately returns the `run_id` and the position in the queue,
+  and the result arrives at the **callback URL** (n8n). The callback is sent **always**,
+  on success and on error.
+- A run takes minutes to an hour. The timeout in n8n must also account for waiting
+  in the queue.
+- **Human approval is not in the framework.** A workflow is split into parts,
+  n8n holds the state between them. The hand-off contract: output = JSON + file URLs.
+- Both agent modes: `ask` (one call) and `task` (autonomous).
+- **The run record** is a folder: `events.jsonl` (a machine-readable log),
+  the outputs of every step (prompt, response, model, tokens, cost, time),
+  `summary.md` for humans and **one standalone HTML file** uploaded to
+  storage (a link in the callback). A GUI over `events.jsonl` later.
+- Scenarios are written by the user, their agents, possibly other people and their agents
+  → strict JSON Schema of the formats, `validate` before a run, explicit permissions,
+  secret keys never in workflow files.
 
-### D3 — Engine — rozhodnuto 2026-09-25 (po spicích)
+### D3 — Engine — decided 2026-09-25 (after the spikes)
 
-**Vlastní malý framework.** Orchestraci (pořadí kroků, `parallel`,
-`switch`, `call`, záznam běhu) i tenký runtime agenta (smyčka model ↔
-nástroje, kaskáda strukturovaného výstupu, MCP klient) píšeme sami nad
-**protokoly a malými stabilními knihovnami**. Žádný agentní framework
-(Mastra, LangGraph, Google ADK, CrewAI, MS Agent Framework) a žádný fork
-batonu/zenflow.
+**Our own small framework.** We write the orchestration (step order, `parallel`,
+`switch`, `call`, run record) and the thin agent runtime (the model ↔
+tools loop, the structured output cascade, the MCP client) ourselves on top of
+**protocols and small stable libraries**. No agent framework
+(Mastra, LangGraph, Google ADK, CrewAI, MS Agent Framework) and no fork of
+baton/zenflow.
 
-Důvody: (1) spiky ukázaly, že OpenRouter i Modal zvládne holý HTTP/SDK a
-že těžká místa — kontrola `finish_reason`, kaskáda výstupu podle modelu,
-vracení `reasoning_details`, normalizace `usage` — velké frameworky za nás
-neřeší; (2) jejich hlavní přínosy (pauza na člověka, trvalý stav grafu)
-nepotřebujeme, protože schvalování dělá n8n a frontu Modal (D2);
-(3) R7 — závislost jen na věcech, které se mění pomalu.
+Reasons: (1) the spikes showed that both OpenRouter and Modal can be handled with plain HTTP/SDK
+and that the hard parts — checking `finish_reason`, the output cascade by model,
+passing back `reasoning_details`, normalizing `usage` — are not solved for us by the big
+frameworks; (2) their main benefits (pausing for a human, a durable graph state)
+we do not need, because approvals are done by n8n and the queue by Modal (D2);
+(3) R7 — depend only on things that change slowly.
 
-Cena: údržba je naše → konformační testy (§5.6) jsou povinnost, ne
-přání. Odhad jádra v1: 3–5 tisíc řádků, píší a udržují workeři.
+Cost: maintenance is ours → conformance tests (§5.6) are an obligation, not
+a wish. Estimate of the v1 core: 3–5 thousand lines, written and maintained by workers.
 
-### D4 — Jazyk — rozhodnuto 2026-09-25: Python 3.12 + uv
+### D4 — Language — decided 2026-09-25: Python 3.12 + uv
 
-Důvody: Modal je nativně Pythonový — webhook, fronta, Volume a secrets ze
-spiku (b) se stanou přímo součástí frameworku (v TypeScriptu by byly dva
-jazyky na údržbu); spiky i `jev-labs` jsou v Pythonu; výhoda AI SDK v TS
-je malá, když kaskádu a kontroly píšeme vlastní.
+Reasons: Modal is natively Python — the webhook, queue, Volume and secrets from
+spike (b) become a direct part of the framework (in TypeScript there would be two
+languages to maintain); the spikes and `jev-labs` are in Python; the advantage of the AI SDK in TS
+is small when we write the cascade and the checks ourselves.
 
-Výchozí sada knihoven (změna jen s důvodem v changelogu): `httpx` (HTTP),
-`mcp` (oficiální MCP SDK), `pydantic` (validace formátů, JSON Schema),
-`pyyaml`, `modal` (jen v nasazení), CLI přes `typer` nebo `argparse`,
-evaluátor výrazů dle D1c. Distribuce `uv run`/`uvx` na serveru i v Modal
-image; závislosti zamčené v `uv.lock`.
+Default library set (changes only with a reason in the changelog): `httpx` (HTTP),
+`mcp` (the official MCP SDK), `pydantic` (format validation, JSON Schema),
+`pyyaml`, `modal` (deployment only), CLI via `typer` or `argparse`,
+the expression evaluator per D1c. Distribution by `uv run`/`uvx` on the server and in the Modal
+image; dependencies locked in `uv.lock`.
 
-**Doplněk 2026-09-26 (framework 0.5.0): `ruamel.yaml`** jen pro editační
-operace GUI (`agencast/edit.py`, ISSUES 43). Důvod: GUI zapisuje do
-souborů, které píše i člověk, a zápis musí zachovat komentáře, pořadí
-klíčů, prázdné řádky a styl uvozovek (`"{{ … }}"`) — PyYAML komentáře
-zahodí. Čtení a validace zůstávají na PyYAML (YAML 1.2 core, `loader.py`);
-po úpravě se výsledek čte zase jím. ruamel přepisuje mezery ve flow
-mapách (`{ a: 1 }`) a zarovnání, proto se nezměněné řádky berou doslova
-z původního souboru.
+**Addendum 2026-09-26 (framework 0.5.0): `ruamel.yaml`** only for the GUI's
+editing operations (`agencast/edit.py`, ISSUES 43). Reason: the GUI writes into
+files that are also written by a human, and the write must preserve comments, key
+order, blank lines and the quote style (`"{{ … }}"`) — PyYAML drops
+comments. Reading and validation stay on PyYAML (YAML 1.2 core, `loader.py`);
+after an edit the result is read by it again. ruamel rewrites spaces in flow
+maps (`{ a: 1 }`) and the alignment, so unchanged lines are taken verbatim
+from the original file.
 
 ### D5 — Hosting
 
-Vlastní server (CLI + webhook) a Modal. Trigger, cron a schvalování: n8n.
-Ověřeno spikem (b), Modal SDK 1.5.5:
+Your own server (CLI + webhook) and Modal. Trigger, cron and approvals: n8n.
+Verified by spike (b), Modal SDK 1.5.5:
 
-- **Fronta:** `@app.function(max_containers=1)` + `.spawn()` z endpointu
-  = běhy striktně jeden za druhým (3 běhy bez překryvu), webhook odpovídá
-  < 1 s. Pozici ve frontě Modal spolehlivě nedává
-  (`get_current_stats().backlog` je opožděný) — drží ji framework nebo n8n.
-- **Endpoint:** `@modal.fastapi_endpoint(method="POST")`; HTTP požadavek
-  má limit 150 s, proto submit jen spawne a vrátí `run_id`. Timeout funkce
-  1 s – 24 h (`timeout=`), čekání ve frontě se nepočítá. Hlavičky číst
-  přes `Header()`. Endpointy jsou veřejné → vlastní token v hlavičce ze
+- **Queue:** `@app.function(max_containers=1)` + `.spawn()` from the endpoint
+  = runs strictly one after another (3 runs without overlap), the webhook responds
+  in < 1 s. Modal does not reliably give the position in the queue
+  (`get_current_stats().backlog` is delayed) — the framework or n8n holds it.
+- **Endpoint:** `@modal.fastapi_endpoint(method="POST")`; an HTTP request
+  has a 150 s limit, so the submit only spawns and returns the `run_id`. Function timeout
+  1 s – 24 h (`timeout=`), waiting in the queue is not counted. Read headers
+  via `Header()`. Endpoints are public → your own token in a header from
   `modal.Secret`.
-- **Callback** z funkce na HTTPS endpoint funguje bez omezení.
-- **MCP servery:** stdio `npx` server v kontejneru funguje; balíčky
-  **předinstalovat do image** (cold handshake 0,7 s vs. 3,8 s přes
-  `npx -y`). Cold start kontejneru 4–7 s, studený web endpoint +4–5 s.
-- **Soubory:** `modal.Volume` (`commit()` po zápisu, `reload()` před
-  čtením); čtení lokálně přes `modal volume get` i veřejný GET přes
-  endpoint. URL je ale Modal-specifická → pro Instagram a trvalé odkazy
-  zůstává Cloudflare R2 (S3 token + r2.dev/custom doména, `boto3`).
-- **Secrets:** `modal.Secret.from_name` (rotace bez redeploye).
-- **Nasazení:** `modal deploy` nad běžící aplikací nemusí vyměnit warm
-  kontejnery → nasazovat jako `app stop` + `deploy`, nebo ověřit verzi.
-- Jeden společný Dockerfile pro server i Modal (`Image.from_dockerfile`,
-  nezkoušeno), aby se nerozjely nainstalované nástroje.
+- **Callback** from a function to an HTTPS endpoint works without restrictions.
+- **MCP servers:** a stdio `npx` server in a container works; **pre-install
+  the packages into the image** (cold handshake 0.7 s vs. 3.8 s via
+  `npx -y`). Container cold start 4–7 s, a cold web endpoint +4–5 s.
+- **Files:** `modal.Volume` (`commit()` after writing, `reload()` before
+  reading); reading locally via `modal volume get` and a public GET via the
+  endpoint. But the URL is Modal-specific → for Instagram and permanent links
+  Cloudflare R2 stays (S3 token + r2.dev/custom domain, `boto3`).
+- **Secrets:** `modal.Secret.from_name` (rotation without a redeploy).
+- **Deployment:** `modal deploy` over a running app need not replace warm
+  containers → deploy as `app stop` + `deploy`, or verify the version.
+- One shared Dockerfile for the server and Modal (`Image.from_dockerfile`,
+  not tried), so that the installed tools do not diverge.
 
-### Obálky (od 0.3.0)
+### Wrappers (since 0.3.0)
 
-CLI (`agencast`), webhook (`agencast serve`), později Modal a MCP server
-jsou **tenké obálky nad `agencast.api`** (`load`, `run`, `dry_run`,
+The CLI (`agencast`), the webhook (`agencast serve`), later Modal and an MCP server
+are **thin wrappers over `agencast.api`** (`load`, `run`, `dry_run`,
 `runs_list`, `run_status`):
 
-- Obálka neobsahuje logiku — jen převádí vstup (argumenty, HTTP, volání
-  nástroje) na volání `api` a výsledek zpět. Cokoli s logikou jde do jádra
-  a má hermetický test.
-- Tajné klíče jen z prostředí (`.env` jen lokálně, na Modalu
-  `modal.Secret`), nikdy v souborech workflow ani v argumentech.
-- Sdílený stav mezi běhy je za rozhraním: `dedupe_key` přes `DedupeStore`
-  (`get`, `claim` — výhradně a atomicky, `finish`) v `agencast/task.py`.
-  Lokální implementace drží soubory `<runs>/_dedupe/<sha256>.json`
-  (`_dedupe-fake/` u `--fake`); **tady Modal později dosadí vlastní
-  úložiště** (`modal.Dict` apod.) přes `Run.dedupe`. Stejně od 0.3.1
-  sloty `limits.max_parallel_runs` (`SlotStore`: `acquire`, `release`;
-  lokálně `flock` na `<runs>/_slots/<n>.lock`) a denní kniha útraty pro
-  `limits.daily_budget_usd` (`Ledger`: `total`, `add`; lokálně
-  `<runs>/_ledger/<den>.jsonl`, `_ledger-fake/` u `--fake`) — ISSUES 40.
-  Od 0.7.0 i zámek živého běhu (`hold_run_lock`, `run_locked`; lokálně
-  `flock` na `<run>/run.lock`), podle kterého API rozliší běžící
-  a přerušený běh — ISSUES 45.
-- MCP nástroje budou „spusť a vrať ID“, „stav“ a „počkej“ — běh trvá
-  minuty a web endpoint Modalu má limit 150 s (D5), takže nástroj nesmí
-  čekat na konec běhu v jednom volání.
+- A wrapper contains no logic — it only converts the input (arguments, HTTP, a tool
+  call) into a call to `api` and the result back. Anything with logic goes into the core
+  and has a hermetic test.
+- Secret keys only from the environment (`.env` only locally, on Modal
+  `modal.Secret`), never in workflow files or in arguments.
+- Shared state between runs sits behind an interface: `dedupe_key` via `DedupeStore`
+  (`get`, `claim` — exclusively and atomically, `finish`) in `agencast/task.py`.
+  The local implementation keeps files `<runs>/_dedupe/<sha256>.json`
+  (`_dedupe-fake/` with `--fake`); **Modal will later plug in its own
+  storage here** (`modal.Dict` etc.) via `Run.dedupe`. Likewise since 0.3.1
+  the slots `limits.max_parallel_runs` (`SlotStore`: `acquire`, `release`;
+  locally `flock` on `<runs>/_slots/<n>.lock`) and the daily spend ledger for
+  `limits.daily_budget_usd` (`Ledger`: `total`, `add`; locally
+  `<runs>/_ledger/<day>.jsonl`, `_ledger-fake/` with `--fake`) — ISSUES 40.
+  Since 0.7.0 also the live-run lock (`hold_run_lock`, `run_locked`; locally
+  `flock` on `<run>/run.lock`), by which the API distinguishes a running
+  run from an interrupted one — ISSUES 45.
+- The MCP tools will be “start and return the ID”, “status” and “wait” — a run takes
+  minutes and Modal's web endpoint has a 150 s limit (D5), so a tool must not
+  wait for the end of a run in a single call.
 
-**GUI — rozhodnuto 2026-09-26 (uživatel + koordinátor):**
+**GUI — decided 2026-09-26 (user + coordinator):**
 
-- GUI je samostatná obálka `ui/` v tomto repu (React). Servíruje ji
-  `agencast serve`; Skynet Soul ji jen vloží do záložky (iframe).
-- GUI mluví s jádrem **jen přes HTTP API `serve`** (`/projects/...`,
-  [spec/api.md](spec/api.md)) — žádný přímý přístup k souborům ani vlastní
-  parser formátů.
-- Scénář je svislý seznam karet kroků (strom podle `parallel`/`switch`),
-  žádný canvas; GUI je zároveň prohlížeč běhů (stav kroků, cena, soubory
-  běhu, denní útrata).
-- **Soubor je pravda:** scénáře a agenti zůstávají YAML/Markdown ve
-  `workflows/`; GUI je čte a od 0.5.0 mění jen editačními operacemi
-  jádra (`agencast/edit.py`, [spec/api.md](spec/api.md) „Editace“), které
-  zapisují do stejných souborů (ISSUES 43):
-  - **otisk** = sha256 obsahu souboru, který klient načetl (ne mtime);
-    nesedí → 409 a nic se nezapíše — souběžná ruční úprava v editoru se
-    nepřepíše potichu;
-  - **validace před zápisem**: kopie `workflows/` se změnou projde
-    `validate` (bez kontroly modelů); změna nesmí přidat novou chybu,
-    dřívější chyby ji neblokují; pak atomický zápis (temp + `os.replace`);
-  - zápis zachovává komentáře, pořadí klíčů, prázdné řádky a uvozovky
-    (`ruamel.yaml`, D4); nezměněné řádky zůstávají doslova;
-  - pravidla vlastníka platí: `config.yaml` a `mcp.yaml` jen jako
-    formulář bez tajemství (jména proměnných), `.env` se nikdy nečte ani
-    nezapisuje; surový text jen pro soubory formátů uvnitř `workflows/`.
-- Projekty se **neskenují**, vede se registr
-  `~/.config/agencast/projects.yaml` ([spec/projects.md](spec/projects.md));
-  `agencast serve` mimo projekt obsluhuje všechny projekty z registru
-  s tokenem serveru `AGENCAST_TOKEN`, v projektu nebo s `--project` jeden
-  projekt jako dosud (n8n, Modal). ISSUES 41, 42.
+- The GUI is a standalone wrapper `ui/` in this repo (React). It is served by
+  `agencast serve`; Skynet Soul only embeds it in a tab (iframe).
+- The GUI talks to the core **only through the `serve` HTTP API** (`/projects/...`,
+  [spec/api.md](spec/api.md)) — no direct file access and no parser of its own
+  for the formats.
+- A scenario is a vertical list of step cards (a tree by `parallel`/`switch`),
+  no canvas; the GUI is also a run viewer (step status, cost, run
+  files, daily spend).
+- **The file is the truth:** scenarios and agents stay YAML/Markdown in
+  `workflows/`; the GUI reads them and since 0.5.0 changes them only through the core's
+  editing operations (`agencast/edit.py`, [spec/api.md](spec/api.md) “Editing”),
+  which write into the same files (ISSUES 43):
+  - **fingerprint** = the sha256 of the file content the client loaded (not mtime);
+    a mismatch → 409 and nothing is written — a concurrent manual edit in an editor is
+    not silently overwritten;
+  - **validation before writing**: a copy of `workflows/` with the change goes through
+    `validate` (without checking models); the change must not add a new error,
+    earlier errors do not block it; then an atomic write (temp + `os.replace`);
+  - the write preserves comments, key order, blank lines and quotes
+    (`ruamel.yaml`, D4); unchanged lines stay verbatim;
+  - the owner's rules apply: `config.yaml` and `mcp.yaml` only as a
+    form without secrets (variable names), `.env` is never read or
+    written; raw text only for files of the formats inside `workflows/`.
+- Projects are **not scanned**, a registry
+  `~/.config/agencast/projects.yaml` is kept ([spec/projects.md](spec/projects.md));
+  `agencast serve` outside a project serves all projects from the registry
+  with the server token `AGENCAST_TOKEN`; in a project or with `--project` it serves one
+  project as before (n8n, Modal). ISSUES 41, 42.
 
 ---
 
-## 4. Struktura repozitáře
+## 4. Repository structure
 
 ```
 agencast/
-  framework/        jádro (CLI, engine, adaptéry, webhook) — udržují workeři
-  examples/         samostatné ukázkové projekty showcase/ a tutorial/
-    <projekt>/workflows/  agenti, scénáře, skilly a konfigurace projektu
-      agents/         *.md   — agenti (D1a)
-      scenarios/      *.yaml — scénáře (D1d)
+  framework/        the core (CLI, engine, adapters, webhook) — maintained by workers
+  examples/         standalone example projects showcase/ and tutorial/
+    <project>/workflows/  the project's agents, scenarios, skills and configuration
+      agents/         *.md   — agents (D1a)
+      scenarios/      *.yaml — scenarios (D1d)
       skills/         <name>/SKILL.md
-      config.yaml     OpenRouter, aliasy modelů, úložiště, limity   ← jen vlastník
-      mcp.yaml        registr MCP serverů + odkazy na tajné klíče    ← jen vlastník
-      commands.yaml   povolené příkazy pro `run`                     ← jen vlastník
-  docs/             tento návrh, specifikace formátů, changelog
+      config.yaml     OpenRouter, model aliases, storage, limits      ← owner only
+      mcp.yaml        MCP server registry + references to secret keys ← owner only
+      commands.yaml   allowed commands for `run`                      ← owner only
+  docs/             this design, format specifications, changelog
 ```
 
-Soubory označené „jen vlastník" rozhodují, co je v systému vůbec povolené.
-Všechno ostatní mohou psát ostatní lidé a agenti.
+The files marked “owner only” decide what is allowed in the system at all.
+Everything else can be written by other people and agents.
 
 ---
 
-## 5. Pevná pravidla
+## 5. Fixed rules
 
-### 5.1 Chyby — nic neselže potichu
-1. Výchozí chování: chyba kroku ukončí běh se stavem `failed`.
-2. Callback se posílá vždy: stav, který krok selhal, třída chyby, zpráva.
-3. Třídy chyb a jejich chování: `transient` (429, 5xx, síť → opakovat
-   s prodlevou), `schema` (výstup modelu nesedí → opakovat, model dostane
-   chybu jako zpětnou vazbu), `content` (model odmítl obsah, např.
-   obrázek → neopakovat), `budget` / `timeout` (ukončit), `config`
-   (zachytí `validate` před během).
-4. `on_error: continue` jde jen výslovně a v souhrnu běhu je vidět jako
-   varování.
-5. Každý přeskočený krok má v záznamu uvedený důvod.
-6. `repeat` a `task` mají limit iterací/tahů **povinný**.
-7. Pojistka mimo framework: časový limit v n8n („když do X minut nepřijde
-   callback → upozorni") a limit útraty přímo na klíči OpenRouter.
-8. **HTTP 200 není úspěch.** Krok s modelem je úspěšný až po kontrole
-   `finish_reason`, parsování a validace schématu. Spike (a): Gemini
-   vrátilo 200 s `finish_reason: "error"`, `completion_tokens: 0` a
-   useknutým JSON. Odmítnutí obsahu se může projevit také jako 200 bez
-   obsahu (`refusal`, `finish_reason` ≠ `stop`).
+### 5.1 Errors — nothing fails silently
+1. Default behaviour: a step error ends the run with the status `failed`.
+2. The callback is always sent: the status, which step failed, the error class, the message.
+3. Error classes and their behaviour: `transient` (429, 5xx, network → retry
+   with a delay), `schema` (the model output does not fit → retry, the model gets
+   the error as feedback), `content` (the model refused the content, e.g.
+   an image → do not retry), `budget` / `timeout` (end), `config`
+   (caught by `validate` before the run).
+4. `on_error: continue` is only allowed explicitly and is visible in the run summary as
+   a warning.
+5. Every skipped step has its reason stated in the record.
+6. `repeat` and `task` have an iteration/turn limit that is **mandatory**.
+7. A safeguard outside the framework: a timeout in n8n (“if no callback arrives within X
+   minutes → alert”) and a spend limit directly on the OpenRouter key.
+8. **HTTP 200 is not success.** A model step is successful only after checking
+   `finish_reason`, parsing and schema validation. Spike (a): Gemini
+   returned 200 with `finish_reason: "error"`, `completion_tokens: 0` and
+   truncated JSON. A content refusal may also show up as a 200 without
+   content (`refusal`, `finish_reason` ≠ `stop`).
 
-### 5.2 Bezpečnost
-- Tajné klíče existují jen v `config.yaml` / `mcp.yaml` (odkazem na
-  proměnné prostředí), nikdy ve scénářích, agentech ani promptech.
-  Framework je do promptu nemá odkud dát.
-- `run` spouští jen pojmenované příkazy z `commands.yaml`, bez shellu,
-  s prázdným prostředím, validovanými argumenty.
-- Agent definuje **maximum** oprávnění (nástroje, MCP, limity); krok ve
-  scénáři je může jen **zúžit**, nikdy rozšířit.
-- Příchozí webhook chce token; callback je podepsaný (HMAC), n8n ho ověří.
-- Idempotence: klíč požadavku na webhooku (opakované volání nespustí druhý
-  běh) a `dedupe_key` na krocích s vedlejším účinkem (publikace). Záznam
-  `started` vzniká před prvním voláním nástroje; `started` bez `succeeded`
-  při dalším běhu = chyba `config` „ověř ručně", ne tiché opakování.
-- **Kdo smí co použít, určuje vlastník** v `mcp.yaml`: u každého serveru
-  `agents:` (kteří agenti ho smí použít), volitelně `scenarios:` (které
-  scénáře smí spustit agenta s tímto serverem) a `tools:` (horní allowlist).
-  Agenti i scénáře jsou soubory, které píší ostatní, proto tam tahle
-  omezení být nemohou. Scénář je volatelný přes `call` jen s
-  `callable: true` (výchozí `false`), aby část 1 nemohla obejít schválení
-  v n8n voláním části 2.
-- Tajné hodnoty (proměnné z `*_env` a `env`) framework před zápisem každého
-  souboru záznamu i callbacku nahradí textem `<tajné: JMENO>` — nástroj
-  MCP je může vrátit ve výsledku (spike (d): `get-env`).
-- Klíč souboru v úložišti výstupů = `<run_id>-<32 hex náhodných>/<jméno>`;
-  bucket je veřejný kvůli Instagramu, `run_id` je uhodnutelný, náhodná část
-  je jen v callbacku a záznamu.
-- Soubory se čtou jako **YAML 1.2 core**: jen `true`/`false` jsou booleany
-  (`yes`/`on` je text), `4:5` je text, duplicitní klíč = chyba `config`
-  s číslem řádku. PyYAML to ve výchozím stavu nedělá (spec REVIEW B6) →
-  vlastní `SafeLoader` a ověřování ukázek stejným loaderem.
+### 5.2 Security
+- Secret keys exist only in `config.yaml` / `mcp.yaml` (by reference to
+  environment variables), never in scenarios, agents or prompts.
+  The framework has nowhere to take them from to put them in a prompt.
+- `run` executes only named commands from `commands.yaml`, without a shell,
+  with an empty environment, validated arguments.
+- An agent defines the **maximum** of permissions (tools, MCP, limits); a step in a
+  scenario can only **narrow** them, never widen.
+- An incoming webhook requires a token; the callback is signed (HMAC), n8n verifies it.
+- Idempotence: the request key on the webhook (a repeated call does not start a second
+  run) and `dedupe_key` on steps with a side effect (publication). The `started`
+  record is created before the first tool call; `started` without `succeeded`
+  on the next run = a `config` error “verify manually”, not a silent retry.
+- **Who may use what is decided by the owner** in `mcp.yaml`: for each server
+  `agents:` (which agents may use it), optionally `scenarios:` (which
+  scenarios may run an agent with this server) and `tools:` (an upper allowlist).
+  Agents and scenarios are files written by others, so these
+  restrictions cannot live there. A scenario is callable via `call` only with
+  `callable: true` (default `false`), so that part 1 cannot bypass an approval
+  in n8n by calling part 2.
+- Secret values (variables from `*_env` and `env`) are replaced by the framework before writing every
+  record file and callback with the text `<secret: NAME>` — an MCP
+  tool may return them in a result (spike (d): `get-env`).
+- The file key in the output storage = `<run_id>-<32 random hex>/<name>`;
+  the bucket is public because of Instagram, the `run_id` is guessable, the random part
+  is only in the callback and the record.
+- Files are read as **YAML 1.2 core**: only `true`/`false` are booleans
+  (`yes`/`on` is text), `4:5` is text, a duplicate key = a `config` error
+  with the line number. PyYAML does not do this by default (spec REVIEW B6) →
+  a custom `SafeLoader` and verifying the examples with the same loader.
 
 ### 5.3 `call`
-- `call` je vnořený krok **uvnitř stejného běhu**: stejný rozpočet,
-  podsložka v záznamu běhu. Nevytváří nový běh, fronta o něm neví.
-- Volaný scénář deklaruje `inputs` (typy, povinnost, výchozí hodnoty) a
-  `outputs`. `validate` kontroluje volající místa staticky.
-- Cykly validace odmítne; hloubka vnoření má limit.
-- Každý scénář je zároveň spustitelný samostatně i volatelný. Jeden
-  soubor, jeden formát.
-- **Scénář nikdy nesmí spustit nový běh frameworku a čekat na něj**
-  (se sekvenční frontou = zablokování). Spuštění nového běhu je dovoleno
-  jen stylem „pošli a nečekej" (přes n8n / webhook).
+- `call` is a nested step **inside the same run**: the same budget,
+  a subfolder in the run record. It does not create a new run, the queue does not know about it.
+- The called scenario declares `inputs` (types, required, defaults) and
+  `outputs`. `validate` checks the call sites statically.
+- Validation rejects cycles; the nesting depth has a limit.
+- Every scenario is both runnable standalone and callable. One
+  file, one format.
+- **A scenario must never start a new framework run and wait for it**
+  (with a sequential queue = deadlock). Starting a new run is allowed
+  only in the “send and don't wait” style (via n8n / webhook).
 
-### 5.4 Výrazy a šablony
-- `{{ }}` v odpovědi modelu se **nikdy znovu nevyhodnocuje**.
-- Odkaz na výstup přeskočeného kroku je chyba validace, pokud krok nemá
-  `default`.
-- Vkládání textu do JSON (např. `state` pro Jev) je vždy JSON-bezpečné;
-  scénář neskládá JSON ručně.
-- Typy: číslo vs. text vs. bool vs. null jsou rozlišené; porovnání
-  napříč typy je chyba validace.
+### 5.4 Expressions and templates
+- `{{ }}` in a model response is **never evaluated again**.
+- A reference to the output of a skipped step is a validation error unless the step has
+  a `default`.
+- Inserting text into JSON (e.g. `state` for Jev) is always JSON-safe;
+  a scenario does not build JSON by hand.
+- Types: number vs. text vs. bool vs. null are distinguished; comparison
+  across types is a validation error.
 
-### 5.5 Modely
-- Scénáře a agenti odkazují na **aliasy** (`chytry`, `rychly`,
-  `gemini-image`), `config.yaml` je mapuje na konkrétní modely OpenRouteru.
-  Výměna modelu = jeden řádek.
-- Ke každému aliasu patří **konformační scénář** (umí nástroj + JSON
-  schema), který se spustí při změně aliasu. Podpora nástrojů deklarovaná
-  OpenRouterem není záruka kvality.
-- Strukturovaný výstup: kaskáda nativní JSON schema → nástroj jako obal →
-  prompt + validace + opakování. Použitá úroveň se zapíše do záznamu.
-  Spike (a): Claude Haiku 4.5 a Kimi K3 nativně 10/10; Gemini 3.5
-  Flash-Lite samotné schéma 5/5, **schéma + nástroj 4/5 nativně, 5/5 přes
-  nástroj-obal**. Konformační scénář proto testuje **kombinaci** schéma +
-  nástroj, ne každé zvlášť.
-- U reasoning modelů (Gemini, Kimi) se `reasoning_details` z odpovědi
-  posílají v dalším tahu beze změny zpět (doporučení OpenRouteru).
-- `usage` má u chat completions (`prompt_tokens`/`completion_tokens`) a
-  u Jev (`input_tokens`/`output_tokens`) jiný tvar; `cost` v USD je u obou.
-  Framework `usage` normalizuje na jednu podobu v záznamu běhu.
-- Model id se ověřuje proti `GET /api/v1/models` (např.
-  `anthropic/claude-haiku-4.5`, ne `-4-5`). Jev v tom seznamu **není**.
+### 5.5 Models
+- Scenarios and agents refer to **aliases** (`smart`, `fast`,
+  `gemini-image`), `config.yaml` maps them to concrete OpenRouter models.
+  Swapping a model = one line.
+- Each alias has a **conformance scenario** (can use a tool + JSON
+  schema), which runs when the alias changes. Tool support declared by
+  OpenRouter is not a guarantee of quality.
+- Structured output: a cascade of native JSON schema → tool as a wrapper →
+  prompt + validation + retry. The level used is written into the record.
+  Spike (a): Claude Haiku 4.5 and Kimi K3 natively 10/10; Gemini 3.5
+  Flash-Lite the schema alone 5/5, **schema + tool 4/5 natively, 5/5 via the
+  tool wrapper**. The conformance scenario therefore tests the **combination** schema +
+  tool, not each separately.
+- For reasoning models (Gemini, Kimi) the `reasoning_details` from the response are
+  sent back unchanged in the next turn (an OpenRouter recommendation).
+- `usage` has a different shape for chat completions (`prompt_tokens`/`completion_tokens`) and
+  for Jev (`input_tokens`/`output_tokens`); `cost` in USD is in both.
+  The framework normalizes `usage` to a single form in the run record.
+- The model id is verified against `GET /api/v1/models` (e.g.
+  `anthropic/claude-haiku-4.5`, not `-4-5`). Jev is **not** in that list.
 
-### 5.6 Verzování a testy — specifikace je produkt
-- Po schválení uživatelem je závazná i `docs/spec/` (formáty v1). Rozpor
-  spec × DESIGN hlásí worker koordinátorovi, nerozhoduje ho sám.
-- `version: 1` ve scénářích i agentech od prvního dne; changelog formátů.
-- **Konformační scénáře** s falešným poskytovatelem (modelová volání zdarma)
-  běží před každou změnou frameworku. Bez nich R6 nefunguje. `--fake` sám
-  nenahrazuje MCP v `task` ani callback; konformační testy je nahrazují zvlášť.
-  Offline uživatelský běh vyžaduje scénář bez `task` a bez `--callback-url`.
-- Závislosti zamčené v lockfile; update je vědomé rozhodnutí ve větvi
-  s proběhlými konformačními testy.
+### 5.6 Versioning and tests — the specification is the product
+- After the user's approval `docs/spec/` (formats v1) is binding too. A spec × DESIGN
+  conflict is reported by a worker to the coordinator, who decides it, not the worker.
+- `version: 1` in scenarios and agents from day one; a changelog of the formats.
+- **Conformance scenarios** with a fake provider (model calls for free)
+  run before every framework change. Without them R6 does not work. `--fake` alone
+  does not replace MCP in `task` or the callback; the conformance tests replace them separately.
+  An offline user run requires a scenario without `task` and without `--callback-url`.
+- Dependencies locked in a lockfile; an update is a conscious decision in a branch
+  with the conformance tests passed.
 
-### 5.9 Kompatibilita (R8) — schválená spec v1 je zmražená
-1. **Formát `version: 1` se po schválení jen rozšiřuje:** nová volitelná
-   pole a nové typy kroků ano; přejmenování, odstranění nebo změna významu
-   existujícího pole ne. Nové pole má vždy výchozí hodnotu, která zachová
-   dosavadní chování.
-2. **Zlomová změna = `version: 2`.** Framework podporuje předchozí verzi
-   formátu souběžně a má příkaz `migrate`, který soubory převede a změny
-   vypíše. Starý soubor běží beze změny, dokud ho uživatel sám nepřevede.
-3. **Zlaté scénáře:** každý schválený scénář, agent a skill ve `workflows/`
-   a každá ukázka v `docs/spec/` je součástí konformační sady: musí projít
-   `validate` a doběhnout s falešným poskytovatelem při každé změně
-   frameworku. Přidání scénáře do `workflows/` = přidání testu.
-4. **Zastarávání s varováním:** nedoporučená konstrukce nejdřív vyvolá
-   varování ve `validate` (běh pokračuje), odstranit ji smí až další verze
-   formátu.
-5. **Verze frameworku (semver):** oprava = patch, přidání = minor, nová
-   verze formátu = major. `CHANGELOG.md` frameworku i formátů.
-6. Framework odmítne soubor s verzí formátu, kterou nezná (`config`), nikdy
-   ho tiše neinterpretuje po svém.
+### 5.9 Compatibility (R8) — the approved spec v1 is frozen
+1. **The `version: 1` format is only extended after approval:** new optional
+   fields and new step types yes; renaming, removing or changing the meaning of
+   an existing field no. A new field always has a default that preserves the
+   existing behaviour.
+2. **A breaking change = `version: 2`.** The framework supports the previous format
+   version side by side and has a `migrate` command that converts the files and
+   lists the changes. An old file runs unchanged until the user converts it themselves.
+3. **Golden scenarios:** every approved scenario, agent and skill in `workflows/`
+   and every example in `docs/spec/` is part of the conformance suite: it must pass
+   `validate` and finish with a fake provider on every framework
+   change. Adding a scenario to `workflows/` = adding a test.
+4. **Deprecation with a warning:** a discouraged construct first triggers
+   a warning in `validate` (the run continues), it may be removed only by the next version
+   of the format.
+5. **Framework version (semver):** a fix = patch, an addition = minor, a new
+   format version = major. `CHANGELOG.md` of the framework and of the formats.
+6. The framework rejects a file with a format version it does not know (`config`), never
+   silently interprets it its own way.
 
-### 5.7 Obrázky a soubory
-- Od 0.14.0 přijímá krok `image` šablony v `aspect_ratio`, `quality` a `resolution`; kvalita kroku přebíjí alias, chat API kvalitu a rozlišení ignoruje s varováním (aditivně, version 1).
-- `image` vrací base64 → framework uloží soubor do složky běhu → krok
-  vrátí cestu. Soubory v `output` se na konci běhu nahrají do úložiště
-  z `config.yaml`; callback nese URL. Instagram Graph API vyžaduje
-  veřejnou URL a Business/Creator účet napojený na Facebook stránku
-  (mimo framework).
-- Spike (a), `google/gemini-3.1-flash-image` přes chat completions
-  s `modalities: ["image","text"]`: obrázek je v
-  `choices[0].message.images[].image_url.url` jako **data URL base64**
-  (~1,5 MB PNG), nikdy URL. Do `events.jsonl` ani do výstupů kroku se
-  base64 **nevkládá**, jen cesta k souboru.
-- Cena **0,04–0,07 USD a 6–11 s na obrázek** — o dva řády víc než textový
-  krok (0,0005–0,01 USD). Obrázkové kroky se počítají do rozpočtu a
-  časového limitu běhu zvlášť. Výchozí rozměr 1408×768; poměr stran pro
-  IG (1:1, 4:5) přes `image_config` — **neověřeno**.
-- **Provider odmítnutí obsahu nedělá:** podobizna skutečného veřejného
-  činitele se vygenerovala na obou modelech (HTTP 200). Politiku obsahu
-  (osoby, cizí značky) musí vynutit framework sám — typicky `jev`
-  kontrola promptu před `image` krokem (levné, 0,3 s).
-- Model bez obrazového výstupu s `modalities: ["image"]` → HTTP 404
+### 5.7 Images and files
+- Since 0.14.0 the `image` step accepts templates in `aspect_ratio`, `quality` and `resolution`; the step's quality overrides the alias, the chat API ignores quality and resolution with a warning (additive, version 1).
+- `image` returns base64 → the framework saves a file into the run folder → the step
+  returns the path. Files in `output` are uploaded at the end of the run to the storage
+  from `config.yaml`; the callback carries the URL. The Instagram Graph API requires
+  a public URL and a Business/Creator account linked to a Facebook page
+  (outside the framework).
+- Spike (a), `google/gemini-3.1-flash-image` via chat completions
+  with `modalities: ["image","text"]`: the image is in
+  `choices[0].message.images[].image_url.url` as a **base64 data URL**
+  (~1.5 MB PNG), never a URL. Base64 is **not** put into `events.jsonl` or into the step
+  outputs, only the file path.
+- The cost is **0.04–0.07 USD and 6–11 s per image** — two orders of magnitude more than a text
+  step (0.0005–0.01 USD). Image steps are counted separately toward the budget and
+  the run time limit. Default size 1408×768; the aspect ratio for
+  IG (1:1, 4:5) via `image_config` — **unverified**.
+- **The provider does not refuse content:** the likeness of a real public
+  figure was generated on both models (HTTP 200). The content policy
+  (people, third-party brands) must be enforced by the framework itself — typically a `jev`
+  check of the prompt before the `image` step (cheap, 0.3 s).
+- A model without image output with `modalities: ["image"]` → HTTP 404
   `No endpoints found that support the requested output modalities`
-  (třída `config`, zachytí `validate` proti `/models`).
-- `models.<alias>.api` vybírá pro `image` chat completions (výchozí, dosavadní chování) nebo dedikované Images API; volitelná `quality` platí jen pro Images API.
+  (class `config`, caught by `validate` against `/models`).
+- `models.<alias>.api` selects for `image` chat completions (the default, the existing behaviour) or the dedicated Images API; the optional `quality` applies only to the Images API.
 
-### 5.8 MCP servery, nástroje a skilly (spike (d), `mcp` SDK 2.2)
-- Klient = oficiální `mcp` SDK (zamknout `2.2.*`); stdio, Streamable HTTP
-  i SSE. Stdio server se spouští **per běh** (start ~140 ms lokální
-  balíček, ~300 ms `npx -y`), balíčky předinstalované (sedí s D5).
-- **Timeouty vždy výslovně:** `read_timeout_seconds` u handshaku i
-  `call_tool` + vnější pojistka (`fail_after`); bez nich SDK čeká
-  neomezeně. Výchozí `mode="auto"` přidá u mrtvého serveru pevných 10 s
-  (`server/discover`) → pro servery z `mcp.yaml` `mode="legacy"`, dokud
-  nebudou na protokolu 2026-07-28. Chyby handshaku přicházejí ve dvou
-  vrstvách `ExceptionGroup` — framework je rozbalí do tříd §5.1.
-- **Mapování chyb:** `isError: true` z nástroje = zpětná vazba modelu (krok
-  pokračuje); `timed out` = třída `timeout`; selhání handshaku =
+### 5.8 MCP servers, tools and skills (spike (d), `mcp` SDK 2.2)
+- The client = the official `mcp` SDK (pin `2.2.*`); stdio, Streamable HTTP
+  and SSE. A stdio server is started **per run** (start ~140 ms for a local
+  package, ~300 ms `npx -y`), packages pre-installed (matches D5).
+- **Timeouts always explicit:** `read_timeout_seconds` for the handshake and
+  `call_tool` + an outer safeguard (`fail_after`); without them the SDK waits
+  indefinitely. The default `mode="auto"` adds a fixed 10 s for a dead server
+  (`server/discover`) → for servers from `mcp.yaml` `mode="legacy"` until
+  they are on protocol 2026-07-28. Handshake errors arrive in two
+  layers of `ExceptionGroup` — the framework unwraps them into the classes of §5.1.
+- **Error mapping:** `isError: true` from a tool = feedback to the model (the step
+  continues); `timed out` = class `timeout`; a handshake failure =
   `config`/`transient`.
-- **Schémata nástrojů → OpenRouter `tools`** se normalizují (~50 řádků):
-  jméno `server__tool` (jen `[a-zA-Z0-9_-]`, max 64, Claude jinak vrátí
-  400), vložení `$ref`, `allOf`/`oneOf` → `anyOf`, `const` → `enum`,
-  ne-řetězcový `enum` → do `description`. Gemini části schématu **tiše
-  ignoruje** (HTTP 200 a špatné argumenty) → **argumenty se validují na
-  klientovi proti původnímu schématu**, chyba jde modelu jako výsledek
-  nástroje. Konformační scénář aliasu (§5.5) obsahuje `$ref`, `const`
-  a číselný `enum`.
-- **Obrázky z nástrojů** se posílají v následné user zprávě (funguje u
-  Claude i Gemini); v tool zprávě je Gemini odmítne (400). Ukládají se jako
-  soubor, ne base64 do záznamu.
-- **Skilly:** `skills/<name>/SKILL.md` s `name` + `description`; system
-  prompt nese jen seznam `jméno: description`, tělo načte nástroj
-  `load_skill(name)` (`enum` jmen, neznámé jméno → chyba se seznamem).
-  Výstup kroku vynucuje `schema`, ne skill.
-- **Oprávnění (§5.2 konkrétně):** allowlist nástrojů podle jména;
-  efektivní sada = krok ⊆ agent, jinak chyba `validate`; do `tools` i do
-  dispatch jdou jen povolené nástroje (vedlejší efekt −66 až −81 %
-  prompt tokenů). Druhá vrstva = argumenty serveru v `mcp.yaml` (např.
-  povolený kořen filesystemu). Stdio server dědí jen 6 bezpečných
-  proměnných prostředí; klíče pro servery se předávají výslovně přes
-  `env` v `mcp.yaml`. `stderr` serverů jde do záznamu běhu.
+- **Tool schemas → OpenRouter `tools`** are normalized (~50 lines):
+  the name `server__tool` (only `[a-zA-Z0-9_-]`, max 64, otherwise Claude returns
+  400), inlining `$ref`, `allOf`/`oneOf` → `anyOf`, `const` → `enum`,
+  a non-string `enum` → into `description`. Gemini **silently
+  ignores** parts of the schema (HTTP 200 and wrong arguments) → **arguments are validated
+  on the client against the original schema**, the error goes to the model as a tool
+  result. The alias conformance scenario (§5.5) contains `$ref`, `const`
+  and a numeric `enum`.
+- **Images from tools** are sent in a following user message (works with
+  Claude and Gemini); in a tool message Gemini rejects them (400). They are saved as a
+  file, not as base64 in the record.
+- **Skills:** `skills/<name>/SKILL.md` with `name` + `description`; the system
+  prompt carries only a list of `name: description`, the body is loaded by the tool
+  `load_skill(name)` (an `enum` of names, an unknown name → an error with the list).
+  The step output is enforced by `schema`, not by a skill.
+- **Permissions (§5.2 concretely):** an allowlist of tools by name;
+  the effective set = step ⊆ agent, otherwise a `validate` error; only the allowed
+  tools go into `tools` and dispatch (a side effect of −66 to −81 % prompt
+  tokens). The second layer = the server arguments in `mcp.yaml` (e.g. the
+  allowed filesystem root). A stdio server inherits only 6 safe environment
+  variables; keys for servers are passed explicitly via `env` in
+  `mcp.yaml`. The servers' `stderr` goes into the run record.
 
 ---
 
-## 6. Referenční scénář (ilustrativně, syntaxe se upřesní ve specifikaci)
+## 6. Reference scenario (illustrative, the syntax will be refined in the specification)
 
 ```yaml
 version: 1
 name: ig-post
-description: Návrh IG příspěvku ke schválení (část 1; publikace v části 2 přes n8n)
+description: Draft IG post for approval (part 1; part 2 publishes it via n8n)
 
 inputs:
-  tema: { type: string, required: true }
+  topic: { type: string, required: true }
 
 steps:
   - id: copy
     ask:
       agent: copywriter
-      task: "Napiš IG příspěvek na téma: {{ inputs.tema }}"
+      task: "Write an IG post about: {{ inputs.topic }}"
       schema: { caption: string, hashtags: [string], image_prompt: string }
 
-  - id: kontrola
+  - id: tone_check
     jev:
       state: "{{ steps.copy.caption }}"
       questions:
-        on_brand: { type: noul, instructions: "Odpovídá text tónu značky?" }
+        on_brand: { type: noul, instructions: "Does the text match the brand tone?" }
 
   - id: stop
-    when: steps.kontrola.on_brand < 0.7
-    fail: "Text neodpovídá značce (on_brand = {{ steps.kontrola.on_brand }})"
+    when: steps.tone_check.on_brand < 0.7
+    fail: "The text does not match the brand (on_brand = {{ steps.tone_check.on_brand }})"
 
-  - id: foto
+  - id: photo
     image:
       model: gemini-image
       prompt: "{{ steps.copy.image_prompt }}"
@@ -515,112 +516,112 @@ steps:
     output:
       caption: "{{ steps.copy.caption }}"
       hashtags: "{{ steps.copy.hashtags }}"
-      image: "{{ steps.foto.file }}"     # → nahraje se, callback nese URL
+      image: "{{ steps.photo.file }}"     # → uploaded, the callback carries the URL
 ```
 
-Očekávaný záznam běhu: složka s plánem (`--dry-run`), výstupem každého
-kroku, důvodem přeskočení, cenou a časem, `summary.md` a HTML.
+Expected run record: a folder with the plan (`--dry-run`), the output of each
+step, the reason for skipping, the cost and time, `summary.md` and HTML.
 
 ---
 
-## 7. Známá rizika (ze zpětného pohledu 2026-09-25)
+## 7. Known risks (in hindsight, 2026-09-25)
 
-1. Rozsah v1 — hlídat, nepřidávat kroky bez scénáře, který je potřebuje.
-2. `task` je nejtěžší část; heterogenita modelů za OpenRouterem —
-   **potvrzeno** spikem (a) (Gemini: nástroj + schéma 4/5, 200 s chybou).
-3. ~~Neověřené předpoklady~~ → ověřeno spiky 2026-09-25: Jev přes
-   OpenRouter funguje (slovo „beta" v dokumentaci není, 6/6 OK); MCP
-   servery na Modalu fungují; záznam běhu na Modalu je dostupný přes
-   Volume i endpoint.
-4. Výrazový jazyk zatím nerozhodnutý (D1c).
-5. Pozorovatelnost na Modalu (proto HTML záznam běhu v úložišti).
-6. Údržba: bez konformačních testů se regrese vkradou do měsíce.
-7. **Nové:** třída chyby `content` (odmítnutí obsahu) se nepodařilo
-   naměřit — provider nic neodmítl. Tvar odmítnutí neznáme.
-8. **Nové:** `.env` s CRLF konci řádků rozbíjí tokeny (Modal: „Invalid
-   metadata value"); načítání `.env` musí CRLF tolerovat.
-9. **Nové:** R2 zatím bez klíčů — veřejná URL pro Instagram neověřena.
+1. The scope of v1 — watch it, don't add steps without a scenario that needs them.
+2. `task` is the hardest part; the heterogeneity of models behind OpenRouter —
+   **confirmed** by spike (a) (Gemini: tool + schema 4/5, 200 with an error).
+3. ~~Unverified assumptions~~ → verified by the 2026-09-25 spikes: Jev through
+   OpenRouter works (the word “beta” is not in the documentation, 6/6 OK); MCP
+   servers on Modal work; the run record on Modal is available via
+   Volume and endpoint.
+4. The expression language is still undecided (D1c).
+5. Observability on Modal (hence the HTML run record in storage).
+6. Maintenance: without conformance tests regressions creep in within a month.
+7. **New:** the `content` error class (content refusal) could not be
+   measured — the provider refused nothing. We do not know the shape of a refusal.
+8. **New:** a `.env` with CRLF line endings breaks tokens (Modal: “Invalid
+   metadata value”); `.env` loading must tolerate CRLF.
+9. **New:** R2 so far without keys — the public URL for Instagram is unverified.
 
 ---
 
-## 8. Spiky (před dokončením specifikace)
+## 8. Spikes (before finishing the specification)
 
-Každý spike: jeden worker, jasná otázka, časový limit ~1 den, výstup
-report s výsledky (spiky byly vyřazeny ze stromu; výstupy jsou v historii repozitáře do commitu fe90e05) s verdiktem *funguje / nefunguje / funguje
-s výhradou* a naměřenými fakty (ne dojmy).
+Each spike: one worker, a clear question, a time limit of ~1 day, the output
+a report with results (the spikes were removed from the tree; the outputs are in the repository history up to commit fe90e05) with a verdict *works / doesn't work / works
+with a caveat* and measured facts (not impressions).
 
-**(a) OpenRouter** — otázky: (1) `ask` se JSON schématem a jedním
-nástrojem na 3 modelech (Claude, Kimi/GLM, Gemini) — spolehlivost,
-která úroveň kaskády se použila; (2) Jev přes
-`https://openrouter.ai/api/v1/systemone` — tvar odpovědi, chyby, latence;
-(3) generování obrázku (`google/gemini-3.1-flash-image` nebo obdobný) —
-tvar odpovědi, uložení souboru, cena. Výchozí materiál:
-`~/workspace/jev-labs` (existující experimenty s Jev přímo přes TypeSafe
-API, `docs/findings.md`). Potřebuje `OPENROUTER_API_KEY` v prostředí;
-náklady v centech.
+**(a) OpenRouter** — questions: (1) `ask` with a JSON schema and one
+tool on 3 models (Claude, Kimi/GLM, Gemini) — reliability,
+which cascade level was used; (2) Jev through
+`https://openrouter.ai/api/v1/systemone` — response shape, errors, latency;
+(3) image generation (`google/gemini-3.1-flash-image` or similar) —
+response shape, saving the file, cost. Starting material:
+`~/workspace/jev-labs` (existing experiments with Jev directly through the TypeSafe
+API, `docs/findings.md`). Needs `OPENROUTER_API_KEY` in the environment;
+cost in cents.
 
-**(b) Modal** — otázky: (1) kontejner s jedním stdio MCP serverem
-(`npx`), studený start; (2) webhook → `.spawn()` → callback na testovací
-URL, `max_containers=1` (ověřit název parametru), fronta; (3) Volume pro
-záznam běhu a nahrání jednoho souboru do R2 s veřejnou URL. Potřebuje
-token Modalu a přístup k R2.
+**(b) Modal** — questions: (1) a container with one stdio MCP server
+(`npx`), cold start; (2) webhook → `.spawn()` → callback to a test
+URL, `max_containers=1` (verify the parameter name), the queue; (3) a Volume for
+the run record and uploading one file to R2 with a public URL. Needs a
+Modal token and access to R2.
 
-### Výsledky (2026-09-25, oba spiky hotové)
+### Results (2026-09-25, both spikes done)
 
-| Spike | Verdikt | Report |
+| Spike | Verdict | Report |
 |---|---|---|
-| (a) OpenRouter — schéma + nástroj | funguje s výhradou (Gemini potřebuje nástroj-obal) | report spiku openrouter/REPORT.md (vyřazen ze stromu; v historii repozitáře do commitu fe90e05) |
-| (a) OpenRouter — Jev | funguje (5/5, 0,30 s, ~0,00003 USD) | tamtéž |
-| (a) OpenRouter — obrázek | funguje s výhradou (0,067 USD, odmítnutí nevyvoláno) | tamtéž |
-| (b) Modal — MCP v kontejneru | funguje (předinstalovat balíčky) | report spiku modal/REPORT.md (vyřazen ze stromu; v historii repozitáře do commitu fe90e05) |
-| (b) Modal — webhook + fronta | funguje (výhrada: redeploy = stop + deploy) | tamtéž |
-| (b) Modal — Volume + veřejná URL | funguje; R2 neimplementováno (chybí klíče) | tamtéž |
-| (b) Modal — Secrets | funguje | tamtéž |
-| (c) výrazy pro D1c (2026-09-25, větev `spike-expressions`) | funguje: vlastní evaluátor 24/24 + 14/14 + 20/20; žádná knihovna nesplní §5.4 | report spiku expressions/REPORT.md (vyřazen ze stromu; v historii repozitáře do commitu fe90e05) |
-| (d) MCP klient + skilly v Pythonu (2026-09-25, větev `spike-mcp-python`) | funguje: `mcp` 2.2 stdio/HTTP/SSE, schémata po normalizaci 18/18, `load_skill` 12/12, allowlist drží; 0,136 USD | report spiku mcp-python/REPORT.md (vyřazen ze stromu; v historii repozitáře do commitu fe90e05) |
+| (a) OpenRouter — schema + tool | works with a caveat (Gemini needs a tool wrapper) | the openrouter/REPORT.md spike report (removed from the tree; in the repository history up to commit fe90e05) |
+| (a) OpenRouter — Jev | works (5/5, 0.30 s, ~0.00003 USD) | ditto |
+| (a) OpenRouter — image | works with a caveat (0.067 USD, refusal not triggered) | ditto |
+| (b) Modal — MCP in a container | works (pre-install packages) | the modal/REPORT.md spike report (removed from the tree; in the repository history up to commit fe90e05) |
+| (b) Modal — webhook + queue | works (caveat: redeploy = stop + deploy) | ditto |
+| (b) Modal — Volume + public URL | works; R2 not implemented (no keys) | ditto |
+| (b) Modal — Secrets | works | ditto |
+| (c) expressions for D1c (2026-09-25, branch `spike-expressions`) | works: the custom evaluator 24/24 + 14/14 + 20/20; no library meets §5.4 | the expressions/REPORT.md spike report (removed from the tree; in the repository history up to commit fe90e05) |
+| (d) MCP client + skills in Python (2026-09-25, branch `spike-mcp-python`) | works: `mcp` 2.2 stdio/HTTP/SSE, schemas after normalization 18/18, `load_skill` 12/12, the allowlist holds; 0.136 USD | the mcp-python/REPORT.md spike report (removed from the tree; in the repository history up to commit fe90e05) |
 
-Útrata: (a) 0,30 USD, (b) řádově centy. Fakta z obou spiků jsou
-zapracována v §5.1 (bod 8), §5.5, §5.7, D5 a §7.
+Spend: (a) 0.30 USD, (b) on the order of cents. The facts from both spikes are
+incorporated in §5.1 (item 8), §5.5, §5.7, D5 and §7.
 
-**Fakta relevantní pro D3/D4** (bez volby): všechna tři API OpenRouteru
-i Modal šly ovládat holým HTTP/SDK bez agentního frameworku; těžká místa
-jsou kaskáda strukturovaného výstupu, kontrola `finish_reason`, vracení
-`reasoning_details`, normalizace `usage` a MCP handshake — přesně
-runtime agenta, ne orchestrace. Rozhodnutí D3, D4 a D1c: **přijato
-uživatelem 2026-09-25**, viz §3.
+**Facts relevant to D3/D4** (without a choice): all three OpenRouter APIs
+and Modal could be driven with plain HTTP/SDK without an agent framework; the hard
+places are the structured output cascade, the `finish_reason` check, passing back
+`reasoning_details`, normalizing `usage` and the MCP handshake — exactly the
+agent runtime, not the orchestration. The decisions D3, D4 and D1c: **accepted
+by the user 2026-09-25**, see §3.
 
 ---
 
-## 9. Výchozí materiál (co si bereme z existujících nástrojů)
+## 9. Starting material (what we take from existing tools)
 
-Průzkum GitHubu 2026-09-25 (4× Haiku, 5× Sonnet xhigh, ověřeno přes
-`gh api`): nic nesplňuje R1–R7 najednou. Inspirace:
+A GitHub survey 2026-09-25 (4× Haiku, 5× Sonnet xhigh, verified via
+`gh api`): nothing meets R1–R7 at once. Inspiration:
 
-- **foxzi/baton** (Go, MIT): scénáře v YAML, `validate` + `--dry-run`,
-  složka běhu, třídy chyb, `dedupe_key`, kaskáda strukturovaného výstupu,
-  „agent smí jen to, co mu povolíš". Nemá centrální agenty; `agent:` krok =
-  Claude Code/Codex CLI, ne API model.
-- **zendev-sh/zenflow** (Go, Apache-2.0): blok `agents:` v YAML,
-  `dependsOn`, `forEach`, `condition`, `include`. Skrytý LLM koordinátor.
-- **johnlindquist/mdflow** (TS, MIT): workflow jako Markdown s `_steps` ve
-  frontmatter — nejčitelnější formát; kroky = CLI agenti.
-- **IBM/prompt-declaration-language** (Apache-2.0): `base_url` u volání,
-  LiteLLM; spíš programovací jazyk v YAML.
-- OpenRouter: 460 modelů, 11 s výstupem obrázku, ~390 deklaruje `tools`
-  a `structured_outputs` (stav 2026-09-25). Jev: `/api/v1/systemone`,
-  odpověď `{ answers: { id: { type, noul|choice|score… } }, usage.cost }`.
-- **`~/workspace/jev-labs`** (vlastní, 2026-09-21): Python CLI a měření Jev
-  přímo přes TypeSafe API (`docs/findings.md`). Poznatky: čeština funguje
-  (34/34 správné `choice`, termín `noul` 15/15), latence medián 0,63 s,
-  `score` u věcných popisů závad nadhodnocuje nespokojenost, `confidence`
-  není pravděpodobnost správnosti, `noul=0.5` = nejistota; chyby API 401,
-  422, 429, 529; limity 1 200 req/min. Prahy pro automatizaci nebyly
-  stanoveny — ve scénářích je proto prah vždy výslovný (`< 0.7`), ne
-  implicitní.
-- **Jev přes OpenRouter** (spike (a)): `POST /api/v1/systemone`, tělo
-  `{model: "jev-1.13", state, questions}`; odpověď `model` je datovaná
-  verze (`typesafe/jev-1.13-20260917`, `jev-latest` → totéž; logovat),
+- **foxzi/baton** (Go, MIT): scenarios in YAML, `validate` + `--dry-run`,
+  a run folder, error classes, `dedupe_key`, a structured output cascade,
+  “an agent may only do what you allow it”. It has no central agents; an `agent:` step =
+  Claude Code/Codex CLI, not an API model.
+- **zendev-sh/zenflow** (Go, Apache-2.0): an `agents:` block in YAML,
+  `dependsOn`, `forEach`, `condition`, `include`. A hidden LLM coordinator.
+- **johnlindquist/mdflow** (TS, MIT): a workflow as Markdown with `_steps` in the
+  frontmatter — the most readable format; steps = CLI agents.
+- **IBM/prompt-declaration-language** (Apache-2.0): `base_url` on calls,
+  LiteLLM; more a programming language in YAML.
+- OpenRouter: 460 models, 11 with image output, ~390 declare `tools`
+  and `structured_outputs` (as of 2026-09-25). Jev: `/api/v1/systemone`,
+  response `{ answers: { id: { type, noul|choice|score… } }, usage.cost }`.
+- **`~/workspace/jev-labs`** (own, 2026-09-21): a Python CLI and Jev measurements
+  directly through the TypeSafe API (`docs/findings.md`). Findings: Czech works
+  (34/34 correct `choice`, the term `noul` 15/15), median latency 0.63 s,
+  `score` for factual defect descriptions overestimates dissatisfaction, `confidence`
+  is not the probability of being right, `noul=0.5` = uncertainty; API errors 401,
+  422, 429, 529; limits 1,200 req/min. Thresholds for automation were not
+  set — so in scenarios the threshold is always explicit (`< 0.7`), never
+  implicit.
+- **Jev through OpenRouter** (spike (a)): `POST /api/v1/systemone`, body
+  `{model: "jev-1.13", state, questions}`; the response `model` is a dated
+  version (`typesafe/jev-1.13-20260917`, `jev-latest` → the same; log it),
   `answers.<id>` = `{type, choice|score|noul, probabilities?, confidence?,
-  legend?}`, `usage: {input_tokens, output_tokens, cost}`. Chybný požadavek
-  → HTTP 400, `error.message` je řetězec s JSON polem od validátoru, tělo
-  obsahuje `user_id`. Neexistující model → 400.
+  legend?}`, `usage: {input_tokens, output_tokens, cost}`. A bad request
+  → HTTP 400, `error.message` is a string with a JSON array from the validator, the body
+  contains `user_id`. A nonexistent model → 400.

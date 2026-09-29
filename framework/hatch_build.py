@@ -1,4 +1,4 @@
-"""Sdist uchová externí zdroje, aby šel wheel sestavit i bez klonu."""
+"""Include external resources in the sdist so the wheel can be built without a clone."""
 from pathlib import Path
 import tomllib
 

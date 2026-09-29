@@ -1,0 +1,52 @@
+version: 1
+name: tutorial-06-exercise
+description: The archivist writes a note, a second step checks it read-only (tutorial, part 6 — exercise solution)
+
+inputs:
+  day:
+    type: string
+    required: true
+    description: Date of the entry, e.g. 2026-09-25
+  text:
+    type: string
+    required: true
+    description: The note as free text
+
+outputs:
+  write:
+    type: string
+    description: What the write step reports
+  check:
+    type: string
+    description: What the check step reports
+
+steps:
+  # 1. Writing: the step narrows the tools — there is no need to read or list the folder here.
+  - id: write
+    task:
+      agent: tutorial-archivist
+      prompt: |
+        Day: {{ inputs.day }}
+        Note: {{ inputs.text }}
+        Write the note to the archive. Do not read or check anything, a colleague will do that.
+      max_turns: 3
+      tools:
+        filesystem: [list_allowed_directories, write_file]
+
+  # 2. Read-only check: the same agent, the same server (it runs once per run),
+  #    but without write_file — it cannot fix anything, only report.
+  - id: check
+    task:
+      agent: tutorial-archivist
+      prompt: |
+        Your colleague reports: {{ steps.write.text }}
+        Read the entry for {{ inputs.day }} and the archive index. Do NOT write or fix anything.
+        Say how many sentences the entry has and whether both files match the skill.
+      max_turns: 4
+      tools:
+        filesystem: [list_allowed_directories, list_directory, read_text_file]
+
+  - id: out
+    output:
+      write: "{{ steps.write.text }}"
+      check: "{{ steps.check.text }}"

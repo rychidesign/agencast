@@ -1,12 +1,14 @@
-# Přispívání / Contributing
+# Contributing
 
-Chyby a návrhy můžete popsat v GitHub Issues, změny posílejte jako pull requesty na GitHubu.
-Popište problém, výsledné chování a provedené kontroly; neposílejte klíče ani `.env`.
-Bezpečnostní hlášení řeší [SECURITY.md](SECURITY.md).
+Describe bugs and suggestions in GitHub Issues; send changes as pull requests on GitHub.
+Describe the problem, the resulting behavior and the checks you ran; do not send keys or `.env`.
+Security reports are covered by [SECURITY.md](SECURITY.md).
 
-Dokumentace a komentáře jsou česky, názvy v kódu anglicky.
-Formáty spec v1 jsou zmražené; přípustná jsou jen zpětně kompatibilní rozšíření podle [DESIGN §5.9](docs/DESIGN.md).
-Pokyny a kontroly najdete v [CLAUDE.md](CLAUDE.md). Z kořene klonu:
+Documentation, comments, messages, code and all names (identifiers, file names, examples, fixtures) are written in English.
+The GUI is English by default with a Czech translation in `ui/src/locales/cs.json`, the only place for Czech text;
+every new UI string goes through `t()` and is added to both locale files.
+The spec v1 formats are frozen; only backward-compatible extensions per [DESIGN §5.9](docs/DESIGN.md) are allowed.
+Guidelines and checks are in [CLAUDE.md](CLAUDE.md). From the clone root:
 
 ```bash
 (cd framework && uv sync --all-groups && uv run pytest -q)
@@ -15,9 +17,4 @@ uv run --project framework python docs/spec/tools/check.py
 (cd ui && npx playwright install --with-deps chromium && npm run e2e)
 ```
 
-Přijetí příspěvku, podpora ani termín odpovědi nejsou zaručené.
-
-Send pull requests through GitHub with a problem description and check results.
-Documentation and comments are Czech; code identifiers are English. Spec v1 is frozen;
-changes must preserve compatibility. See [CLAUDE.md](CLAUDE.md) and the checks above.
 There is no commitment to accept contributions, provide support, or respond within any deadline.

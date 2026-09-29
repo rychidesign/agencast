@@ -1,12 +1,12 @@
-// §2.3–2.4 Editor scénáře: sloupec karet + panel (Form), nebo YAML přes celou šířku (§4.5).
-// Form drží rozpracovaný strom (scenarioDraft.ts), YAML rozpracovaný text (textfile.ts); na disk jde
-// obojí až tlačítkem Uložit / Ctrl+S. Form → YAML převede rozpracovaný strom na text přes `render`;
-// YAML → Form převede neuložený text přes `render` bez zápisu (nalezy-api.md bod 26).
+// §2.3–2.4 Scenario editor: column of cards + panel (Form), or YAML across the full width (§4.5).
+// Form keeps the in-progress tree (scenarioDraft.ts), YAML the in-progress text (textfile.ts); both go to disk
+// only via the Save button / Ctrl+S. Form → YAML converts the in-progress tree to text via `render`;
+// YAML → Form converts the unsaved text via `render` without writing (api-findings.md item 26).
 import { CodeXml, Play, Save } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
-import { stepLines } from "../components/CodeView";
-import { Modal, NameDialog, type ModalAction } from "../components/form";
+import { stepLines } from "../components/yaml";
+import { Modal, NameDialog, slugify, type ModalAction } from "../components/form";
 import { RunPanel } from "../components/RunPanel";
 import { Connector, HeaderCard, onColumnKey, StepList, uidOf, type EditCtx, type ListCtx } from "../components/StepCards";
 import { HeaderPanel, StepPanel } from "../components/StepPanel";
@@ -25,8 +25,8 @@ import type { ErrorItem, Project, Step, StepType } from "../types";
 import { DeleteDialog, deleteFile, SaveNote } from "./Agents";
 import { runCommand } from "./Scenarios";
 
-/** Výběr hlavičkové karty v `?krok=` (id kroku nesmí začínat `_`, nekoliduje). */
-export const HEADER_KEY = "_hlavicka";
+/** Selection of the header card in `?step=` (a step id may not start with `_`, so there is no collision). */
+export const HEADER_KEY = "_header";
 
 export function errorsByStep(errors: ErrorItem[]): Map<string, ErrorItem[]> {
   const m = new Map<string, ErrorItem[]>();
@@ -34,7 +34,7 @@ export function errorsByStep(errors: ErrorItem[]): Map<string, ErrorItem[]> {
   return m;
 }
 
-/** Posune vybranou kartu do pohledu (klik na čip „čte z“ skočí na kartu). */
+/** Scrolls the selected card into view (clicking a "reads from" chip jumps to the card). */
 export function useScrollToCard(key: string | undefined) {
   useEffect(() => {
     if (!key) return;
@@ -49,19 +49,19 @@ export function useScrollToCard(key: string | undefined) {
 const focusCard = (id: string) =>
   requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-step-card="${CSS.escape(id)}"]`)?.focus());
 
-/** Esc zavře panel a vrátí fokus na kartu (§6). */
+/** Esc closes the panel and returns focus to the card (§6). */
 export function closeOnEsc(selected: string | undefined) {
   return (e: KeyboardEvent) => {
     if (e.key !== "Escape" || !selected || e.defaultPrevented) return;
-    setQuery({ krok: undefined });
+    setQuery({ step: undefined });
     focusCard(selected === HEADER_KEY ? "" : selected);
   };
 }
 
-export function PanelSlot({ children, wide = false, align }: { children: ReactNode; /** Panel kroku v běhu (návrh 12: 520 px). */ wide?: boolean; align?: string }) {
-  // Vedle sloupce od 1280 px (návrh 05, změřeno z .pen: sloupec do 676, mezera 28, panel 440); užší = plnoobrazovkový
-  // sheet (PanelShell), nikdy přes sloupec ani přes hlavičku stránky. Panel vedle sloupce (z-20) leží pod přilepenou
-  // hlavičkou (z-30), aby ho menu ⋯ z hlavičky překrylo.
+export function PanelSlot({ children, wide = false, align }: { children: ReactNode; /** Step panel in a run (design 12: 520 px). */ wide?: boolean; align?: string }) {
+  // Beside the column from 1280 px (design 05, measured from .pen: column up to 676, gap 28, panel 440); narrower = full-screen
+  // sheet (PanelShell), never over the column or over the page header. The panel beside the column (z-20) lies below the sticky
+  // header (z-30), so that the ⋯ menu from the header overlaps it.
   const sheet = useMedia("(max-width: 1279px)");
   const panel = useRef<HTMLDivElement>(null);
   const [marginTop, setMarginTop] = useState(0);
@@ -99,9 +99,9 @@ type Pending =
 
 export function ScenarioPage({ project, scenario }: { project: string; scenario: string }) {
   const { query } = useLocation();
-  const selected = query.get("krok") ?? undefined;
-  const yaml = query.get("rezim") === "yaml";
-  const trail = query.get("z") ?? "";
+  const selected = query.get("step") ?? undefined;
+  const yaml = query.get("mode") === "yaml";
+  const trail = query.get("from") ?? "";
   const [running, setRunning] = useState(false);
   const [cut, setCut] = useState<string>();
   const [pending, setPending] = useState<Pending>();
@@ -129,14 +129,14 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const byStep = useMemo(() => errorsByStep(fileErrors), [fileErrors]);
   useScrollToCard(yaml ? undefined : selected);
 
-  const select = (key: string) => setQuery({ krok: key === selected ? undefined : key });
+  const select = (key: string) => setQuery({ step: key === selected ? undefined : key });
   const step = all.find((x) => x.id === selected);
   const setSteps = (fn: (s: WStep[]) => WStep[], coalesce?: string) => form.change((d) => ({ ...d, steps: fn(d.steps) }), coalesce);
 
-  // --- akce sloupce ---------------------------------------------------------------------------
+  // --- column actions -------------------------------------------------------------------------
   const doRemove = (s: WStep) => {
     setSteps((l) => remove(l, s.uid));
-    if (selected === s.id) setQuery({ krok: undefined });
+    if (selected === s.id) setQuery({ step: undefined });
     setAnnounce(t("edit.removed", { id: s.id }));
   };
   const edit: EditCtx = {
@@ -152,7 +152,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
       }
       const s = blankStep(work.steps, pick);
       setSteps((l) => insert(l, at, s));
-      setQuery({ krok: s.id });
+      setQuery({ step: s.id });
       setAnnounce(t("edit.added", { id: s.id }));
     },
     remove: (s) => {
@@ -178,7 +178,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
           const s = blankStep(work.steps, "output");
           const last = work.steps[work.steps.length - 1];
           setSteps((l) => insert(l, last ? { after: last.uid } : { list: { parent: null, key: [] } }, s));
-          setQuery({ krok: s.id });
+          setQuery({ step: s.id });
         }
         : undefined,
   };
@@ -186,10 +186,10 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
 
   const doRename = (s: WStep, to: string) => {
     setSteps((l) => renameStep(l, s.uid, to));
-    if (selected === s.id) setQuery({ krok: to });
+    if (selected === s.id) setQuery({ step: to });
     setAnnounce(t("edit.renamed", { id: s.id, to }));
   };
-  /** Přejmenování: čtený krok se ptá jednou a přepíše odkazy čtenářů (dávka `rename_step`, `rename_refs`). */
+  /** Rename: a read step asks once and rewrites the readers' references (batch `rename_step`, `rename_refs`). */
   const rename = (s: WStep, to: string) => {
     const readers = readBy(all, s.id).filter((id) => id !== s.id);
     if (readers.length) setPending({ kind: "rename", step: s, to, readers });
@@ -199,7 +199,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
     setSteps((l) => update(l, s.uid, (x) => blankStep(l, type, { id: x.id, when: x.when, uid: x.uid })));
     setAnnounce(t("edit.retyped", { id: s.id, type }));
   };
-  /** Vyplněná pole, která by změna typu zahodila. */
+  /** Filled-in fields that a type change would discard. */
   const filled = (s: WStep) => {
     const body = s.type ? s.fields[s.type] : undefined;
     const rest = Object.keys(s.fields).filter((k) => k !== s.type);
@@ -207,7 +207,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
     return hasBody || rest.length > 0 || flat([s]).length > 1;
   };
 
-  // --- ukládání a režimy ------------------------------------------------------------------------
+  // --- saving and modes -------------------------------------------------------------------------
   const syntax = syntaxError(text.errors);
   const saveForm = async () => {
     if (form.overwrite) return setPending({ kind: "overwrite" });
@@ -245,7 +245,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
     localStorage.removeItem(draftKey(project, file));
     if (result.changed.length > 1) sessionStorage.setItem(`agencast.rename.${project}/${newName}`, result.changed.join("\n"));
     proj.reload();
-    navigate(href(project, "scenare", newName, { krok: selected, z: trail || undefined }));
+    navigate(href(project, "scenarios", newName, { step: selected, from: trail || undefined }));
   };
   const canSave = yaml ? text.dirty && !syntax && !text.validating && !text.errors.length && !text.conflict : form.dirty && !form.conflict;
 
@@ -253,7 +253,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
     if ((to === "yaml") === yaml) return;
     if (to === "form" && syntax) return text.dirty && setPending({ kind: "mode", to });
     if (to === "yaml" && form.dirty) {
-      // rozpracovaný strom → text přes `render`; text pak drží YAML režim jako neuložený (i s otiskem verze)
+      // in-progress tree → text via `render`; the text is then held by YAML mode as unsaved (including the version etag)
       const r = await form.renderText().catch(() => undefined);
       if (!r) return setPending({ kind: "mode", to });
       writeDraft(draftKey(project, file), { etag: r.etag, value: r.text });
@@ -275,8 +275,8 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
     if (to === "form") {
       const id = stepAtLine(text.text, caretLine);
       if (reload) void form.reload();
-      setQuery({ rezim: undefined, krok: id ?? selected });
-    } else setQuery({ rezim: "yaml" });
+      setQuery({ mode: undefined, step: id ?? selected });
+    } else setQuery({ mode: "yaml" });
   };
 
   const onKey = (e: KeyboardEvent) => {
@@ -293,7 +293,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const errCount = yaml ? text.errors.length : fileErrors.length;
   const jump = () => {
     const first = fileErrors.find((e) => e.step);
-    if (!yaml) setQuery({ krok: first?.step ?? HEADER_KEY });
+    if (!yaml) setQuery({ step: first?.step ?? HEADER_KEY });
   };
   const conflict = yaml ? text.conflict : form.conflict;
   const showDiff = async () => {
@@ -306,24 +306,24 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   const menu: MenuItem[] = [
     ...(!yaml ? [{ label: t("edit.undo"), shortcut: "Ctrl+Z", onSelect: form.undo, disabled: form.canUndo ? undefined : t("edit.nothingToUndo") }] : []),
     ...(p && summary ? [{ label: t("scenarios.copyRun"), onSelect: () => void navigator.clipboard.writeText(runCommand(p.root, summary)) }] : []),
-    { label: t("editor.runs"), onSelect: () => navigate(href(project, "behy", undefined, { scenar: scenario })) },
-    // bez otisku souboru (ještě se načítá) přejmenovat ani smazat nejde
+    { label: t("editor.runs"), onSelect: () => navigate(href(project, "runs", undefined, { scenario })) },
+    // without the file etag (still loading) rename and delete are not possible
     ...(fileEtag ? [
       { label: t("rename.button"), onSelect: requestRename },
       { label: t("common.delete"), onSelect: () => setDeleting(true), danger: true },
     ] : []),
   ];
-  // neexistující scénář: jen titul a chyba, žádné Uložit, přepínač ani „Uloženo ✓“
+  // nonexistent scenario: only a title and an error, no Save, toggle or "Saved ✓"
   const missing = form.loadError?.status === 404;
   return (
     <div onKeyDown={onKey}>
-      {missing ? <PageHeader back={<BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink>}
+      {missing ? <PageHeader back={<BackLink href={href(project, "scenarios")}>{t("project.tab.scenarios")}</BackLink>}
         title={<span className="font-mono">{scenario}</span>} /> : <PageHeader sticky
-        back={<><BackLink href={href(project, "scenare")}>{t("project.tab.scenare")}</BackLink><Trail project={project} trail={trail} /></>}
+        back={<><BackLink href={href(project, "scenarios")}>{t("project.tab.scenarios")}</BackLink><Trail project={project} trail={trail} /></>}
         title={<span className="font-mono md:text-[27px] md:leading-[41px]">{scenario}</span>}
         description={work?.header.description && <span className="text-[13px] leading-5">{work.header.description}</span>}
         actions={<>
-          <button type="button" className={btn.primary} onClick={() => (setRunning(true), setQuery({ krok: undefined }))} disabled={!p || !work}>
+          <button type="button" className={btn.primary} onClick={() => (setRunning(true), setQuery({ step: undefined }))} disabled={!p || !work}>
             <Play className="size-4" aria-hidden />{t("runForm.open")}
           </button>
           <button type="button" className={`${btn.secondary} max-md:hidden`} onClick={() => void save()} disabled={!canSave} title="Ctrl+S">
@@ -373,14 +373,14 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
             )}
             {!running && selected === HEADER_KEY && (
               <PanelSlot align={selected}>
-                <HeaderPanel name={scenario} header={work.header} errors={fileErrors.filter((e) => !e.step)} onClose={() => setQuery({ krok: undefined })}
+                <HeaderPanel name={scenario} header={work.header} errors={fileErrors.filter((e) => !e.step)} onClose={() => setQuery({ step: undefined })}
                   change={(fn, key) => form.change((d: Draft) => ({ ...d, header: fn(d.header) }), key && `h:${key}`)} />
               </PanelSlot>
             )}
             {!running && step && p && (
               <PanelSlot align={selected}>
                 <StepPanel key={step.uid} step={step} steps={steps} header={work.header} project={p} scenario={scenario}
-                  errors={byStep.get(step.id) ?? []} onClose={() => setQuery({ krok: undefined })} onSelect={(id) => setQuery({ krok: id })}
+                  errors={byStep.get(step.id) ?? []} onClose={() => setQuery({ step: undefined })} onSelect={(id) => setQuery({ step: id })}
                   edit={{
                     change: (fn, key) => setSteps((l) => update(l, step.uid, fn), key && `${step.uid}:${key}`),
                     retype: (type) => (filled(step) ? setPending({ kind: "retype", step, type }) : retype(step, type)),
@@ -424,14 +424,14 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
           localStorage.removeItem(draftKey(project, file, "form"));
           localStorage.removeItem(draftKey(project, file));
           proj.reload();
-          navigate(href(project, "scenare"));
+          navigate(href(project, "scenarios"));
         }} />}
     </div>
   );
 }
 
-/** Drobečky `ig-post › navrh › ig-text` po „otevřít“ u `call` (§4.7); `?z=ig-post:navrh,ig-text:x`.
- *  Jméno scénáře vede zpět na jeho kartu `call`. */
+/** Breadcrumbs `ig-post › draft › ig-text` after "open" on a `call` (§4.7); `?from=ig-post:draft,ig-text:x`.
+  *  The scenario name leads back to its `call` card. */
 export function Trail({ project, trail }: { project: string; trail: string }) {
   const crumbs = trail ? trail.split(",").map((c) => c.split(":") as [string, string]) : [];
   if (!crumbs.length) return null;
@@ -439,7 +439,7 @@ export function Trail({ project, trail }: { project: string; trail: string }) {
     <nav aria-label={t("editor.trail")} className="font-mono text-sm text-fg-muted">
       {crumbs.map(([sc, step], i) => (
         <span key={i}>
-          <a className="hover:text-fg hover:underline" href={href(project, "scenare", sc, { krok: step, z: trail.split(",").slice(0, i).join(",") })}>{sc}</a>
+          <a className="hover:text-fg hover:underline" href={href(project, "scenarios", sc, { step, from: trail.split(",").slice(0, i).join(",") })}>{sc}</a>
           {" › "}{step}{" › "}
         </span>
       ))}
@@ -447,7 +447,7 @@ export function Trail({ project, trail }: { project: string; trail: string }) {
   );
 }
 
-/** YAML → Form: krok, ve kterém stál kurzor (nejbližší `- id:` nad řádkem). */
+/** YAML → Form: the step the cursor was in (the nearest `- id:` above the line). */
 export function stepAtLine(text: string, line: number): string | undefined {
   const lines = text.split("\n").slice(0, line).reverse();
   for (const l of lines) {
@@ -517,6 +517,7 @@ function PendingModal({ pending, close, actions }: {
       return (
         <NameDialog title={t(s.type === "parallel" ? "edit.addBranch" : "edit.addCase")} taken={taken} onCancel={close}
           pattern={s.type === "parallel" ? /^[a-z0-9_]+$/ : /^[^\s/][^/]*$/}
+          normalize={s.type === "parallel" ? (x) => slugify(x, "_", false) : null /* case = the value to match, leave as is */}
           onSubmit={(name) => (close(), actions.branch(s, name))} />
       );
     }

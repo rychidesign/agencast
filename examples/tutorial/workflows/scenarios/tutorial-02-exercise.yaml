@@ -1,0 +1,62 @@
+version: 1
+name: tutorial-02-exercise
+description: Comes up with product names and writes a slogan for the first one (tutorial, part 2 — exercise solution)
+
+inputs:
+  product:
+    type: string
+    required: true
+    description: The product we are naming
+
+outputs:
+  name:
+    type: string
+    description: The chosen name (the first of the ideas)
+  slogan:
+    type: string
+    description: Slogan for the chosen name
+  all_names:
+    type: string
+    description: All ideas separated by commas
+  count:
+    type: integer
+    description: How many names the agent proposed
+  short_slogan:
+    type: boolean
+    description: Does the slogan have at most 40 characters?
+
+steps:
+  # 1. The agent comes up with names — thanks to schema as a list, not as free text.
+  - id: propose
+    ask:
+      agent: tutorial-namer
+      prompt: "Come up with 3 names for this product: {{ inputs.product }}."
+      schema:
+        names: [string]
+
+  # 2. A second agent writes a slogan for the first name.
+  - id: slogan
+    ask:
+      agent: tutorial-slogan-writer
+      prompt: |
+        Product: {{ inputs.product }}
+        Name: {{ steps.propose.names[0] }}
+        Write one slogan for it.
+      schema:
+        slogan: string
+
+  # 3. Calculations without a model.
+  - id: summary
+    set:
+      all_names: join(steps.propose.names, ", ")
+      count: len(steps.propose.names)
+      short: len(steps.slogan.slogan) <= 40
+
+  # 4. Result.
+  - id: out
+    output:
+      name: "{{ steps.propose.names[0] }}"
+      slogan: "{{ steps.slogan.slogan }}"
+      all_names: "{{ steps.summary.all_names }}"
+      count: "{{ steps.summary.count }}"
+      short_slogan: "{{ steps.summary.short }}"

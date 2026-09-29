@@ -1,0 +1,24 @@
+version: 1
+name: failing
+description: A run that ends with an error
+inputs:
+  topic: { type: string, default: coffee }
+outputs:
+  text: { type: string }
+steps:
+  - id: write
+    ask:
+      agent: writer
+      prompt: "Write: {{ inputs.topic }}"
+  - id: skip
+    when: inputs.topic == "never"
+    ask:
+      agent: writer
+      prompt: "This gets skipped"
+    default: { text: "fallback" }
+  - id: stop
+    when: inputs.topic != "never"
+    fail: "Stopped on purpose"
+  - id: result
+    output:
+      text: "{{ steps.write.text }} {{ steps.skip.text }}"

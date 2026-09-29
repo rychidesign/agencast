@@ -1,8 +1,8 @@
-"""Poskytovatelé přes OpenRouter: chat completions (`ask`, `image`), Images API
-(`image`) a Jev (`/systemone`). Holé HTTP přes httpx (spike (a), DESIGN D3).
+"""Providers via OpenRouter: chat completions (`ask`, `image`), Images API
+(`image`) and Jev (`/systemone`). Plain HTTP via httpx (spike (a), DESIGN D3).
 
-Tady je jen stavba požadavků a čtení odpovědí včetně třídy chyby;
-opakování, rozpočet a záznam dělá engine; smyčku `task` dělá `task.py`.
+Only request construction and response parsing, including the error class;
+the engine handles retries, budgets and records; `task.py` handles the `task` loop.
 """
 import base64
 import json
@@ -20,16 +20,16 @@ from . import AgencastError
 from .loader import describe_error
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
-LEVELS = ("native_schema", "tool_wrapper", "prompt")  # kaskáda strukturovaného výstupu (§5.5)
+LEVELS = ("native_schema", "tool_wrapper", "prompt")  # structured output cascade (§5.5)
 SUBMIT_TOOL = "_submit_output"
-PROMPT_SCHEMA_MARKER = "Odpověz jen JSON objektem podle tohoto JSON Schema, bez dalšího textu:"
+PROMPT_SCHEMA_MARKER = "Respond only with a JSON object matching this JSON Schema, without any additional text:"
 MODELS_CACHE_S = 24 * 3600
 
 
-# --- schema kroku (zkrácený zápis) ---------------------------------------------
+# --- step schema (shorthand) ---------------------------------------------
 
 def json_schema(shape) -> dict:
-    """Zkrácený zápis `schema` → JSON Schema se strict tvarem (scenario.md ask)."""
+    """Shorthand `schema` → JSON Schema with a strict shape (scenario.md ask)."""
     if isinstance(shape, str):
         return {"type": shape}
     if isinstance(shape, list):
@@ -39,7 +39,7 @@ def json_schema(shape) -> dict:
 
 
 def shape_type(shape):
-    """Zkrácený zápis → statický typ pro validate (integer je number)."""
+    """Shorthand → static type for validate (integer is number)."""
     if isinstance(shape, str):
         return "number" if shape == "integer" else shape
     if isinstance(shape, list):
@@ -50,7 +50,7 @@ def shape_type(shape):
 # --- HTTP ---------------------------------------------------------------------
 
 class Client:
-    """Jedno spojení na OpenRouter pro celý běh. Klíč jde jen do hlavičky."""
+    """One OpenRouter connection for the entire run. The key goes only in the header."""
 
     def __init__(self, base_url: str, api_key: str | None, transport=None):
         self.http = httpx.AsyncClient(
@@ -58,12 +58,12 @@ class Client:
             headers={"Authorization": f"Bearer {api_key}"} if api_key else {})
 
     async def post(self, path: str, body: dict, step: str, timeout: float | None = None):
-        """(status | None při chybě sítě, tělo jako dict, hlavičky). Vypršení `timeout` = chyba sítě → transient."""
+        """(status | None on network error, body as dict, headers). Expired `timeout` = network error → transient."""
         try:
             r = await self.http.post(path, json=body, extensions={"agencast_step": step},
                                      timeout=httpx.Timeout(timeout, connect=15 if timeout is None else min(15, timeout)))
         except httpx.HTTPError as e:
-            return None, {"error": {"message": f"chyba sítě: {type(e).__name__}: {e}"}}, {}
+            return None, {"error": {"message": f"network error: {type(e).__name__}: {e}"}}, {}
         try:
             data = r.json()
         except ValueError:
@@ -75,12 +75,12 @@ class Client:
 
 
 def list_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
-    """`GET /models` s cache 24 h v `<runs>/_models.json` (scenario.md §7)."""
+    """`GET /models` with a 24 h cache in `<runs>/_models.json` (scenario.md §7)."""
     cache = runs_dir / "_models.json"
     if transport is None and cache.is_file():
         try:
             c = json.loads(cache.read_text())
-        except ValueError:  # poškozená cache = cache není (přepíše se)
+        except ValueError:  # corrupt cache = no cache (will be overwritten)
             c = {}
         if c.get("base_url") == base_url and time.time() - c.get("fetched_at", 0) < MODELS_CACHE_S:
             return c["data"]
@@ -91,13 +91,13 @@ def list_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
     except (httpx.HTTPError, ValueError, KeyError) as e:
         data, r = None, e
     if data is None:
-        raise AgencastError("transient", f"GET {base_url}/models selhalo ({getattr(r, 'status_code', r)}) a platná "
-                                    f"cache {cache} není — kontrola modelů potřebuje síť")
+        raise AgencastError("transient", f"GET {base_url}/models failed ({getattr(r, 'status_code', r)}) and no valid "
+                                    f"cache {cache} exists — checking models requires network access")
     data = [{"id": m["id"], "output_modalities": (m.get("architecture") or {}).get("output_modalities") or [],
              "supported_parameters": m.get("supported_parameters") or []} for m in data]
     if transport is None:
         runs_dir.mkdir(parents=True, exist_ok=True)
-        # souběžné běhy: dočasný soubor ve stejné složce + os.replace → čtenář nikdy nevidí půlku
+        # concurrent runs: temporary file in the same directory + os.replace → readers never see partial data
         fd, tmp = tempfile.mkstemp(dir=runs_dir, prefix="_models.", suffix=".tmp")
         with os.fdopen(fd, "w") as f:
             f.write(json.dumps({"base_url": base_url, "fetched_at": time.time(), "data": data}))
@@ -106,7 +106,7 @@ def list_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
 
 
 def list_image_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
-    """`GET /images/models` s vlastní cache 24 h (OpenRouter Images API)."""
+    """`GET /images/models` with its own 24 h cache (OpenRouter Images API)."""
     cache = runs_dir / "_images_models.json"
     if transport is None and cache.is_file():
         try:
@@ -123,8 +123,8 @@ def list_image_models(base_url: str, runs_dir: Path, transport=None) -> list[dic
     except (httpx.HTTPError, ValueError, KeyError) as e:
         data, r = None, e
     if data is None:
-        raise AgencastError("transient", f"GET {url} selhalo ({getattr(r, 'status_code', r)}) a platná "
-                                    f"cache {cache} není — kontrola modelů potřebuje síť")
+        raise AgencastError("transient", f"GET {url} failed ({getattr(r, 'status_code', r)}) and no valid "
+                                    f"cache {cache} exists — checking models requires network access")
     data = [{"id": m["id"], "output_modalities": (m.get("architecture") or {}).get("output_modalities") or [],
              "supported_parameters": m.get("supported_parameters") or {}} for m in data]
     if transport is None:
@@ -136,7 +136,7 @@ def list_image_models(base_url: str, runs_dir: Path, transport=None) -> list[dic
     return data
 
 
-# --- chyby a spotřeba ---------------------------------------------------------
+# --- errors and usage ---------------------------------------------------------
 
 def _retry_after(headers) -> float | None:
     try:
@@ -146,7 +146,7 @@ def _retry_after(headers) -> float | None:
 
 
 def http_error(status, body: dict, headers) -> AgencastError | None:
-    """Třída chyby z HTTP statusu a pole `error` (scenario.md §6). 200 bez `error` = None."""
+    """Error class from HTTP status and the `error` field (scenario.md §6). 200 without `error` = None."""
     err = body.get("error")
     if status == 200 and not err:
         return None
@@ -162,7 +162,7 @@ def http_error(status, body: dict, headers) -> AgencastError | None:
     if not isinstance(code, int) or code in (408, 429) or code >= 500:
         return AgencastError("transient", text, **kw)
     if code == 402:
-        return AgencastError("budget", text + " — došel kredit nebo limit klíče", **kw)
+        return AgencastError("budget", text + " — credit exhausted or key limit reached", **kw)
     blob = json.dumps(body, ensure_ascii=False).lower()
     if code == 403 and any(w in blob for w in ("moderation", "content_policy", "refusal", "flagged")):
         return AgencastError("content", text, **kw)
@@ -170,7 +170,7 @@ def http_error(status, body: dict, headers) -> AgencastError | None:
 
 
 def usage(body: dict) -> dict:
-    """Normalizovaná spotřeba (run-record.md): chat i Jev → input/output_tokens, cost_usd."""
+    """Normalized usage (run-record.md): chat and Jev → input/output_tokens, cost_usd."""
     u = body.get("usage") if isinstance(body.get("usage"), dict) else {}
     return {"input_tokens": u.get("prompt_tokens", u.get("input_tokens")),
             "output_tokens": u.get("completion_tokens", u.get("output_tokens")),
@@ -179,28 +179,28 @@ def usage(body: dict) -> dict:
 
 def _no_cost(meta) -> AgencastError | None:
     if meta["usage"]["cost_usd"] is None:
-        return AgencastError("transient", "cena neznámá (odpověď nemá usage.cost)", final="budget")
+        return AgencastError("transient", "unknown cost (response has no usage.cost)", final="budget")
     return None
 
 
 def _choice(body: dict, meta: dict):
-    """Společné kontroly chat completions: (message, finish_reason) nebo chyba."""
+    """Shared chat completions checks: (message, finish_reason) or error."""
     choices = body.get("choices") or []
     if not choices:
-        return None, None, AgencastError("transient", "odpověď bez choices (HTTP 200)")
+        return None, None, AgencastError("transient", "response without choices (HTTP 200)")
     ch = choices[0]
     msg = ch.get("message") or {}
     fr = meta["finish_reason"] = ch.get("finish_reason")
     meta["native_finish_reason"] = ch.get("native_finish_reason")
     if msg.get("refusal"):
-        return msg, fr, AgencastError("content", f"model odmítl: {msg['refusal']}")
+        return msg, fr, AgencastError("content", f"model refused: {msg['refusal']}")
     if fr == "content_filter":
-        return msg, fr, AgencastError("content", "obsah zablokoval filtr poskytovatele (finish_reason: content_filter)")
+        return msg, fr, AgencastError("content", "content blocked by the provider filter (finish_reason: content_filter)")
     if fr == "length":
-        return msg, fr, AgencastError("config", "odpověď useknutá limitem max_tokens (finish_reason: length) — "
-                                           "zvyš max_tokens aliasu v config.yaml")
+        return msg, fr, AgencastError("config", "response truncated by the max_tokens limit (finish_reason: length) — "
+                                           "increase the alias max_tokens in config.yaml")
     if fr == "error":
-        return msg, fr, AgencastError("transient", "poskytovatel vrátil HTTP 200 s finish_reason: error")
+        return msg, fr, AgencastError("transient", "provider returned HTTP 200 with finish_reason: error")
     return msg, fr, None
 
 
@@ -213,7 +213,7 @@ def _meta(status, body):
 # --- ask ------------------------------------------------------------------------
 
 def prompt_level_suffix(schema: dict) -> str:
-    """Popis JSON pro úroveň kaskády `prompt` (agent.md: připojí se na konec system promptu)."""
+    """JSON description for the `prompt` cascade level (agent.md: appended to the system prompt)."""
     return f"\n\n{PROMPT_SCHEMA_MARKER}\n{json.dumps(schema, ensure_ascii=False)}"
 
 
@@ -234,17 +234,17 @@ def chat_body(model: str, system: str, messages: list, level: str | None, schema
 
 def submit_tool(schema: dict) -> dict:
     return {"type": "function", "function": {
-        "name": SUBMIT_TOOL, "description": "Odevzdej výsledek. Zavolej právě jednou, argumenty podle schématu.",
+        "name": SUBMIT_TOOL, "description": "Submit the result. Call exactly once, with arguments matching the schema.",
         "parameters": schema}}
 
 
 def assistant_message(msg: dict) -> dict:
-    """Zpráva modelu pro další tah — `reasoning_details` beze změny zpět (§5.5)."""
+    """Model message for the next turn — pass `reasoning_details` back unchanged (§5.5)."""
     return {k: msg[k] for k in ("role", "content", "tool_calls", "reasoning_details") if msg.get(k) is not None}
 
 
 def parse_chat(status, body, headers, level: str | None, schema: dict | None):
-    """(meta, výstup, chyba). Úspěch až po finish_reason, obsahu, schématu a ceně (§5.1 bod 8)."""
+    """(meta, output, error). Success only after checking finish_reason, content, schema and cost (§5.1 item 8)."""
     meta = _meta(status, body)
     meta["message"] = None
     err = http_error(status, body, headers)
@@ -257,16 +257,16 @@ def parse_chat(status, body, headers, level: str | None, schema: dict | None):
     if schema and level == "tool_wrapper":
         calls = [c for c in msg.get("tool_calls") or [] if (c.get("function") or {}).get("name") == SUBMIT_TOOL]
         if fr not in ("tool_calls", "stop"):
-            return meta, None, AgencastError("transient", f"neočekávaný finish_reason: {fr}")
+            return meta, None, AgencastError("transient", f"unexpected finish_reason: {fr}")
         if not calls:
-            return meta, None, AgencastError("schema", f"model nezavolal nástroj {SUBMIT_TOOL}")
+            return meta, None, AgencastError("schema", f"model did not call tool {SUBMIT_TOOL}")
         raw = calls[0]["function"].get("arguments")
     else:
         if fr != "stop":
-            return meta, None, AgencastError("transient", f"neočekávaný finish_reason: {fr}")
+            return meta, None, AgencastError("transient", f"unexpected finish_reason: {fr}")
         raw = msg.get("content")
         if not isinstance(raw, str) or not raw.strip():
-            return meta, None, AgencastError("transient", "prázdná odpověď bez odmítnutí (HTTP 200)")
+            return meta, None, AgencastError("transient", "empty response without refusal (HTTP 200)")
     value = raw
     if schema:
         text = raw.strip() if isinstance(raw, str) else raw
@@ -275,11 +275,11 @@ def parse_chat(status, body, headers, level: str | None, schema: dict | None):
         try:
             value = json.loads(text) if isinstance(text, str) else text
         except (TypeError, ValueError) as e:
-            return meta, None, AgencastError("schema", f"odpověď není JSON ({e}): {str(raw)[:200]}")
-        errors = [f"{describe_error(e)} ({'.'.join(map(str, e.absolute_path)) or 'kořen'})"
+            return meta, None, AgencastError("schema", f"response is not JSON ({e}): {str(raw)[:200]}")
+        errors = [f"{describe_error(e)} ({'.'.join(map(str, e.absolute_path)) or 'root'})"
                   for e in Draft202012Validator(schema).iter_errors(value)]
         if errors:
-            return meta, None, AgencastError("schema", "odpověď nesedí na schema: " + "; ".join(errors[:5]))
+            return meta, None, AgencastError("schema", "response does not match schema: " + "; ".join(errors[:5]))
     return meta, value, _no_cost(meta)
 
 
@@ -287,8 +287,8 @@ def parse_chat(status, body, headers, level: str | None, schema: dict | None):
 
 def task_body(model: str, system: str, messages: list, tools: list, level: str | None, schema: dict | None,
               max_tokens: int | None) -> dict:
-    """Tah kroku `task`: nástroje MCP (+ load_skill); kaskáda jako u `ask`, ale `_submit_output`
-    se nevynucuje (model mezitím volá jiné nástroje) a ukončí smyčku (scenario.md task)."""
+    """Turn of a `task` step: MCP tools (+ load_skill); cascade like `ask`, but `_submit_output`
+    is not forced (the model calls other tools in between) and ends the loop (scenario.md task)."""
     body = chat_body(model, system, messages, level if level != "tool_wrapper" else None, schema, max_tokens)
     tools = tools + ([submit_tool(schema)] if schema and level == "tool_wrapper" else [])
     if tools:
@@ -297,8 +297,8 @@ def task_body(model: str, system: str, messages: list, tools: list, level: str |
 
 
 def parse_task(status, body, headers, level: str | None, schema: dict | None):
-    """(meta, {"calls": [...]} | {"final": výstup}, chyba). Volání nástrojů = další tah;
-    `_submit_output` (tool_wrapper) nebo odpověď bez nástrojů = konec smyčky."""
+    """(meta, {"calls": [...]} | {"final": output}, error). Tool calls = next turn;
+    `_submit_output` (tool_wrapper) or a response without tools = end of loop."""
     meta, value, err = parse_chat(status, body, headers, level, schema)
     msg = meta["message"] or {}
     calls = msg.get("tool_calls") or []
@@ -312,7 +312,7 @@ def parse_task(status, body, headers, level: str | None, schema: dict | None):
 # --- jev ----------------------------------------------------------------------------
 
 def parse_jev(status, body, headers, questions: dict):
-    """Výstup `{otázka: hodnota, details: {otázka: {…}}}` (scenario.md jev)."""
+    """Output `{question: value, details: {question: {…}}}` (scenario.md jev)."""
     meta = {"http_status": status, "response_model": body.get("model"), "usage": usage(body), "answers": None}
     err = http_error(status, body, headers)
     if err:
@@ -325,7 +325,7 @@ def parse_jev(status, body, headers, questions: dict):
         v = a.get(t) if isinstance(a, dict) else None
         ok = isinstance(v, str) if t == "choice" else isinstance(v, (int, float)) and not isinstance(v, bool)
         if not ok:
-            return meta, None, AgencastError("transient", f"Jev nevrátil platnou odpověď na otázku '{q}' ({t}): {a!r}")
+            return meta, None, AgencastError("transient", f"Jev did not return a valid answer to question '{q}' ({t}): {a!r}")
         out[q] = v
         details[q] = {k: x for k, x in a.items() if k not in ("type", t)}
     meta["answers"] = dict(out)
@@ -339,7 +339,7 @@ def image_body(model: str, prompt: str, aspect_ratio: str | None) -> dict:
     body = {"model": model, "modalities": ["image", "text"], "usage": {"include": True},
             "messages": [{"role": "user", "content": prompt}]}
     if aspect_ratio:
-        # ChatRequest.image_config (https://openrouter.ai/docs/llms-full.txt, staženo 2026-09-25)
+        # ChatRequest.image_config (https://openrouter.ai/docs/llms-full.txt, downloaded 2026-09-25)
         body["image_config"] = {"aspect_ratio": aspect_ratio}
     return body
 
@@ -357,7 +357,7 @@ def images_body(model: str, prompt: str, aspect_ratio: str | None, quality: str 
 
 
 def parse_image(status, body, headers):
-    """(meta, (bajty, media_type), chyba). Bez obrázku: odmítnutí → content, jinak transient → content."""
+    """(meta, (bytes, media_type), error). No image: refusal → content, otherwise transient → content."""
     meta = _meta(status, body)
     err = http_error(status, body, headers)
     if err:
@@ -367,22 +367,22 @@ def parse_image(status, body, headers):
         return meta, None, err
     images = msg.get("images") or []
     if not images:
-        return meta, None, AgencastError("transient", "model nevrátil obrázek", final="content")
+        return meta, None, AgencastError("transient", "model returned no image", final="content")
     if fr != "stop":
-        return meta, None, AgencastError("transient", f"neočekávaný finish_reason: {fr}")
+        return meta, None, AgencastError("transient", f"unexpected finish_reason: {fr}")
     url = ((images[0] or {}).get("image_url") or {}).get("url") or ""
     head, _, b64 = url.partition(",")
     if not head.startswith("data:") or ";base64" not in head:
-        return meta, None, AgencastError("transient", f"obrázek není data URL base64: {url[:60]}")
+        return meta, None, AgencastError("transient", f"image is not a base64 data URL: {url[:60]}")
     try:
         data = base64.b64decode(b64, validate=True)
     except ValueError as e:
-        return meta, None, AgencastError("transient", f"obrázek nejde dekódovat z base64: {e}")
+        return meta, None, AgencastError("transient", f"cannot decode image from base64: {e}")
     return meta, (data, head[5:].split(";")[0]), _no_cost(meta)
 
 
 def parse_images(status, body, headers):
-    """Přečte Images API; prázdný výstup se opakuje jako transient a pak končí jako content."""
+    """Parse Images API; empty output is retried as transient, then ends as content."""
     meta = _meta(status, body)
     err = http_error(status, body, headers)
     if err:
@@ -390,24 +390,24 @@ def parse_images(status, body, headers):
         detail = json.dumps(body, ensure_ascii=False).lower()
         if status is not None and status < 500 and (refusal or any(
                 marker in detail for marker in ("moderation", "content_policy", "refusal", "flagged"))):
-            return meta, None, AgencastError("content", f"model odmítl: {refusal or 'obsah zablokoval filtr poskytovatele'}",
+            return meta, None, AgencastError("content", f"model refused: {refusal or 'content blocked by the provider filter'}",
                                               http_status=status)
         return meta, None, err
     if body.get("refusal"):
-        return meta, None, AgencastError("content", f"model odmítl: {body['refusal']}")
+        return meta, None, AgencastError("content", f"model refused: {body['refusal']}")
     images = body.get("data") or []
     if not images:
-        return meta, None, AgencastError("transient", "model nevrátil obrázek", final="content")
+        return meta, None, AgencastError("transient", "model returned no image", final="content")
     item = images[0] if isinstance(images[0], dict) else {}
     try:
         data = base64.b64decode(item.get("b64_json", ""), validate=True)
     except (ValueError, TypeError) as e:
-        return meta, None, AgencastError("transient", f"obrázek nejde dekódovat z base64: {e}")
+        return meta, None, AgencastError("transient", f"cannot decode image from base64: {e}")
     media = item.get("media_type")
     if not media:
         media = image_media_type(data)
         if not media:
-            return meta, None, AgencastError("content", "nepodporovaný formát obrázku")
+            return meta, None, AgencastError("content", "unsupported image format")
     return meta, (data, media), _no_cost(meta)
 
 
@@ -422,7 +422,7 @@ def image_media_type(data: bytes) -> str | None:
 
 
 def image_size(data: bytes) -> tuple[int | None, int | None]:
-    """Rozměry z hlavičky PNG, JPEG nebo WebP."""
+    """Dimensions from the PNG, JPEG or WebP header."""
     if data[:8] == b"\x89PNG\r\n\x1a\n":
         if len(data) < 24:
             return None, None

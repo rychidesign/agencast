@@ -19,17 +19,17 @@ REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / "examples" / "showcase" / "workflows"
 TUTORIAL = REPO / "examples" / "tutorial" / "workflows"
 FAKE_MCP = Path(__file__).resolve().parent / "fake_mcp_server.py"
-TOKEN, SECRET = "token-webhooku-123", "podpis-callbacku-456"  # webhook a server v režimu registru
+TOKEN, SECRET = "token-webhook-123", "callback-signature-456"  # webhook and server in registry mode
 
-# Testovací config: aliasy (models) se berou z examples/showcase/workflows/config.yaml — golden_config().
+# Test config: aliases (models) come from examples/showcase/workflows/config.yaml — golden_config().
 CONFIG = """\
 version: 1
 openrouter:
   api_key_env: OPENROUTER_API_KEY
   jev_model: jev-1.13
 models:
-  chytry:       { id: anthropic/claude-haiku-4.5 }
-  rychly:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
+  smart:       { id: anthropic/claude-haiku-4.5 }
+  fast:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
   gemini-image: { id: google/gemini-3.1-flash-image }
 runs_dir: ./runs
 storage:
@@ -47,28 +47,28 @@ callback:
 
 
 def example_files(pattern: str) -> list[Path]:
-    """Oba projekty; sdílená kontrola-tonu se v kombinovaném projektu testuje jednou."""
+    """Both projects; shared tone-check is tested once in the combined project."""
     return sorted({str(p.relative_to(root)): p for root in (WORKFLOWS, TUTORIAL) for p in root.glob(pattern)}.values())
 
 
 def golden_config(real: Path = WORKFLOWS / "config.yaml") -> str:
-    """CONFIG s aliasy ze skutečného config.yaml: nový alias vlastníka nerozbije zlaté testy (BUGS.md #6);
-    klíče, limity, base_url a úložiště zůstávají testovací."""
+    """CONFIG with aliases from the real config.yaml: a new owner alias does not break golden tests (BUGS.md #6);
+    keys, limits, base_url and storage keep their test values."""
     if not real.is_file():
         return CONFIG
     models = yaml.safe_load(real.read_text())["models"]
     models = yaml.safe_dump({"models": models}, allow_unicode=True, sort_keys=False)
-    return re.sub(r"models:\n(  .*\n)+", lambda _: models, CONFIG)  # zbytek doslova: testy v něm nahrazují text
+    return re.sub(r"models:\n(  .*\n)+", lambda _: models, CONFIG)  # the rest unchanged: tests replace text in it
 
 
 def model_ids(wf: Path) -> list[str]:
-    """Id modelů z config.yaml v kopii workflows/ — ty zná falešné GET /models."""
+    """Model IDs from config.yaml in the workflows/ copy — recognized by the fake GET /models."""
     return [m["id"] for m in yaml.safe_load((wf / "config.yaml").read_text())["models"].values()
             if m.get("api", "chat") == "chat"]
 
 
 def image_model_ids(wf: Path) -> list[str]:
-    """Id aliasů `api: images`, které zná falešný GET /images/models."""
+    """IDs of `api: images` aliases recognized by the fake GET /images/models."""
     return [m["id"] for m in yaml.safe_load((wf / "config.yaml").read_text())["models"].values()
             if m.get("api", "chat") == "images"]
 
@@ -88,7 +88,7 @@ def no_delays(monkeypatch):
 
 @pytest.fixture
 def wf(tmp_path) -> Path:
-    """Sloučené workflows obou příkladů s testovacím config.yaml (aliasy ze showcase)."""
+    """Merged workflows from both examples with test config.yaml (aliases from showcase)."""
     w = tmp_path / "workflows"
     for source in (WORKFLOWS, TUTORIAL):
         for d in ("agents", "skills", "scenarios"):
@@ -99,7 +99,7 @@ def wf(tmp_path) -> Path:
 
 
 def fake_mcp_yaml(path: Path, tutorial: Path) -> str:
-    """mcp.yaml, ve kterém každý stdio server nahradí falešný (tests/fake_mcp_server.py, bez sítě a Node)."""
+    """mcp.yaml with every stdio server replaced by a fake (tests/fake_mcp_server.py, no network or Node)."""
     data = yaml.safe_load(path.read_text())
     for name, server in yaml.safe_load(tutorial.read_text())["servers"].items():
         if name in data["servers"]:
@@ -119,7 +119,7 @@ def scenario(wf: Path, text: str, name: str = "test") -> Path:
 
 
 def run(path: Path, inputs=None, script=None, **kw):
-    """validate + běh s falešným poskytovatelem; vrací (Run, Fake)."""
+    """validate + run with a fake provider; returns (Run, Fake)."""
     fake = Fake(script, model_ids(path.parents[1]), image_model_ids(path.parents[1]))
     p = validate(path, transport=fake.transport())
     r = run_scenario(p, resolve_inputs(p.scenario, inputs or {}), fake=fake, **kw)
@@ -132,7 +132,7 @@ def events(r, type_=None):
 
 @pytest.fixture(autouse=True)
 def registry(tmp_path, monkeypatch) -> Path:
-    """Registr projektů v tmp — testy nikdy nesahají na ~/.config/agencast."""
+    """Project registry in tmp — tests never touch ~/.config/agencast."""
     d = tmp_path / "agencast-config"
     monkeypatch.setenv("AGENCAST_CONFIG_DIR", str(d))
     return d / "projects.yaml"
@@ -148,7 +148,7 @@ def serve(hook=None, projects=None):
 @pytest.fixture
 def registry_server(tmp_path, monkeypatch):
     monkeypatch.setenv("CALLBACK_SECRET", SECRET)
-    a, b = tmp_path / "alfa", tmp_path / "beta"
+    a, b = tmp_path / "alpha", tmp_path / "beta"
     api.new_project(a)
     api.new_project(b)
     projects = Projects(token=TOKEN, fake=lambda: Fake(None))

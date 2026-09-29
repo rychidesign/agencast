@@ -1,0 +1,49 @@
+version: 1
+name: tutorial-07-composition
+description: Comes up with a name, the tutorial-07-slogan scenario supplies a slogan and tone-check checks the tone (tutorial, part 7)
+
+inputs:
+  product:
+    type: string
+    required: true
+    description: The product we are naming
+
+outputs:
+  name:
+    type: string
+    description: The proposed name
+  slogan:
+    type: string
+    description: Slogan from the tutorial-07-slogan scenario
+  on_brand:
+    type: number
+    description: Tone rating from the tone-check scenario
+
+steps:
+  # 1. A plain ask from part 2.
+  - id: propose
+    ask:
+      agent: tutorial-namer
+      prompt: "Come up with one name for this product: {{ inputs.product }}."
+      schema:
+        name: string
+
+  # 2. Our own building block: the name input is required, tone has a default.
+  - id: slogan
+    call:
+      scenario: tutorial-07-slogan
+      inputs:
+        name: "{{ steps.propose.name }}"
+
+  # 3. A ready-made building block from workflows/: threshold has a default of 0.7.
+  - id: tone
+    call:
+      scenario: tone-check
+      inputs:
+        text: "{{ steps.propose.name }}. {{ steps.slogan.slogan }}"
+
+  - id: out
+    output:
+      name: "{{ steps.propose.name }}"
+      slogan: "{{ steps.slogan.slogan }}"
+      on_brand: "{{ steps.tone.on_brand }}"

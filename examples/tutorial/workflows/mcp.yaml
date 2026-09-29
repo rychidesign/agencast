@@ -1,15 +1,15 @@
-# mcp.yaml — registr MCP serverů. Mění jen vlastník (DESIGN §4, §5.2).
-# Vytvořeno ve Fázi 3a podle mcp.example.yaml. Tady se rozhoduje, kdo smí
-# co použít: agents (povinné), scenarios a tools (volitelné).
-# Tokeny jen jménem proměnné prostředí. Specifikace: docs/spec/config.md
+# mcp.yaml — MCP server registry. Changed by the owner only (DESIGN §4, §5.2).
+# Created in Phase 3a from mcp.example.yaml. This is where it is decided who may
+# use what: agents (required), scenarios and tools (optional).
+# Tokens only by environment variable name. Specification: docs/spec/config.md
 version: 1
 
 servers:
-  # Pracovní složka běhu: server vidí jen runs/<běh>/work, nic jiného.
-  # Verze balíčku je pevná (R7); na Modalu ho předinstalovat (D5).
+  # Run workspace: the server sees only runs/<run>/work, nothing else.
+  # The package version is pinned (R7); preinstall it on Modal (D5).
   filesystem:
-    description: Čtení a zápis v pracovní složce aktuálního běhu
+    description: Reading and writing in the workspace of the current run
     command: npx
     args: ["-y", "@modelcontextprotocol/server-filesystem@2026.8.31", "{run_dir}/work"]
-    agents: [tutorial-archivar]
+    agents: [tutorial-archivist]
     tools: [list_allowed_directories, list_directory, read_text_file, write_file]

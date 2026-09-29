@@ -1,4 +1,4 @@
-// Soubory běhu (`GET …/runs/<id>/files/<cesta>`): prohlížeč textu/JSON/PNG a strom (§2.5 Soubory).
+// Run files (`GET …/runs/<id>/files/<path>`): viewer for text/JSON/PNG and a tree (§2.5 Files).
 import { ChevronDown, Eye, File, Folder } from "lucide-react";
 import { useEffect, useState } from "react";
 import { enc, getBlob, getText, useApi } from "../api";
@@ -21,7 +21,7 @@ function prettyJson(text: string): string {
   }
 }
 
-/** Obrázek jde přes fetch s tokenem → blob URL (img src by token neposlal). */
+/** The image goes through fetch with the token → blob URL (img src would not send the token). */
 function BlobImage({ path, alt }: { path: string; alt: string }) {
   const [url, setUrl] = useState<string>();
   const [error, setError] = useState<Error>();
@@ -35,7 +35,7 @@ function BlobImage({ path, alt }: { path: string; alt: string }) {
 }
 
 export function FileViewer({ project, runId, path, name = path, preview = false }: {
-  project: string; runId: string; path: string; name?: string; /** Markdown vykreslený (návrh 13 „Náhled“). */ preview?: boolean;
+  project: string; runId: string; path: string; name?: string; /** Rendered Markdown (design 13 "Preview"). */ preview?: boolean;
 }) {
   const url = runFilePath(project, runId, path);
   const text = useApi<string>(isImage(path) ? null : url, undefined, getText);
@@ -50,7 +50,7 @@ export function FileViewer({ project, runId, path, name = path, preview = false 
   );
   const json = path.endsWith(".json");
   const ext = path.split(".").pop()!.toUpperCase();
-  return <CodeBlock title={name} text={json ? prettyJson(text.data) : text.data} foot={`${ext} · ${t("code.readOnly")}`} />;
+  return <CodeBlock title={name} text={json ? prettyJson(text.data) : text.data} foot={`${ext} · ${t("code.readOnly")}`} yaml={/\.ya?ml$/i.test(path)} />;
 }
 
 type Tree = { [name: string]: Tree | null };
@@ -84,7 +84,7 @@ function TreeNode({ tree, prefix, current }: { tree: Tree; prefix: string; curre
           </li>
         ) : (
           <li key={name}>
-            <button type="button" onClick={() => setQuery({ soubor: path })} title={path} aria-current={current === path ? "true" : undefined}
+            <button type="button" onClick={() => setQuery({ file: path })} title={path} aria-current={current === path ? "true" : undefined}
               className={`flex min-h-[34px] w-full items-center gap-2 rounded-[6px] px-2.5 text-left font-mono text-xs pointer-coarse:min-h-11 ${current === path ? "bg-surface-active text-fg" : "text-fg hover:bg-surface-hover"}`}>
               <File className="size-4 shrink-0 text-fg-muted" aria-hidden /><span className="truncate">{name}</span>
             </button>
@@ -95,14 +95,14 @@ function TreeNode({ tree, prefix, current }: { tree: Tree; prefix: string; curre
   );
 }
 
-/** Záložka Soubory (návrh 13, změřeno z .pen): strom 300 px (`surface` r10 p12, položky mono 12), prohlížeč `surface` r12 p24:
- *  cesta + u Markdownu Náhled | Kód, nápověda mono 11, pod tím blok. */
+/** Files tab (design 13, measured from .pen): tree 300 px (`surface` r10 p12, mono 12 items), `surface` r12 p24 viewer:
+ *  path + for Markdown Preview | Code, mono 11 hint, the block below. */
 export function FilesTab({ project, runId, files, current }: { project: string; runId: string; files: string[]; current?: string }) {
   const [mode, setMode] = useState<"preview" | "code">("preview");
   const shown = current && files.includes(current) ? current : undefined;
   return (
     <div className="grid grid-cols-[300px_1fr] items-start gap-6 max-lg:grid-cols-1">
-      <nav aria-label={t("run.tab.soubory")} className="max-h-[75vh] scroll-quiet overflow-auto rounded-[10px] bg-surface p-3">
+      <nav aria-label={t("run.tab.files")} className="max-h-[75vh] scroll-quiet overflow-auto rounded-[10px] bg-surface p-3">
         <TreeNode tree={buildTree(files)} prefix="" current={current} />
       </nav>
       <div className="min-w-0 space-y-6 rounded-card bg-surface p-6">
@@ -119,7 +119,7 @@ export function FilesTab({ project, runId, files, current }: { project: string; 
   );
 }
 
-/** report.html v sandboxovaném iframe bez skriptů (soubor je samostatný, CSS uvnitř). */
+/** report.html in a sandboxed iframe without scripts (the file is self-contained, CSS inside). */
 export function ReportTab({ project, runId }: { project: string; runId: string }) {
   const html = useApi<string>(runFilePath(project, runId, "report.html"), undefined, getText);
   if (html.error) return <ErrorText error={html.error} />;

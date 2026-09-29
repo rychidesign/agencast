@@ -1,12 +1,12 @@
-// Rozpracovaný scénář (§4 návrhu, model ukládání): GUI drží strom kroků lokálně a při Uložit
-// ho převede na operace jedné dávky API (api.md „Dávka“, 0.8.0) s otiskem `etag`.
-// Soubor je pravda — YAML GUI nesestavuje, posílá jen pole kroků a adresy (text vrací `render`).
+// In-progress scenario (design §4, saving model): the GUI keeps the step tree locally and on Save
+// converts it to the operations of a single API batch (api.md "Batch", 0.8.0) with the `etag` fingerprint.
+// The file is the source of truth — the GUI does not build YAML, it only sends step fields and addresses (`render` returns the text).
 import { send, type Saved } from "./api";
 import type { ErrorItem, IoSpec, Scenario, Step, StepType } from "./types";
 
 type Obj = Record<string, unknown>;
 
-/** Krok rozpracovaného stromu: `uid` drží identitu přes přejmenování (u kroků z disku = původní id). */
+/** A step of the in-progress tree: `uid` keeps identity across renames (for steps from disk = the original id). */
 export type WStep = Step & {
   uid: string;
   branches?: Record<string, WStep[]>;
@@ -26,20 +26,20 @@ export interface Draft {
   steps: WStep[];
 }
 
-/** Seznam kroků: hlavní (`parent: null`), nebo větev kontejneru (`key` jako v adrese kroku). */
+/** Step list: the main one (`parent: null`), or a container branch (`key` as in the step address). */
 export interface ListRef {
   parent: string | null;
   key: string[];
 }
 
-/** Kam vložit: za krok, nebo na začátek seznamu. */
+/** Where to insert: after a step, or at the start of the list. */
 export type Anchor = { after: string } | { list: ListRef };
 
 export const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
 const clone = <T>(v: T): T => structuredClone(v);
 export const deepEqual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-// --- převod z API a zpět -----------------------------------------------------------------
+// --- conversion from the API and back ----------------------------------------------------
 
 export function adopt(steps: Step[]): WStep[] {
   return steps.map(({ branches, cases, default: def, ...rest }) => {
@@ -61,7 +61,7 @@ export function draftOf(s: Scenario): Draft {
 const mapValues = <A, B>(o: Record<string, A>, f: (a: A) => B): Record<string, B> =>
   Object.fromEntries(Object.entries(o).map(([k, v]) => [k, f(v)]));
 
-/** Seznamy kroků uvnitř kontejneru s klíčem pro adresu. */
+/** Step lists inside a container, with a key for the address. */
 export function listsOf(s: WStep): [string[], WStep[]][] {
   const out: [string[], WStep[]][] = [];
   for (const [b, l] of Object.entries(s.branches ?? {})) out.push([["parallel", b], l]);
@@ -72,14 +72,14 @@ export function listsOf(s: WStep): [string[], WStep[]][] {
 
 export const flat = (steps: WStep[]): WStep[] => steps.flatMap((s) => [s, ...listsOf(s).flatMap(([, l]) => flat(l))]);
 
-/** Krok jako v souboru, bez vnořených seznamů (pro merge patch). */
+/** A step as in the file, without nested lists (for merge patch). */
 function rawFlat(s: WStep): Obj {
   const out: Obj = { id: s.id };
   if (s.when != null) out.when = s.when;
   return { ...out, ...s.fields };
 }
 
-/** Celý krok jako v souboru (`POST …/steps`); `keep` vybere vnořené kroky, které se posílají. */
+/** The whole step as in the file (`POST …/steps`); `keep` selects which nested steps are sent. */
 export function raw(s: WStep, keep: (s: WStep) => boolean = () => true): Obj {
   const { [s.type ?? ""]: body, ...rest } = s.fields;
   const out: Obj = { id: s.id };
@@ -93,7 +93,7 @@ export function raw(s: WStep, keep: (s: WStep) => boolean = () => true): Obj {
   return out;
 }
 
-/** Kopie kroku jen s vnořenými kroky, které projdou `keep` (co po vložení opravdu je na disku). */
+/** A copy of the step with only the nested steps that pass `keep` (what is really on disk after the insert). */
 function pruned(s: WStep, keep: (s: WStep) => boolean): WStep {
   const c: WStep = { ...s };
   const list = (l: WStep[]) => l.filter(keep).map((x) => pruned(x, keep));
@@ -103,11 +103,11 @@ function pruned(s: WStep, keep: (s: WStep) => boolean): WStep {
   return c;
 }
 
-/** Hodnota `null` merge patch zapsat neumí (smaže klíč, api.md) — takový krok jde celý přes `replace_step`. */
+/** A `null` value cannot be written by merge patch (it deletes the key, api.md) — such a step goes wholly through `replace_step`. */
 export const hasNull = (v: unknown): boolean =>
   v === null || (Array.isArray(v) ? v.some(hasNull) : isObj(v) && Object.values(v).some(hasNull));
 
-/** JSON Merge Patch (RFC 7396) z `a` na `b`; undefined = beze změny. */
+/** JSON Merge Patch (RFC 7396) from `a` to `b`; undefined = no change. */
 export function mergePatch(a: Obj, b: Obj): Obj | undefined {
   const out: Obj = {};
   for (const k of Object.keys(a)) if (!(k in b)) out[k] = null;
@@ -124,7 +124,7 @@ export function mergePatch(a: Obj, b: Obj): Obj | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
-/** Hlavička jako v souboru: prázdné mapy a `callable: false` se nepíšou (schéma prázdné `outputs` nepovolí). */
+/** Header as in the file: empty maps and `callable: false` are not written (the schema does not allow an empty `outputs`). */
 function rawHeader(h: Header): Obj {
   const out: Obj = { description: h.description };
   if (h.inputs && Object.keys(h.inputs).length) out.inputs = h.inputs;
@@ -133,14 +133,14 @@ function rawHeader(h: Header): Obj {
   return out;
 }
 
-/** Chyba, kterou GUI pozná před odesláním (`code` = klíč v cs.json `save.local.*`). */
+/** An error the GUI detects before sending (`code` = key in the locale files `save.local.*`). */
 export class LocalError extends Error {
   constructor(readonly code: string, readonly step?: string) {
     super(code);
   }
 }
 
-// --- hledání a adresy ---------------------------------------------------------------------
+// --- search and addresses -----------------------------------------------------------------
 
 interface Place {
   list: WStep[];
@@ -172,7 +172,7 @@ export function getList(steps: WStep[], ref: ListRef): WStep[] | undefined {
   return listsOf(p).find(([k]) => k.join("/") === ref.key.join("/"))?.[1];
 }
 
-/** Adresa kroku v dokumentu (api.md „Adresa kroku“). */
+/** Step address in the document (api.md "Step address"). */
 export function addressOf(steps: WStep[], uid: string): (string | number)[] {
   const p = locate(steps, uid);
   if (!p) throw new LocalError("missing", uid);
@@ -186,9 +186,9 @@ function listAddress(steps: WStep[], ref: ListRef): (string | number)[] {
 const anchorAddress = (steps: WStep[], a: Anchor) => ("after" in a ? addressOf(steps, a.after) : listAddress(steps, a.list));
 export const urlOf = (address: (string | number)[]) => address.slice(1).map((x) => encodeURIComponent(String(x))).join("/");
 
-// --- úpravy stromu (vždy nová kopie) -------------------------------------------------------
+// --- tree edits (always a new copy) --------------------------------------------------------
 
-/** Odkazy `steps.<id>.<pole>` z polí kroku (jen pro čipy „Čte z“; validuje server). */
+/** References `steps.<id>.<field>` from a step's fields (only for the "Reads from" chips; the server validates). */
 export function refsOf(s: Pick<Step, "fields" | "when">): string[] {
   const text = JSON.stringify([s.when, s.fields]);
   return [...new Set(text.match(/\bsteps\.[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)?/g) ?? [])];
@@ -227,7 +227,7 @@ export function update(steps: WStep[], uid: string, change: (s: WStep) => WStep)
   return next;
 }
 
-/** Leží seznam `ref` uvnitř kroku `uid` (nebo je jeho)? Přesun do vlastní větve nejde. */
+/** Does the `ref` list lie inside step `uid` (or is it its own)? Moving into its own branch is not possible. */
 function inside(steps: WStep[], ref: ListRef, uid: string): boolean {
   for (let parent = ref.parent; parent !== null; parent = locate(steps, parent)?.ref.parent ?? null)
     if (parent === uid) return true;
@@ -242,7 +242,7 @@ export function move(steps: WStep[], uid: string, to: Anchor): WStep[] {
   return insert(remove(steps, uid), to, step);
 }
 
-/** Posun o jedno místo ve vlastním seznamu (Alt+↑/↓); `output` zůstává poslední. */
+/** Move by one place in its own list (Alt+↑/↓); `output` stays last. */
 export function shift(steps: WStep[], uid: string, delta: -1 | 1): WStep[] {
   const next = clone(steps);
   const p = locate(next, uid);
@@ -253,7 +253,7 @@ export function shift(steps: WStep[], uid: string, delta: -1 | 1): WStep[] {
   return next;
 }
 
-/** Očíslování kroků hloubkově (jako `nn` z API) pro karty. */
+/** Depth-first numbering of steps (like `nn` from the API) for the cards. */
 export function numbered(steps: WStep[]): WStep[] {
   let n = 0;
   const walk = (l: WStep[]): WStep[] =>
@@ -267,10 +267,10 @@ export function numbered(steps: WStep[]): WStep[] {
   return walk(steps);
 }
 
-// --- nový krok ------------------------------------------------------------------------------
+// --- new step -------------------------------------------------------------------------------
 
 let seq = 0;
-/** Id nového kroku `<typ>_<n>` (§2.3, jako `step_2` v Buzz), unikátní v souboru. */
+/** Id of a new step `<type>_<n>` (§2.3, like `step_2` in Buzz), unique in the file. */
 export function newId(steps: WStep[], type: StepType): string {
   const ids = new Set(flat(steps).map((s) => s.id));
   let n = 1;
@@ -278,7 +278,7 @@ export function newId(steps: WStep[], type: StepType): string {
   return `${type}_${n}`;
 }
 
-/** Prázdné tělo typu; kontejnery začínají prázdnými větvemi (před uložením potřebují kroky). */
+/** Empty body of a type; containers start with empty branches (they need steps before saving). */
 export function blankStep(steps: WStep[], type: StepType, keep?: Pick<WStep, "id" | "when" | "uid">): WStep {
   const id = keep?.id ?? newId(steps, type);
   const s: WStep = {
@@ -293,16 +293,16 @@ export function blankStep(steps: WStep[], type: StepType, keep?: Pick<WStep, "id
   return withDerived(s);
 }
 
-// --- uložení (dávka API 0.8.0) ------------------------------------------------------------
+// --- saving (API 0.8.0 batch) -------------------------------------------------------------
 
-/** Operace dávky (api.md „Dávka“). */
+/** A batch operation (api.md "Batch"). */
 export type Op = Obj & { op: string };
 
 /**
- * Převede rozdíl `base` → `work` na operace jedné dávky. `simStart` = strom, jak je právě na disku
- * (obvykle `base`; po „Ponechat moje“ čerstvě načtený), adresy každé operace platí pro stav po předchozích.
- * Pořadí: hlavička, přejmenování (s přepisem odkazů) a pole kroků, nové větve, vložení a přesuny v pořadí
- * cílového stromu, nakonec mazání (od konce souboru). Validuje server až výsledek celé dávky.
+ * Converts the difference `base` → `work` into the operations of a single batch. `simStart` = the tree as it is currently on disk
+ * (usually `base`; freshly loaded after "Keep mine"), the address of each operation is valid for the state after the previous ones.
+ * Order: header, renames (with reference rewriting) and step fields, new branches, inserts and moves in the order of the
+ * target tree, finally deletes (from the end of the file). The server validates only the result of the whole batch.
  */
 export function planOps(base: Draft, work: Draft, simStart: WStep[]): Op[] {
   const ops: Op[] = [];
@@ -316,7 +316,7 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Op[] {
   const hp = mergePatch(rawHeader(base.header), rawHeader(work.header));
   if (hp) push({ op: "set_header", fields: hp });
 
-  // 1) přejmenování a pole existujících kroků (i when, změna typu); `null` → celý krok (replace_step)
+  // 1) renames and fields of existing steps (including when, type change); `null` → whole step (replace_step)
   for (const w of flat(work.steps)) {
     const b = findStep(base.steps, w.uid);
     if (!b || !inSim(w.uid)) continue;
@@ -331,7 +331,7 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Op[] {
     try {
       fields = retyped ? mergePatch(from, raw(w, isNew)) : mergePatch(from, rawFlat(w));
     } catch (e) {
-      // ponytail: kontejner s `null` by replace_step přepsal i s vnořenými kroky — zůstává jen YAML
+      // ponytail: a container with `null` would have replace_step overwrite it together with nested steps — stays YAML-only
       if (!(e instanceof LocalError) || listsOf(w).length) throw new LocalError("null", w.id);
       push({ op: "replace_step", address, step: raw(w) });
       sim = update(sim, w.uid, (s) => ({ ...s, type: w.type, when: w.when, fields: w.fields }));
@@ -344,7 +344,7 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Op[] {
       : update(sim, w.uid, (s) => ({ ...s, when: w.when, type: w.type, fields: w.fields }));
   }
 
-  // 2) nové větve a případy u kontejnerů, které na disku jsou (kroky do nich doplní krok 3)
+  // 2) new branches and cases on containers that exist on disk (step 3 fills steps into them)
   for (const w of flat(work.steps)) {
     const cur = findStep(sim, w.uid);
     if (!cur || !listsOf(w).length) continue;
@@ -358,9 +358,9 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Op[] {
     }
   }
 
-  // 3) vložení a přesuny: každý seznam cílového stromu odshora, krok po kroku na své místo.
-  // Kroky, které v seznamu nezůstanou (odejdou jinam nebo se smažou), se přeskakují — jinak by
-  // se kvůli nim přesouvalo všechno pod nimi (i `output`, který musí zůstat poslední).
+  // 3) inserts and moves: each list of the target tree from the top, step by step into its place.
+  // Steps that will not remain in the list (they go elsewhere or get deleted) are skipped — otherwise
+  // everything below them would be moved because of them (including `output`, which must stay last).
   const place = (list: WStep[], ref: ListRef) => {
     const members = new Set(list.map((s) => s.uid));
     for (let i = 0; i < list.length; i++) {
@@ -382,31 +382,31 @@ export function planOps(base: Draft, work: Draft, simStart: WStep[]): Op[] {
   };
   place(work.steps, { parent: null, key: [] });
 
-  // 4) mazání: nejvyšší smazané kroky (s nimi i vnořené), od konce souboru
+  // 4) deletes: the topmost deleted steps (with their nested ones), from the end of the file
   for (const s of flat(sim).filter((x) => !workIds.has(x.uid)).reverse()) {
     if (!inSim(s.uid)) continue;
     const p = locate(sim, s.uid)!;
-    if (p.ref.parent !== null && !workIds.has(p.ref.parent)) continue; // smaže se s rodičem
+    if (p.ref.parent !== null && !workIds.has(p.ref.parent)) continue; // deleted together with its parent
     push({ op: "delete_step", address: addressOf(sim, s.uid) });
     sim = remove(sim, s.uid);
   }
   return ops;
 }
 
-/** Uloží rozpracovaný stav jednou dávkou `POST …/batch` — zapíše se všechno, nebo nic. */
+/** Saves the in-progress state as a single batch `POST …/batch` — everything is written, or nothing. */
 export async function saveDraft(path: string, etag: string, base: Draft, work: Draft, simStart: WStep[]): Promise<Saved> {
   const ops = planOps(base, work, simStart);
   if (!ops.length) return { etag, errors: [] };
   return send<Saved>("POST", `${path}/batch`, { etag, ops });
 }
 
-/** Náhled bez zápisu (`POST …/render`): výsledný text a všechny chyby projektu s ním. */
+/** Preview without writing (`POST …/render`): the resulting text and all project errors with it. */
 export async function renderDraft(path: string, etag: string, base: Draft, work: Draft, simStart: WStep[]) {
   const ops = planOps(base, work, simStart);
   return send<{ text: string; tree: Step[]; errors: ErrorItem[] }>("POST", `${path}/render`, { etag, ops });
 }
 
-/** Přejmenování kroku v rozpracovaném stromu: `steps.<old>` → `steps.<new>` ve všech krocích (jako `rename_refs`). */
+/** Renames a step in the in-progress tree: `steps.<old>` → `steps.<new>` in all steps (like `rename_refs`). */
 export function renameStep(steps: WStep[], uid: string, to: string): WStep[] {
   const from = findStep(steps, uid)?.id;
   if (!from) return steps;
@@ -423,7 +423,7 @@ export function renameStep(steps: WStep[], uid: string, to: string): WStep[] {
   return walk(steps);
 }
 
-/** Kroky, které smí krok `uid` číst: nad ním ve stejném seznamu a nad každým jeho kontejnerem (i s vnitřkem). */
+/** Steps that step `uid` may read: above it in the same list and above each of its containers (including their contents). */
 export function visibleBefore(steps: WStep[], uid: string): WStep[] {
   const p = locate(steps, uid);
   if (!p) return [];
@@ -431,7 +431,7 @@ export function visibleBefore(steps: WStep[], uid: string): WStep[] {
   return p.ref.parent === null ? above : [...visibleBefore(steps, p.ref.parent), ...above];
 }
 
-/** Pole výstupu kroku (pro našeptávač `steps.<id>.`): podle typu, jen z polí souboru. */
+/** Output fields of a step (for the `steps.<id>.` autocomplete): by type, only from file fields. */
 export function outputFields(s: WStep, callOutputs?: Record<string, IoSpec> | null): string[] {
   const body = s.type ? s.fields[s.type] : undefined;
   const b = isObj(body) ? body : {};

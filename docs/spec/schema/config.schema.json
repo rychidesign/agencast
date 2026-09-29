@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/rychidesign/agencast/main/docs/spec/schema/config.schema.json",
-  "title": "config.yaml, formát v1",
-  "description": "Viz docs/spec/config.md. Pole *_env obsahují jméno proměnné prostředí, nikdy hodnotu.",
+  "title": "config.yaml, format v1",
+  "description": "See docs/spec/config.md. *_env fields contain the name of an environment variable, never its value.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -249,7 +249,7 @@
     "env": {
       "type": "string",
       "pattern": "^[A-Z][A-Z0-9_]*$",
-      "description": "Jméno proměnné prostředí"
+      "description": "Name of an environment variable"
     },
     "kebab": {
       "type": "string",

@@ -1,8 +1,0 @@
-# Skriptované odpovědi pro tutorial-07-skladani. Kroky volaných scénářů
-# mají cestu <id kroku call>/<id kroku ve volaném scénáři>.
-navrh:
-  - json: { nazev: "Ovena" }
-slogan/napis:
-  - json: { slogan: "Ovena. Zmrzlina, co roste na poli." }
-ton/kontrola:
-  - answers: { on_brand: 0.82 }

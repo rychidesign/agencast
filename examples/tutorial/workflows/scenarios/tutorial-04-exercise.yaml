@@ -1,0 +1,61 @@
+version: 1
+name: tutorial-04-exercise
+description: Concurrently comes up with a name and a slogan and photographs the product (tutorial, part 4 — exercise solution)
+
+inputs:
+  product:
+    type: string
+    required: true
+    description: The product we are naming and photographing
+
+outputs:
+  name:
+    type: string
+  slogan:
+    type: string
+  photo:
+    type: file
+    description: Product photo 1:1 (null if it failed)
+
+steps:
+  # 1. Two branches run concurrently. budget_usd on parallel = the sum of everything inside.
+  - id: concurrent
+    budget_usd: 0.15
+    parallel:
+      texts:
+        - id: propose
+          ask:
+            agent: tutorial-namer
+            prompt: "Come up with 3 names for this product: {{ inputs.product }}."
+            schema:
+              names: [string]
+        - id: slogan
+          ask:
+            agent: tutorial-slogan-writer
+            prompt: "Write a slogan for the product {{ inputs.product }} named {{ steps.propose.names[0] }}."
+            schema:
+              slogan: string
+      visual:
+        - id: describe
+          ask:
+            agent: tutorial-illustrator
+            prompt: "Product: {{ inputs.product }}"
+            schema:
+              description: string
+        - id: photo
+          budget_usd: 0.10
+          timeout: 2m
+          retry: 1
+          on_error: continue
+          default: { file: null }
+          image:
+            model: gemini-image
+            prompt: "{{ steps.describe.description }}"
+            aspect_ratio: "1:1"
+
+  # 2. Once both branches have finished.
+  - id: out
+    output:
+      name: "{{ steps.propose.names[0] }}"
+      slogan: "{{ steps.slogan.slogan }}"
+      photo: "{{ steps.photo.file }}"

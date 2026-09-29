@@ -1,0 +1,5 @@
+# Scripted responses for examples/showcase/workflows/scenarios/demo-call.yaml (steps of the called scenario have the path tone/…).
+copy:
+  json: { caption: "Morning coffee that gets you going. Want one?" }
+tone/check:
+  answers: { on_brand: 0.91 }

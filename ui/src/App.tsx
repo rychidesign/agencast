@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, CircleAlert, Eye, EyeOff, Layers2, LockKeyhole, MapPinX } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { API_BASE, saveToken, useConnection } from "./api";
-import { Shell } from "./components/Shell";
+import { LangSelect, Shell } from "./components/Shell";
 import { btn } from "./components/ui";
 import { t } from "./i18n";
 import { useLocation } from "./router";
@@ -15,7 +15,7 @@ export function App() {
   const { route } = useLocation();
   if (conn.auth !== "ok") return <TokenScreen bad={conn.auth === "bad"} />;
   const project = "project" in route ? route.project : undefined;
-  const tab = route.page === "project" ? route.tab : route.page === "scenario" ? "scenare" : route.page === "run" ? "behy" : undefined;
+  const tab = route.page === "project" ? route.tab : route.page === "scenario" ? "scenarios" : route.page === "run" ? "runs" : undefined;
   return (
     <Shell project={project} tab={tab} back={route.page === "notFound"} offline={conn.offline}>
       {route.page === "projects" && <ProjectsPage />}
@@ -27,7 +27,7 @@ export function App() {
   );
 }
 
-/** 404 adresy (návrh V3 / 14): na střed, ikona, velké „404“ mono, titul a cesta zpět. */
+/** 404 page (design V3 / 14): centered, icon, large "404" in mono, title and a way back. */
 function NotFound() {
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-col items-center justify-center gap-6 text-center">
@@ -40,8 +40,9 @@ function NotFound() {
   );
 }
 
-/** Obrazovka „Token serveru“: bez tokenu nebo po 401. Token jde jen do localStorage a hlavičky.
- *  Návrh V3 / 01 (změřeno z .pen): karta 480 px, radius 16, padding 32, mezery 22, značka nahoře, adresa serveru dole. */
+/** "Server token" screen: without a token or after a 401. The token goes only to localStorage and the header.
+ *  Design V3 / 01 (measured from .pen): card 480 px, radius 16, padding 32, gaps 22, brand mark on top, server address at the bottom.
+ *  The language switch sits next to the address, so a Czech user can switch before entering the token. */
 export function TokenScreen({ bad }: { bad: boolean }) {
   const [value, setValue] = useState("");
   const [shown, setShown] = useState(false);
@@ -78,7 +79,10 @@ export function TokenScreen({ bad }: { bad: boolean }) {
           </p>
         )}
         <button type="submit" className={btn.primary} disabled={!value.trim()}><Check className="size-4" aria-hidden />{t("common.save")}</button>
-        <p className="font-mono text-xs text-fg-muted">{API_BASE || location.origin}</p>
+        <div className="flex w-full items-center justify-between gap-4">
+          <p className="min-w-0 truncate font-mono text-xs text-fg-muted">{API_BASE || location.origin}</p>
+          <div className="shrink-0"><LangSelect /></div>
+        </div>
       </form>
     </main>
   );

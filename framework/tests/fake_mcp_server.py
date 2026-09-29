@@ -1,12 +1,12 @@
-"""Falešný MCP server pro testy (stdio, JSON-RPC po řádcích), jen stdlib.
+"""Fake MCP server for tests (stdio, line-delimited JSON-RPC), stdlib only.
 
-    python fake_mcp_server.py [... ] <kořen>
+    python fake_mcp_server.py [... ] <root>
 
-Poslední argument je povolený kořen (jako u server-filesystem). Nástroje:
+The last argument is the allowed root (as with server-filesystem). Tools:
 filesystem (list_allowed_directories, list_directory, write_file,
-read_text_file — jen uvnitř kořene), obrázek (red_pixel), chyba s isError
-(broken), pomalý nástroj (slow), hodnota proměnné prostředí (get_env) a
-schéma s $ref, const a číselným enum (complex).
+read_text_file — only inside the root), image (red_pixel), error with isError
+(broken), slow tool (slow), environment variable value (get_env) and
+schema with $ref, const and numeric enum (complex).
 """
 import base64
 import json
@@ -36,15 +36,15 @@ def obj(props, required=()):
 
 PATH = {"path": {"type": "string"}}
 TOOLS = {
-    "list_allowed_directories": ("Vrátí povolené složky.", obj({})),
-    "list_directory": ("Vypíše složku.", obj(PATH, ["path"])),
-    "write_file": ("Zapíše soubor.", obj({**PATH, "content": {"type": "string"}}, ["path", "content"])),
-    "read_text_file": ("Přečte textový soubor.", obj(PATH, ["path"])),
-    "red_pixel": ("Vrátí červený obrázek 2×2.", obj({})),
-    "broken": ("Vždy vrátí chybu (isError).", obj({})),
-    "slow": ("Čeká zadaný počet sekund.", obj({"seconds": {"type": "number"}}, ["seconds"])),
-    "get_env": ("Vrátí hodnotu proměnné prostředí.", obj({"name": {"type": "string"}}, ["name"])),
-    "complex": ("Schéma s $ref, const a číselným enum.", {
+    "list_allowed_directories": ("Return allowed directories.", obj({})),
+    "list_directory": ("List a directory.", obj(PATH, ["path"])),
+    "write_file": ("Write a file.", obj({**PATH, "content": {"type": "string"}}, ["path", "content"])),
+    "read_text_file": ("Read a text file.", obj(PATH, ["path"])),
+    "red_pixel": ("Return a red 2×2 image.", obj({})),
+    "broken": ("Always return an error (isError).", obj({})),
+    "slow": ("Wait for the given number of seconds.", obj({"seconds": {"type": "number"}}, ["seconds"])),
+    "get_env": ("Return an environment variable value.", obj({"name": {"type": "string"}}, ["name"])),
+    "complex": ("Schema with $ref, const and numeric enum.", {
         "type": "object", "$defs": {"Tag": {"type": "object", "properties": {"label": {"type": "string"}},
                                             "required": ["label"]}},
         "properties": {"tag": {"$ref": "#/$defs/Tag"}, "kind": {"const": "post"},
@@ -74,13 +74,13 @@ def call(name: str, args: dict):
         case "read_text_file":
             return text(inside(args["path"]).read_text(encoding="utf-8"))
         case "red_pixel":
-            return text("Červený obrázek:") + [{"type": "image", "mimeType": "image/png",
+            return text("Red image:") + [{"type": "image", "mimeType": "image/png",
                                                  "data": base64.b64encode(png(2, 2)).decode()}]
         case "broken":
-            raise ValueError("nástroj je rozbitý")
+            raise ValueError("tool is broken")
         case "slow":
             time.sleep(args["seconds"])
-            return text("hotovo")
+            return text("done")
         case "get_env":
             return text(os.environ.get(args["name"], ""))
         case "complex":
@@ -104,19 +104,19 @@ def tools_call(id_, params):
         return reply(id_, error={"code": -32602, "message": f"Tool {name} not found"})
     try:
         reply(id_, {"content": call(name, params.get("arguments") or {}), "isError": False})
-    except Exception as e:  # chyba nástroje = isError, ne chyba protokolu (jako skutečné servery)
+    except Exception as e:  # tool error = isError, not a protocol error (like real servers)
         reply(id_, {"content": [{"type": "text", "text": f"Error: {e}"}], "isError": True})
 
 
 def main():
-    print(f"fake-mcp: kořen {ROOT}", file=sys.stderr, flush=True)
+    print(f"fake-mcp: root {ROOT}", file=sys.stderr, flush=True)
     for line in sys.stdin:
         if not line.strip():
             continue
         req = json.loads(line)
         method, id_, params = req.get("method"), req.get("id"), req.get("params") or {}
         if id_ is None:
-            continue  # notifikace (notifications/initialized, …)
+            continue  # notification (notifications/initialized, …)
         if method == "initialize":
             reply(id_, {"protocolVersion": params.get("protocolVersion"), "capabilities": {"tools": {}},
                         "serverInfo": {"name": "fake-mcp", "version": "1.0"}})
@@ -124,7 +124,7 @@ def main():
             reply(id_, {})
         elif method == "tools/list":
             reply(id_, {"tools": [{"name": n, "description": d, "inputSchema": s} for n, (d, s) in TOOLS.items()]})
-        elif method == "tools/call":  # ve vlákně: pomalý nástroj neblokuje další volání
+        elif method == "tools/call":  # in a thread: a slow tool does not block subsequent calls
             threading.Thread(target=tools_call, args=(id_, params), daemon=True).start()
         else:
             reply(id_, error={"code": -32601, "message": f"Method not found: {method}"})

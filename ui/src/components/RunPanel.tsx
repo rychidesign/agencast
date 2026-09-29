@@ -1,5 +1,5 @@
-// Spuštění z GUI (§8.5, api.md „Spuštění z GUI“): formulář vstupů podle `inputs` scénáře,
-// dry-run nebo ostrý běh bez callbacku; před ostrým během limity z configu a dnešní útrata.
+// Run from the GUI (§8.5, api.md "Run from the GUI"): input form based on the scenario `inputs`,
+// dry run or a live run without a callback; before a live run the limits from config and today's spend.
 import { Play, TriangleAlert, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
@@ -11,7 +11,7 @@ import { FormField, ValueInput } from "./form";
 import { PanelShell } from "./StepPanel";
 import { btn, ErrorText } from "./ui";
 
-/** Hodnoty k odeslání: prázdné vynechá (platí `default`), povinné bez hodnoty = chyba u pole. */
+/** Values to submit: empty ones are omitted (`default` applies), required without a value = error on the field. */
 export function runInputs(specs: Record<string, IoSpec>, values: Record<string, unknown>) {
   const inputs: Record<string, unknown> = {};
   const missing: string[] = [];
@@ -28,10 +28,10 @@ const Warning = ({ text }: { text: string }) => (
   <p className="flex items-start gap-3 rounded-control bg-warning/10 p-3 text-xs leading-[19px] text-warning"><TriangleAlert className="size-4 shrink-0" aria-hidden />{text}</p>
 );
 
-// návrh 10 (změřeno z .pen): eyebrow 11 verzálky, karty režimu `nested` r8 p14, řádky limitů 32 px (12 px), mezery 20
+// design 10 (measured from .pen): eyebrow 11 uppercase, `nested` mode cards r8 p14, limit rows 32 px (12 px), gaps 20
 const eyebrow = "text-[11px] leading-[17px] tracking-[0.08em] text-fg-muted uppercase";
 
-/** Řádek limitu: štítek 12 `fg-secondary` vlevo, hodnota mono 12 vpravo, oddělovač pod. */
+/** Limit row: label 12 `fg-secondary` on the left, mono 12 value on the right, divider below. */
 const Limit = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="flex min-h-8 items-center justify-between gap-3 border-b border-line py-1.5 text-xs">
     <dt className="text-fg-secondary">{label}</dt>
@@ -62,7 +62,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
     try {
       const res = await send<{ run_id: string }>("POST", `/projects/${enc(project.name)}/runs`,
         { scenario, inputs: r.inputs, ...(dry ? { dry_run: true } : {}) });
-      navigate(href(project.name, "behy", res.run_id));
+      navigate(href(project.name, "runs", res.run_id));
     } catch (e) {
       setError(e as ApiError);
       setBusy(false);

@@ -1,80 +1,81 @@
-# Projekty — registr a `agencast new` (od frameworku 0.4.0)
+# Projects — registry and `agencast new` (since framework 0.4.0)
 
-Projekt = složka s `workflows/` (kořen projektu). Framework projekty na
-disku **neskenuje**; které zná, drží registr. Formáty v1 se tím nemění.
+Project = a directory with `workflows/` (the project root). The framework
+does **not scan** the disk for projects; the ones it knows are kept in the
+registry. Formats v1 do not change.
 
-## Registr
+## Registry
 
-`~/.config/agencast/projects.yaml` (složku přepíše proměnná
-`AGENCAST_CONFIG_DIR`, hlavně pro testy):
+`~/.config/agencast/projects.yaml` (the directory is overridden by the
+`AGENCAST_CONFIG_DIR` variable, mainly for tests):
 
 ```yaml
-projects_root: ~/workspace   # výchozí místo pro nové projekty z GUI
+projects_root: ~/workspace   # default location for new projects from the GUI
 projects:
-  - name: lumen              # jméno projektu v registru a v URL /projects/<name>
-    root: ~/lumen  # absolutní cesta ke kořeni (složka s workflows/)
+  - name: lumen              # project name in the registry and in the URL /projects/<name>
+    root: ~/lumen  # absolute path to the root (the directory with workflows/)
 ```
 
-| Pole | Co dělá |
+| Field | What it does |
 |---|---|
-| `projects_root` | Výchozí kořen pro `POST /projects/new`; výchozí `~/workspace`. Cesty se rozbalí a normalizují. |
-| `name` | Unikátní, tvar jako jména scénářů (malá písmena, číslice, pomlčka, začíná písmenem). Výchozí = jméno složky převedené na tento tvar (`Muj Projekt` → `muj-projekt`). |
-| `root` | Absolutní cesta ke kořeni projektu; jeden kořen je v registru nejvýš jednou. |
+| `projects_root` | Default root for `POST /projects/new`; defaults to `~/workspace`. Paths are expanded and normalized. |
+| `name` | Unique, same shape as scenario names (lowercase letters, digits, hyphen, starts with a letter). Default = the directory name converted to this shape (`My Project` → `my-project`). |
+| `root` | Absolute path to the project root; a root appears in the registry at most once. |
 
-- V registru nejsou klíče ani tajemství, jen jména a cesty.
-- Projekt, kterému chybí `workflows/config.yaml` (smazaný, odpojený
-  disk), v registru **zůstává** s příznakem `available: false`
+- The registry contains no keys or secrets, only names and paths.
+- A project that is missing `workflows/config.yaml` (deleted, disk
+  disconnected) **stays** in the registry with the flag `available: false`
   (`agencast projects list`, `GET /projects`).
-- Zápis je atomický (dočasný soubor + přejmenování); `serve` čte
-  registr při každém požadavku.
-- GUI může projekt založit přes `POST /projects/new` (viz [api.md](api.md));
-  `root` bez hodnoty míří do `<projects_root>/<name>`. Cesta `~` se rozbalí,
-  relativní cesta se vztahuje k `projects_root` a nesmí obsahovat `..` ani
-  přes symlink utéct mimo tento kořen. Absolutní cesty jsou povolené i mimo
-  domovský adresář serveru; GUI má stejná práva k souborům jako uživatel,
-  pod kterým běží `agencast serve`.
-- Nový projekt nepřepisuje existující `workflows/`; složku s projektem lze
-  místo toho zaregistrovat přes `POST /projects`, pokud obsahuje
-  `workflows/config.yaml`. Odregistrování přes `DELETE /projects/<name>`
-  nemaže žádné soubory.
+- Writes are atomic (temporary file + rename); `serve` reads the registry
+  on every request.
+- The GUI can create a project with `POST /projects/new` (see [api.md](api.md));
+  a `root` without a value points to `<projects_root>/<name>`. The path `~`
+  is expanded, a relative path is resolved against `projects_root` and must
+  not contain `..` or escape this root via a symlink. Absolute paths are
+  allowed, even outside the server's home directory; the GUI has the same
+  file permissions as the user that runs `agencast serve`.
+- A new project does not overwrite an existing `workflows/`; instead, a
+  directory with a project can be registered with `POST /projects` if it
+  contains `workflows/config.yaml`. Unregistering with
+  `DELETE /projects/<name>` does not delete any files.
 
-### Kdy se registr mění
+### When the registry changes
 
-| Příkaz | Co udělá |
+| Command | What it does |
 |---|---|
-| `agencast new project <cesta> [--name N]` | Založí projekt a hned ho zapíše. |
-| `agencast projects add <cesta> [--name N]` | Zapíše existující projekt. |
-| `agencast projects rm <jméno>` | Odebere položku; soubory projektu zůstávají. |
-| úspěšný `agencast run` | Projekt, který v registru není, přidá pod výchozím jménem a jednou vypíše na stderr `projekt <name> přidán do registru (<cesta k projects.yaml>)`. `validate` registr nemění (od 0.15.1; do té doby přidával i on — kopie projektu v testech a worktree pak zůstávaly v registru). |
+| `agencast new project <path> [--name N]` | Creates the project and registers it right away. |
+| `agencast projects add <path> [--name N]` | Registers an existing project. |
+| `agencast projects rm <name>` | Removes the entry; the project files stay. |
+| successful `agencast run` | Adds a project that is not in the registry under its default name and prints once to stderr `project <name> added to the registry (<path to projects.yaml>)`. `validate` does not change the registry (since 0.15.1; before that it added projects too — project copies in tests and worktrees then stayed in the registry). |
 
-Kolize jména → chyba `config` s nápovědou `agencast projects add <cesta>
---name <jméno>`. U `validate`/`run` se chyba registru jen vypíše na
-stderr a příkaz doběhne s vlastním výsledkem.
+Name collision → `config` error with the hint `agencast projects add <path>
+--name <name>`. For `validate`/`run`, a registry error is only printed to
+stderr and the command finishes with its own result.
 
 ## `agencast new`
 
-Šablony jsou součástí frameworku (ne kopie `workflows/`). Nic se
-nepřepisuje: existující soubor nebo `workflows/` = chyba `config`.
+Templates are part of the framework (not a copy of `workflows/`). Nothing
+is overwritten: an existing file or `workflows/` = `config` error.
 
-- **`new project <cesta>`** vytvoří
-  - `workflows/config.yaml` — OpenRouter (`OPENROUTER_API_KEY`), aliasy
-    `chytry`, `rychly`, `gemini-image`, `runs_dir: ./runs`,
-    `storage.type: local` (`./outputs`), limity běhu, `webhook` a `callback`,
-  - `workflows/agents/pisatel.md` a `workflows/scenarios/ukazka.yaml`
-    (vstup `tema` s výchozí hodnotou → `ask` → `output`); projdou
-    `validate --offline` i `run ukazka --fake`,
-  - `.env.example` (`OPENROUTER_API_KEY=`, pro `serve` `WEBHOOK_TOKEN=`,
-    `CALLBACK_SECRET=`) a `.gitignore` (`.env`, `runs/`, `outputs/`),
-    pokud tam ještě není.
-- **`new agent <jméno>`** — `workflows/agents/<jméno>.md`: `model` = první
-  alias z `config.yaml` projektu (ostatní v komentáři), `budget_usd: 0.02`,
-  tělo a `description` k doplnění.
-- **`new scenario <jméno>`** — `workflows/scenarios/<jméno>.yaml`: vstup →
-  `ask` s prvním agentem projektu (podle abecedy) → `output`. Projekt bez
-  agenta = chyba `config`.
+- **`new project <path>`** creates
+  - `workflows/config.yaml` — OpenRouter (`OPENROUTER_API_KEY`), aliases
+    `smart`, `fast`, `gemini-image`, `runs_dir: ./runs`,
+    `storage.type: local` (`./outputs`), run limits, `webhook` and `callback`,
+  - `workflows/agents/writer.md` and `workflows/scenarios/demo.yaml`
+    (input `topic` with a default value → `ask` → `output`); they pass
+    `validate --offline` and `run demo --fake`,
+  - `.env.example` (`OPENROUTER_API_KEY=`, for `serve` `WEBHOOK_TOKEN=`,
+    `CALLBACK_SECRET=`) and `.gitignore` (`.env`, `runs/`, `outputs/`),
+    if not there yet.
+- **`new agent <name>`** — `workflows/agents/<name>.md`: `model` = the first
+  alias from the project's `config.yaml` (the others in a comment),
+  `budget_usd: 0.02`, body and `description` to be filled in.
+- **`new scenario <name>`** — `workflows/scenarios/<name>.yaml`: input →
+  `ask` with the project's first agent (alphabetically) → `output`. A
+  project without an agent = `config` error.
 
-Projekt se hledá jako u ostatních příkazů (aktuální složka nahoru nebo
-`--project`). Veřejné API: `agencast.api.new_project(root, name=None)`,
-`new_agent(project_root, name)`, `new_scenario(project_root, name)` vrací
-seznam vytvořených cest; `projects()`, `add_project(path, name=None)`,
+The project is located as for the other commands (current directory
+upwards, or `--project`). Public API: `agencast.api.new_project(root, name=None)`,
+`new_agent(project_root, name)`, `new_scenario(project_root, name)` return
+a list of created paths; `projects()`, `add_project(path, name=None)`,
 `remove_project(name)`, `projects_root()`.
