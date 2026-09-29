@@ -1,7 +1,9 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { CodeView, lineContexts, Line } from "../components/CodeView";
-import { YamlEditor } from "../components/YamlEditor";
+import { CodeInput } from "../components/form";
+import { CodeBlock } from "../components/ui";
+import { lineContexts, Line } from "../components/yaml";
+import { DiffModal, YamlEditor } from "../components/YamlEditor";
 
 afterEach(cleanup);
 
@@ -9,7 +11,7 @@ function check(text: string, variables: string[], operators: string[], expressio
   const { container } = render(<Line text={text} expression={expression} />);
   expect(container.textContent).toBe(text);
   expect([...container.querySelectorAll(".text-variable")].map((el) => el.textContent)).toEqual(variables);
-  expect([...container.querySelectorAll(".text-type")].map((el) => el.textContent)).toEqual(operators);
+  expect([...container.querySelectorAll(".text-success")].map((el) => el.textContent)).toEqual(operators);
   return container;
 }
 
@@ -53,21 +55,46 @@ describe("YAML zvýraznění", () => {
 
   it("zachová šablonu v blokovém textu i na řádku s # nebo when:", () => {
     const text = "prompt: >-\n  # {{ inputs.tema }}\n  when: {{ steps.copy.caption }}";
-    const { container } = render(<CodeView text={text} file="test.yaml" />);
+    const { container } = render(<CodeBlock text={text} yaml />);
     expect([...container.querySelectorAll(".text-variable")].map((el) => el.textContent)).toEqual(["inputs.tema", "steps.copy.caption"]);
-    expect(container.querySelector(".text-type")).toBeNull();
-    expect([...container.querySelectorAll("td.whitespace-pre")].map((el) => el.textContent)).toEqual(text.split("\n"));
+    expect(container.querySelector(".text-success")).toBeNull();
+    expect([...container.querySelectorAll("td.whitespace-pre-wrap")].map((el) => el.textContent)).toEqual(text.split("\n"));
   });
 
-  it("předá stejné zvýraznění do náhledu i editoru", () => {
+  it("předá stejné zvýraznění do bloku kódu, editoru i rozdílu", () => {
     const text = "set:\n  x: steps.copy.hashtags[0] + 1";
-    const view = render(<CodeView text={text} file="test.yaml" />);
-    expect(view.container.querySelector(".text-variable")?.textContent).toBe("steps.copy.hashtags[0]");
-    expect(view.container.querySelector(".text-type")?.textContent).toBe("+");
-    view.unmount();
+    for (const ui of [<CodeBlock text={text} yaml />, <YamlEditor text={text} file="test.yaml" errors={[]} onChange={() => {}} />,
+      <DiffModal title="rozdíl" before="set:\n  x: 1" after={text} onClose={() => {}} />]) {
+      const view = render(ui);
+      expect(document.querySelector(".text-variable")?.textContent).toBe("steps.copy.hashtags[0]");
+      expect([...document.querySelectorAll(".text-success")].map((el) => el.textContent)).toContain("+");
+      view.unmount();
+    }
     const editor = render(<YamlEditor text={text} file="test.yaml" errors={[]} onChange={() => {}} />);
-    expect(editor.container.querySelector("pre .text-variable")?.textContent).toBe("steps.copy.hashtags[0]");
-    expect(editor.container.querySelector("pre .text-type")?.textContent).toBe("+");
     expect([...editor.container.querySelectorAll("pre > div")].map((el) => el.textContent)).toEqual(text.split("\n"));
+  });
+
+  it("v Markdownu zvýrazní jen frontmatter", () => {
+    const text = "---\nname: copy\ndescription: steps.a.x + 1\n---\n# Nadpis\nSlovo: {{ inputs.tema }}";
+    const { container } = render(<YamlEditor text={text} file="agents/copy.md" errors={[]} onChange={() => {}} />);
+    expect([...container.querySelectorAll("pre .text-fg")].map((el) => el.textContent)).toEqual(["name:", "description:"]);
+    expect(container.querySelector("pre .text-variable")).toBeNull();
+    expect(container.querySelector("pre .text-fg-muted")).toBeNull();
+  });
+
+  it("CodeBlock bez yaml text nebarví", () => {
+    const { container } = render(<CodeBlock text="when: steps.a.x > 1" />);
+    expect(container.querySelector(".text-variable")).toBeNull();
+  });
+
+  it("barví hodnotu výrazu i šablony v poli formuláře", () => {
+    const expr = render(<CodeInput a11y={{ id: "w" }} value="steps.a.x > 0.5" candidates={[]} onChange={() => {}} />);
+    const overlay = expr.container.querySelector("[aria-hidden] .text-variable")!.closest("[aria-hidden]")!;
+    expect(overlay.textContent).toBe("steps.a.x > 0.5");
+    expect([...overlay.querySelectorAll(".text-success")].map((el) => el.textContent)).toEqual([">"]);
+    expr.unmount();
+    const tpl = render(<CodeInput a11y={{ id: "t" }} template multiline value="a > b {{ inputs.tema }}" candidates={[]} onChange={() => {}} />);
+    expect([...tpl.container.querySelectorAll("[aria-hidden] .text-variable")].map((el) => el.textContent)).toEqual(["inputs.tema"]);
+    expect(tpl.container.querySelector("[aria-hidden] .text-success")).toBeNull();
   });
 });

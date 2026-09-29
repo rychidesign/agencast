@@ -114,13 +114,24 @@ test("C16 editor na mobilu: karta 80 px, panel kroku jako spodní sheet", async 
   await noOverflow(page);
 });
 
-test("G2 běhy jako karty, agenti jako čipy, config — bez přetečení", async ({ page, project, server }) => {
+test("G2 běhy jako karty, agenti jako karty se sheetem, config — bez přetečení", async ({ page, project, server }) => {
   await page.goto(`/#/p/${project.name}/agenti`);
-  const nav = (await page.getByRole("navigation", { name: "Agenti" }).boundingBox())!;
-  const h2 = (await page.getByRole("heading", { name: "pisatel", level: 2 }).boundingBox())!;
-  expect(nav.y + nav.height).toBeLessThanOrEqual(h2.y);
-  expect(nav.height).toBeLessThanOrEqual(56);
+  // pod 1100 px jen karty přes celou šířku; editor se otevře až klepnutím, ve spodním sheetu
+  const agent = page.getByTestId("file-card-pisatel");
+  await expect(agent).toContainText("Píše");
+  await expect(agent).toContainText(/ — \S+\/\S+/); // model: alias — id z config.yaml
+  expect((await agent.boundingBox())!.width).toBe(W - 32);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await noOverflow(page);
+  await agent.getByRole("link").tap();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toContainText("pisatel");
+  await expect(sheet.getByTestId("agent-editor-card")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Uložit" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Akce pro pisatel" })).toBeVisible();
+  await sheet.getByRole("button", { name: "Zavřít" }).tap();
+  await expect(page).toHaveURL(/\/agenti$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
   const id = await startRun(server, project.name, "ukazka", { dry_run: true });
   await waitRun(server, project.name, id, ["dry_run"]);

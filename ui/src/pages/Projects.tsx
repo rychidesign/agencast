@@ -2,7 +2,7 @@
 import { CircleSlash, FolderPlus, Plus, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send, useApi } from "../api";
-import { FormField, inputCls, Modal, submitOnEnter } from "../components/form";
+import { FormField, inputCls, Modal, slugify, slugProps, submitOnEnter } from "../components/form";
 import { headerIconBtn, PageHeader } from "../components/PageHeader";
 import { btn, CliLine, ErrorText, Menu, Skeleton, Toggle, type MenuItem } from "../components/ui";
 import { formatSpend } from "../format";
@@ -156,7 +156,7 @@ function AddProjectDialog({ list, onCancel, onDone }: {
           options={[{ key: "new", label: t("projects.modeNew") }, { key: "existing", label: t("projects.modeExisting") }]} />
         {mode === "existing" && pathField()}
         <FormField label={t("form.name")} help={t(mode === "new" ? "projects.nameHelp" : "projects.nameExistingHelp")} errors={problem ? [problem] : []} required={mode === "new"}>
-          {(a) => <input {...a} data-autofocus value={shownName} onChange={(e) => setName(e.target.value)} className={`${inputCls} font-mono text-[13px]`} autoComplete="off" />}
+          {(a) => <input {...a} data-autofocus value={shownName} {...slugProps(setName, slugify)} className={`${inputCls} font-mono text-[13px]`} autoComplete="off" />}
         </FormField>
         {mode === "new" && pathField()}
         {error && (

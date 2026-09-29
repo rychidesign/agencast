@@ -46,7 +46,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 - Stavový čip: pilulka `bg-nested`, padding 7 10, mezera 8, ikona 14 px, **text mono 12 medium v barvě stavu** (změřeno z .pen). Pulzuje jen ikona „běží“ (pulzující text by neměl kontrast).
 - Menu ⋯: `bg-menu` radius 12, padding 8, gap 4, bez rámečku se stínem `shadow-pop`; položky 40 px, radius 7, padding 10 12, 14 px; nebezpečná červeně.
 - Akordeon (Podmínka / Spolehlivost / Podrobnosti): řádek 52 px (padding 16), **šipka 16 vlevo**, titul 14 medium, hodnota mono 11 `fg-muted` vpravo (změřeno z .pen).
-- Blok kódu („CodeViewer“): `bg-surface` radius **16**, hlavička padding 14 18 s linkou (ikona 18 + název mono 13 + čip radius 6 s obrysem, mono 11), tělo `bg-nested` padding 18 0 s řádky 27 px (číslo mono 12 `fg-muted` šířka 26, mezera 14), patička padding 14 s popisem mono 11 vlevo a „Kopírovat“ s obrysem vpravo (změřeno z .pen). Jedna komponenta `CodeBlock` v `ui.tsx` pro Výstup/Prompt/Odpověď, soubory i bloky v Markdownu; `CodeView` (YAML jen ke čtení) a YAML editor mají stejnou hlavičku a řádek 27 px.
+- Blok kódu („CodeViewer“): `bg-surface` radius **16**, hlavička padding 14 18 s linkou (ikona 18 + název mono 13 + čip radius 6 s obrysem, mono 11), tělo `bg-nested` padding 18 0 s řádky 27 px (číslo mono 12 `fg-muted` šířka 26, mezera 14), patička padding 14 s popisem mono 11 vlevo a „Kopírovat“ s obrysem vpravo (změřeno z .pen). Jedna komponenta `CodeBlock` v `ui.tsx` pro Výstup/Prompt/Odpověď, soubory i bloky v Markdownu; YAML editor má stejnou hlavičku a řádek 27 px.
 - Modál („ModalShell“): radius 14, hlavička padding 24 s linkou (titul 22 semibold + zavřít 44), obsah padding 24 mezera 18, patička padding 18 24 s linkou, tlačítka vpravo **Zrušit, pak akce** (změřeno z .pen).
 - Prázdný stav: `bg-surface` radius 12 padding 28 mezera 14, ikona 28, titul 18 semibold, popis 13 (změřeno z .pen).
 
@@ -73,7 +73,7 @@ zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velik
 - Sloupec kroků do **676**, panel **440**, mezera **28** (změřeno z .pen: 1144 − 440 − 28). Konektor: výška **44**, šipka 16 px `fg-muted`; (+) kolečko **44 px** `bg-surface`, na hover `control`.
 - **Karta kroku** (pilulka, radius 999, `bg-surface`, výška **96**, padding **16**, gap **14**; změřeno z .pen): vlevo pořadové číslo mono 11 `fg-muted` (jen v editoru), pak **kolečko 40 px s plochou `type/7` a ikonou typu 16 px `text-type`**, pak texty (mezera 4): řádek typu **mono 11 `text-type` malými** „ask · navrh“, titul **15/22 semibold** `fg`, třetí řádek **mono 12 `fg-secondary`** (u `ask`/`task` agent + úryvek promptu, u `image` model · poměr, podmínka „když …“); vpravo ⋯ bez výplně. V běhu je ve třetím řádku „12,4 s · 0,0210 USD“ a vpravo stav 11 px.
 - Vybraná karta: jen plocha `bg-surface-active` (bez rámečku, změřeno z .pen). Hover `bg-surface-hover`.
-- Hlavičková karta: **obdélník** `bg-surface` radius 14 padding 22 mezera 16, ikona `AlignJustify` 24 px `text-type`, titul „HLAVIČKA“ 21 semibold, pod ním vstupy · výstupy mono 13 `fg-secondary`; vybraná má navíc vnitřní prstenec 1 px `accent`, aby ho nepřekryla přilepená hlavička stránky.
+- Hlavičková karta: **obdélník** `bg-surface` radius 14 padding 22 mezera 16, ikona `AlignJustify` 24 px `text-type`, titul „HLAVIČKA“ 21 semibold, pod ním vstupy po řádcích (`nested` r8 p 8 12 mezera 6, ikona `Variable` 16 `variable`, jméno mono 13 `fg`, vpravo „POVINNÝ“ mono 11 `fg-muted` a typ mono 11 `type`, popis vstupu v tooltipu; bez vstupů „bez vstupů“) a pod nimi výstupy mono 13 `fg-secondary`; vybraná má navíc vnitřní prstenec 1 px `accent`, aby ho nepřekryla přilepená hlavička stránky.
 - Kontejnery (parallel/switch/call): obal `bg-surface` radius **14** padding 16; záhlaví = ikona 20 bez kolečka, titul 15/22, mono 10 `fg-muted` „3 · parallel · varianty“, šipka sbalit 16 vpravo; větve `bg-nested` radius **8** padding 12 se štítkem mono 11 `text-variable`, paralelní větve vedle sebe; karty ve větvi padding 10, kolečko 30, titul 13 (změřeno z .pen).
 - Tlačítka pod sloupcem: „+ Přidat krok“ a „+ output“ sekundární 44 px vedle sebe na střed.
 - TypePicker: `bg-surface` radius 12, položky 40 px: klíčové slovo mono 13 `fg` + popis 13 `fg-muted` (u aktivní `fg-secondary` kvůli kontrastu na `surface-active`).
@@ -132,7 +132,7 @@ Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v k
   32 px a dotykovou plochou 44, sloupec přes celou šířku (mazání jen v ⋯ nebo panelu), TypePicker jako list u spodního okraje.
 - Nabídka ⋯ má destruktivní položky `text-error`; klávesové zkratky jsou tlumené vpravo a na dotykových zařízeních se skrývají.
 - Běhy do 767 px bez záhlaví: karta o dvou řádcích (stav + jméno + stav textem; run_id, kdy, trvání · cena),
-  chevron vpravo. Záložky detailu běhu s vodorovným posuvem. Agenti/Skilly pod 1100 px jako vodorovné čipy.
+  chevron vpravo. Záložky detailu běhu s vodorovným posuvem. Agenti/Skilly pod 1100 px jako karty, editor ve spodním sheetu.
 - Vlna H podle uživatele: nabídky mají stín místo rámečku, panely a mobilní modály jsou spodní sheety,
   mobilní a tabletová navigace používá FAB místo horního menu.
 - Vlna I: nabídky ⋯, proměnných, našeptávač a výběr typu se vykreslují přes portál do `body`, takže souřadnice

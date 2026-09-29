@@ -50,7 +50,7 @@ export function FileViewer({ project, runId, path, name = path, preview = false 
   );
   const json = path.endsWith(".json");
   const ext = path.split(".").pop()!.toUpperCase();
-  return <CodeBlock title={name} text={json ? prettyJson(text.data) : text.data} foot={`${ext} · ${t("code.readOnly")}`} />;
+  return <CodeBlock title={name} text={json ? prettyJson(text.data) : text.data} foot={`${ext} · ${t("code.readOnly")}`} yaml={/\.ya?ml$/i.test(path)} />;
 }
 
 type Tree = { [name: string]: Tree | null };

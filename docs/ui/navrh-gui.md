@@ -68,7 +68,7 @@ Projekty  (#/)                                   seznam z registru, sidebar jen 
 - **Responzivita obsahu** (ověřeno při 768 / 1024 / 1440 px): editor scénáře má panel vedle sloupce karet
   až od 1280 px (sidebar 232 + sloupec + panel 440); užší obrazovka ukáže spodní sheet s horními rohy 16 px,
   stínem a max. výškou `100dvh - 48px` (na tabletu šířka nejvýš 720 px), vždy se zavíracím křížkem a Esc. Agenti a Skilly mají
-  seznam vedle editoru od 1100 px, jinak nad ním. Tabulka běhů má vodorovný posuv (min. 46rem), řádek
+  seznam vedle editoru od 1100 px; užší obrazovka ukáže jen karty a editor otevře ve spodním sheetu. Tabulka běhů má vodorovný posuv (min. 46rem), řádek
   modelového aliasu v Configu se zalomí. Popovery jsou v portálu v `body`, vejdou se do viewportu s okrajem 12 px
   a podle prostoru se otevřou dolů nebo nahoru i zevnitř transformované karty či sheetu.
 - **Hlavička stránky** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4, fidelity §1): nad titulem
@@ -194,7 +194,7 @@ Pilulka (fidelity §6, změřeno z .pen): `surface`, výška 96, padding 16, mez
 | switch | `podle steps.kontrola.druh: produkt, akce, jinak` (kontejner) | — |
 | output | jména výstupů | — |
 
-**Konektor:** šipka ↓ 16 px `fg-muted`, výška 44, se při hoveru nebo fokusu promění v (+) kolečko 44 px `surface` (hover `control`); vyjmutý krok drží (+) viditelné s `ring-accent`. Pod hlavním sloupcem jsou sekundární tlačítka 44 px „+ Přidat krok“ a „+ output“ vedle sebe na střed; na konci větví zůstává trvale viditelné (+). TypePicker: `surface` r12, položky 40 px, klíčové slovo mono 13 `fg` + popis 13 `fg-muted`, aktivní `surface-active`. Sloupec do 676 px, panel 440 px, mezera 28 (změřeno z .pen). Hlavičková karta je obdélník r14 p22 s ikonou 24, titulem „HLAVIČKA“ 21 px a vstupy · výstupy mono 13; vybraná má prstenec `accent`. Menu ⋯ má „Vložit krok nad / pod“. Kontejnerové karty (`parallel`, `switch`, `call`) mají obal a hlavní kartu s rádiusem `card`. V běhu stavová ikona nahradí číslo; běžící ikona pulzuje jen při povoleném pohybu, přeskočené a nedošlé kroky mají opacity 40 %.
+**Konektor:** šipka ↓ 16 px `fg-muted`, výška 44, se při hoveru nebo fokusu promění v (+) kolečko 44 px `surface` (hover `control`); vyjmutý krok drží (+) viditelné s `ring-accent`. Pod hlavním sloupcem jsou sekundární tlačítka 44 px „+ Přidat krok“ a „+ output“ vedle sebe na střed; na konci větví zůstává trvale viditelné (+). TypePicker: `surface` r12, položky 40 px, klíčové slovo mono 13 `fg` + popis 13 `fg-muted`, aktivní `surface-active`. Sloupec do 676 px, panel 440 px, mezera 28 (změřeno z .pen). Hlavičková karta je obdélník r14 p22 s ikonou 24, titulem „HLAVIČKA“ 21 px, pod ním vstupy po řádcích (ikona `{x}` `variable`, jméno, „povinný“ a typ, jako Start v Dify) a řádek výstupů mono 13; vybraná má prstenec `accent`. Menu ⋯ má „Vložit krok nad / pod“. Kontejnerové karty (`parallel`, `switch`, `call`) mají obal a hlavní kartu s rádiusem `card`. V běhu stavová ikona nahradí číslo; běžící ikona pulzuje jen při povoleném pohybu, přeskočené a nedošlé kroky mají opacity 40 %.
 
 **Mazání kroku:** ⋯ na kartě → červené „Smazat“ se zkratkou Del vpravo, koš v hlavičce otevřeného panelu nebo klávesa Delete na fokusované kartě. Samostatný koš u karty není; ochrana mazání z §4.3 platí beze změny. Hlavičková karta se nemaže. Ostatní zkratky v nabídce jsou vpravo jako tlumená nápověda (na dotyku skryté; na Macu ⌘/⌥).
 
@@ -313,9 +313,13 @@ Agenti  ✗ 1 chyba                                       [+ Nový agent] [Ulož
 ```
 Jedna hlavička sekce (§1.1): „+ Nový agent“, Uložit a ⋯ „Akce pro copywriter“ (Přejmenovat, Smazat).
 Druhý řádek Form | Markdown a stav uložení leží v kartě editoru (`bg-surface`, radius 16, padding 24).
-Seznam agentů je vlevo (240 px od 1100 px, jinak nad editorem), položky jsou karty r14 p16 s ikonou 22 `type`,
+Seznam agentů je od 1100 px vlevo (240 px), položky jsou karty r14 p16 s ikonou 22 `type`,
 aktivní jen plochou `surface-active`, chyby jako druhý řádek mono 11 (změřeno z .pen); jméno vybraného agenta je
 nad kartou jen jako nadpis (`h2`, mono 24), bez cesty souboru a bez druhého Uložit.
+Pod 1100 px není seznam ani editor, jen mřížka karet (jako Scénáře): ikona, jméno mono, popis na 2 řádky, model mono 12
+„alias — id“ z config.yaml, meta mono 11 „N skillů · N MCP serverů · N scénářů“ (skill: „N agentů“), čip chyb. Karta otevře editor ve spodním sheetu
+(`PanelShell`): titul = jméno, Uložit a ⋯ v hlavičce sheetu, v hlavičce stránky jen „+ Nový agent“. Bez výběru v adrese
+se nic neotevře; zavření (křížek, Esc, klepnutí vedle) vrátí na karty, rozpracované změny hlídá dotaz na odchod.
 Jméno = název souboru, jen ke čtení (přejmenování = samostatná akce s kontrolou odkazů). MCP nabízí jen
 servery, kde je agent v `agents` v mcp.yaml; ostatní ztlumené s důvodem. `max_turns` je podmíněně povinné:
 při zaškrtnutém serveru dostane hvězdičku a nápověda pod polem to řekne. Skilly se vybírají checkboxy;
@@ -368,13 +372,13 @@ Stejná hlavička jako Agent, bez přepínače režimu (skill je vždy celý SKI
 | `PageHeader` | H1 + `meta` + popis, vpravo nejvýš dvě tlačítka a ⋯ (`menu`, `menuLabel`), nad titulem `back`, druhý řádek `children` | přilepená (`sticky`, výška v `--page-header-h`) v editoru a detailu běhu |
 | `AddCard` | čárkovaná karta s +; scénář → dialog Nový scénář (čtecí fáze: CLI příkaz s kopírováním); projekt → CLI příkaz s kopírováním | |
 | `IconChain` | ikona typu v kolečku 28 px `bg-nested text-type`, šipka → mezi nimi, pořadí souboru | |
-| `HeaderCard` | vstupy a výstupy scénáře | jako karta, nesmazatelná, vždy první |
+| `HeaderCard` | vstupy scénáře po řádcích (jméno, povinný, typ) a výstupy | jako karta, nesmazatelná, vždy první |
 | `Connector` + `AddButton` | šipka ↓ jako glyph mezi pilulkami (konektor 44 px), na hover/focus se promění v (+) kolečko 44 px; trvalé (+) jen na konci každého seznamu | výchozí, focus, „vložit vyjmutý krok“ |
 | `BranchColumn` / `CaseSection` | větev `parallel` vedle sebe / případ `switch` pod sebou, každý s vlastním seznamem a + | aktivní, v běhu přeskočená (ztlumená s důvodem) |
 | `TypePicker` | prostý seznam u +, na telefonu u spodního okraje; `bg-menu` bez rámečku se stínem, radius 12, padding 8, řádek 40 px; `role="listbox"` | `output` se nenabízí; po Vyjmout navíc „Vložit … sem“ |
 | `StepPanel` | plovoucí zaoblený panel (16 px, okraj 16 px od hran), eyebrow „KROK n“ + typ jako select, koš a ×; pole typu nahoře; dole tři sbalené řádky Podmínka / Spolehlivost / Podrobnosti kroku jako akordeon (`h-12 text-[15px]`, hodnota `text-fg-muted`, `divide-y divide-line`, `aria-expanded`) | čtení, editace, s chybami; v běhu záložky Prompt/Odpověď/Výstup/Volání/Soubory |
 | `Toggle` (`FormYamlToggle`) | segmentový přepínač `bg-nested` r9 s paddingem 4 px; segment 44 px r7, 13 px, aktivní `bg-accent text-ink`, neaktivní `text-fg-muted`; `role="radiogroup"`; u agentů a skillů druhý segment Markdown | syntaktická chyba YAML = návrat do Form zakázán s důvodem v `title` a `aria-description` |
-| `YamlEditor`, `CodeView`, `CodeBlock`, `Markdown` | hlavička s názvem a čipem, tělo `bg-nested` mono 13 px, čísla řádků mono 12 px, zvýraznění `surface-active`, patička s nápovědou/polohou nebo Kopírovat; Markdown používá `CodeBlock` | bez chyb, se syntaktickou chybou (Form zakázán), s významovými chybami |
+| `YamlEditor`, `CodeBlock`, `Markdown` | hlavička s názvem a čipem, tělo `bg-nested` mono 13 px, čísla řádků mono 12 px, zvýraznění `surface-active`, patička s nápovědou/polohou nebo Kopírovat; Markdown používá `CodeBlock` | bez chyb, se syntaktickou chybou (Form zakázán), s významovými chybami |
 | `Button` (`btn`) | výška 44 px, radius 10 px, padding 18 px (změřeno z .pen); `primary`: `bg-accent text-ink`; `secondary`: `bg-control text-fg`; `icon`: 44 px `bg-control`; `iconGhost`: 44 px bez výplně (⋯ na kartách); `danger`: `bg-danger text-error`; `ghost`: pouze text; `copyBtn`: Kopírovat s obrysem v bloku kódu | výchozí, hover, focus, disabled |
 | `StatusIcon`, `StatusBadge`, `StatusChip` | vždy ikona + text (u ikony text pro čtečku); čip `bg-nested`, padding 7×10 px, text mono 12 medium v barvě stavu; u „běží“ pulzuje jen ikona | `succeeded` → `success`; `failed` → `error`; `warning`, `cancelled`, `interrupted` → `warning`; `running` → `running` (pulz jen `motion-safe`); `queued`, `skipped`, `dry-run`, `none` → `neutral` |
 | `Menu` | tlačítko ⋯ (`btn.icon`) a seznam `bg-menu` bez rámečku se stínem `shadow-pop`, radius 12, padding 8, gap 4; položka 40 px, radius 7, hover `surface-active`; `MenuItem.danger` = `text-error`, `MenuItem.disabled` = důvod v `title`, `aria-disabled` | ve viewportu nejméně 12 px od okraje; šipky pro pohyb, Esc zavře a vrátí fokus |
@@ -432,7 +436,7 @@ ig-post                                                          [▷ Spustit] [
 Upravuješ přímo soubor workflows/scenarios/ig-post.yaml. Uloží se až tlačítkem Uložit.
 ✗ řádek 54 · krok foto_prompt · agent „fotograf“ neexistuje (dostupní: copywriter, photographer, publisher)
 ```
-   - Odchylka od Buzz: úzký šedý sloupec s čísly řádků, protože hlášky `validate` i chyby YAML loaderu (duplicitní klíč) odkazují na řádek. Zvýraznění syntaxe: klíče světle, komentáře ztlumeně, proměnné barvou `variable` a operátory barvou `type`.
+   - Odchylka od Buzz: úzký šedý sloupec s čísly řádků, protože hlášky `validate` i chyby YAML loaderu (duplicitní klíč) odkazují na řádek. Zvýraznění syntaxe: klíče světle, komentáře ztlumeně, proměnné barvou `variable` a operátory barvou `success`. Stejně se barví každý YAML v GUI: editor, rozdíl při konfliktu, soubory `.yaml` v běhu, bloky ```` ```yaml ```` v Markdownu a pole výrazů a šablon v panelu kroku; u `.md` (agent, skill) jen frontmatter.
    - Nápověda pod blokem jmenuje soubor (připomínka „soubor je pravda“), ne obecnou větu.
    - **Chyby:** při psaní (500 ms) `POST validate`; chybný řádek má podklad `error/10` a vlevo svislou značku `error`, pod blokem seznam chyb (řádek · krok · hláška), klik skočí na řádek. Syntaktická chyba YAML se ukáže hned s řádkem a blokuje návrat do Form (přepínač ztlumený, tooltip „Oprav YAML: řádek 12“); významové chyby (neznámý agent) návrat neblokují, zobrazí se na kartách. Uložit je zakázané, dokud je jakákoli chyba.
    - Přepnutí Form → YAML položí kurzor na řádek `- id:` vybraného kroku a na chvíli podbarví jeho řádky; hlavičková karta vede na začátek souboru. YAML → Form: znovu vybere krok, ve kterém stál kurzor.

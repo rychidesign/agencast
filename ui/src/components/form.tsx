@@ -1,10 +1,11 @@
 // Editační prvky (§3 inventář): pole se štítkem, výraz/šablona s našeptávačem, JSON, modál rozhodnutí.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Braces, Check, CircleX, Plus, X } from "lucide-react";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { btn, trapTab, usePopoverPosition } from "./ui";
+import { Expression } from "./yaml";
 
 const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:8px_8px] [&:is(select)]:bg-[position:calc(100%-25px)_55%,calc(100%-17px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-10";
 /** Pole (návrh `V3 / TextInput`, změřeno z .pen): 44 px, `nested`, r6, v klidu bez rámečku; fokus ring 2 `accent`
@@ -79,7 +80,15 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   const menu = useRef<HTMLDivElement>(null);
   const suggestionsRef = useRef<HTMLUListElement>(null);
   const variableRef = useRef<HTMLButtonElement>(null);
+  const colored = useRef<HTMLDivElement>(null);
   const [token, setToken] = useState<string | null>(null);
+  // zvýrazněný text leží přes průhledný text pole a posouvá se s ním
+  const syncScroll = () => {
+    if (!colored.current || !ref.current) return;
+    colored.current.scrollLeft = ref.current.scrollLeft;
+    colored.current.scrollTop = ref.current.scrollTop;
+  };
+  useLayoutEffect(syncScroll, [value]);
   // kurzor za doplněnou hodnotu hned po jejím vykreslení (rAF by předběhlo další úhoz)
   useLayoutEffect(() => {
     if (caretAt.current == null) return;
@@ -186,9 +195,9 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     ref, value, placeholder, ...a11y,
     role: "combobox", "aria-expanded": open, "aria-controls": listId, "aria-autocomplete": "list" as const,
     "aria-activedescendant": open ? `${listId}-${active}` : undefined,
-    className: `${inputCls} ${mono}`, spellCheck: false,
-    onKeyDown: onKey,
-    onSelect: (e: React.SyntheticEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
+    spellCheck: false,
+    onKeyDown: onKey, onScroll: syncScroll,
+    onSelect: (e: React.SyntheticEvent<HTMLInputElement & HTMLTextAreaElement>) => (rememberSelection(e.currentTarget), syncScroll()),
     onKeyUp: (e: React.KeyboardEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
     onClick: (e: React.MouseEvent<HTMLInputElement & HTMLTextAreaElement>) => rememberSelection(e.currentTarget),
     onBlur: (e: React.FocusEvent<HTMLInputElement & HTMLTextAreaElement>) => {
@@ -256,7 +265,10 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   if (!multiline) return (
     // `V3 / VariableInput`: jeden box 44 px, `{}` uvnitř vpravo bez výplně a bez rámečku
     <div ref={root} className="relative">
-      <input {...props} className={`${inputCls} ${mono} pr-12`} />
+      <input {...props} className={`${inputCls.replace("text-fg ", clearText)} ${mono} pr-12`} />
+      <div aria-hidden className={`pointer-events-none absolute inset-0 flex items-center px-3 py-2 pr-12 text-sm text-fg ${mono} pointer-coarse:text-base`}>
+        <div ref={colored} className="min-w-0 flex-1 overflow-hidden whitespace-pre"><Expression text={value} template={template} /></div>
+      </div>
       <div className="absolute top-0 right-0">{variableButton}</div>
       {variableMenu && createPortal(variableMenu, document.body)}
       {suggestions && createPortal(suggestions, document.body)}
@@ -270,7 +282,10 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
         status={template && value.includes("{{") ? (opened === closed ? ["ok", t("form.template.ok")] : ["bad", t("form.template.bad")]) : undefined}
         shortcut={candidates.length ? t("form.variables.shortcut") : undefined}>
         <div className="relative">
-          <textarea {...props} className={codeArea} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
+          <textarea {...props} className={`${codeArea.replace("text-fg ", clearText)} [scrollbar-gutter:stable]`} rows={Math.min(12, Math.max(3, value.split("\n").length))} />
+          <div ref={colored} aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden p-4 ${mono} leading-5 break-words whitespace-pre-wrap text-fg pointer-coarse:text-base [scrollbar-gutter:stable]`}>
+            <Expression text={value} template={template} />{" "}
+          </div>
           {suggestions && createPortal(suggestions, document.body)}
         </div>
       </CodeBox>
@@ -278,6 +293,9 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     </div>
   );
 }
+
+/** Text pole pod zvýrazněním `CodeInput`: vidět je jen kurzor a výběr. */
+const clearText = "text-transparent caret-fg selection:bg-accent/30 selection:text-transparent ";
 
 /** Editor uvnitř `CodeBox`: bez vlastní výplně a prstence (fokus nese box). */
 const codeArea = `block w-full resize-y bg-transparent p-4 ${mono} leading-5 text-fg placeholder:text-fg-muted focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 pointer-coarse:text-base`;
@@ -426,11 +444,38 @@ export const submitOnEnter = (submit: () => unknown) => (e: KeyboardEvent) => {
   }
 };
 
-/** Dialog se jménem (nový scénář / agent / skill): slug s kontrolou na místě; `models` = výběr aliasu (agent). */
+/** Jméno podle pravidla už při psaní: bez diakritiky, malými písmeny, ostatní znaky jako `sep` (víc za sebou jako jeden),
+ *  na začátku jen písmeno (`letterFirst`), např. „Kontrola tónu“ → `kontrola-tonu`. */
+export function slugify(text: string, sep: "-" | "_" = "-", letterFirst = true) {
+  const s = text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, sep);
+  return s.replace(letterFirst ? /^[^a-z]+/ : /^[^a-z0-9]+/, "");
+}
+
+/** `onChange` pole se jménem: text rovnou upraví `normalize` a kurzor nechá na místě; během skládání znaku
+ *  (mrtvá klávesa, IME) čeká na jeho konec. */
+export function slugProps(set: (v: string) => void, normalize: (s: string) => string) {
+  const apply = (el: HTMLInputElement) => {
+    const next = normalize(el.value);
+    if (next !== el.value) {
+      const at = normalize(el.value.slice(0, el.selectionStart ?? el.value.length)).length;
+      el.value = next; // DOM už má novou hodnotu, React tak kurzor nepřesune na konec
+      el.setSelectionRange(at, at);
+    }
+    set(next);
+  };
+  return {
+    onChange: (e: ChangeEvent<HTMLInputElement>) => ((e.nativeEvent as InputEvent).isComposing ? set(e.target.value) : apply(e.target)),
+    onCompositionEnd: (e: React.CompositionEvent<HTMLInputElement>) => apply(e.currentTarget),
+  };
+}
+
+/** Dialog se jménem (nový scénář / agent / skill): slug s kontrolou na místě; `models` = výběr aliasu (agent);
+ *  `normalize` upraví jméno při psaní (`null` = nechat, jak je napsané). */
 export function NameDialog({ title, taken, onSubmit, onCancel, withDescription = false, models, pattern = /^[a-z][a-z0-9-]*$/,
-  initialName = "", submitLabel = t("common.create") }: {
+  normalize = slugify, initialName = "", submitLabel = t("common.create") }: {
   title: string; taken: string[]; onSubmit: (name: string, description: string, model: string) => Promise<void> | void;
-  onCancel: () => void; withDescription?: boolean; models?: string[]; pattern?: RegExp; initialName?: string; submitLabel?: string;
+  onCancel: () => void; withDescription?: boolean; models?: string[]; pattern?: RegExp; normalize?: ((s: string) => string) | null;
+  initialName?: string; submitLabel?: string;
 }) {
   const [name, setName] = useState(initialName);
   const [desc, setDesc] = useState("");
@@ -454,7 +499,8 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
       actions={[{ label: busy ? t("common.saving") : submitLabel, primary: true, onSelect: submit }]}>
       <form onSubmit={(e) => (e.preventDefault(), submit())} onKeyDown={submitOnEnter(submit)} className="space-y-3">
         <FormField label={t("form.name")} help={t("form.slugHelp")} errors={problem ? [problem] : []} required>
-          {(a) => <input {...a} data-autofocus value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} ${mono}`} autoComplete="off" />}
+          {(a) => <input {...a} data-autofocus value={name} {...(normalize ? slugProps(setName, normalize) : { onChange: (e: ChangeEvent<HTMLInputElement>) => setName(e.target.value) })}
+            className={`${inputCls} ${mono}`} autoComplete="off" />}
         </FormField>
         {withDescription && (
           <FormField label={t("agent.description")}>

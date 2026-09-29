@@ -26,7 +26,7 @@ describe("Config: alias modelu", () => {
     localStorage.clear();
   });
 
-  it("nový alias jde přejmenovat s pomlčkou; neplatné jméno se vrátí a má pravidlo v title", async () => {
+  it("nový alias se při psaní upraví na pomlčky; neplatné jméno se vrátí a má pravidlo v title", async () => {
     const calls: { method?: string; url: string; body?: unknown }[] = [];
     vi.stubGlobal("fetch", vi.fn((u: string, init?: RequestInit) => {
       const url = u.replace(/^https?:\/\/[^/]+/, "");
@@ -48,14 +48,16 @@ describe("Config: alias modelu", () => {
     const alias = screen.getByRole("textbox", { name: "Alias" }) as HTMLInputElement;
     expect(alias.value).toBe("model-1");
 
-    fireEvent.change(alias, { target: { value: "GPT image" } });
+    fireEvent.change(alias, { target: { value: "1 " } }); // bez písmene na začátku zbude prázdné jméno
+    expect(alias.value).toBe("");
     expect(alias.getAttribute("aria-invalid")).toBe("true");
     expect(alias.title).toContain("malá písmena");
     fireEvent.blur(alias);
     expect(alias.value).toBe("model-1");
     expect(alias.title).toBe("");
 
-    fireEvent.change(alias, { target: { value: "gpt-image" } });
+    fireEvent.change(alias, { target: { value: "GPT image" } });
+    expect(alias.value).toBe("gpt-image");
     expect(alias.getAttribute("aria-invalid")).toBeNull();
     fireEvent.blur(alias);
     const renamed = screen.getByRole("textbox", { name: "Alias" }) as HTMLInputElement;

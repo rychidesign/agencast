@@ -7,6 +7,7 @@ import { createContext, useCallback, useEffect, useId, useLayoutEffect, useRef, 
 import { createPortal } from "react-dom";
 import { t } from "../i18n";
 import type { ErrorItem } from "../types";
+import { highlight } from "./yaml";
 
 // Rozměry změřené z .pen (obrazovky 1440): tlačítko 44 px, padding 0 18, radius 10; ikonové 44 × 44.
 export const btn = {
@@ -246,19 +247,21 @@ export function CodeHead({ icon: Icon = Braces, name, chip }: { icon?: LucideIco
 }
 
 /** Blok kódu („CodeViewer“, návrh 12): `surface` r16, hlavička, tělo `nested` s čísly řádků (řádek 27 px), patička
- *  s popisem vlevo a Kopírovat vpravo. Dlouhé řádky se zalamují (výstupy modelu jsou próza). */
-export function CodeBlock({ text: source, title, file, language, foot }: {
+ *  s popisem vlevo a Kopírovat vpravo. Dlouhé řádky se zalamují (výstupy modelu jsou próza); `yaml` zvýrazní syntaxi. */
+export function CodeBlock({ text: source, title, file, language, foot, yaml = false }: {
   text: string; title?: string; file?: string; /** Text čipu v hlavičce (výchozí „Pouze čtení“). */ language?: string; foot?: string;
+  yaml?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const name = title ?? file ?? t("code.output");
   const lines = source.replace(/\n$/, "").split("\n");
+  const colored = yaml ? highlight(lines) : lines.map((line) => line || " ");
   return (
     <section className="overflow-hidden rounded-[var(--radius-panel)] bg-surface">
       <CodeHead name={name} chip={language ?? t("code.readOnly")} />
       <div className="scroll-thin max-h-[60vh] overflow-auto bg-nested py-[18px] font-mono text-[13px] leading-[19px] focus-visible:ring-2 focus-visible:ring-accent" role="region" aria-label={name} tabIndex={0}>
-        <table className="w-full border-collapse"><tbody>{lines.map((line, i) => (
-          <tr key={i}><td className="w-[58px] py-1 pr-3.5 pl-4 text-right align-top font-mono text-xs leading-[19px] text-fg-muted select-none">{i + 1}</td><td className="py-1 pr-4 whitespace-pre-wrap break-words text-fg-secondary">{line || " "}</td></tr>
+        <table className="w-full border-collapse"><tbody>{colored.map((line, i) => (
+          <tr key={i}><td className="w-[58px] py-1 pr-3.5 pl-4 text-right align-top font-mono text-xs leading-[19px] text-fg-muted select-none">{i + 1}</td><td className="py-1 pr-4 whitespace-pre-wrap break-words text-fg-secondary">{line}</td></tr>
         ))}</tbody></table>
       </div>
       <div className="flex items-center justify-between gap-3 p-3.5">

@@ -7,9 +7,10 @@ import { t, tOr } from "../i18n";
 import { href } from "../router";
 import { readBy, readsFrom } from "../steps";
 import type { ErrorItem, IoSpec, Project, StepType } from "../types";
-import { AddPill, CodeInput, FormField, inputCls, JsonInput } from "./form";
+import { AddPill, CodeInput, FormField, inputCls, JsonInput, slugify, slugProps } from "./form";
 import { PICKER_GROUPS } from "./TypePicker";
 import { btn, Collapsible, ErrorList, SheetContext, useDialog } from "./ui";
+import { Expression } from "./yaml";
 
 type Obj = Record<string, unknown>;
 
@@ -128,7 +129,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
         <TypeForm ctx={ctx} />
         <div className="divide-y divide-line border-t border-line">
           {type !== "output" && (
-            <Collapsible title={t("panel.condition")} value={<span className="font-mono">{step.when || t("panel.always")}</span>}>
+            <Collapsible title={t("panel.condition")} value={<span className="font-mono">{step.when ? <Expression text={step.when} /> : t("panel.always")}</span>}>
               <FormField label={t("panel.when")} help={t("panel.conditionHelp")} errors={fieldErrors("when")}>
                 {(a) => <CodeInput a11y={a} value={step.when ?? ""} candidates={candidates} placeholder="steps.kontrola.on_brand < 0.7"
                   onChange={(v) => edit.change((s) => ({ ...s, when: v || null }), "when")} />}
@@ -210,7 +211,7 @@ function IdField({ step, steps, errors, onRename }: {
   return (
     <FormField label="id" errors={[...(problem ? [problem] : []), ...errors]}>
       {(a) => (
-        <input {...a} className={`${inputCls} font-mono`} value={value} onChange={(e) => setValue(e.target.value)}
+        <input {...a} className={`${inputCls} font-mono`} value={value} {...slugProps(setValue, snake)}
           onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())} />
       )}
     </FormField>
@@ -468,17 +469,18 @@ function MapRows<V>({ ctx, k, label, addLabel, prefix, blank, row }: {
 
 /** Identifikátor ve výrazech (`inputs.tema`, `steps.x.pole`): jako Python jméno bez pomlčky. */
 export const IDENT = /^[a-z][a-z0-9_]*$/;
+const snake = (s: string) => slugify(s, "_");
 
 /** Jméno klíče (otázka, hodnota, vstup; alias modelu s `pattern` kebab): zapíše se při opuštění pole,
  *  když je platné a volné; neplatné se vrátí na původní a pravidlo je v `title` (`hint`). */
-export function KeyInput({ name, taken, onRename, label, pattern = IDENT, hint }: {
-  name: string; taken: string[]; onRename: (to: string) => void; label?: string; pattern?: RegExp; hint?: string;
+export function KeyInput({ name, taken, onRename, label, pattern = IDENT, normalize = snake, hint }: {
+  name: string; taken: string[]; onRename: (to: string) => void; label?: string; pattern?: RegExp; normalize?: (s: string) => string; hint?: string;
 }) {
   const [value, setValue] = useState(name);
   const bad = value !== name && (!pattern.test(value) || taken.includes(value));
   const commit = () => (bad || value === name ? setValue(name) : onRename(value));
   return (
-    <input aria-label={label ?? t("panel.keyName")} aria-invalid={bad || undefined} value={value} onChange={(e) => setValue(e.target.value)}
+    <input aria-label={label ?? t("panel.keyName")} aria-invalid={bad || undefined} value={value} {...slugProps(setValue, normalize)}
       onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())}
       title={bad ? (taken.includes(value) ? t("form.taken", { name: value }) : hint ?? t("panel.keyRule")) : undefined}
       className={`${inputCls.replace("w-full", "min-w-0 flex-1")} font-mono`} />

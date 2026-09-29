@@ -86,6 +86,24 @@ describe("StepCard", () => {
   });
 });
 
+describe("HeaderCard", () => {
+  it("ukáže vstupy po řádcích s povinností a typem, pod nimi výstupy", () => {
+    const { container } = render(<HeaderCard selected={false} onSelect={() => {}}
+      inputs={{ web_name: { type: "string", required: true, description: "Jméno webu" }, keywords: { default: [] } }}
+      outputs={{ report: { type: "string" } }} />);
+    const rows = [...container.querySelectorAll("span.bg-nested")];
+    expect(rows.map((r) => r.textContent)).toEqual(["web_namepovinnýstring", "keywords"]);
+    expect(rows[0].getAttribute("title")).toBe("Jméno webu");
+    expect(screen.getByText("1 výstup: report")).toBeTruthy();
+  });
+
+  it("bez vstupů a výstupů to řekne", () => {
+    render(<HeaderCard inputs={null} outputs={null} selected={false} onSelect={() => {}} />);
+    expect(screen.getByText("bez vstupů")).toBeTruthy();
+    expect(screen.getByText("bez výstupů")).toBeTruthy();
+  });
+});
+
 describe("IconChain", () => {
   const types: StepType[] = ["ask", "jev", "fail", "ask", "jev", "fail", "image", "output"];
   it("nejvýš 5 ikon, pak +N", () => {

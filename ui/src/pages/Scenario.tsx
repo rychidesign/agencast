@@ -5,8 +5,8 @@
 import { CodeXml, Play, Save } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
-import { stepLines } from "../components/CodeView";
-import { Modal, NameDialog, type ModalAction } from "../components/form";
+import { stepLines } from "../components/yaml";
+import { Modal, NameDialog, slugify, type ModalAction } from "../components/form";
 import { RunPanel } from "../components/RunPanel";
 import { Connector, HeaderCard, onColumnKey, StepList, uidOf, type EditCtx, type ListCtx } from "../components/StepCards";
 import { HeaderPanel, StepPanel } from "../components/StepPanel";
@@ -517,6 +517,7 @@ function PendingModal({ pending, close, actions }: {
       return (
         <NameDialog title={t(s.type === "parallel" ? "edit.addBranch" : "edit.addCase")} taken={taken} onCancel={close}
           pattern={s.type === "parallel" ? /^[a-z0-9_]+$/ : /^[^\s/][^/]*$/}
+          normalize={s.type === "parallel" ? (x) => slugify(x, "_", false) : null /* případ = hodnota ke shodě, nechat */}
           onSubmit={(name) => (close(), actions.branch(s, name))} />
       );
     }

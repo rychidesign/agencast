@@ -1,6 +1,6 @@
 // Sloupec karet kroků (§2.3, §2.4) — stejný pro editor a prohlížeč běhu (§2.5).
 // Editor přidává `ctx.edit`: konektory s +, nabídku ⋯ a klávesy (§4.1–4.3, §6).
-import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Plus, TriangleAlert } from "lucide-react";
+import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Plus, TriangleAlert, Variable } from "lucide-react";
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { Anchor, ListRef } from "../edit";
 import { formatCost, formatDuration } from "../format";
@@ -344,16 +344,13 @@ export function StepList({ steps, ctx, list = MAIN }: { steps: Step[]; ctx: List
   );
 }
 
-/** Hlavičková karta: vstupy a výstupy scénáře, vždy první, ikona místo čísla. */
+/** Hlavičková karta: vstupy scénáře po řádcích (jméno, povinný, typ), pod nimi výstupy; vždy první, ikona místo čísla. */
 export function HeaderCard({ inputs, outputs, selected, onSelect }: {
   inputs: Record<string, IoSpec> | null; outputs: Record<string, IoSpec> | null; selected: boolean; onSelect: () => void;
 }) {
-  const i = Object.keys(inputs ?? {});
+  const i = Object.entries(inputs ?? {});
   const o = Object.keys(outputs ?? {});
-  const value = t("step.header.value", {
-    inputs: i.length ? `${t("count.inputs", { n: i.length })}: ${i.join(", ")}` : t("step.header.noInputs"),
-    outputs: o.length ? `${t("count.outputs", { n: o.length })}: ${o.join(", ")}` : t("step.header.noOutputs"),
-  });
+  const value = o.length ? `${t("count.outputs", { n: o.length })}: ${o.join(", ")}` : t("step.header.noOutputs");
   return (
     // návrh 05 (změřeno z .pen): obdélníková karta r14 p22 gap 16, ikona 24, titul 21 semibold, pod ním vstupy/výstupy mono 13
     <button type="button" data-step-card="" aria-pressed={selected} onClick={(e) => (onSelect(), !selected && focusPanel(e))}
@@ -362,6 +359,18 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
         <AlignJustify className="size-6 shrink-0 text-type" strokeWidth={1.5} aria-hidden />
         <span className="text-[21px] leading-[30px] font-semibold text-fg uppercase">{t("step.header")}</span>
       </span>
+      {i.length ? (
+        <span className="flex flex-col gap-1.5">
+          {i.map(([name, spec]) => (
+            <span key={name} className="flex items-center gap-2 rounded-[8px] bg-nested px-3 py-2 font-mono text-[13px] leading-[19px]" title={spec.description}>
+              <Variable className="size-4 shrink-0 text-variable" aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-fg">{name}</span>
+              {spec.required && <span className="text-[11px] text-fg-muted uppercase">{t("step.header.required")}</span>}
+              {spec.type && <span className="text-[11px] text-type">{spec.type}</span>}
+            </span>
+          ))}
+        </span>
+      ) : <span className="font-mono text-[13px] leading-[19px] text-fg-secondary">{t("step.header.noInputs")}</span>}
       <span className="block truncate font-mono text-[13px] leading-[19px] text-fg-secondary" title={value}>{value}</span>
     </button>
   );

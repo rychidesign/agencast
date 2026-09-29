@@ -45,7 +45,7 @@ Playwright: `localStorage.agencast.token === "test-token"`; `Authorization: Bear
 
 ### C2 Založení projektu z GUI **[hotovo]**
 Cíl: nový projekt bez terminálu. Stav: registr jen `demo`.
-1. `#/` → klik „Přidat projekt“ (tlačítko v hlavičce; čárkovaná karta jen u prázdného seznamu) → dialog (`role=dialog`) „Nový projekt“: `textbox "Jméno"` (slug, chyba „Jen malá písmena, číslice a pomlčka.“ / „„demo“ už existuje.“), `textbox "Cesta"`, `button "Vytvořit"`.
+1. `#/` → klik „Přidat projekt“ (tlačítko v hlavičce; čárkovaná karta jen u prázdného seznamu) → dialog (`role=dialog`) „Nový projekt“: `textbox "Jméno"` (slug; napsané jméno se upraví už při psaní — `Můj projekt` → `muj-projekt`; chyba „„demo“ už existuje.“), `textbox "Cesta"`, `button "Vytvořit"`.
 2. `muj-web` + `$TMP/muj-web`, Vytvořit → `#/p/muj-web`, `h1 "Scénáře"`, jméno „muj-web“ a `nav "Části projektu"` v sidebaru (cesta projektu na stránce není, G5), karta scénáře `ukazka` s podtitulem „Napíše krátký text na zadané téma“ a meta „2 kroky · pisatel“ (bez počtu vstupů/výstupů a bez „ukazka.yaml“, G7).
 3. Disk: `muj-web/workflows/config.yaml`, `agents/pisatel.md`, `scenarios/ukazka.yaml`, `.env.example`, `.gitignore`; `cfg/projects.yaml` má `name: muj-web, root: …`.
 4. Zpět `#/` → dvě karty. Kolize jména/cesty → chyba API v dialogu (`role=alert`), nic nevzniklo.
@@ -53,7 +53,7 @@ Cíl: nový projekt bez terminálu. Stav: registr jen `demo`.
 ### C3 Nový agent **[hotovo; dialog nemá popis ani model, ač API 0.8.0 umí — šablona zapíše `description: TODO`]**
 Cíl: agent s vlastními instrukcemi. Stav: `demo`.
 1. `#/p/demo/agenti` → jedna hlavička sekce: `h1 "Agenti"`, `button "Nový agent"` (sekundární), `button "Uložit"` a ⋯ `button "Akce pro pisatel"`. Vlevo `nav "Agenti"` se seznamem 200 px (položky 48 px, ikona, aktivní ring), vpravo `h2 "pisatel"` nad kartou editoru (`bg-surface`, radius 16, padding 24). První řádek karty je `radiogroup "Zobrazení"` a stav uložení; uvnitř karty není další název ani Uložit.
-2. Nový agent → dialog „Nový agent“, `textbox "Jméno"` (autofocus); `Pisatel` → „Jen malá písmena…“; `pisatel` → „„pisatel“ už existuje.“; `korektor` → Vytvořit.
+2. Nový agent → dialog „Nový agent“, `textbox "Jméno"` (autofocus); `Písatel` se při psaní upraví na `pisatel` → „„pisatel“ už existuje.“; `korektor` → Vytvořit.
 3. → `#/p/demo/agenti/korektor`, `h2 "korektor"`, karta s `radiogroup "Zobrazení"` (Form | Markdown) a `testid save-status` „Uloženo ✓“; pole `textbox "popis"` (obsahuje `TODO`), `combobox "model"` = `chytry`, skilly a MCP servery jako seznamy checkboxů v `bg-nested`, limity ve třech sloupcích, `textbox "Instrukce (system prompt)"` (nejméně 12 řádků, patička „Podporuje Markdown“), „Používá: –“. Disk: `agents/korektor.md` s frontmatter `model: chytry`, `budget_usd: 0.02`.
 4. Popis „Kontroluje pravopis“, instrukce „Opravuj jen chyby.“ → „Neuloženo“ → Ctrl+S → „Uloženo ✓ HH:MM“; disk: `description:` změněn, tělo nahrazeno, ostatní řádky beze změny.
 5. Přepnout `radio "Markdown"` → `textbox "agents/korektor.md"` s celým souborem včetně `---`; nápověda „Upravuješ přímo soubor workflows/agents/korektor.md…“.
@@ -130,7 +130,7 @@ Cíl: „vedle sebe = zároveň, pod sebou = jedna z možností“. Stav: `clane
 Cíl: přejmenovat `napis` na `text_clanku` a nic nerozbít. Stav: `ukazka` (`vystup` čte `steps.napis.text`).
 1. Karta `napis` → panel → `button "Podrobnosti kroku"` (`aria-expanded=true`) → `textbox "id"`, čipy „Čte z: nic“, „Výstup čtou: vystup“ (klik na čip vybere `vystup`), odkaz „Otevřít v YAML“ (`?rezim=yaml&krok=napis`).
 2. Dnes: přepsat id, Tab → pod polem „Krok čtou vystup — přejmenování by jim rozbilo odkazy a API ho po jednom neuloží.“ + odkaz „Přejmenovat i s odkazy v YAML režimu“; id se nezmění.
-3. Cíl: Tab → karta „Krok 1: ask text_clanku“, karta `vystup` bez chyby, `?krok=text_clanku`; Uložit → `POST …/scenarios/ukazka/batch` s `rename_step` (`rename_refs: true`) → disk: `- id: text_clanku` a v `vystup` `{{ steps.text_clanku.text }}`, komentáře zachované; `aria-live` „Uloženo ✓“. Nevalidní id (`Napis`, `1x`, existující `vystup`) → „Malá písmena, číslice a _, začíná písmenem.“ / „„vystup“ už existuje.“ a bez změny.
+3. Cíl: Tab → karta „Krok 1: ask text_clanku“, karta `vystup` bez chyby, `?krok=text_clanku`; Uložit → `POST …/scenarios/ukazka/batch` s `rename_step` (`rename_refs: true`) → disk: `- id: text_clanku` a v `vystup` `{{ steps.text_clanku.text }}`, komentáře zachované; `aria-live` „Uloženo ✓“. Id se upraví už při psaní (`Výstup` → `vystup`, `1` → prázdné); prázdné nebo existující `vystup` → „Malá písmena, číslice a _, začíná písmenem.“ / „„vystup“ už existuje.“ a bez změny.
 
 ### C13 Přidání existujícího projektu **[hotovo]**
 Stav: složka `$TMP/cizi` vytvořená `agencast new project` **bez** registru (`AGENCAST_CONFIG_DIR` jiný při vytvoření), pak smazaná z registru.
@@ -149,7 +149,7 @@ Cíl: celý C4 jen klávesami. Stav: `demo`.
 4. `Delete` na kartě = smazání s dialogem (fokus na první tlačítko), `Alt+↓` posun, `Ctrl+X` vyjmout, `Ctrl+Z` zpět, `Ctrl+S` uložit (ne uvnitř textarea u Ctrl+Z); menu ⋯: Enter otevře, `↓` cyklí `menuitem`, Esc vrátí fokus na tlačítko.
 5. Kontrola: každý fokusovaný prvek má viditelný ring (`focus-visible`), pořadí Tab = pořadí dokumentu, `aria-live` texty přítomné v DOM (Playwright `getByRole("status")` / `[aria-live]`).
 
-### C16 Mobilní šířka 375 px (panel jako list) **[hotovo — panel je list dole přes sloupec pod 1280 px; seznam agentů nad editorem pod 1100 px; tabulka běhů ve vodorovném posuvu; test `mobil.spec.ts`]**
+### C16 Mobilní šířka 375 px (panel jako list) **[hotovo — panel je list dole přes sloupec pod 1280 px; agenti a skilly pod 1100 px jako karty s editorem ve spodním sheetu; tabulka běhů ve vodorovném posuvu; test `mobil.spec.ts`]**
 Viewport 375×667 (iPhone SE emulace, `pointer: coarse`).
 1. `#/p/demo/scenare/ukazka` → karty v jednom sloupci, `document.documentElement.scrollWidth <= 375`; hlavička editoru se zalomí (Form/YAML, stav, Uložit vidět bez horizontálního scrollu).
 2. Klik na kartu → `complementary` má `boundingBox` u spodní hrany (`y + height ≈ 667 - 16`), výška ≤ 70 % (≤ 467 px), překrývá karty (list), stín; Esc / `button "Zavřít"` ho schová.

@@ -29,7 +29,8 @@ export function Markdown({ text }: { text: string }) {
       const code: string[] = [];
       while (i < lines.length && !lines[i].startsWith("```")) code.push(lines[i++]);
       if (i < lines.length) i++;
-      out.push(<CodeBlock key={i} text={code.join("\n")} title={l.slice(3).trim() || undefined} />);
+      const lang = l.slice(3).trim();
+      out.push(<CodeBlock key={i} text={code.join("\n")} title={lang || undefined} yaml={/^ya?ml$/i.test(lang)} />);
     } else if (h) {
       const cls = ["text-lg font-semibold", "mt-6 text-base font-semibold", "mt-4 text-sm font-semibold"][h[1].length - 1];
       const Tag = (["h2", "h3", "h4"] as const)[h[1].length - 1];

@@ -5,9 +5,9 @@ import { Check, FileCode2, GitCompareArrows, RotateCcw, TriangleAlert } from "lu
 import { t } from "../i18n";
 import { lineDiff, type Conflict } from "../textfile";
 import type { ErrorItem } from "../types";
-import { lineContexts, Line } from "./CodeView";
 import { Modal } from "./form";
 import { btn, ErrorList } from "./ui";
+import { highlight } from "./yaml";
 
 const LINE_PX = 27;
 const PAD_PX = 16;
@@ -24,7 +24,7 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
   const [flash, setFlash] = useState(focus);
   const [position, setPosition] = useState<[number, number]>([1, 1]);
   const lines = text.split("\n");
-  const contexts = lineContexts(lines);
+  const colored = highlight(lines, file.endsWith(".md"));
   const bad = new Set(errors.map((e) => e.line).filter(Boolean));
 
   const goTo = (line: number) => {
@@ -72,10 +72,10 @@ export function YamlEditor({ text, onChange, file, errors, focus, onCaretLine, l
           </div>
           <div className="relative flex-1 py-4 pr-4">
             <pre aria-hidden className="pointer-events-none whitespace-pre">
-              {lines.map((l, i) => {
+              {colored.map((line, i) => {
                 const n = i + 1;
                 const hi = flash && n >= flash[0] && n <= flash[1];
-                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-active transition-colors" : ""}><Line text={l || " "} {...contexts[i]} /></div>;
+                return <div key={i} className={bad.has(n) ? "bg-error/10" : hi ? "bg-surface-active transition-colors" : ""}>{line}</div>;
               })}
             </pre>
             <textarea
@@ -130,18 +130,24 @@ export function ConflictBar({ conflict, onDiff, onReload, onKeep, inHeader = fal
   );
 }
 
-/** Rozdíl dvou textů po řádcích (jen změny s dvěma řádky kontextu). */
-export function DiffModal({ title, before, after, onClose, note }: { title: string; before: string; after: string; onClose: () => void; note?: string }) {
+/** Rozdíl dvou textů po řádcích (jen změny s dvěma řádky kontextu); `markdown` zvýrazní jen frontmatter. */
+export function DiffModal({ title, before, after, onClose, note, markdown = false }: {
+  title: string; before: string; after: string; onClose: () => void; note?: string; markdown?: boolean;
+}) {
   const diff = lineDiff(before, after);
   const near = (i: number) => diff.slice(Math.max(0, i - 2), i + 3).some((d) => d.op !== " ");
+  // řádky rozdílu jdou po řadě: „-“ a „ “ z `before`, „+“ a „ “ z `after` (jako v `lineDiff`)
+  const [old, now] = [before, after].map((s) => highlight(s.replace(/\n$/, "").split("\n"), markdown));
+  let x = 0, y = 0;
+  const colored = diff.map((d) => d.op === "+" ? now[y++] : d.op === "-" ? old[x++] : (y++, old[x++]));
   return (
     <Modal title={title} onCancel={onClose} actions={[]} cancelLabel={t("common.close")}>
       {note && <p>{note}</p>}
       <pre className="max-h-[60vh] scroll-thin overflow-auto rounded-[var(--radius-control)] bg-nested p-3 font-mono text-[13px] leading-5">
         {diff.every((d) => d.op === " ") && <span className="text-fg-muted">{t("conflict.same")}</span>}
         {diff.map((d, i) => near(i) && (
-          <div key={i} className={d.op === "+" ? "bg-success/10 text-success" : d.op === "-" ? "bg-error/10 text-error" : "text-fg-muted"}>
-            {d.op} {d.text}
+          <div key={i} className={d.op === "+" ? "bg-success/10" : d.op === "-" ? "bg-error/10" : "opacity-60"}>
+            <span className={d.op === "+" ? "text-success" : d.op === "-" ? "text-error" : "text-fg-muted"}>{d.op} </span>{colored[i]}
           </div>
         ))}
       </pre>

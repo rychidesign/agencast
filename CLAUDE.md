@@ -5,6 +5,8 @@ Dokumentaci a komentáře pište česky, názvy v kódu anglicky.
 Nejdřív čtěte `docs/DESIGN.md` a `docs/spec/`. Formáty v1 jsou zmražené;
 rozšiřujte je jen zpětně kompatibilně podle DESIGN §5.9.
 
+Důleřité je aby se zachovala architektura že soubory jsou zdroj pravdy a GUI je pouze nadstavba pro zobrazení a editaci.
+
 ## Struktura
 - `framework/`: Python jádro, CLI a testy.
 - `ui/`: webové GUI a jeho testy.

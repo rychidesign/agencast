@@ -48,9 +48,8 @@ test("C3 nový agent", async ({ page, project }) => {
   const dialog = page.getByRole("dialog", { name: "Nový agent" });
   const jmeno = dialog.getByRole("textbox", { name: "Jméno" });
   await expect(jmeno).toBeFocused();
-  await jmeno.fill("Pisatel");
-  await expect(dialog.getByText("Malá písmena, číslice a pomlčka; začíná písmenem.")).toBeVisible();
-  await jmeno.fill("pisatel");
+  await jmeno.fill("Písatel");
+  await expect(jmeno).toHaveValue("pisatel"); // jméno se upraví už při psaní
   await expect(dialog.getByText("„pisatel“ už existuje.")).toBeVisible();
   await jmeno.fill("korektor");
   await dialog.getByRole("textbox", { name: "popis" }).fill("Kontroluje pravopis");
@@ -116,7 +115,8 @@ test("C4 nový scénář se dvěma kroky a output", async ({ page, project }) =>
   await expect(panel.getByRole("textbox", { name: /^popis/ })).toHaveValue("Napíše a ohodnotí článek");
   await expect(panel.getByRole("checkbox", { name: "povinný" })).not.toBeChecked();
   await expect(panel.getByRole("textbox", { name: "Výchozí hodnota tema" })).toHaveValue("káva");
-  await expect(card(page, "")).toContainText("1 vstup: tema · 1 výstup: text");
+  await expect(card(page, "").locator("span.bg-nested")).toHaveText(["temastring"]);
+  await expect(card(page, "")).toContainText("1 výstup: text");
   await expect(card(page, "napis")).toHaveAttribute("aria-label", "Krok 1: ask napis");
   await expect(card(page, "vystup")).toHaveAttribute("aria-label", "Krok 2: output vystup");
   expect(project.yaml<Scn>("scenarios/clanek.yaml").description).toBe("Napíše a ohodnotí článek");
@@ -502,9 +502,11 @@ test("C12 přejmenování kroku s přepisem odkazů", async ({ page, project }) 
   await panel.getByRole("button", { name: /^Podrobnosti kroku/ }).click();
 
   const id = panel.getByRole("textbox", { name: "id" });
-  await id.fill("Napis");
+  await id.fill("1");
+  await expect(id).toHaveValue(""); // bez písmene na začátku nezbude nic
   await expect(panel.getByText("Malá písmena, číslice a _, začíná písmenem.")).toBeVisible();
-  await id.fill("vystup");
+  await id.fill("Výstup");
+  await expect(id).toHaveValue("vystup");
   await expect(panel.getByText("„vystup“ už existuje.")).toBeVisible();
   await id.press("Tab");
   await expect(card(page, "napis")).toBeVisible();
@@ -657,11 +659,12 @@ test("C17 alias modelu s pomlčkou v Configu", async ({ page, project }) => {
   await page.getByRole("button", { name: "+ alias" }).click();
   const alias = page.getByRole("textbox", { name: "Alias" }).last();
   await expect(alias).toHaveValue("model-1");
-  await alias.fill("GPT image");
+  await alias.fill("1");
   await expect(alias).toHaveAttribute("aria-invalid", "true");
   await alias.press("Enter");
   await expect(alias).toHaveValue("model-1"); // neplatné se vrátí
-  await alias.fill("gpt-image");
+  await alias.fill("GPT image");
+  await expect(alias).toHaveValue("gpt-image"); // jméno se upraví už při psaní
   await alias.press("Enter");
   await expect(page.getByRole("textbox", { name: "Alias" }).last()).toHaveValue("gpt-image");
   await page.getByRole("textbox", { name: "Id modelu gpt-image" }).fill("openai/gpt-image-2");

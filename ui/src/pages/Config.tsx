@@ -4,7 +4,7 @@
 import { CodeXml, Plus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { enc } from "../api";
-import { FormField, inputCls, Modal } from "../components/form";
+import { FormField, inputCls, Modal, slugify } from "../components/form";
 import { YamlEditor } from "../components/YamlEditor";
 import { btn, ErrorList, ErrorText, Loading, StatusBadge, Toggle } from "../components/ui";
 import { KeyInput } from "../components/StepPanel";
@@ -200,7 +200,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
               <li key={alias} className="space-y-4 rounded-[10px] bg-group p-4">
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(120px,1fr)_minmax(220px,2fr)_minmax(100px,0.7fr)_minmax(110px,0.7fr)]">
                   <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">{t("config.alias")}</span><div className="flex min-h-11 min-w-0 items-center">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
-                    : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} hint={t("config.aliasRule")}
+                    : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} normalize={slugify} hint={t("config.aliasRule")}
                       onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}</div></div>
                   <div className="min-w-0 space-y-1"><label className="block text-[13px] font-medium text-fg-secondary" htmlFor={`model-${alias}`}>{t("config.modelId", { alias: "" }).trim()}</label><input id={`model-${alias}`} aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"
                     value={String(m.id ?? "")} onChange={(e) => setM("id", e.target.value)} /></div>
