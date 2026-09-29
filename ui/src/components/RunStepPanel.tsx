@@ -1,9 +1,9 @@
-// Panel kroku v prohlížeči běhu (§2.5): záložky podle typu kroku.
+// Step panel in the run viewer (§2.5): tabs depend on the step type.
 import { ExternalLink, FileText } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { enc, getText, useApi } from "../api";
 import { formatCost, formatDuration } from "../format";
-import { t } from "../i18n";
+import { locale, t } from "../i18n";
 import { setQuery } from "../router";
 import type { RunEvent, RunStep, RunStepDetail, StepType } from "../types";
 import { PanelShell } from "./StepPanel";
@@ -28,7 +28,7 @@ const TAB_KEY: Record<PanelTab, string> = {
 
 const Empty = () => <p className="text-sm text-fg-muted">{t("rpanel.empty")}</p>;
 
-/** Odpověď modelu: text zprávy, jinak celé JSON tělo. */
+/** Model response: the message text, otherwise the whole JSON body. */
 function ResponseView({ path, name }: { path: string; name: string }) {
   const res = useApi<string>(path, undefined, getText);
   if (res.error) return <ErrorText error={res.error} />;
@@ -38,11 +38,11 @@ function ResponseView({ path, name }: { path: string; name: string }) {
     const body = JSON.parse(res.data);
     const msg = body?.choices?.[0]?.message;
     shown = typeof msg?.content === "string" && msg.content ? msg.content : JSON.stringify(msg ?? body, null, 2);
-  } catch { /* není JSON — ukážeme text */ }
+  } catch { /* not JSON — show the text */ }
   return <CodeBlock title={name} text={shown} />;
 }
 
-/** Odpovědi Jev s pravděpodobností jako pruh (0–1), jiné hodnoty textem. */
+/** Jev answers: probabilities as a bar (0–1), other values as text. */
 function JevAnswers({ answers = {} }: { answers?: Record<string, unknown> }) {
   if (!Object.keys(answers).length) return <Empty />;
   return (
@@ -50,7 +50,7 @@ function JevAnswers({ answers = {} }: { answers?: Record<string, unknown> }) {
       {Object.entries(answers).map(([k, v]) => (
         <div key={k} className="grid grid-cols-[8rem_4rem_1fr] items-center gap-3 text-sm">
           <dt className="truncate font-mono">{k}</dt>
-          <dd className="font-mono tabular-nums">{typeof v === "number" ? v.toLocaleString("cs", { maximumFractionDigits: 3 }) : String(v)}</dd>
+          <dd className="font-mono tabular-nums">{typeof v === "number" ? v.toLocaleString(locale, { maximumFractionDigits: 3 }) : String(v)}</dd>
           <dd aria-hidden>
             {typeof v === "number" && v >= 0 && v <= 1 && (
               <span className="block h-1.5 overflow-hidden rounded-full bg-nested"><span className="block h-full bg-accent" style={{ width: `${v * 100}%` }} /></span>
@@ -109,7 +109,7 @@ function Tools({ events }: { events: RunEvent[] }) {
               {flag && <span className="text-error">{flag} · </span>}
               {formatDuration(e.duration_s as number)}
               {typeof e.call_file === "string" && (
-                <> · <button type="button" className="underline" onClick={() => setQuery({ zalozka: "soubory", soubor: e.call_file as string })}>{e.call_file}</button></>
+                <> · <button type="button" className="underline" onClick={() => setQuery({ tab: "files", file: e.call_file as string })}>{e.call_file}</button></>
               )}
             </p>
           </li>
@@ -123,7 +123,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
   project: string; runId: string; path: string; kind: StepType | null; rs?: RunStep; onClose: () => void;
 }) {
   const [tab, setTab] = useState<PanelTab>();
-  // Události, výstup a soubory jednoho kroku; běžící krok se čte znovu (panel má klíč se stavem kroku).
+  // Events, output and files of one step; a running step is re-read (the panel is keyed by the step status).
   const detail = useApi<RunStepDetail>(rs ? `/projects/${enc(project)}/runs/${enc(runId)}/steps/${path.split("/").map(enc).join("/")}` : null,
     (d) => (d.status === "running" ? 2000 : null));
   const d = detail.data;
@@ -153,7 +153,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
       <ul className="space-y-2">
         {files.map((f) => (
           <li key={f}>
-            <button type="button" className="flex h-[52px] w-full items-center gap-3 rounded-control bg-nested p-3 text-left hover:bg-surface-hover" onClick={() => setQuery({ zalozka: "soubory", soubor: f })}>
+            <button type="button" className="flex h-[52px] w-full items-center gap-3 rounded-control bg-nested p-3 text-left hover:bg-surface-hover" onClick={() => setQuery({ tab: "files", file: f })}>
               <FileText className="size-4 shrink-0 text-fg-secondary" aria-hidden />
               <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg-secondary">{f.slice(dir.length)}</span>
               <ExternalLink className="size-4 shrink-0 text-fg-secondary" aria-hidden />

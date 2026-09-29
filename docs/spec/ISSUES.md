@@ -1,389 +1,389 @@
-# Nejasnosti ve spec v1 zjištěné při implementaci (Fáze 2)
+# Ambiguities in the v1 spec found during implementation (Phase 2)
 
-Spec v1 je zmražená; nic z toho ji nemění. U každé položky je výklad,
-podle kterého se framework 0.1.0 chová. Nic z toho neblokovalo práci,
-rozhoduje koordinátor nebo uživatel.
+The v1 spec is frozen; none of this changes it. For each item there is the interpretation
+by which framework 0.1.0 behaves. None of it blocked the work;
+the coordinator or the user decides.
 
-1. **`tool_wrapper` a `finish_reason`** (scenario.md ask, §6): spec chce
-   `tool_calls`. Framework přijme i `stop`, když odpověď obsahuje volání
-   `_submit_output` (s vynuceným `tool_choice` to někteří poskytovatelé
-   hlásí jako `stop`). Jiný `finish_reason` → `transient`. Naživo Gemini
-   3.5 Flash-Lite vrátil `tool_calls` (nativně `STOP`).
-2. **Které proměnné prostředí jsou povinné před během** (config.md „Chybějící
-   proměnná → config"): framework kontroluje jen ty, které běh opravdu
-   použije: `OPENROUTER_API_KEY` (ne s `--fake`), `callback.secret_env` jen
-   s `--callback-url`. `webhook.token_env` až s webhook serverem, R2 klíče
-   až s R2.
-3. **Relativní `runs_dir` a `storage.local.path`** — spec neříká, vůči
-   čemu. Framework je bere vůči kořeni projektu (složka nad `workflows/`),
-   protože do `workflows/` framework nikdy nezapisuje.
-4. **`aspect_ratio` u chat completions** (scenario.md image): framework
-   posílá `image_config: {aspect_ratio}` (pole `ChatRequest.image_config`,
-   <https://openrouter.ai/docs/llms-full.txt>, staženo 2026-09-25) a poměr
-   kontroluje podle hlavičky souboru (±2 %). **Ověřeno naživo
-   2026-09-25:** `google/gemini-3.1-flash-image` s `"4:5"` vrátil
-   928×1152 (odchylka 0,7 %), endpoint `aspect_ratio` neignoruje.
-   Spec zmiňuje jen Image API (`POST /api/v1/images`); rozhodnutí „chat
-   completions" padlo ve Fázi 2 podle zadání.
-5. **`report_url`**: `report.html` Fáze 2 negeneruje, `report_url` je
-   `null` bez varování. Spec počítá s `null` + varováním jen při selhání
-   nahrání. *(Vyřešeno ve 3b: report se generuje a nahrává.)*
-6. **`callback.json` bez `--callback-url`**: zapisuje se vždy (tělo, které
-   by odešlo), ač spec říká „přesně to, co odešlo v callbacku".
-7. **`details` v `default` kroku `jev`**: spec „`details` se doplní jako
-   `{}`". Framework doplní `{otázka: {}}` pro každou otázku, aby
-   `steps.x.details.<q>` existovalo; chybějící klíč uvnitř je pak chyba
-   `expression`.
-8. **Pole navíc v `default`** (pole, které krok nevrací) je chyba
-   `validate` — spec výslovně jen „musí obsahovat všechna pole".
-9. **Funkce a indexy**: `join` vyžaduje oba argumenty (tabulka spec
-   `join(seznam, oddělovač)`); `min`/`max` jen čísla; `[]` nad textem
-   (`"abc"[0]`) je chyba, protože spec zná `[]` jen pro seznam a objekt.
-   Index `2.0` je povolený (číslo s nulovou desetinnou částí = integer).
-10. **Ukázky ve spec jako konformační testy** (§5.9 bod 3): úryvky kroků
-    bez hlavičky odkazují na kroky, které v úryvku nejsou, takže projdou
-    jen JSON Schema a syntaxí výrazů/šablon. Plně (validate + běh
-    s falešným poskytovatelem) se testuje celý scénář `pozdrav`.
-11. **`when` s chybou výrazu** (§3 „chyba ve `when` je chybou kroku"):
-    krok dostane `step_started`, `error` a `step_finished` se
-    `status: failed` (ne `step_skipped`).
-12. **Timeout kroku s agentem**: `timeout` kroku, jinak `limits.timeout`
-    agenta, jinak výchozí podle typu, vždy nejvýš `limits.timeout` agenta.
+1. **`tool_wrapper` and `finish_reason`** (scenario.md ask, §6): the spec wants
+   `tool_calls`. The framework also accepts `stop` when the response contains a call to
+   `_submit_output` (with a forced `tool_choice` some providers
+   report this as `stop`). Any other `finish_reason` → `transient`. Live, Gemini
+   3.5 Flash-Lite returned `tool_calls` (natively `STOP`).
+2. **Which environment variables are mandatory before a run** (config.md “A missing
+   variable → config”): the framework checks only those the run will actually
+   use: `OPENROUTER_API_KEY` (not with `--fake`), `callback.secret_env` only
+   with `--callback-url`. `webhook.token_env` only with the webhook server, R2 keys
+   only with R2.
+3. **A relative `runs_dir` and `storage.local.path`** — the spec does not say relative
+   to what. The framework takes them relative to the project root (the folder above `workflows/`),
+   because the framework never writes into `workflows/`.
+4. **`aspect_ratio` in chat completions** (scenario.md image): the framework
+   sends `image_config: {aspect_ratio}` (the field `ChatRequest.image_config`,
+   <https://openrouter.ai/docs/llms-full.txt>, downloaded 2026-09-25) and
+   checks the ratio against the file header (±2 %). **Verified live
+   2026-09-25:** `google/gemini-3.1-flash-image` with `"4:5"` returned
+   928×1152 (deviation 0.7 %), the endpoint does not ignore `aspect_ratio`.
+   The spec mentions only the Image API (`POST /api/v1/images`); the decision “chat
+   completions” was made in Phase 2 per the assignment.
+5. **`report_url`**: Phase 2 does not generate `report.html`, `report_url` is
+   `null` without a warning. The spec expects `null` + a warning only when the
+   upload fails. *(Resolved in 3b: the report is generated and uploaded.)*
+6. **`callback.json` without `--callback-url`**: it is always written (the body that
+   would have been sent), although the spec says “exactly what was sent in the callback”.
+7. **`details` in the `default` of a `jev` step**: the spec says “`details` is filled in as
+   `{}`”. The framework fills in `{question: {}}` for each question so that
+   `steps.x.details.<q>` exists; a missing key inside is then an `expression`
+   error.
+8. **Extra fields in `default`** (a field the step does not return) are a
+   `validate` error — the spec explicitly says only “must contain all fields”.
+9. **Functions and indexes**: `join` requires both arguments (the spec table
+   `join(list, separator)`); `min`/`max` only numbers; `[]` over text
+   (`"abc"[0]`) is an error, because the spec knows `[]` only for a list and an object.
+   The index `2.0` is allowed (a number with a zero fractional part = integer).
+10. **Examples in the spec as conformance tests** (§5.9 point 3): step snippets
+    without a header refer to steps that are not in the snippet, so they pass
+    only the JSON Schema and the expression/template syntax. Fully (validate + a run
+    with a fake provider) only the whole scenario `greeting` is tested.
+11. **`when` with an expression error** (§3 “an error in `when` is a step error”):
+    the step gets `step_started`, `error` and `step_finished` with
+    `status: failed` (not `step_skipped`).
+12. **Step timeout with an agent**: the step's `timeout`, otherwise the agent's
+    `limits.timeout`, otherwise the default by type, always at most the agent's `limits.timeout`.
 
-## Fáze 3b (call, webhook, report.html)
+## Phase 3b (call, webhook, report.html)
 
-13. **Složka kroku `call`**: zadání 3b zmiňuje `steps/<nn>-<id>/call/`,
-    spec (run-record.md) `steps/03-navrh/steps/01-copy/`. Framework drží
-    spec; navíc zapisuje `steps/<nn>-<id>/inputs.json` (vstupy volání)
-    a `output.json` (výstup = `outputs` volaného scénáře). `summary.md`
-    má v tabulce jen kroky volajícího scénáře (u `call` poznámka se
-    jménem scénáře), vnořené kroky jsou v `events.jsonl` a `report.html`.
-14. **`callback_url` na `http://127.0.0.1`**: spec chce „jen `https://`".
-    Framework povolí i `http://127.0.0.1:<port>/…` (testy, lokální
-    přijímač podle zadání 3b) — ve webhooku i v `agencast run --callback-url`.
-    `localhost` ani jiné `http://` ne.
-15. **`queue_position`**: počet požadavků ve frontě včetně právě
-    běžícího a tohoto (1 = začne hned). Spec jen „pozice ve frontě".
-16. **`GET /runs/<run_id>`** ve spec není (zadání 3b ano): chce stejný
-    token; vrací `{status: queued, queue_position}`, `{status: running}`,
-    nebo tělo `callback.json` + `callback_failed`; neznámý běh 404.
-17. **Tělo webhooku**: neznámé pole je 422 (jako „překlep je chyba"
-    u formátů). Opakovaný `request_key` vrátí 200 s původním `run_id`
-    i tehdy, když se zbytek těla liší (kontroluje se hned po tokenu).
-18. **Běh, který nezačne** (validate selže po vyzvednutí z fronty, nebo
-    běh přerušil restart serveru): složka má `run_started` se
-    `scenario_version: null` a bez kroků, `error` a `run_finished`
-    s třídou `config` / `internal`, `report.html` a callback. Přerušený
-    běh se neopakuje (mohl mít vedlejší účinky) a callback nese
-    `internal`, i když běh mohl doběhnout, jen callback neodešel.
-19. **`on_error: continue` u `call`** pokryje i chybu kroku uvnitř
-    volaného scénáře (`error.step` zůstává cesta `navrh/copy`) a
-    vyčerpání vlastního `budget_usd`/`timeout` kroku `call`; rozpočet
-    a čas běhu ne (scenario.md §6).
-20. **`report.html` vzniká před `run_finished`**, aby varování
-    o nepovedeném nahrání bylo v `run_finished` i v callbacku; stav
-    doručení callbacku proto v reportu není (je v `summary.md`
-    a `events.jsonl`).
+13. **The `call` step folder**: the 3b assignment mentions `steps/<nn>-<id>/call/`,
+    the spec (run-record.md) `steps/03-propose/steps/01-copy/`. The framework follows the spec;
+    in addition it writes `steps/<nn>-<id>/inputs.json` (the call inputs)
+    and `output.json` (the output = the `outputs` of the called scenario). `summary.md`
+    has in its table only the steps of the calling scenario (for `call` a note with
+    the scenario name), nested steps are in `events.jsonl` and `report.html`.
+14. **`callback_url` on `http://127.0.0.1`**: the spec wants “only `https://`”.
+    The framework also allows `http://127.0.0.1:<port>/…` (tests, a local
+    receiver per the 3b assignment) — in the webhook and in `agencast run --callback-url`.
+    Not `localhost` or any other `http://`.
+15. **`queue_position`**: the number of requests in the queue including the one currently
+    running and this one (1 = starts immediately). The spec says only “position in the queue”.
+16. **`GET /runs/<run_id>`** is not in the spec (it is in the 3b assignment): wants the same
+    token; returns `{status: queued, queue_position}`, `{status: running}`,
+    or the body of `callback.json` + `callback_failed`; an unknown run 404.
+17. **The webhook body**: an unknown field is 422 (like “a typo is an error”
+    for the formats). A repeated `request_key` returns 200 with the original `run_id`
+    even when the rest of the body differs (it is checked right after the token).
+18. **A run that does not start** (validate fails after pick-up from the queue, or a
+    server restart interrupted the run): the folder has `run_started` with
+    `scenario_version: null` and no steps, `error` and `run_finished`
+    with class `config` / `internal`, `report.html` and a callback. An interrupted
+    run is not repeated (it may have had side effects) and the callback carries
+    `internal`, even when the run may have finished and only the callback was not sent.
+19. **`on_error: continue` on `call`** also covers an error of a step inside
+    the called scenario (`error.step` stays the path `propose/copy`) and
+    the exhaustion of the `call` step's own `budget_usd`/`timeout`; not the run's budget
+    and time (scenario.md §6).
+20. **`report.html` is created before `run_finished`**, so that the warning
+    about a failed upload is in `run_finished` and in the callback; the callback
+    delivery state is therefore not in the report (it is in `summary.md`
+    and `events.jsonl`).
 
-21. **Prodleva `retry` u chyby `schema`** (scenario.md §3 `retry`: „při
-    chybě `transient` nebo `schema` … Prodleva 2 s, 4 s, 8 s…"): framework
-    čeká jen po `transient`; po `schema` zkouší hned další úroveň kaskády
-    (běh `tutorial-02-nazev-a-slogan` s fixturou `text:` místo `json:`
-    trval 0,003 s). Čekání u `schema` nic nepřináší, ale spec ho čte jinak.
-    (Zjištěno při psaní tutoriálů.)
-22. **URL callbacku v záznamu bez portu** (run-record.md „Z URL callbacku
-    se loguje jen `schéma://host/cesta`"): `--callback-url
-    https://127.0.0.1:8443/webhook-waiting/4711` je v `callback_sent` jako
-    `https://127.0.0.1/webhook-waiting/4711`. Doslova podle spec, ale při
-    ladění n8n na nestandardním portu port chybí. (Zjištěno při psaní
-    tutoriálů.)
+21. **The `retry` delay on a `schema` error** (scenario.md §3 `retry`: “on an
+    error `transient` or `schema` … Delay 2 s, 4 s, 8 s…”): the framework
+    waits only after `transient`; after `schema` it immediately tries the next cascade level
+    (the run `tutorial-02-name-and-slogan` with the fixture `text:` instead of `json:`
+    took 0.003 s). Waiting on `schema` brings nothing, but the spec reads it differently.
+    (Found while writing the tutorials.)
+22. **The callback URL in the record without a port** (run-record.md “Only
+    `scheme://host/path` is logged from the callback URL”): `--callback-url
+    https://127.0.0.1:8443/webhook-waiting/4711` is in `callback_sent` as
+    `https://127.0.0.1/webhook-waiting/4711`. Literally per the spec, but when
+    debugging n8n on a non-standard port the port is missing. (Found while writing the
+    tutorials.)
 
-## Fáze 3a (krok `task`, MCP, skilly, `dedupe_key`; framework 0.2.0)
+## Phase 3a (the `task` step, MCP, skills, `dedupe_key`; framework 0.2.0)
 
-23. **Kořen `{run_dir}/…` neexistuje:** server-filesystem neexistující
-    povolenou složku odmítne. Framework před startem stdio serveru vytvoří
-    složku pro každý argument, který začíná `{run_dir}` (u ukázky
-    `runs/<běh>/work`).
-24. **Kdy vzniká `dedupe` `started`:** před prvním voláním **MCP** nástroje
-    (vedlejší účinek), ne před `load_skill`. Krok, který žádný MCP nástroj
-    nezavolal, zapíše rovnou `succeeded`. Soubor obsahuje přesně
-    `{state, run_id, output}`. Klíč se počítá ze jména scénáře, v němž krok
-    je (u `call` jméno volaného scénáře a `id` kroku v jeho souboru).
-25. **Poslední tah `max_turns`:** když model v posledním povoleném tahu
-    chce další nástroje, framework je **nespustí** (model by výsledek
-    neviděl, vedlejší účinek bez kontroly) a krok končí `budget`.
-26. **Selhání handshaku MCP** se neopakuje (`retry` kroku platí pro volání
-    API): krok selže třídou `transient` (vzdálený server: síť, 5xx,
-    timeout) nebo `config` (stdio: neznámý příkaz, proces skončil, neodpověděl
-    na handshake; vzdálený: 4xx). Opakování běhu řeší n8n.
-27. **Chyba JSON-RPC u `tools/call`** (ne `isError`, např. neznámý nástroj
-    −32602) jde modelu jako chyba nástroje (`is_error: true`, krok
-    pokračuje) — server volání odmítl. Spadlé spojení = `config`, timeout
+23. **The root `{run_dir}/…` does not exist:** server-filesystem rejects a nonexistent
+    allowed folder. Before starting a stdio server the framework creates a
+    folder for each argument that starts with `{run_dir}` (for the example
+    `runs/<run>/work`).
+24. **When the `dedupe` `started` is created:** before the first call of an **MCP** tool
+    (a side effect), not before `load_skill`. A step that called no MCP tool
+    writes `succeeded` directly. The file contains exactly
+    `{state, run_id, output}`. The key is computed from the name of the scenario the step
+    is in (for `call` the name of the called scenario and the `id` of the step in its file).
+25. **The last turn of `max_turns`:** when the model in the last allowed turn
+    wants more tools, the framework **does not run** them (the model would not
+    see the result, a side effect without control) and the step ends with `budget`.
+26. **An MCP handshake failure** is not retried (the step's `retry` applies to
+    API calls): the step fails with class `transient` (a remote server: network, 5xx,
+    timeout) or `config` (stdio: an unknown command, the process exited, did not answer
+    the handshake; remote: 4xx). Retrying the run is up to n8n.
+27. **A JSON-RPC error on `tools/call`** (not `isError`, e.g. an unknown tool
+    −32602) goes to the model as a tool error (`is_error: true`, the step
+    continues) — the server rejected the call. A dropped connection = `config`, a timeout
     = `timeout`.
-28. **`_submit_output` spolu s jinými nástroji v jednom tahu:** výsledek je
-    `_submit_output`, ostatní nástroje se nespustí a zapíše se varování.
-    Volání nástrojů s `finish_reason: stop` se přijímá (jako bod 1).
-29. **`task` na úrovni `tool_wrapper`:** `_submit_output` je mezi nástroji,
-    ale nevynucuje se `tool_choice` (model mezitím volá jiné nástroje).
-    Textová odpověď místo `_submit_output` = chyba `schema` → kaskáda na
+28. **`_submit_output` together with other tools in one turn:** the result is
+    `_submit_output`, the other tools are not run and a warning is written.
+    Tool calls with `finish_reason: stop` are accepted (as in point 1).
+29. **`task` at the `tool_wrapper` level:** `_submit_output` is among the tools,
+    but `tool_choice` is not forced (the model calls other tools in the meantime).
+    A text answer instead of `_submit_output` = a `schema` error → the cascade goes to
     `prompt`.
-30. **Proměnné z `mcp.yaml`** (`env`, `bearer_token_env`) nesmí být stejné
-    jako `*_env` z `config.yaml` (klíč OpenRouteru by odešel MCP serveru) —
-    chyba `config`. Mezi servery v `mcp.yaml` sdílení dovoleno. Chybějící
-    proměnná se hlásí před během jen u serverů, které běh opravdu použije
-    (jako bod 2).
-31. **`scenarios` serveru** se kontroluje u serverů, které krok opravdu
-    použije (`task.mcp`, jinak `mcp` agenta), ne u všech serverů agenta.
-    `ask` MCP nepřipojuje, proto se tam nekontroluje.
-32. **Nástroj z allowlistu, který server nenabízí** → krok selže `config`
-    za běhu (seznam nabízených nástrojů je v hlášce). Spec chce, aby to
-    ukázal `--dry-run`: `agencast run … --dry-run` servery, které běh může
-    spustit, kvůli `tools/list` spustí v dočasné složce (složka plánu
-    zůstane jen s `plan.md`) a `plan.md` vypíše, co nabízejí, a výslednou
-    sadu nástrojů každého `task` (doplněno při sloučení 3a + 3b).
-33. **Obsah výsledku nástroje:** text a obrázek se předají, jiné typy
-    (`resource`, `audio`, …) jako text `[obsah typu X framework
-    nepředává]`; `structuredContent` se nepředává (text ho obvykle nese).
-    `calls/NN.tool.json` (návrh): `{turn, name, server, tool, arguments,
+30. **Variables from `mcp.yaml`** (`env`, `bearer_token_env`) must not be the same
+    as the `*_env` from `config.yaml` (the OpenRouter key would go to the MCP server) —
+    a `config` error. Sharing among servers in `mcp.yaml` is allowed. A missing
+    variable is reported before the run only for servers the run will actually use
+    (as in point 2).
+31. **`scenarios` of a server** is checked for servers the step will actually
+    use (`task.mcp`, otherwise the agent's `mcp`), not for all servers of the agent.
+    `ask` connects no MCP, so nothing is checked there.
+32. **A tool from the allowlist that the server does not offer** → the step fails with `config`
+    at run time (the list of offered tools is in the message). The spec wants
+    `--dry-run` to show it: `agencast run … --dry-run` starts the servers the run may
+    start, because of `tools/list`, in a temporary folder (the plan folder
+    keeps only `plan.md`) and `plan.md` lists what they offer and the resulting
+    tool set of each `task` (added when merging 3a + 3b).
+33. **Contents of a tool result:** text and image are passed on, other types
+    (`resource`, `audio`, …) as the text `[content of type X is not forwarded
+    by the framework]`; `structuredContent` is not passed on (the text usually carries it).
+    `calls/NN.tool.json` (proposal): `{turn, name, server, tool, arguments,
     allowed, invalid_args, is_error, result, files}`.
-34. **Zaseknuté volání poskytovatele** (naměřeno v ostrém běhu 3a: HTTP
-    spojení bez odpovědi 160 s, stejný požadavek hned poté 2,1 s) se pozná
-    až časovým limitem kroku — HTTP klient nemá čtecí timeout jednoho
-    volání (Fáze 2, `Timeout(None, connect=15)`), takže se neopakuje jako
-    `transient`. Návrh: čtecí timeout volání (např. 120 s) → `transient`
-    s `retry`; pozor na pomalé reasoning modely s velkým `max_tokens`.
-    Rozhodne koordinátor.
-    **Vyřešeno v 0.2.1:** timeout každého volání = min(zbývající čas
-    kroku, 120 s chat/obrázek/tah `task`, 30 s Jev), vypršení = `transient`
-    (opakuje se podle `retry`), hodnota v `model_call`/`jev_call` jako
-    `timeout_s`. Je to čtecí timeout httpx (ticho mezi bajty odpovědi),
-    ne celková doba — tu dál hlídá timeout kroku.
+34. **A stuck provider call** (measured in a live 3a run: an HTTP
+    connection without a response for 160 s, the same request immediately afterwards 2.1 s) is
+    recognized only by the step's time limit — the HTTP client has no read
+    timeout for a single call (Phase 2, `Timeout(None, connect=15)`), so it is not
+    retried as `transient`. Proposal: a read timeout of the call (e.g. 120 s) → `transient`
+    with `retry`; watch out for slow reasoning models with a large `max_tokens`.
+    The coordinator decides.
+    **Resolved in 0.2.1:** the timeout of each call = min(remaining step time,
+    120 s chat/image/`task` turn, 30 s Jev), expiry = `transient`
+    (retried per `retry`), the value in `model_call`/`jev_call` as
+    `timeout_s`. It is an httpx read timeout (silence between bytes of the response),
+    not the total duration — that is still guarded by the step's timeout.
 
-35. **Kolize `run_id`** (run-record.md: `<čas>-<scénář>-<4 hex>`): dva běhy
-    téhož scénáře ve stejné sekundě mají shodné id s pravděpodobností
-    1 : 65 536; při dávce 50 požadavků z n8n za sekundu je to ≈ 2 %.
-    Následek: `agencast serve` přepíše záznam fronty `<run_id>.json` jiného
-    požadavku, `agencast run` spadne na existující složce běhu. Návrh: delší
-    náhodná část, nebo nové id, když složka/záznam fronty už existuje.
-    Neopraveno (mimo zadání 0.2.1). (Zjištěno při hledání nestabilních
-    testů.) **Vyřešeno ve frameworku 0.3.0 opakováním** (bod 39): formát
-    id se nemění; při kolizi se vygeneruje nový suffix, nejvýš 5×, pak
-    chyba `internal`.
-36. **`task` se `schema` začíná kaskádu vždy na `tool_wrapper`** (výklad,
-    rozhodl koordinátor 2026-09-25, framework 0.2.2). Spec (scenario.md,
-    kaskáda) říká „úroveň začíná na `models.<alias>.structured_output`",
-    ale kombinaci se smyčkou nástrojů neřeší. Nativní JSON schema
-    (`response_format`) poslané v každém tahu spolu s `tools` svádí
-    některé modely odpovědět rovnou JSONem bez volání nástrojů — Haiku 4.5
-    ve 3 ze 3 ostrých běhů (BUGS 7): smyčka skončila „úspěchem"
-    s vymyšleným výstupem a vedlejší účinek se nestal. Proto v `task`
-    framework `response_format` neposílá; strukturovaný výstup vynutí
-    nástrojem `_submit_output` (bod 29), textová odpověď = chyba `schema`
-    → kaskáda na `prompt`. `models.<alias>.structured_output` platí dál
-    jen pro `ask`. Použitá úroveň je v `model_call.structured_output`
-    a v poznámce kroku v `summary.md`, `plan.md` ukazuje „kaskáda od
-    tool_wrapper".
-37. **Podsložky v `agents/` a `scenarios/` se ignorují** (rozhodli
-    koordinátor a uživatel 2026-09-25, framework 0.2.3). Pravidlo
-    z REVIEW M9 „podsložka je chyba `config`" zastavilo každý běh, jakmile
-    si uživatel odložil staré soubory do `archiv/`. Stejnojmenné soubory
-    v podsložkách nevadí, protože se podsložky nečtou vůbec (agenti,
-    cíle `call`, webhook, `check.py`). Uvolnění je zpětně kompatibilní
-    (DESIGN §5.9). Spustit jde dál jen scénář uložený přímo ve
-    `workflows/scenarios/`. Když agent nebo cíl `call` neexistuje, ale
-    stejnojmenný soubor leží o úroveň níž v podsložce, hláška to dodá:
-    „(soubor je v podsložce agents/archiv/, podsložky se nečtou)".
-38. **Ceny celé, řádek Celkem** (rozhodli koordinátor a uživatel
-    2026-09-25, framework 0.2.4). Běh na `mistralai/mistral-nemo` stál
-    4.482e-06 USD, `summary.md` i `report.html` ukázaly „0,0000 USD"
-    (4 místa) a `callback.json` 4.48e-06 (`round(…, 8)`) — z reportu nešlo
-    poznat, kolik běh stál (R2). Nově: cena volání = přesně `usage.cost`
-    od poskytovatele, součty zaokrouhlené jen na 10 míst kvůli šumu
-    floatů, pro člověka desetinně s čárkou, aspoň 4 místa, víc jen pro
-    uložené číslice, skutečná nula `0`. Tabulka kroků končí řádkem
-    **Celkem** = cena běhu (stejné číslo jako `cost_usd` v `run_finished`
-    a callbacku), u obrázků s poznámkou „z toho obrázky …"; čas prázdný.
-    Formát JSON se nemění, jen přesnost → zpětně kompatibilní.
-    Doplněno ve frameworku 0.2.5 na přání uživatele: sloupec Čas v řádku
-    Celkem = čas celého běhu (`duration_s` z `run_finished`, stejné číslo
-    jako v hlavičce), ne součet sloupce — větve `parallel` běží současně
-    a vnořené kroky jsou už v čase nadřazeného kroku.
-39. **Souběžné běhy** (zadání koordinátora 2026-09-26, framework 0.3.0).
-    `agencast serve --workers N` pouští N běhů najednou nad jednou frontou
-    (výchozí 1 = dosavadní chování, D2); `api.run` z více vláken nebo
-    procesů nad stejnou složkou `runs/` také. Co souběh rozbíjel:
-    (a) **`run_id`** (bod 35) — `Record` se složkou `exist_ok=False` při
-    `FileExistsError` zkusí nový suffix, nejvýš 5×, pak `internal`;
-    webhook při přijetí stejně přeskočí id, které už má záznam fronty
-    nebo složku běhu. Obnova po restartu serveru (`exist_ok=True`) se
-    nemění. (b) **Cache `/models`** (`<runs>/_models.json`) se zapisuje
-    do dočasného souboru ve stejné složce a `os.replace`; poškozený JSON
-    čtenář bere jako „cache není“. (c) **`dedupe_key`** je za rozhraním
-    `DedupeStore` (`get`, `claim` výhradně a atomicky přes `O_EXCL`,
-    `finish` přes přejmenování); lokální soubory a cesty
-    `<runs>/_dedupe/<sha256>.json` a `_dedupe-fake/` zůstávají beze
-    změny, staré záznamy platí. Na Modalu se sem dosadí vlastní úložiště
-    (DESIGN „Obálky“). Obnova fronty a `request_key` (`_queue/keys/`)
-    jsou dál pod zámkem; `queue_position` počítá čekající i běžící,
-    pořadí dokončení s N > 1 není zaručené (webhook.md).
-40. **Strop souběžných běhů a denní limit útraty** (rozhodl uživatel
-    2026-09-26, framework 0.3.1). S `--workers` (bod 39), ručním CLI,
-    n8n a cronem nad jedním `runs/` nešlo omezit, kolik běhů poběží
-    naráz, ani kolik se za den utratí — `run_budget_usd` hlídá jen jeden
-    běh. Nově dva **volitelné** klíče `limits` (bez nich beze změny, R8):
-    (a) **`max_parallel_runs: N`** — sloty `<runs>/_slots/<n>.lock`
-    (`flock`, sdílené všemi procesy; zámek pustí i pád procesu). Slot se
-    bere před vytvořením složky běhu a uvolní se vždy. Plno → stderr
-    „čekám na volný slot (max_parallel_runs=N)“, polling po 0,5 s,
-    nejdéle `run_timeout`, pak `timeout` („volný slot se neuvolnil do
-    run_timeout … — běh nezačal“). Čekání je v záznamu jako `run_waiting`
-    s `waited_s`. Falešné běhy se slotů účastní. Nová třída chyb nevzniká.
-    (b) **`daily_budget_usd: X`** — denní kniha
-    `<runs>/_ledger/<RRRR-MM-DD>.jsonl` (UTC podle konce běhu), řádek
-    `{run_id, cost_usd, finished_at}` na každý dokončený běh, append pod
-    `flock`; `--fake` do `_ledger-fake/`. Na startu běhu (po získání
-    slotu) součet ≥ X → `budget` před prvním voláním („denní limit útraty
-    vyčerpán: dnes (… UTC) už … z X USD (daily_budget_usd) — běh
-    nezačal“). Kontrola jen na startu — běh může limit překročit nejvýš
-    o svůj `run_budget_usd`. Kniha vzniká od 0.3.1 a píše se vždy.
-    Běh, který kvůli (a) nebo (b) nezačal, jde stejnou cestou jako běh,
-    který webhook nespustil (`run_scenario(error=…)`): složka jen se
-    záznamem a `summary.md`, bez `plan.md`/`inputs.json`, `run_finished`
-    s `error` (`step: null`) a callback. Sloty i kniha jsou za rozhraním
-    vedle `DedupeStore` (`SlotStore.acquire/release`,
-    `Ledger.total/add` v `task.py`) — sem Modal dosadí vlastní úložiště
-    (DESIGN „Obálky“). Pozn.: kniha je sdílený append-only soubor, což
-    D2 („nikdy jeden sdílený log“) formálně nepředpokládá; zápis je
-    jeden řádek pod `flock`.
-    **Rozhodnutí (koordinátor, 2026-09-26):** obojí přijato. Kniha se
-    píše vždy, protože slouží i jako denní přehled útraty a limit zapnutý
-    během dne má počítat i dosavadní běhy. Výjimka z D2 je ohraničená:
-    jeden řádek na dokončený běh, jeden soubor na den, pod `flock`;
-    záznamy běhů zůstávají oddělené. Na Modalu knihu nahradí obálka přes
-    rozhraní `Ledger`.
-41. **Registr projektů a `agencast new`** (rozhodli uživatel a koordinátor
-    2026-09-26, framework 0.4.0; [projects.md](projects.md)). GUI nad
-    AgenCastem potřebuje seznam projektů; skenování disku se zamítlo,
-    vede se registr `~/.config/agencast/projects.yaml`
-    (`AGENCAST_CONFIG_DIR`), `projects: [{name, root}]` bez tajemství.
-    Plní ho `new project`, `projects add` a úspěšný `validate`/`run`
-    (jednou hláška na stderr); kolize jména → `config` s nápovědou
-    `--name`, u `validate`/`run` jen výpis, příkaz doběhne. Chybějící
-    `workflows/config.yaml` = `available: false`, položka zůstává.
-    `new project|agent|scenario` zakládá soubory ze šablon ve frameworku
-    a nic nepřepisuje. Formáty v1 beze změny.
-42. **Čtecí API `serve` pro GUI** (rozhodli uživatel a koordinátor
-    2026-09-26, framework 0.4.0; [api.md](api.md)). GUI (`ui/`, DESIGN
-    „Obálky“) mluví s jádrem jen přes HTTP. Rodina `/projects/...` je
-    aditivní: `POST /runs`, `GET /runs/<id>` a callbacky se nemění (n8n).
-    `serve` v projektu nebo s `--project` = jeden projekt s jeho
-    `webhook.token_env`; mimo projekt = režim registru s jedním tokenem
-    serveru `AGENCAST_TOKEN` (varianta A koordinátora: per-projektové
-    tokeny by v jednom procesu kolidovaly jmény proměnných). V registru se
-    tajemství berou z prostředí serveru (a `.env` v cwd), jména proměnných
-    z `config.yaml` projektu. Popis projektu a scénáře čte loaderem a
-    `validate` (`check_models=False`), ne vlastním parserem; chyby jsou
-    v poli `errors`, rozbitý soubor se zobrazí, co jde. `files/` pouští jen
-    soubory uvnitř složky běhu (jinak 404), `spend` jen ostrou knihu.
-    Neznámý projekt/scénář/běh → 404 s JSON chybou.
-43. **Editační operace pro GUI** (zadání koordinátora 2026-09-26,
-    framework 0.5.0; [api.md](api.md) „Editace“). GUI mění soubory jen
-    operacemi jádra (`agencast/edit.py`) přes `serve`; soubor zůstává
-    pravdou. Otisk verze = sha256 obsahu (ne mtime — snadno se porovná
-    v testech i v GUI); neshoda → 409, nic se nezapíše. Validace před
-    zápisem = kopie `workflows/` se změnou + `validate(check_models=False)`
-    (nejlevnější správná cesta: validace pracuje nad soubory, ne nad
-    daty v paměti); blokuje jen **nová** chyba — kdyby blokovala každá,
-    dva rozbité soubory, které na sebe odkazují (scénář a jeho `call`),
-    by nešly opravit jeden po druhém. Zápis round-trip přes `ruamel.yaml`
-    (DESIGN D4), nezměněné řádky doslova z originálu (ruamel jinak mění
-    mezery ve flow mapách). Adresa kroku = cesta v dokumentu
-    (`["steps", 2, "parallel", "a", 0]`), stejná v `GET …/scenarios/<s>`
-    (`address`) i v URL operací. Změny polí jsou merge patch (RFC 7396);
-    hodnotu `null` jím zapsat nejde (celý krok přes `POST …/steps` nebo
-    text přes `files/`). Mazání agenta, skillu a scénáře odmítne použitý
-    soubor podle vazeb z 0.4.0 (`links`). Surový text jen pro
+35. **A `run_id` collision** (run-record.md: `<time>-<scenario>-<4 hex>`): two runs of
+    the same scenario in the same second have the same id with probability
+    1 : 65,536; with a batch of 50 requests per second from n8n that is ≈ 2 %.
+    Consequence: `agencast serve` overwrites the queue entry `<run_id>.json` of another
+    request, `agencast run` crashes on the existing run folder. Proposal: a longer
+    random part, or a new id when the folder/queue entry already exists.
+    Not fixed (outside the 0.2.1 assignment). (Found while hunting unstable
+    tests.) **Resolved in framework 0.3.0 by retrying** (point 39): the id
+    format does not change; on a collision a new suffix is generated, at most 5×, then an
+    `internal` error.
+36. **`task` with `schema` always starts the cascade at `tool_wrapper`** (an interpretation,
+    decided by the coordinator 2026-09-25, framework 0.2.2). The spec (scenario.md,
+    the cascade) says “the level starts at `models.<alias>.structured_output`”,
+    but does not address the combination with the tool loop. Native JSON schema
+    (`response_format`) sent in every turn together with `tools` tempts
+    some models to answer directly with JSON without calling tools — Haiku 4.5
+    in 3 of 3 live runs (BUGS 7): the loop ended in “success”
+    with an invented output and the side effect did not happen. Therefore in `task`
+    the framework does not send `response_format`; it enforces structured output
+    with the `_submit_output` tool (point 29), a text answer = a `schema` error
+    → the cascade goes to `prompt`. `models.<alias>.structured_output` still applies
+    only to `ask`. The level used is in `model_call.structured_output`
+    and in the step note in `summary.md`, `plan.md` shows “cascade from
+    tool_wrapper”.
+37. **Subfolders in `agents/` and `scenarios/` are ignored** (decided by the
+    coordinator and the user 2026-09-25, framework 0.2.3). The rule
+    from REVIEW M9 “a subfolder is a `config` error” stopped every run as soon as
+    a user moved old files into `archive/`. Same-named files
+    in subfolders do not matter, because subfolders are not read at all (agents,
+    `call` targets, the webhook, `check.py`). The relaxation is backward compatible
+    (DESIGN §5.9). Only a scenario stored directly in
+    `workflows/scenarios/` can still be run. When an agent or a `call` target does not exist, but a
+    same-named file lies one level down in a subfolder, the message adds:
+    “(file is in subfolder agents/archive/, subfolders are not read)”.
+38. **Whole costs, a Total row** (decided by the coordinator and the user
+    2026-09-25, framework 0.2.4). A run on `mistralai/mistral-nemo` cost
+    4.482e-06 USD, `summary.md` and `report.html` showed “0.0000 USD”
+    (4 places) and `callback.json` 4.48e-06 (`round(…, 8)`) — the report did not
+    show how much the run cost (R2). Now: the call cost = exactly `usage.cost`
+    from the provider, totals rounded only to 10 places because of float
+    noise, for humans decimal with a point, at least 4 places, more only for
+    stored digits, an actual zero `0`. The step table ends with a row
+    **Total** = the run cost (the same number as `cost_usd` in `run_finished`
+    and the callback), for images with the note “of which images …”; the time empty.
+    The JSON format does not change, only precision → backward compatible.
+    Added in framework 0.2.5 at the user's request: the Time column in the Total
+    row = the time of the whole run (`duration_s` from `run_finished`, the same number
+    as in the header), not the sum of the column — `parallel` branches run concurrently
+    and nested steps are already in the time of the parent step.
+39. **Concurrent runs** (coordinator's assignment 2026-09-26, framework 0.3.0).
+    `agencast serve --workers N` runs N runs at a time over one queue
+    (default 1 = the existing behavior, D2); `api.run` from multiple threads or
+    processes over the same `runs/` folder too. What concurrency broke:
+    (a) **`run_id`** (point 35) — `Record` with the folder `exist_ok=False` on
+    `FileExistsError` tries a new suffix, at most 5×, then `internal`;
+    the webhook on acceptance skips an id that already has a queue entry
+    or a run folder anyway. Recovery after a server restart (`exist_ok=True`) does not
+    change. (b) The **`/models` cache** (`<runs>/_models.json`) is written
+    to a temporary file in the same folder and `os.replace`d; a corrupted JSON is
+    treated by a reader as “no cache”. (c) **`dedupe_key`** is behind the
+    `DedupeStore` interface (`get`, `claim` exclusively and atomically via `O_EXCL`,
+    `finish` via rename); local files and the paths
+    `<runs>/_dedupe/<sha256>.json` and `_dedupe-fake/` stay unchanged,
+    old records stay valid. On Modal its own storage is plugged in here
+    (DESIGN “Wrappers”). Queue recovery and `request_key` (`_queue/keys/`)
+    are still under a lock; `queue_position` counts waiting and running requests,
+    the completion order with N > 1 is not guaranteed (webhook.md).
+40. **A cap on concurrent runs and a daily spend limit** (decided by the user
+    2026-09-26, framework 0.3.1). With `--workers` (point 39), manual CLI, n8n
+    and cron over one `runs/` there was no way to limit how many runs would go at once
+    or how much would be spent per day — `run_budget_usd` guards only a single
+    run. Now two **optional** `limits` keys (without them nothing changes, R8):
+    (a) **`max_parallel_runs: N`** — slots `<runs>/_slots/<n>.lock`
+    (`flock`, shared by all processes; the lock is released even when the process
+    crashes). A slot is taken before the run folder is created and is always released. Full → stderr
+    “waiting for a free slot (max_parallel_runs=N)”, polling every 0.5 s,
+    at most `run_timeout`, then `timeout` (“no slot became available within
+    run_timeout … — run did not start”). The wait is in the record as `run_waiting`
+    with `waited_s`. Fake runs take part in the slots. No new error class is created.
+    (b) **`daily_budget_usd: X`** — the daily ledger
+    `<runs>/_ledger/<YYYY-MM-DD>.jsonl` (UTC by the end of the run), a row
+    `{run_id, cost_usd, finished_at}` for each finished run, appended under
+    `flock`; `--fake` goes to `_ledger-fake/`. At run start (after acquiring a
+    slot) a sum ≥ X → `budget` before the first call (“daily spend limit
+    exhausted: already … today (… UTC) of X USD (daily_budget_usd) — run did not
+    start”). The check is only at start — a run may exceed the limit by at most
+    its `run_budget_usd`. The ledger has existed since 0.3.1 and is always written.
+    A run that did not start because of (a) or (b) takes the same path as a run
+    the webhook did not start (`run_scenario(error=…)`): a folder with only the
+    record and `summary.md`, without `plan.md`/`inputs.json`, `run_finished`
+    with `error` (`step: null`) and a callback. Both slots and the ledger are behind an interface
+    next to `DedupeStore` (`SlotStore.acquire/release`,
+    `Ledger.total/add` in `task.py`) — Modal plugs its own storage in here
+    (DESIGN “Wrappers”). Note: the ledger is a shared append-only file, which
+    D2 (“never one shared log”) formally does not anticipate; a write is
+    one line under `flock`.
+    **Decision (coordinator, 2026-09-26):** both accepted. The ledger is
+    always written, because it also serves as a daily spend overview and a limit turned on
+    during the day should count the runs so far as well. The exception to D2 is bounded:
+    one row per finished run, one file per day, under `flock`;
+    run records stay separate. On Modal the wrapper replaces the ledger through the
+    `Ledger` interface.
+41. **The project registry and `agencast new`** (decided by the user and the coordinator
+    2026-09-26, framework 0.4.0; [projects.md](projects.md)). A GUI on top of
+    AgenCast needs a list of projects; scanning the disk was rejected,
+    a registry is kept in `~/.config/agencast/projects.yaml`
+    (`AGENCAST_CONFIG_DIR`), `projects: [{name, root}]` without secrets.
+    It is filled by `new project`, `projects add` and a successful `validate`/`run`
+    (a message once on stderr); a name collision → `config` with the hint
+    `--name`, for `validate`/`run` only a printout, the command completes. A missing
+    `workflows/config.yaml` = `available: false`, the entry stays.
+    `new project|agent|scenario` creates files from templates in the framework
+    and overwrites nothing. v1 formats unchanged.
+42. **The `serve` read API for the GUI** (decided by the user and the coordinator
+    2026-09-26, framework 0.4.0; [api.md](api.md)). The GUI (`ui/`, DESIGN
+    “Wrappers”) talks to the core only over HTTP. The `/projects/...` family is
+    additive: `POST /runs`, `GET /runs/<id>` and the callbacks do not change (n8n).
+    `serve` in a project or with `--project` = a single project with its
+    `webhook.token_env`; outside a project = registry mode with one server token
+    `AGENCAST_TOKEN` (the coordinator's variant A: per-project
+    tokens would collide by variable names in one process). In the registry the
+    secrets are taken from the server's environment (and `.env` in the cwd), the variable names
+    from the project's `config.yaml`. The project and scenario description is read by the loader and
+    `validate` (`check_models=False`), not by a custom parser; errors are
+    in the `errors` field, a broken file is shown as far as possible. `files/` lets through only
+    files inside the run folder (otherwise 404), `spend` only the live ledger.
+    An unknown project/scenario/run → 404 with a JSON error.
+43. **Editing operations for the GUI** (coordinator's assignment 2026-09-26,
+    framework 0.5.0; [api.md](api.md) “Editing”). The GUI changes files only through
+    core operations (`agencast/edit.py`) over `serve`; the file stays
+    the truth. The version fingerprint = sha256 of the content (not mtime — easy to compare
+    in tests and in the GUI); a mismatch → 409, nothing is written. Validation before
+    writing = a copy of `workflows/` with the change + `validate(check_models=False)`
+    (the cheapest correct route: validation works over files, not over
+    in-memory data); only a **new** error blocks — if every one blocked,
+    two broken files that refer to each other (a scenario and its `call`)
+    could not be fixed one after the other. Writing round-trips through `ruamel.yaml`
+    (DESIGN D4), unchanged lines verbatim from the original (ruamel otherwise changes
+    spacing in flow maps). A step address = a path in the document
+    (`["steps", 2, "parallel", "a", 0]`), the same in `GET …/scenarios/<s>`
+    (`address`) and in the operation URLs. Field changes are a merge patch (RFC 7396);
+    a `null` value cannot be written with it (a whole step via `POST …/steps` or
+    text via `files/`). Deleting an agent, a skill and a scenario refuses a file
+    that is in use, based on the links from 0.4.0 (`links`). Raw text only for
     `agents/*.md`, `scenarios/*.yaml`, `skills/*/SKILL.md`, `config.yaml`,
-    `mcp.yaml`; `.env` nikdy. `config` přes formulář jen `models`,
-    `limits`, `storage`, `webhook`, `callback` a `openrouter.api_key_env`.
-    Formáty v1 beze změny.
-44. **Doplňky API pro GUI** (zadání koordinátora 2026-09-26, framework
-    0.6.0; [api.md](api.md) „Doplňky pro GUI“, návrh GUI
-    `docs/ui/navrh-gui.md` §7.2–7.4, §8.4–8.5). Chyby jako objekty
-    `{message, file?, step?, field?, line?}`: pole se čtou ze začátku
-    hlášky (`<soubor>[, řádek N][: krok "id"][, pole]: …`) na jednom místě
-    v HTTP vrstvě (`projects.error_fields`) — hlášky `validate` i loaderu
-    tak zůstávají jediným zdrojem a CLI se nemění; přenášet strukturu
-    z každého místa, kde chyba vzniká (`_Checker.err`, `schema_errors`,
-    `load_yaml`, …), by znamenalo měnit desítky volání. Známý strop: scénář
-    pojmenovaný `config` nebo `mcp` dostane `file: config.yaml`/`mcp.yaml`.
-    `POST …/validate` = stejná kopie `workflows/` jako editační operace
-    (`edit._errors_with`), vrací všechny chyby. `env` = jen `true/false`
-    (neprázdná proměnná v prostředí `serve`), nikdy hodnota. Běhy: zdroj
-    `events.jsonl`, `steps_total` z nového pole `run_started.steps_total`
-    (plán jako soubor by se musel parsovat). Spuštění z GUI: `callback_url`
-    volitelná jen v `POST /projects/<p>/runs`, bez ní
-    `run_started.callback_url: null`; `dry_run` synchronně (200), s
-    `callback_url`/`request_key` 422. GUI se servíruje bez tokenu (statické
-    soubory bez dat; token dál chrání `/projects…` a `/runs…`), CORS jen
-    s `--cors <origin>`. Změna tvaru `errors` je jediná neaditivní změna;
-    GUI je jediný klient.
-45. **API podle nálezů z GUI** (zadání koordinátora 2026-09-26, framework
-    0.7.0; `docs/ui/nalezy-api.md`, [api.md](api.md) „Doplňky podle
-    nálezů GUI“). Běží × přerušen: `flock` na `<run>/run.lock` po dobu
-    procesu (jako sloty `max_parallel_runs` — pád proces zámek pustí, nic
-    se neuklízí); čtenář zkouší sdílený zámek bez čekání, proto běh bere
-    výhradní zámek blokující (čtenář ho drží mikrosekundy). Soubor, ne PID:
-    PID se recykluje a na Modalu nedává smysl. Strojové `state` vedle
-    textového `status`; `cancelled` je jen rezervované (běh v1 tak
-    nekončí). Podrobnosti kroků, krok běhu a `current_nn` z `events.jsonl`
-    — `step_started`/`step_skipped` mají nově `nn` a `dir` (u starších
-    běhů se odvodí z cest souborů, `current_nn` je `null`). Strom kroků
-    běhu ze snímku `<run>/scenario/` (kopie souborů, ne strom v
-    `run_started`: stejný parser jako `GET …/scenarios/<s>`, bez nového
-    formátu); běhy bez snímku mají strom ze současného souboru
-    s `tree_source: current`. `last_run` a filtr `scenario` podle jména
-    v `run_id` — bez čtení záznamů; limit se uplatní před čtením. Čtení
-    běhů bere z `config.yaml` jen `runs_dir` (jinak `./runs`), takže
-    rozbitý config nezakryje staré běhy. `links.scenario_step_agent`
-    aditivně, protože GUI část 1 čte `scenario_agent` jako dvojice.
-    Oprava loaderu: „poprvé na řádku N“ u duplicitního klíče ve
-    frontmatteru `.md` teď počítá s řádkem `---`. Vše aditivní.
-46. **API podle nálezů z GUI, část 2** (zadání koordinátora 2026-09-26,
-    framework 0.8.0; `docs/ui/nalezy-api.md` body 10–20, [api.md](api.md)
-    „Dávka, náhled a doplňky…“). Dávka místo `PATCH` s `rename_refs`:
-    řeší přejmenování i smazání čteného kroku, neúplný nový krok,
-    prázdnou větev i atomičnost jedním mechanismem; jednotlivé endpointy
-    volají tytéž operace nad dokumentem v paměti. Chyba operace (adresa,
-    pole) je v dávce 422 s `op`, ne 404 — je to chyba těla požadavku.
-    `rename_refs` přepisuje jen výrazy (`when`, `switch.value`, `set`)
-    a obsah `{{ }}` regexem `steps.<id>.` s hranicí před `steps` —
-    text promptu mimo šablonu a komentáře zůstanou. `render` vrací
-    všechny chyby (jako `validate`), ne jen nové, a 200 i s chybami.
-    Stav čerstvého běhu: `dry_run` = bez `run.lock` (dry-run zámek nikdy
-    neměl) místo nové značky — nulová změna formátu a staré dry-run
-    složky se čtou dál správně; záznam fronty přebije `interrupted`
-    na `queued`. `models_used` jako cesty souborů (jako `errors[].file`),
-    klíče i nepoužité aliasy. `PUT …/config`: `runs_dir` a `jev_model`
-    povoleny, `base_url` a `version` ne (klíč / formát); `runs_dir` za
-    běhu `serve` potřebuje restart kvůli frontě. `description` nového
-    souboru se zapisuje jako JSON řetězec (platný YAML, žádné
-    escapování navíc).
-47. **Projekty z GUI** (zadání 2026-09-26, framework 0.9.0, [api.md](api.md)
-    a [projects.md](projects.md)). `serve` v režimu registru může založit
-    projekt ze stávajících šablon, zaregistrovat projekt s
-    `workflows/config.yaml` nebo odebrat položku bez mazání souborů.
-    Výchozí kořen `projects_root` je `~/workspace`; API rozbaluje `~`,
-    normalizuje cesty, zakazuje `..` a relativní únik přes symlink.
-    Zápis mimo domovský adresář serveru zůstává povolený a běží s právy
-    uživatele `serve`; v jednoprojektovém režimu jsou zápisy 405.
-48. **Doplňky API podle nálezů GUI 21–28** (framework 0.10.0,
-    [`docs/ui/nalezy-api.md`](../ui/nalezy-api.md)). Obnova přerušeného běhu
-    zachová `run_started`, zapisuje `run_finished failed` s posledním
-    krokem a vrací `state: interrupted`; osiřelé kroky jsou `interrupted`.
-    Chyby schématu configu dostávají YAML řádek; `/projects` přidává počty
-    a útratu dne; běhy mají kurzor `before` a `next_before`; `render` i
-    `validate` umí vrátit strom ze scénářového textu; chyby operace dávky
-    nesou krok a pole. `callback.secret_env` se kontroluje pouze s
-    callbackem a `webhook.token_env` jen v jednoprojektovém režimu. Formáty
-    v1, `POST /runs` a smlouva callbacku se nemění.
+    `mcp.yaml`; never `.env`. `config` through the form only `models`,
+    `limits`, `storage`, `webhook`, `callback` and `openrouter.api_key_env`.
+    v1 formats unchanged.
+44. **API additions for the GUI** (coordinator's assignment 2026-09-26, framework
+    0.6.0; [api.md](api.md) “GUI additions”, GUI design
+    `docs/ui/gui-design.md` §7.2–7.4, §8.4–8.5). Errors as objects
+    `{message, file?, step?, field?, line?}`: the fields are read from the start of the
+    message (`<file>[, line N][: step "id"][, field]: …`) in one place
+    in the HTTP layer (`projects.error_fields`) — so the `validate` and loader messages
+    stay the only source and the CLI does not change; carrying the structure
+    from every place an error originates (`_Checker.err`, `schema_errors`,
+    `load_yaml`, …) would mean changing dozens of calls. A known ceiling: a scenario
+    named `config` or `mcp` gets `file: config.yaml`/`mcp.yaml`.
+    `POST …/validate` = the same copy of `workflows/` as the editing operations
+    (`edit._errors_with`), returns all errors. `env` = only `true/false`
+    (a non-empty variable in the `serve` environment), never the value. Runs: the source is
+    `events.jsonl`, `steps_total` from the new field `run_started.steps_total`
+    (a plan as a file would have to be parsed). Starting from the GUI: `callback_url`
+    optional only in `POST /projects/<p>/runs`, without it
+    `run_started.callback_url: null`; `dry_run` synchronously (200), with
+    `callback_url`/`request_key` 422. The GUI is served without a token (static
+    files without data; the token still protects `/projects…` and `/runs…`), CORS only
+    with `--cors <origin>`. The change of the `errors` shape is the only non-additive change;
+    the GUI is the only client.
+45. **API from GUI findings** (coordinator's assignment 2026-09-26, framework
+    0.7.0; `docs/ui/api-findings.md`, [api.md](api.md) “Additions from
+    GUI findings”). Running × interrupted: `flock` on `<run>/run.lock` for the life of the
+    process (like the `max_parallel_runs` slots — a crash releases the lock, nothing
+    needs cleaning up); a reader tries the shared lock without waiting, so a run takes
+    the exclusive lock blocking (a reader holds it for microseconds). A file, not a PID:
+    PIDs are recycled and make no sense on Modal. The machine `state` next to the
+    textual `status`; `cancelled` is only reserved (a v1 run does not end that way).
+    Step details, a run step and `current_nn` from `events.jsonl`
+    — `step_started`/`step_skipped` now have `nn` and `dir` (for older
+    runs derived from file paths, `current_nn` is `null`). The run step tree
+    from the snapshot `<run>/scenario/` (a copy of the files, not a tree in
+    `run_started`: the same parser as `GET …/scenarios/<s>`, no new format);
+    runs without a snapshot have the tree from the current file
+    with `tree_source: current`. `last_run` and the `scenario` filter by the name
+    in `run_id` — without reading records; the limit is applied before reading. Reading
+    runs takes only `runs_dir` from `config.yaml` (otherwise `./runs`), so a
+    broken config does not hide old runs. `links.scenario_step_agent`
+    additively, because GUI part 1 reads `scenario_agent` as pairs.
+    A loader fix: “first at line N” for a duplicate key in `.md` frontmatter
+    now accounts for the `---` line. All additive.
+46. **API from GUI findings, part 2** (coordinator's assignment 2026-09-26,
+    framework 0.8.0; `docs/ui/api-findings.md` items 10–20, [api.md](api.md)
+    “Batch, preview and additions…”). A batch instead of `PATCH` with `rename_refs`:
+    solves renaming and deleting a read step, an incomplete new step,
+    an empty branch and atomicity with one mechanism; the individual endpoints
+    call the same operations over an in-memory document. An operation error (address,
+    field) in a batch is 422 with `op`, not 404 — it is a request body error.
+    `rename_refs` rewrites only expressions (`when`, `switch.value`, `set`)
+    and the content of `{{ }}` with the regex `steps.<id>.` with a boundary before `steps` —
+    prompt text outside a template and comments stay. `render` returns
+    all errors (like `validate`), not just new ones, and 200 even with errors.
+    State of a fresh run: `dry_run` = without `run.lock` (a dry run never had a lock)
+    instead of a new marker — zero format change and old dry run
+    folders are still read correctly; a queue entry overrides `interrupted`
+    with `queued`. `models_used` as file paths (like `errors[].file`),
+    keys also unused aliases. `PUT …/config`: `runs_dir` and `jev_model`
+    allowed, `base_url` and `version` not (a key / the format); `runs_dir` while
+    `serve` runs needs a restart because of the queue. The `description` of a new
+    file is written as a JSON string (valid YAML, no extra
+    escaping).
+47. **Projects from the GUI** (assignment 2026-09-26, framework 0.9.0, [api.md](api.md)
+    and [projects.md](projects.md)). `serve` in registry mode can create a
+    project from the existing templates, register a project with
+    `workflows/config.yaml` or remove an entry without deleting files.
+    The default root `projects_root` is `~/workspace`; the API expands `~`,
+    normalizes paths, forbids `..` and a relative escape through a symlink.
+    Writing outside the server's home directory stays allowed and runs with the permissions of the
+    `serve` user; in single-project mode writes are 405.
+48. **API additions from GUI findings 21–28** (framework 0.10.0,
+    [`docs/ui/api-findings.md`](../ui/api-findings.md)). Recovery of an interrupted run
+    keeps `run_started`, writes `run_finished failed` with the last
+    step and returns `state: interrupted`; orphaned steps are `interrupted`.
+    Config schema errors get a YAML line; `/projects` adds counts
+    and the day's spend; runs have the cursor `before` and `next_before`; `render` and
+    `validate` can return a tree from scenario text; batch operation errors
+    carry the step and field. `callback.secret_env` is checked only with
+    a callback and `webhook.token_env` only in single-project mode. Formats
+    v1, `POST /runs` and the callback contract do not change.

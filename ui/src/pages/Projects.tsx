@@ -1,4 +1,4 @@
-// §2.1 Seznam projektů (karty); přidání a odebrání projektu z registru (api.md 0.9.0).
+// §2.1 Project list (cards); adding and removing a project in the registry (api.md 0.9.0).
 import { CircleSlash, FolderPlus, Plus, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { ApiError, enc, send, useApi } from "../api";
@@ -30,7 +30,7 @@ export function ProjectsPage() {
             <Plus className="size-4" aria-hidden />{t("projects.add")}
           </button>
         </>}>
-        {/* cesta registru jako samostatný řádek pod hlavičkou (návrh 02, změřeno z .pen: mono 12, mezera 24) */}
+        {/* registry path as a separate row under the header (design 02, measured from .pen: mono 12, gap 24) */}
         {list.data && <p className="truncate font-mono text-xs leading-[18px] text-fg-muted" title={t("projects.registry", { path: list.data.registry })}>{list.data.registry}</p>}
       </PageHeader>
       {list.error && list.error.status !== 0 && <ErrorText error={list.error} />}
@@ -69,8 +69,8 @@ function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: ()
     { label: t("projects.copyPath"), onSelect: () => navigator.clipboard.writeText(project.root) },
     ...(onRemove ? [{ label: t("projects.remove"), onSelect: onRemove, danger: true }] : []),
   ];
-  // Návrh 02 (změřeno z .pen): radius 14, padding 22, min. výška 260, mezery 20; horní řádek = čip nedostupnosti (G6) a ⋯,
-  // pak název 20, cesta, čipy počtů, oddělovač, stav běhu + útrata.
+  // Design 02 (measured from .pen): radius 14, padding 22, min. height 260, gaps 20; top row = unavailability chip (G6) and ⋯,
+  // then name 20, path, count chips, divider, run state + spend.
   return (
     <li data-testid={`project-card-${project.name}`}
       className={`relative flex min-h-[260px] flex-col gap-5 rounded-tile p-[22px] max-md:min-h-0 max-md:p-5 ${project.available ? "bg-surface hover:bg-surface-hover" : "border border-dashed border-line"}`}>
@@ -107,12 +107,12 @@ function ProjectCard({ project, onRemove }: { project: ProjectRef; onRemove?: ()
 }
 
 const PROJECT_NAME = /^[a-z][a-z0-9-]*$/;
-/** Jméno z poslední složky cesty (jako `default_name` v CLI): malá písmena, jinak pomlčka. */
+/** Name from the last path folder (like `default_name` in the CLI): lowercase letters, dash for anything else. */
 export const nameFromPath = (path: string) =>
   (path.replace(/\/+$/, "").split("/").pop() ?? "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^[^a-z]+/, "");
 
-/** „Přidat projekt“: založit nový (`POST /projects/new`), nebo přidat existující (`POST /projects`).
- *  Bez práva zápisu registru (`writable: false`) jen příkaz pro CLI. */
+/** "Add project": create a new one (`POST /projects/new`), or add an existing one (`POST /projects`).
+ *  Without registry write permission (`writable: false`) only a CLI command. */
 function AddProjectDialog({ list, onCancel, onDone }: {
   list: ProjectList; onCancel: () => void; onDone: (name: string, created: boolean) => void;
 }) {
@@ -145,7 +145,7 @@ function AddProjectDialog({ list, onCancel, onDone }: {
     return (
       <Modal title={t("projects.add")} onCancel={onCancel} actions={[]} cancelLabel={t("common.close")}>
         <p>{t("projects.addCli")}</p>
-        <CliLine cmd="agencast projects add <cesta>" />
+        <CliLine cmd="agencast projects add <path>" />
       </Modal>
     );
   return (

@@ -1,0 +1,13 @@
+# Scripted responses for tutorial-05-exercise (exercise solution from part 5).
+# Jev returns tone: serious → the serious branch runs, so the responses need slogan_serious.
+propose:
+  - json:
+      name: "Ovena"
+check:
+  - answers:
+      memorable: 0.9
+      tone: serious
+      originality: 1.1
+slogan_serious:
+  - json:
+      slogan: "Ovena. Plant-based smoothness in every spoonful."

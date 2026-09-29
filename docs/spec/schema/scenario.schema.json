@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/rychidesign/agencast/main/docs/spec/schema/scenario.schema.json",
-  "title": "Scénář, formát v1",
-  "description": "Viz docs/spec/scenario.md. Schéma kontroluje tvar souboru; odkazy, typy ve výrazech, pořadí kroků a smlouvu call kontroluje validate (scenario.md §7).",
+  "title": "Scenario, format v1",
+  "description": "See docs/spec/scenario.md. The schema checks the shape of the file; references, types in expressions, step order and the call contract are checked by validate (scenario.md §7).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -172,7 +172,7 @@
       ]
     },
     "shape": {
-      "description": "Zkrácený zápis schema: typ, [typ] nebo vnořená mapa.",
+      "description": "Shorthand schema notation: type, [type] or a nested map.",
       "oneOf": [
         {
           "enum": [
@@ -245,7 +245,7 @@
       ]
     },
     "branch_step": {
-      "description": "Krok uvnitř větve parallel/switch — cokoliv kromě output.",
+      "description": "Step inside a parallel/switch branch — anything except output.",
       "type": "object",
       "oneOf": [
         {
@@ -858,7 +858,7 @@
       }
     },
     "schema_root": {
-      "description": "Kořen schema ask/task je vždy mapa.",
+      "description": "The root of an ask/task schema is always a map.",
       "type": "object",
       "minProperties": 1,
       "propertyNames": {

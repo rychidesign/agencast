@@ -2,19 +2,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, startRun, test, waitRun } from "./fixtures";
 
-test("Karta kroku: výběr, konektor a klávesnice nabídky", async ({ page, project }) => {
-  await page.goto(`/#/p/${project.name}/scenare/ukazka`);
-  const card = page.locator('[data-step-card="napis"]');
+test("Step card: selection, connector and menu keyboard", async ({ page, project }) => {
+  await page.goto(`/#/p/${project.name}/scenarios/demo`);
+  const card = page.locator('[data-step-card="write"]');
   await card.click();
   await expect(card).toHaveAttribute("aria-pressed", "true");
   await expect(card).toHaveClass(/bg-surface-active/);
-  await expect(card).not.toHaveClass(/ring-1/); // .pen: vybraná karta jen plochou
+  await expect(card).not.toHaveClass(/ring-1/); // .pen: the selected card only by its fill
 
-  const add = page.getByTestId("add-after-napis");
+  const add = page.getByTestId("add-after-write");
   await add.locator("xpath=../..").hover();
   await expect(add).toHaveCSS("opacity", "1");
   await add.click();
-  const picker = page.getByRole("listbox", { name: "Typ nového kroku" });
+  const picker = page.getByRole("listbox", { name: "New step type" });
   await picker.press("j");
   await expect(picker.getByRole("option")).toHaveCount(1);
   await expect(picker.getByRole("option")).toContainText("jev");
@@ -22,17 +22,17 @@ test("Karta kroku: výběr, konektor a klávesnice nabídky", async ({ page, pro
   await expect(page.locator('[data-step-card="jev_1"]')).toBeVisible();
 });
 
-test("Editor: panel v toku stránky zarovnaný ke kartě", async ({ page, project }) => {
-  project.write("scenarios/tutorial-03-cviceni.yaml", fs.readFileSync(path.resolve(import.meta.dirname, "../../examples/tutorial/workflows/scenarios/tutorial-03-cviceni.yaml"), "utf8"));
-  for (const agent of ["tutorial-pojmenovavac", "tutorial-sloganista"])
+test("Editor: panel in the page flow aligned to the card", async ({ page, project }) => {
+  project.write("scenarios/tutorial-03-exercise.yaml", fs.readFileSync(path.resolve(import.meta.dirname, "../../examples/tutorial/workflows/scenarios/tutorial-03-exercise.yaml"), "utf8"));
+  for (const agent of ["tutorial-namer", "tutorial-slogan-writer"])
     project.write(`agents/${agent}.md`, fs.readFileSync(path.resolve(import.meta.dirname, `../../examples/tutorial/workflows/agents/${agent}.md`), "utf8"));
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/#/p/${project.name}/scenare/tutorial-03-cviceni?krok=_hlavicka`);
+  await page.goto(`/#/p/${project.name}/scenarios/tutorial-03-exercise?step=_header`);
   const header = page.locator("main header").first();
   const card = page.locator('[data-step-card=""]');
   const panel = page.getByRole("complementary");
   await expect(panel).toBeVisible();
-  await expect(header).toContainText("Vymyslí název");
+  await expect(header).toContainText("Comes up with a name");
   await page.evaluate(() => document.fonts.ready);
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--page-header-h") === `${document.querySelector<HTMLElement>("main header")?.offsetHeight}px`)).toBe(true);
   const aligned = async (selected: string) => {
@@ -57,22 +57,22 @@ test("Editor: panel v toku stránky zarovnaný ke kartě", async ({ page, projec
     await page.screenshot({ path: `/tmp/agencast-l/${width}-step-3.png` });
   }
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator('[data-step-card="navrh"]').click();
-  for (const name of ["Podmínka", "Spolehlivost", "Podrobnosti kroku"])
+  await page.locator('[data-step-card="propose"]').click();
+  for (const name of ["Condition", "Reliability", "Step details"])
     await panel.getByRole("button", { name: new RegExp(name) }).click();
   await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeGreaterThan(900);
   await page.evaluate(() => window.scrollTo(0, document.scrollingElement!.scrollHeight));
   await expect.poll(async () => (await panel.boundingBox())!.y + (await panel.boundingBox())!.height).toBeLessThanOrEqual(900);
   await page.screenshot({ path: "/tmp/agencast-l/1440-long-panel-bottom.png" });
-  await expect(page.getByRole("region", { name: "Kroky scénáře" }).getByRole("button", { name: /^Smazat krok / })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Scenario steps" }).getByRole("button", { name: /^Delete step / })).toHaveCount(0);
 });
 
-test("Detail běhu: panel zarovnaný ke kartě", async ({ page, project, server }) => {
-  const id = await startRun(server, project.name, "ukazka", { inputs: { tema: "káva" } });
+test("Run detail: panel aligned to the card", async ({ page, project, server }) => {
+  const id = await startRun(server, project.name, "demo", { inputs: { topic: "coffee" } });
   await waitRun(server, project.name, id, ["succeeded"]);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/#/p/${project.name}/behy/${id}?krok=napis`);
-  const card = page.locator('[data-step-card="napis"]');
+  await page.goto(`/#/p/${project.name}/runs/${id}?step=write`);
+  const card = page.locator('[data-step-card="write"]');
   const panel = page.getByRole("complementary");
   await expect(panel).toBeVisible();
   await expect.poll(async () => Math.abs((await panel.boundingBox())!.y - (await card.boundingBox())!.y)).toBeLessThanOrEqual(1);
@@ -80,35 +80,35 @@ test("Detail běhu: panel zarovnaný ke kartě", async ({ page, project, server 
   await page.screenshot({ path: "/tmp/agencast-l/1440-run-step.png" });
 });
 
-test("Scénáře: karta bez přípony a čárkovaný prázdný stav", async ({ page, project }) => {
+test("Scenarios: card without extension and a dashed empty state", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}`);
-  const card = page.getByTestId("scenario-card-ukazka");
-  await expect(card).toContainText("ukazka");
-  await expect(card).not.toContainText("ukazka.yaml");
-  await expect(page.getByRole("button", { name: "Nový scénář" })).toHaveCount(1);
+  const card = page.getByTestId("scenario-card-demo");
+  await expect(card).toContainText("demo");
+  await expect(card).not.toContainText("demo.yaml");
+  await expect(page.getByRole("button", { name: "New scenario" })).toHaveCount(1);
 
-  fs.rmSync(path.join(project.wf, "scenarios/ukazka.yaml"));
+  fs.rmSync(path.join(project.wf, "scenarios/demo.yaml"));
   await page.reload();
-  await expect(page.getByTestId("scenario-card-ukazka")).toHaveCount(0);
+  await expect(page.getByTestId("scenario-card-demo")).toHaveCount(0);
   const empty = page.locator("li > button.border-dashed");
   await expect(empty).toBeVisible();
-  await expect(empty).toContainText("Nový scénář");
+  await expect(empty).toContainText("New scenario");
 });
 
-test("KV6 věrnost (změřeno z .pen): pilulka 96 px, kolečko 40 px s ikonou typu, řádek typu mono 11 malými, ⋯ uvnitř", async ({ page, project }) => {
-  await page.goto(`/#/p/${project.name}/scenare/ukazka`);
-  const card = page.locator('[data-step-card="napis"]');
+test("KV6 fidelity (measured from .pen): 96 px pill, 40 px circle with the type icon, type line mono 11 lowercase, ⋯ inside", async ({ page, project }) => {
+  await page.goto(`/#/p/${project.name}/scenarios/demo`);
+  const card = page.locator('[data-step-card="write"]');
   expect((await card.boundingBox())!.height).toBeCloseTo(96, 0);
   const badge = card.locator(".size-10.rounded-full");
   expect((await badge.boundingBox())!.width).toBeCloseTo(40, 0);
-  const typeLine = card.getByText("ask · napis");
+  const typeLine = card.getByText("ask · write");
   await expect(typeLine).toHaveCSS("font-size", "11px");
   await expect(typeLine).not.toHaveCSS("text-transform", "uppercase");
-  // ⋯ leží uvnitř pilulky vpravo
-  const menu = (await page.getByRole("button", { name: "Akce pro napis" }).boundingBox())!;
+  // ⋯ sits inside the pill on the right
+  const menu = (await page.getByRole("button", { name: "Actions for write" }).boundingBox())!;
   const box = (await card.boundingBox())!;
   expect(menu.x + menu.width).toBeLessThanOrEqual(box.x + box.width);
-  // sloupec 676 a panel 440 s mezerou 28 (návrh 05 na 1440 px)
+  // column 676 and panel 440 with a 28 gap (design 05 at 1440 px)
   await page.setViewportSize({ width: 1440, height: 900 });
   await card.click();
   const panel = (await page.getByRole("complementary").boundingBox())!;
@@ -118,16 +118,16 @@ test("KV6 věrnost (změřeno z .pen): pilulka 96 px, kolečko 40 px s ikonou ty
   expect(Math.round(panel.x - (col.x + col.width))).toBe(28);
 });
 
-test("KV5 věrnost (změřeno z .pen): karta scénáře r14 p24 v. 292, prosté ikony typů bez šipek, meta mono, Otevřít ↗", async ({ page, project }) => {
+test("KV5 fidelity (measured from .pen): scenario card r14 p24 h. 292, plain type icons without arrows, mono meta, Open ↗", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}`);
-  const card = page.getByTestId("scenario-card-ukazka");
+  const card = page.getByTestId("scenario-card-demo");
   await expect(card).toHaveCSS("border-radius", "14px");
   await expect(card).toHaveCSS("padding-top", "24px");
   expect((await card.boundingBox())!.height).toBeGreaterThanOrEqual(292);
-  const chain = card.getByRole("list", { name: /Typy kroků/ });
+  const chain = card.getByRole("list", { name: /Step types/ });
   await expect(chain).not.toContainText("→");
   await expect(chain.locator(".rounded-full")).toHaveCount(0);
   await expect(card.getByRole("heading", { level: 2 })).toHaveCSS("font-size", "18px");
-  await expect(card.getByText("2 kroky · 1 agent")).toHaveCSS("font-family", /JetBrains Mono/);
-  await expect(card).toContainText("Otevřít");
+  await expect(card.getByText("2 steps · 1 agent")).toHaveCSS("font-family", /JetBrains Mono/);
+  await expect(card).toContainText("Open");
 });

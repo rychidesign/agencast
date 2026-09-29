@@ -29,13 +29,13 @@ then `cd <dir>`; its scripted answers are in `fake/<scenario>.yaml`.
 
 ```bash
 agencast validate ig-post                            # files, agents, aliases (GET /models); --offline skips models
-agencast run ig-post -i tema="nová káva" --dry-run   # plan only: steps, models, tools, limits; no calls
-agencast run ig-post -i tema="nová káva" --fake fake/ig-post.yaml
-agencast run ig-post -i tema="nová káva"             # live: real models, real money
+agencast run ig-post -i topic="new coffee" --dry-run   # plan only: steps, models, tools, limits; no calls
+agencast run ig-post -i topic="new coffee" --fake fake/ig-post.yaml
+agencast run ig-post -i topic="new coffee"             # live: real models, real money
 ```
 
 - `-i key=value` per input; numbers, `true`/`false`, lists and objects as JSON
-  (`-i tags='["a","b"]'`). Missing required input → `config: chybí povinný vstup 'tema' (string)`.
+  (`-i tags='["a","b"]'`). Missing required input → `config: missing required input 'topic' (string)`.
 - `--fake [fixture]` = fake model provider, no model API key or model cost. Fixtures for the
   repo's own scenarios live in `fake/<scenario>.yaml`. Without a
   fixture the fake invents values (text placeholders, JSON per schema, Jev
@@ -52,24 +52,24 @@ agencast run ig-post -i tema="nová káva"             # live: real models, real
 - `--callback-url https://…` (HMAC-signed result) and `--request-key` are for
   webhook integrations; not needed from a terminal.
 
-`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
-Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
-`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
-`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
-Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
-a bez `--callback-url`, například `ig-post`.
+`--fake` replaces only model calls: no model cost and no OpenRouter key.
+A `task` step still runs the real MCP servers from `mcp.yaml`; the example
+`filesystem` uses `npx`, needs Node.js and downloads a package on first run.
+`--callback-url` sends a real callback (and needs its signing secret).
+Only scenarios without `task` (including called scenarios)
+and without `--callback-url` are guaranteed to run offline, for example `ig-post`.
 
 ## Reading the result
 
 The CLI prints one line and the paths:
 
 ```
-běh 20260926-085911-ig-post-a248: úspěch · 0,0 s · 0,0404 USD
-záznam: <project>/runs/20260926-085911-ig-post-a248/summary.md
-report: file://<project>/outputs/20260926-085911-ig-post-a248-…/report.html
+run 20260929-190533-ig-post-74b2: succeeded · 0.0 s · 0.0404 USD
+run record: <project>/runs/20260929-190533-ig-post-74b2/summary.md
+report: file://<project>/outputs/20260929-190533-ig-post-74b2-…/report.html
 ```
 
-On failure a second line goes to stderr: `<class> v kroku <step>: <message>`.
+On failure a second line goes to stderr: `<class> in step <step>: <message>`.
 
 `runs/<run_id>/` (under `runs_dir` from `config.yaml`, default `<project>/runs`):
 
@@ -102,7 +102,7 @@ Exit code: 0 success, 1 run failed, 2 `config` error (nothing ran).
 ## Secrets
 
 The key is `OPENROUTER_API_KEY`, read from the environment or from `.env` in
-the project root. Missing → `config: chybí proměnná prostředí OPENROUTER_API_KEY`.
+the project root. Missing → `config: missing environment variable OPENROUTER_API_KEY (OpenRouter key; .env or environment)`.
 Never print, cat, grep or log `.env` or key values. `validate --offline`,
 `--dry-run` and `--fake` need no OpenRouter key; real MCP servers and callbacks may require their own secrets.
 

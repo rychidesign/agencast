@@ -1,95 +1,97 @@
-# Díl 6 — Agent s nástroji: `task`, MCP server a skilly
+# Part 6 — An agent with tools: `task`, an MCP server and skills
 
-Zmínky `maw` označují historický název AgenCast; výstupy a dobová omezení jsou archivní.
+Mentions of `maw` denote the historical name of AgenCast; the outputs and the limitations of the time are archival.
 
-Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+Run the commands from `examples/tutorial` (from the clone root: `cd examples/tutorial`).
 
-**Čas:** asi 30 minut · **Útrata:** jeden ostrý běh za ~0,014 USD
-(ostatní s `--fake` nebo bez volání modelu)
-**Co budeš umět:** povolit agentovi MCP server (jako vlastník), napsat
-agenta s nástroji a skillem (jako autor), spustit krok `task`, přečíst
-v záznamu každé volání nástroje a vědět, kde všude tě framework zastaví.
+**Time:** about 30 minutes · **Spend:** one live run for ~0.014 USD
+(the others with `--fake` or without a model call)
+**You will learn to:** allow an agent an MCP server (as the owner), write an
+agent with tools and a skill (as the author), run a `task` step, read every
+tool call in the run record, and know everywhere the framework stops you.
 
-Předpoklad: díly 1–5 a **Node.js** (`npx` spouští MCP server; poprvé si
-stáhne balíček, takže potřebuje internet).
+Prerequisite: parts 1–5 and **Node.js** (`npx` starts the MCP server; the
+first time it downloads the package, so it needs internet).
 
-> Výstupy jsou skutečné — z běhů 25. 9. 2026 proti `maw` 0.2.1. Příkazy
-> spouštěj z projektu `examples/tutorial` se zkratkou `agencast` z dílu 1.
+> The outputs of `validate`, `--dry-run` and `--fake` come from the current CLI. The live run
+> (step 7 and the record excerpts in step 8) is archival: a real run from 25 Sep 2026 against
+> `maw` 0.2.1, with the names adapted to the English example project. Run the commands from the
+> `examples/tutorial` project with the `agencast` shortcut from part 1.
 
 ---
 
-## Krok 1 — `ask` × `task`
+## Step 1 — `ask` × `task`
 
-Doteď tvoji agenti jen **odpovídali**: krok `ask` = jedno volání modelu,
-text dovnitř, text (nebo JSON) ven. Krok `task` dá agentovi **nástroje**
-a nechá ho pracovat ve smyčce:
+Until now your agents only **answered**: an `ask` step = one model call,
+text in, text (or JSON) out. A `task` step gives the agent **tools** and
+lets it work in a loop:
 
 ```
-model: „zavolej list_allowed_directories"  → framework nástroj spustí, výsledek vrátí modelu
-model: „zavolej write_file(...)"           → spustí, vrátí
-model: „hotovo, tady je odpověď"           → konec kroku
+model: "call list_allowed_directories"  → the framework runs the tool, returns the result to the model
+model: "call write_file(...)"           → runs it, returns the result
+model: "done, here is the answer"       → end of the step
 ```
 
-Každá odpověď modelu, kterou smyčka zpracuje, je jeden **tah**. Tah může
-obsahovat i několik volání nástrojů naráz. Opakování po chybě
-(`transient`, `schema`) se jako tah nepočítá.
+Every model response that the loop processes is one **turn**. A turn can
+contain several tool calls at once. A retry after an error
+(`transient`, `schema`) does not count as a turn.
 
 | | `ask` | `task` |
 |---|---|---|
-| Volání modelu | jedno (+ opakování po chybě) | smyčka, nejvýš `max_turns` tahů |
-| Nástroje | žádné | povolené nástroje MCP serverů + `load_skill` |
-| Skilly | vložené do promptu **celé** | v promptu jen seznam, tělo si model načte nástrojem |
-| Limity | `budget_usd`, `timeout` | `max_turns`, `budget_usd`, `timeout` |
-| Konec | odpověď modelu | model odpoví bez volání nástroje |
+| Model calls | one (+ retries after an error) | a loop, at most `max_turns` turns |
+| Tools | none | the allowed tools of MCP servers + `load_skill` |
+| Skills | inserted into the prompt **in full** | only a list in the prompt, the model loads the body with a tool |
+| Limits | `budget_usd`, `timeout` | `max_turns`, `budget_usd`, `timeout` |
+| End | the model's response | the model answers without a tool call |
 
-Nástroje nabízí **MCP server** — samostatný program, se kterým framework
-mluví protokolem MCP. My použijeme oficiální
-`@modelcontextprotocol/server-filesystem`: umí číst a psát soubory, ale
-jen v jedné složce, kterou dostane při startu.
+Tools are offered by an **MCP server** — a separate program the framework
+talks to using the MCP protocol. We will use the official
+`@modelcontextprotocol/server-filesystem`: it can read and write files, but
+only in one folder, which it receives at startup.
 
 ---
 
-## Krok 2 — skill
+## Step 2 — a skill
 
-Skill je znalost, kterou si agent vezme, když ji potřebuje. Tady: jak má
-vypadat soubor v archivu.
+A skill is knowledge that an agent picks up when it needs it. Here: what a
+file in the archive should look like.
 
-Vytvoř `workflows/skills/tutorial-zapis/SKILL.md`:
+Create `workflows/skills/tutorial-entry/SKILL.md`:
 
 ```markdown
 ---
-name: tutorial-zapis
-description: Formát zápisu v archivu — použij vždy, když zápis nebo obsah archivu zapisuješ či kontroluješ
+name: tutorial-entry
+description: Format of archive entries — use it whenever you write or check an entry or the archive index
 ---
-Archiv má dva soubory, oba přímo v povolené složce:
+The archive has two files, both directly in the allowed folder:
 
-1. `<den>.md` — zápis jednoho dne (`<den>` je datum ze zadání, např. `2026-09-25.md`):
-   - první řádek `# Zápis <den>`,
-   - každá věta poznámky na vlastním řádku, který začíná `- `,
-   - nic dalšího (žádné prázdné řádky, žádný komentář).
-2. `obsah.md` — obsah archivu:
-   - první řádek `# Obsah`,
-   - pro každý zápis řádek `- <den>: <první věta poznámky>`.
+1. `<day>.md` — the entry for one day (`<day>` is the date from the prompt, e.g. `2026-09-25.md`):
+   - first line `# Entry <day>`,
+   - each sentence of the note on its own line starting with `- `,
+   - nothing else (no blank lines, no comments).
+2. `index.md` — the archive index:
+   - first line `# Index`,
+   - for each entry a line `- <day>: <first sentence of the note>`.
 ```
 
-- `name` = jméno složky.
-- `description` je u `task` **jediné, co model o skillu vidí**, dokud si
-  ho nenačte. Proto musí říct, *kdy* skill použít — ne jen „formát
-  archivu".
+- `name` = the folder name.
+- With `task`, `description` is **the only thing the model sees about a skill**
+  until it loads it. That is why it must say *when* to use the skill — not just
+  "archive format".
 
 ---
 
-## Krok 3 — agent s nástroji (role autora)
+## Step 3 — an agent with tools (the author role)
 
-`workflows/agents/tutorial-archivar.md`:
+`workflows/agents/tutorial-archivist.md`:
 
 ```markdown
 ---
 version: 1
-name: tutorial-archivar
-description: Zapisuje poznámky do archivu v pracovní složce běhu (tutoriál, díl 6)
-model: chytry
-skills: [tutorial-zapis]
+name: tutorial-archivist
+description: Writes notes to an archive in the run workspace (tutorial, part 6)
+model: smart
+skills: [tutorial-entry]
 mcp: [filesystem]
 tools:
   filesystem: [list_allowed_directories, list_directory, read_text_file, write_file]
@@ -98,397 +100,409 @@ limits:
   budget_usd: 0.03
   timeout: 3m
 ---
-Jsi archivář. Máš přístup k jediné složce — zjistíš ji nástrojem
-`list_allowed_directories`. Cesty k souborům piš vždy celé (povolená
-složka + jméno souboru).
+You are an archivist. You have access to a single folder — find it with the
+`list_allowed_directories` tool. Always write full file paths (allowed
+folder + file name).
 
-Postup:
-1. Zjisti povolenou složku a načti skill `tutorial-zapis`.
-2. Zapiš oba soubory podle skillu nástrojem `write_file`.
-3. Vypiš složku a každý soubor přečti. Když nesedí se skillem, oprav ho.
-4. Teprve pak odpověz: jména zapsaných souborů (bez složky) a počet vět
-   v zápisu dne. Nikdy neodpovídej dřív, než soubory opravdu zapíšeš.
+Steps:
+1. Find the allowed folder and load the `tutorial-entry` skill.
+2. Write both files according to the skill with the `write_file` tool.
+3. List the folder and read each file. If a file does not match the skill, fix it.
+4. Only then reply: the names of the written files (without the folder) and the number
+   of sentences in the day's entry. Never reply before you have actually written the files.
 
-Když nástroj vrátí chybu, nezkoušej cesty mimo povolenou složku:
-odpověz popisem chyby.
+If a tool returns an error, do not try paths outside the allowed folder:
+reply with a description of the error.
 ```
 
-Nová pole:
+New fields:
 
-| Pole | Co dělá |
+| Field | What it does |
 |---|---|
-| `skills` | skilly ze `workflows/skills/` |
-| `mcp` | ke kterým serverům z `mcp.yaml` se agent smí připojit |
-| `tools` | **výslovný seznam** nástrojů pro každý server z `mcp` — co tu není, model neuvidí. Když server v nové verzi přidá nástroj (třeba `delete_file`), agent ho nedostane. |
-| `limits.max_turns` | nejvýš tolik tahů v jednom kroku `task`; u agenta s `mcp` povinné |
-| `limits.budget_usd` | kolik smí stát **celý krok** — všechny tahy dohromady |
+| `skills` | skills from `workflows/skills/` |
+| `mcp` | which servers from `mcp.yaml` the agent may connect to |
+| `tools` | an **explicit list** of tools for every server in `mcp` — what is not here, the model will not see. When a server adds a tool in a new version (say `delete_file`), the agent does not get it. |
+| `limits.max_turns` | at most this many turns in one `task` step; required for an agent with `mcp` |
+| `limits.budget_usd` | how much the **whole step** may cost — all turns together |
 
-Proč `list_allowed_directories` a „cesty celé": agent předem neví, kde
-leží jeho složka (každý běh má jinou). Zeptá se serveru.
+Why `list_allowed_directories` and "full paths": the agent does not know in
+advance where its folder is (every run has a different one). It asks the
+server.
 
 ---
 
-## Krok 4 — scénář s krokem `task`
+## Step 4 — a scenario with a `task` step
 
-`workflows/scenarios/tutorial-06-archiv.yaml`:
+`workflows/scenarios/tutorial-06-archive.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-06-archiv
-description: Archivář zapíše poznámku do pracovní složky běhu a přečte ji (tutoriál, díl 6)
+name: tutorial-06-archive
+description: The archivist writes a note to the run workspace and reads it back (tutorial, part 6)
 
 inputs:
-  den:
+  day:
     type: string
     required: true
-    description: Datum zápisu, např. 2026-09-25
+    description: Date of the entry, e.g. 2026-09-25
   text:
     type: string
     required: true
-    description: Poznámka volným textem
+    description: The note as free text
 
 outputs:
-  zprava:
+  message:
     type: string
-    description: Co archivář zapsal a zkontroloval (jeho závěrečná odpověď)
+    description: What the archivist wrote and checked (its final reply)
 
 steps:
-  # 1. Agent s nástroji: sám zjistí složku, načte skill, zapíše dva soubory,
-  #    vypíše složku a soubory přečte. Nástroje povoluje mcp.yaml (vlastník)
-  #    a agent; krok smí jen zúžit — tady snižuje jen max_turns.
-  #    Bez schema: s ním Haiku v maw 0.2.1 často odpoví hned, bez nástrojů
-  #    (díl 6, „Pozor na schema u task"; BUGS.md, maw 0.2.1).
-  - id: zapis
+  # 1. An agent with tools: it finds the folder itself, loads the skill, writes two files,
+  #    lists the folder and reads the files. Tools are allowed by mcp.yaml (owner)
+  #    and the agent; the step may only narrow them — here it only lowers max_turns.
+  #    No schema: with it, Haiku in maw 0.2.1 often replies at once, without tools
+  #    (part 6, "Watch out for schema in task"; BUGS.md, maw 0.2.1).
+  - id: write
     task:
-      agent: tutorial-archivar
+      agent: tutorial-archivist
       prompt: |
-        Den: {{ inputs.den }}
-        Poznámka: {{ inputs.text }}
-        Zapiš poznámku do archivu a zkontroluj ji.
+        Day: {{ inputs.day }}
+        Note: {{ inputs.text }}
+        Write the note to the archive and check it.
       max_turns: 5
 
-  # 2. Výsledek.
+  # 2. Result.
   - id: out
     output:
-      zprava: "{{ steps.zapis.text }}"
+      message: "{{ steps.write.text }}"
 ```
 
-`task` má stejná pole jako `ask` (`agent`, `prompt`, volitelně `schema`)
-a navíc smí zúžit `max_turns`, `mcp` a `tools`. Bez `schema` je výstup
-kroku `steps.zapis.text` — závěrečná odpověď agenta. Proč tu `schema`
-schválně není, uvidíš v kroku 7.
+`task` has the same fields as `ask` (`agent`, `prompt`, optionally `schema`)
+and may additionally narrow `max_turns`, `mcp` and `tools`. Without `schema`
+the step output is `steps.write.text` — the agent's final answer. Why there
+is deliberately no `schema` here, you will see in step 7.
 
-Zkontroluj ho. Hotový projekt v `examples/tutorial` už má oprávnění nastavená.
-Při psaní od nuly bez povoleného agenta by kontrola vypadala takto:
+Validate it. The finished project in `examples/tutorial` already has the
+permissions set. If you were writing it from scratch and the owner's `mcp.yaml`
+(step 5) did not list the agent yet — say it listed only `tutorial-namer` —
+the check would look like this:
 
 ```bash
-agencast validate tutorial-06-archiv
+agencast validate tutorial-06-archive
 ```
 
 ```
-config: agents/tutorial-archivar.md: server 'filesystem' agentovi 'tutorial-archivar' vlastník nepovolil (mcp.yaml → servers.filesystem.agents: )
+config: agents/tutorial-archivist.md: the project owner has not allowed server 'filesystem' for agent 'tutorial-archivist' (mcp.yaml → servers.filesystem.agents: tutorial-namer)
 ```
 
-Agent říká „chci filesystem", ale to nestačí.
+(To try it yourself, use the copy from step 9 and change `agents` in its
+`mcp.yaml` to `[tutorial-namer]`.) The agent says "I want filesystem", but
+that is not enough.
 
 ---
 
-## Krok 5 — `mcp.yaml` (role vlastníka)
+## Step 5 — `mcp.yaml` (the owner role)
 
-Co smí který agent, rozhoduje **vlastník** v `workflows/mcp.yaml`:
+Which agent may do what is decided by the **owner** in `workflows/mcp.yaml`:
 
 ```yaml
+# mcp.yaml — MCP server registry. Changed by the owner only (DESIGN §4, §5.2).
+# Created in Phase 3a from mcp.example.yaml. This is where it is decided who may
+# use what: agents (required), scenarios and tools (optional).
+# Tokens only by environment variable name. Specification: docs/spec/config.md
+version: 1
+
 servers:
+  # Run workspace: the server sees only runs/<run>/work, nothing else.
+  # The package version is pinned (R7); preinstall it on Modal (D5).
   filesystem:
-    description: Čtení a zápis v pracovní složce aktuálního běhu
+    description: Reading and writing in the workspace of the current run
     command: npx
     args: ["-y", "@modelcontextprotocol/server-filesystem@2026.8.31", "{run_dir}/work"]
-    agents: []
+    agents: [tutorial-archivist]
     tools: [list_allowed_directories, list_directory, read_text_file, write_file]
 ```
 
-| Pole | Co to znamená |
+| Field | What it means |
 |---|---|
-| `command`, `args` | jak server spustit. `{run_dir}` = složka aktuálního běhu — server tedy vidí jen `runs/<běh>/work`, žádný jiný běh ani zbytek disku. Verze balíčku je pevná. |
-| `agents` | kteří agenti smí server použít |
-| `tools` | horní hranice nástrojů — agent si z nich smí vybrat, víc ne |
-| `scenarios` (tady není) | ze kterých scénářů smí agent s tímto serverem běžet — např. publikace jen ze schvalovacího scénáře |
+| `command`, `args` | how to start the server. `{run_dir}` = the folder of the current run — so the server sees only `runs/<run>/work`, no other run and none of the rest of the disk. The package version is pinned. |
+| `agents` | which agents may use the server (at least one; an empty list is not a valid file) |
+| `tools` | the upper bound of tools — the agent may pick from them, no more |
+| `scenarios` (not here) | which scenarios an agent with this server may run in — e.g. publishing only from an approval scenario |
 
-Přepni se do role vlastníka a přidej agenta do `agents` (jediná změna
-v souboru):
-
-```yaml
-    agents: [tutorial-archivar]
-```
+The `agents` line is what the owner adds for the agent (in the finished
+project it is already there). With it the check passes:
 
 ```bash
-agencast validate tutorial-06-archiv
+agencast validate tutorial-06-archive
 ```
 
 ```
-v pořádku: tutorial-06-archiv (2 kroky)
+valid: tutorial-06-archive (2 steps)
 ```
 
-**Proč to nejde z agenta:** agenty a scénáře píšou i ostatní — kolega,
-nebo jiný agent. Kdyby si agent mohl oprávnění napsat sám do svého
-frontmatteru, nebylo by to oprávnění, ale přání. Proto platí tři vrstvy,
-každá smí jen **zúžit** tu předchozí:
+**Why it cannot come from the agent:** agents and scenarios are also written
+by others — a colleague, or another agent. If an agent could write the
+permission into its own frontmatter, it would not be a permission but a wish.
+So there are three layers, each of which may only **narrow** the previous one:
 
 ```
-vlastník (mcp.yaml)  →  agent (mcp, tools, limits)  →  krok task (tools, max_turns, …)
+owner (mcp.yaml)  →  agent (mcp, tools, limits)  →  task step (tools, max_turns, …)
 ```
 
-Krok nikdy nepřidá server ani nástroj a nezvýší limit (to si vyzkoušíš
-v kroku 9).
+A step never adds a server or a tool and never raises a limit (you will try
+that in step 9).
 
-### `--dry-run` ukáže, co server nabízí
+### `--dry-run` shows what the server offers
 
 ```bash
-agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --dry-run
+agencast run tutorial-06-archive -i day=2026-09-25 -i text="It rained in the morning. In the afternoon we finished part 6." --dry-run
 ```
 
 ```
-| 1 | zapis | task |  | agent tutorial-archivar → chytry (anthropic/claude-haiku-4.5); nástroje: filesystem: list_allowed_directories, list_directory, read_text_file, write_file; skilly: tutorial-zapis; max_turns 5; text | 0.03 USD, 3m |
-| 2 | out | output |  | zprava |  |
+| 1 | write | task |  | agent tutorial-archivist → smart (anthropic/claude-haiku-4.5); tools: filesystem: list_allowed_directories, list_directory, read_text_file, write_file; skills: tutorial-entry; max_turns 5; text | 0.03 USD, 3m |
+| 2 | out | output |  | message |  |
 
-## MCP servery
+## MCP servers
 
-- **filesystem** (Čtení a zápis v pracovní složce aktuálního běhu): nabízí create_directory, directory_tree, edit_file, get_file_info, list_allowed_directories, list_directory, list_directory_with_sizes, move_file, read_file, read_media_file, read_multiple_files, read_text_file, search_files, write_file
+- **filesystem** (Reading and writing in the workspace of the current run): offers create_directory, directory_tree, edit_file, get_file_info, list_allowed_directories, list_directory, list_directory_with_sizes, move_file, read_file, read_media_file, read_multiple_files, read_text_file, search_files, write_file
 ```
 
-`--dry-run` server opravdu spustí a zeptá se ho na nástroje — takhle
-zjistíš jména pro `tools`, aniž bys četl dokumentaci serveru. Server jich
-nabízí 14, vlastník povolil 4, agent chce ty 4. Model uvidí jen je (a
-`load_skill`). Limity kroku: `max_turns 5` (agent dovoluje 6), `0.03 USD`
-a `3m` z agenta.
+`--dry-run` really starts the server and asks it for its tools — this is how
+you find out the names for `tools` without reading the server's
+documentation. The server offers 14, the owner allowed 4, the agent wants
+those 4. The model will see only them (and `load_skill`). The step limits:
+`max_turns 5` (the agent allows 6), `0.03 USD` and `3m` from the agent.
 
 ---
 
-## Krok 6 — `--fake`: tahy ve fixtuře
+## Step 6 — `--fake`: turns in the fixture
 
-U `task` je odpověď modelu **seznam tahů**. Tah je buď volání nástrojů
-(`tool_calls`), nebo závěrečná odpověď (`text`, se `schema` `json`).
-`fake/tutorial-06-archiv.yaml`:
+With `task`, a model response is a **list of turns**. A turn is either tool
+calls (`tool_calls`) or a final answer (`text`, with `schema` `json`).
+`fake/tutorial-06-archive.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-06-archiv. Krok task = seznam tahů:
-# každý tah je buď volání nástrojů (tool_calls), nebo finální odpověď (text).
-# Jméno nástroje = <server>__<nástroj>; load_skill je nástroj frameworku.
-# V testech běží místo server-filesystem falešný server (tests/fake_mcp_server.py),
-# cesty jsou relativně k jeho kořeni.
-zapis:
+# Scripted responses for tutorial-06-archive. A task step = a list of turns:
+# each turn is either tool calls (tool_calls) or the final reply (text).
+# Tool name = <server>__<tool>; load_skill is a framework tool.
+# In tests a fake server (tests/fake_mcp_server.py) runs instead of server-filesystem;
+# paths are relative to its root.
+write:
   - tool_calls:
       - { name: filesystem__list_allowed_directories, arguments: {} }
-      - { name: load_skill, arguments: { name: tutorial-zapis } }
+      - { name: load_skill, arguments: { name: tutorial-entry } }
   - tool_calls:
       - name: filesystem__write_file
-        arguments: { path: 2026-09-25.md, content: "# Zápis 2026-09-25\n- Ráno pršelo.\n- Odpoledne jsme dopsali díl 6.\n" }
+        arguments: { path: 2026-09-25.md, content: "# Entry 2026-09-25\n- It rained in the morning.\n- In the afternoon we finished part 6.\n" }
       - name: filesystem__write_file
-        arguments: { path: obsah.md, content: "# Obsah\n- 2026-09-25: Ráno pršelo.\n" }
+        arguments: { path: index.md, content: "# Index\n- 2026-09-25: It rained in the morning.\n" }
   - tool_calls:
       - { name: filesystem__list_directory, arguments: { path: . } }
       - { name: filesystem__read_text_file, arguments: { path: 2026-09-25.md } }
-      - { name: filesystem__read_text_file, arguments: { path: obsah.md } }
-  - text: "Zapsáno: 2026-09-25.md a obsah.md. Zápis má 2 věty."
+      - { name: filesystem__read_text_file, arguments: { path: index.md } }
+  - text: "Written: 2026-09-25.md and index.md. The entry has 2 sentences."
 ```
 
-Jméno nástroje pro model je `<server>__<nástroj>` (dvě podtržítka) — tak
-ho framework pojmenuje, aby se nástroje dvou serverů nepletly.
+The tool name for the model is `<server>__<tool>` (two underscores) — that is
+how the framework names it so that the tools of two servers do not clash.
 
 ```bash
-agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake fake/tutorial-06-archiv.yaml
+agencast run tutorial-06-archive -i day=2026-09-25 -i text="It rained in the morning. In the afternoon we finished part 6." --fake fake/tutorial-06-archive.yaml
 ```
 
 ```
-běh 20260925-161448-tutorial-06-archiv-3ba8: úspěch · 0,8 s · 0,0004 USD
+run 20260929-190051-tutorial-06-archive-ad02: succeeded · 0.8 s · 0.0004 USD
 ```
 
 ```
-| 1 | zapis | task | ✓ | 0,8 s | 0,0004 | chytry → anthropic/claude-haiku-4.5, tahů 4, nástrojů 7 |
+| 1 | write | task | ✓ | 0.8 s | 0.0004 | smart → anthropic/claude-haiku-4.5, turns 4, tools 7 |
 …
-## Výstup
-- zprava: „Zapsáno: 2026-09-25.md a obsah.md. Zápis má 2 věty."
+## Output
+- message: “Written: 2026-09-25.md and index.md. The entry has 2 sentences.”
 ```
 
-Pozor na jednu věc: `--fake` falešně odpovídá **jen za model**. MCP
-server je skutečný — `npx` ho spustil a soubory opravdu vznikly:
+One thing to watch out for: `--fake` fakes **only the model**. The MCP server
+is real — `npx` started it and the files were really created:
 
 ```bash
-ls runs/20260925-161448-tutorial-06-archiv-3ba8/work
+ls runs/20260929-190051-tutorial-06-archive-ad02/work
 ```
 
 ```
-2026-09-25.md  obsah.md
+2026-09-25.md  index.md
 ```
 
-Ve zlatých testech (`cd ../../framework && uv run pytest`) místo něj běží
-falešný server z `../../framework/tests/fake_mcp_server.py` — bez Node a bez
-sítě, se stejnými nástroji. Fixtura je stejná.
+In the golden tests (`cd ../../framework && uv run pytest`) a fake server from
+`../../framework/tests/fake_mcp_server.py` runs instead — no Node and no
+network, with the same tools. The fixture is the same.
 
 ---
 
-## Krok 7 — ostrý běh
+## Step 7 — a live run
 
 ```bash
-agencast run tutorial-06-archiv -i den=2026-09-25 -i text="Ráno pršelo a vlak měl zpoždění. Odpoledne jsme dopsali šestý díl tutoriálu. Večer jsme ho pustili naostro."
+agencast run tutorial-06-archive -i day=2026-09-25 -i text="It rained in the morning and the train was late. In the afternoon we finished the sixth part of the tutorial. In the evening we launched it for real."
 ```
 
 ```
-běh 20260925-161501-tutorial-06-archiv-dfec: úspěch · 9,9 s · 0,0135 USD
+run 20260925-161501-tutorial-06-archive-dfec: succeeded · 9.9 s · 0.0135 USD
 ```
 
 ```
-| 1 | zapis | task | ✓ | 9,9 s | 0,0135 | chytry → anthropic/claude-haiku-4.5, tahů 4, nástrojů 7 |
-| 2 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 9,9 s | 0,0135 |  |
+| 1 | write | task | ✓ | 9.9 s | 0.0135 | smart → anthropic/claude-haiku-4.5, turns 4, tools 7 |
+| 2 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 9.9 s | 0.0135 |  |
 …
-## Výstup
-- zprava: „Dokonalé! Oba soubory odpovídají skillu:
+## Output
+- message: “Perfect! Both files match the skill:
 
-✅ **2026-09-25.md** — správně: záhlaví `# Zápis 2026-09-25`, tři věty na vlastních řádcích s `-`
-✅ **obsah.md** — správně: záhlaví `# Obsah`, jedna řádka s datem a první větou
+✅ **2026-09-25.md** — correct: header `# Entry 2026-09-25`, three sentences on their own lines with `-`
+✅ **index.md** — correct: header `# Index`, one line with the date and the first sentence
 
-**Odpověď:**
-- **Zapsané soubory:** `2026-09-25.md`, `obsah.md`
-- **Počet vět v zápisu dne:** 3"
+**Answer:**
+- **Written files:** `2026-09-25.md`, `index.md`
+- **Number of sentences in the day's entry:** 3”
 ```
 
-A v pracovní složce:
+And in the workspace:
 
 ```
 --- work/2026-09-25.md
-# Zápis 2026-09-25
-- Ráno pršelo a vlak měl zpoždění.
-- Odpoledne jsme dopsali šestý díl tutoriálu.
-- Večer jsme ho pustili naostro.
---- work/obsah.md
-# Obsah
-- 2026-09-25: Ráno pršelo a vlak měl zpoždění.
+# Entry 2026-09-25
+- It rained in the morning and the train was late.
+- In the afternoon we finished the sixth part of the tutorial.
+- In the evening we launched it for real.
+--- work/index.md
+# Index
+- 2026-09-25: It rained in the morning and the train was late.
 ```
 
-Přesně podle skillu. Tahy po řadě (z `events.jsonl`):
+Exactly according to the skill. The turns in order (from `events.jsonl`):
 
 ```
-mcp_server started (0,75 s — spuštění serveru a handshake)
-tah 1: list_allowed_directories, load_skill tutorial-zapis    1,8 s   0,0020 USD
-tah 2: write_file 2026-09-25.md, write_file obsah.md          2,3 s   0,0037 USD
-tah 3: list_directory, read_text_file ×2                      2,1 s   0,0040 USD
-tah 4: závěrečná odpověď (finish_reason stop)                 2,8 s   0,0038 USD
+mcp_server started (0.75 s — server start and handshake)
+turn 1: list_allowed_directories, load_skill tutorial-entry    1.8 s   0.0020 USD
+turn 2: write_file 2026-09-25.md, write_file index.md          2.3 s   0.0037 USD
+turn 3: list_directory, read_text_file ×2                      2.1 s   0.0040 USD
+turn 4: final answer (finish_reason stop)                      2.8 s   0.0038 USD
 mcp_server stopped
 ```
 
-Nástroje samy trvaly 2–9 ms, čas je v modelu. Tahy jsou čím dál dražší: model
-v každém tahu dostává **celou dosavadní konverzaci** včetně výsledků
-nástrojů (1 522 → 2 982 vstupních tokenů). Proto `max_turns` a
-`budget_usd` — agent, který se zacyklí, by jinak platil čím dál víc.
+The tools themselves took 2–9 ms; the time is spent in the model. The turns get
+more and more expensive: in every turn the model receives the **entire
+conversation so far**, including the tool results (1,522 → 2,982 input tokens).
+That is why `max_turns` and `budget_usd` exist — an agent that goes in circles
+would otherwise pay more and more.
 
-### Pozor na `schema` u `task`
+### Watch out for `schema` in `task`
 
-První verze scénáře měla u kroku `schema` (`soubory: [string]`,
-`radku: integer`), jako u `ask` v dílu 2. Tři ostré běhy za sebou
-dopadly takhle:
+The first version of the scenario had a `schema` on the step
+(`files: [string]`, `lines: integer`), like `ask` in part 2. Three live runs
+in a row ended like this:
 
 ```
-| 1 | zapis | task | ✓ | 24,0 s | 0,0046 | chytry → anthropic/claude-haiku-4.5, tahů 2, nástrojů 2 (native_schema) |
+| 1 | write | task | ✓ | 24.0 s | 0.0046 | smart → anthropic/claude-haiku-4.5, turns 2, tools 2 (native_schema) |
 …
-- soubory:  /home/…/runs/20260925-161001-tutorial-06-archiv-9a8f/work/2026-09-25.md
-- radku: 4
+- files:  /home/…/runs/20260925-161001-tutorial-06-archive-9a8f/work/2026-09-25.md
+- lines: 4
 ```
 
-„Úspěch" — ale složka `work/` **neexistuje**. Model zjistil složku,
-načetl skill a ve druhém tahu rovnou odpověděl JSONem, jako by soubor
-zapsal. Druhý a třetí pokus (s přísnějšími instrukcemi) dopadly stejně,
-třetí dokonce bez jediného nástroje (`tahů 1, nástrojů 0`). Stejný
-scénář **bez `schema`** prošel napoprvé.
+"Success" — but the `work/` folder **does not exist**. The model found the
+folder, loaded the skill and in the second turn answered straight away with
+JSON, as if it had written the file. The second and third attempts (with
+stricter instructions) ended the same way, the third one even without a single
+tool (`turns 1, tools 0`). The same scenario **without `schema`** passed the
+first time.
 
-Co se děje: se `schema` a aliasem na úrovni `native_schema` posílá
-framework modelu v **každém** tahu i požadovaný tvar JSON odpovědi —
-a Haiku ho bere jako pokyn „odpověz JSONem hned". Framework se přitom
-zachoval podle specifikace: model odpověděl bez volání nástroje, tím
-smyčka končí. Zapsané je to v `docs/tutorials/BUGS.md` (sekce maw 0.2.1)
-i s tím, co pomohlo (alias s `structured_output: tool_wrapper` — to je
-rozhodnutí vlastníka v `config.yaml`).
+What is going on: with a `schema` and an alias at the `native_schema` level, the
+framework sends the model the required shape of the JSON answer in **every**
+turn — and Haiku takes it as an instruction "answer with JSON right now". The
+framework behaved according to the specification: the model answered without a
+tool call, and that ends the loop. It is recorded in `docs/tutorials/BUGS.md`
+(the maw 0.2.1 section) together with what helped (an alias with
+`structured_output: tool_wrapper` — that is the owner's decision in
+`config.yaml`).
 
-**Od `maw` 0.2.2** framework u `task` požadovaný tvar JSON v tazích
-neposílá: se `schema` začíná vždy na úrovni `tool_wrapper` — model
-odevzdá výsledek nástrojem `_submit_output`, až bude hotový
-(`docs/spec/ISSUES.md`, bod 36). `structured_output` aliasu platí už jen
-pro `ask`. Právě tahle varianta v kontrolním běhu (BUGS.md, bod 7)
-zapsala oba soubory správně. V poznámce kroku pak uvidíš
-`(tool_wrapper)`, případně `(prompt)`, když model výsledek nástrojem
-neodevzdal a kaskáda šla o úroveň níž.
+**Since `maw` 0.2.2** the framework does not send the required JSON shape in the
+turns of a `task`: with a `schema` it always starts at the `tool_wrapper` level —
+the model submits the result with the `_submit_output` tool when it is done
+(`docs/spec/ISSUES.md`, item 36). The alias's `structured_output` now applies
+only to `ask`. Exactly this variant wrote both files correctly in the control
+run (BUGS.md, item 7). In the step's note you will then see `(tool_wrapper)`, or
+`(prompt)` when the model did not submit the result with the tool and the
+cascade went one level down.
 
-Z toho plynou dvě pravidla, která platí i po opravě:
+Two rules follow from this, and they hold even after the fix:
 
-1. **Agentovi s nástroji nevěř, ověř záznam.** Poznáš to v `summary.md`
-   (`nástrojů 2`, přitom zápis potřebuje aspoň dva `write_file`) a
-   v `events.jsonl` (žádný `tool_call` s `write_file`).
-2. U `task` v `maw` 0.2.1 s Haiku dávej přednost textové odpovědi; když
-   potřebuješ data, vytáhni je dalším krokem (`ask` se `schema` nad
-   `steps.zapis.text`) — tam JSON nic neruší.
+1. **Do not trust an agent with tools; check the record.** You can tell from
+   `summary.md` (`tools 2`, yet writing needs at least two `write_file`) and
+   from `events.jsonl` (no `tool_call` with `write_file`).
+2. With `task` in `maw` 0.2.1 and Haiku, prefer a text answer; when you need
+   data, extract it in the next step (an `ask` with `schema` over
+   `steps.write.text`) — JSON does not get in the way there.
 
 ---
 
-## Krok 8 — záznam kroku `task`
+## Step 8 — the record of a `task` step
 
 ```
-runs/20260925-161501-tutorial-06-archiv-dfec/
-  mcp/filesystem.stderr.log     co server vypsal na stderr
-  work/                         pracovní složka = to, co server vidí
-  steps/01-zapis/
-    prompt.md                   system prompt se seznamem skillů
-    calls/01.request.json       tah 1 — požadavek na model
-    calls/01.response.json      tah 1 — odpověď (volání nástrojů)
-    calls/02.tool.json          nástroj list_allowed_directories
-    calls/03.tool.json          nástroj load_skill
-    calls/04.request.json       tah 2 …
+runs/20260925-161501-tutorial-06-archive-dfec/
+  mcp/filesystem.stderr.log     what the server printed to stderr
+  work/                         the workspace = what the server sees
+  steps/01-write/
+    prompt.md                   the system prompt with the list of skills
+    calls/01.request.json       turn 1 — the request to the model
+    calls/01.response.json      turn 1 — the response (tool calls)
+    calls/02.tool.json          the list_allowed_directories tool
+    calls/03.tool.json          the load_skill tool
+    calls/04.request.json       turn 2 …
     …
 ```
 
-Čísla v `calls/` jdou po řadě přes volání modelu i nástrojů.
+The numbers in `calls/` run in order across model calls and tool calls.
 
-### `prompt.md` — skilly jako seznam
+### `prompt.md` — skills as a list
 
 ```
 # System prompt
 
-Jsi archivář. Máš přístup k jediné složce — zjistíš ji nástrojem
+You are an archivist. You have access to a single folder — find it with the
 …
-## Skilly
+## Skills
 
-- tutorial-zapis: Formát zápisu v archivu — použij vždy, když zápis nebo obsah archivu zapisuješ či kontroluješ
+- tutorial-entry: Format of archive entries — use it whenever you write or check an entry or the archive index
 
-# Zpráva
+# Message
 
-Den: 2026-09-25
+Day: 2026-09-25
 …
 ```
 
-Tělo skillu v promptu **není** — jen jméno a `description`. Model k němu
-dostal nástroj `load_skill` (z `calls/01.request.json`):
+The skill body is **not** in the prompt — only the name and the `description`.
+For it the model got the `load_skill` tool (from `calls/01.request.json`):
 
 ```
-{"type": "function", "function": {"name": "load_skill", "description": "Načte celé instrukce skillu ze seznamu Skilly. Když je skill pro úkol relevantní, načti ho dřív, než začneš.", "parameters": {"type": "object", "properties": {"name": {"type": "string", "enum": ["tutorial-zapis"]}}, "required": ["name"], "additionalProperties": false}}}
+{"type": "function", "function": {"name": "load_skill", "description": "Load the full instructions for a skill from the Skills list. When a skill is relevant to the task, load it before starting.", "parameters": {"type": "object", "properties": {"name": {"type": "string", "enum": ["tutorial-entry"]}}, "required": ["name"], "additionalProperties": false}}}
 ```
 
-### `tool_call` v `events.jsonl`
+### `tool_call` in `events.jsonl`
 
-Každé volání nástroje je jedna událost. `load_skill` má `server: "_skills"`
-— nikdy nejde na MCP server, obslouží ho framework:
+Every tool call is one event. `load_skill` has `server: "_skills"` — it never
+goes to an MCP server, the framework handles it itself:
 
 ```
-{"ts":"2026-09-25T16:15:03.685Z","type":"tool_call","step":"zapis","turn":1,"server":"_skills","tool":"load_skill","allowed":true,"invalid_args":false,"is_error":false,"duration_s":0.0,"call_file":"steps/01-zapis/calls/03.tool.json"}
-{"ts":"2026-09-25T16:15:06.009Z","type":"tool_call","step":"zapis","turn":2,"server":"filesystem","tool":"write_file","allowed":true,"invalid_args":false,"is_error":false,"duration_s":0.008,"call_file":"steps/01-zapis/calls/05.tool.json"}
+{"ts":"2026-09-25T16:15:03.685Z","type":"tool_call","step":"write","turn":1,"server":"_skills","tool":"load_skill","allowed":true,"invalid_args":false,"is_error":false,"duration_s":0.0,"call_file":"steps/01-write/calls/03.tool.json"}
+{"ts":"2026-09-25T16:15:06.009Z","type":"tool_call","step":"write","turn":2,"server":"filesystem","tool":"write_file","allowed":true,"invalid_args":false,"is_error":false,"duration_s":0.008,"call_file":"steps/01-write/calls/05.tool.json"}
 ```
 
-| Pole | Co říká |
+| Field | What it says |
 |---|---|
-| `turn` | ve kterém tahu model nástroj zavolal |
-| `allowed` | `false` = nástroj nebyl povolen, nespustil se |
-| `invalid_args` | `true` = argumenty nesedí na schéma nástroje, nespustil se |
-| `is_error` | nástroj proběhl, ale vrátil chybu (model ji dostal) |
+| `turn` | in which turn the model called the tool |
+| `allowed` | `false` = the tool was not allowed, it did not run |
+| `invalid_args` | `true` = the arguments do not match the tool's schema, it did not run |
+| `is_error` | the tool ran but returned an error (the model received it) |
 
-Argumenty a výsledek jsou v `call_file` (`calls/05.tool.json`):
+The arguments and the result are in `call_file` (`calls/05.tool.json`):
 
 ```
 {
@@ -497,8 +511,8 @@ Argumenty a výsledek jsou v `call_file` (`calls/05.tool.json`):
   "server": "filesystem",
   "tool": "write_file",
   "arguments": {
-    "path": "/home/…/runs/20260925-161501-tutorial-06-archiv-dfec/work/2026-09-25.md",
-    "content": "# Zápis 2026-09-25\n- Ráno pršelo a vlak měl zpoždění.\n- Odpoledne jsme dopsali šestý díl tutoriálu.\n- Večer jsme ho pustili naostro.\n"
+    "path": "/home/…/runs/20260925-161501-tutorial-06-archive-dfec/work/2026-09-25.md",
+    "content": "# Entry 2026-09-25\n- It rained in the morning and the train was late.\n- In the afternoon we finished the sixth part of the tutorial.\n- In the evening we launched it for real.\n"
   },
   "allowed": true,
   "invalid_args": false,
@@ -508,340 +522,343 @@ Argumenty a výsledek jsou v `call_file` (`calls/05.tool.json`):
 }
 ```
 
-### `mcp_server` a `mcp/filesystem.stderr.log`
+### `mcp_server` and `mcp/filesystem.stderr.log`
 
-Server startuje **jednou za běh**, při prvním `task`, který ho
-potřebuje, a končí s během:
+The server starts **once per run**, at the first `task` that needs it, and ends
+with the run:
 
 ```
 {"ts":"2026-09-25T16:15:01.869Z","type":"mcp_server","server":"filesystem","action":"started","duration_s":0.753,"stderr_file":"mcp/filesystem.stderr.log"}
 {"ts":"2026-09-25T16:15:11.007Z","type":"mcp_server","server":"filesystem","action":"stopped","stderr_file":"mcp/filesystem.stderr.log"}
 ```
 
-Co server vypsal, je v `mcp/filesystem.stderr.log` — sem se dívej, když
-server nenastartuje:
+What the server printed is in `mcp/filesystem.stderr.log` — look here when the
+server does not start:
 
 ```
 Secure MCP Filesystem Server running on stdio
 Client does not support MCP Roots, using allowed directories set from server args: [
-  '/home/…/runs/20260925-161501-tutorial-06-archiv-dfec/work'
+  '/home/…/runs/20260925-161501-tutorial-06-archive-dfec/work'
 ]
 ```
 
-Druhý řádek potvrzuje, že server vidí jen `work/` tohoto běhu.
+The second line confirms that the server sees only the `work/` of this run.
 
 ---
 
-## Krok 9 — kde tě framework zastaví
+## Step 9 — where the framework stops you
 
-Na zkoušku pracuj v kopii, ať si nerozbiješ své soubory:
+To experiment, work in a copy so you do not break your files:
 
 ```bash
-rm -rf /tmp/pokus && mkdir -p /tmp/pokus && cp -r workflows /tmp/pokus/
+rm -rf /tmp/experiment && mkdir -p /tmp/experiment && cp -r workflows /tmp/experiment/
 ```
 
-### Před během: `validate`
+### Before the run: `validate`
 
-Krok chce nástroj, který agent nemá — v kopii scénáře přidej ke kroku
-`zapis` řádek `tools: { filesystem: [write_file, move_file] }`:
-
-```
-config: tutorial-06-archiv.yaml: krok "zapis", task.tools: krok chce nástroj filesystem.move_file, agent 'tutorial-archivar' ho nepovoluje (tools.filesystem)
-```
-
-Agent chce nástroj, který nepovolil vlastník — v kopii agenta přidej do
-`tools.filesystem` `edit_file`:
+The step wants a tool the agent does not have — in the copy of the scenario add
+the line `tools: { filesystem: [write_file, move_file] }` to the `write` step:
 
 ```
-config: agents/tutorial-archivar.md: nástroje edit_file serveru 'filesystem' vlastník nepovolil (mcp.yaml → servers.filesystem.tools: list_allowed_directories, list_directory, read_text_file, write_file)
+config: tutorial-06-archive.yaml: step "write", task.tools: step requests tool filesystem.move_file, which agent 'tutorial-archivist' does not allow (tools.filesystem)
 ```
 
-Krok chce víc tahů, než dovolí agent (`max_turns: 10`):
+The agent wants a tool the owner has not allowed — in the copy of the agent add
+`edit_file` to `tools.filesystem`:
 
 ```
-config: tutorial-06-archiv.yaml: krok "zapis", task.max_turns: 10 je víc než limits.max_turns agenta 'tutorial-archivar' (6) — krok limity jen snižuje
+config: agents/tutorial-archivist.md: the project owner has not allowed tools edit_file on server 'filesystem' (mcp.yaml → servers.filesystem.tools: list_allowed_directories, list_directory, read_text_file, write_file)
 ```
 
-Agent s `mcp`, ale bez `tools`, resp. bez `limits.max_turns`:
+The step wants more turns than the agent allows (`max_turns: 10`):
 
 ```
-config: agents/tutorial-archivar.md: s polem 'mcp' je povinné i 'tools'
-config: agents/tutorial-archivar.md: limits: chybí povinné pole 'max_turns'
+config: tutorial-06-archive.yaml: step "write", task.max_turns: 10 exceeds limits.max_turns of agent 'tutorial-archivist' (6) — steps may only lower limits
 ```
 
-(Po každé zkoušce vrať soubor z `workflows/` zpátky do kopie.)
+An agent with `mcp` but without `tools`, or without `limits.max_turns`:
 
-### Za běhu: fixtury v `/tmp`
+```
+config: agents/tutorial-archivist.md: field 'mcp' requires 'tools' — an explicit list of tools for each server: tools: { filesystem: [tool, …] }; plan.md from agencast run <scenario> --dry-run lists the tools offered by each server
+config: agents/tutorial-archivist.md: limits: missing required field 'max_turns'
+```
 
-Co když model zavolá nástroj, který nemá? Server `move_file` umí, ale
-agent ho nepovolil. `/tmp/nepovoleny.yaml`:
+(After each experiment, restore the file in the copy from `workflows/`.)
+
+### At run time: fixtures in `/tmp`
+
+What if the model calls a tool it does not have? The server can do `move_file`,
+but the agent has not allowed it. `/tmp/not-allowed.yaml`:
 
 ```yaml
-zapis:
+write:
   - tool_calls:
       - { name: filesystem__move_file, arguments: { source: a.md, destination: b.md } }
       - { name: filesystem__write_file, arguments: { path: a.md } }
-  - text: "Nic jsem nezapsal."
+  - text: "I wrote nothing."
 ```
 
 ```bash
-agencast run /tmp/pokus/workflows/scenarios/tutorial-06-archiv.yaml -i den=2026-09-25 -i text="Ráno pršelo." --fake /tmp/nepovoleny.yaml
+agencast run /tmp/experiment/workflows/scenarios/tutorial-06-archive.yaml -i day=2026-09-25 -i text="It rained." --fake /tmp/not-allowed.yaml
 ```
 
-Běh doběhne (`úspěch`) a v `events.jsonl` jsou oba pokusy:
+The run finishes (`succeeded`) and both attempts are in `events.jsonl`:
 
 ```
-{"type":"tool_call","step":"zapis","turn":1,"server":"filesystem","tool":"move_file","allowed":false,"invalid_args":false,"is_error":false,…}
-{"type":"tool_call","step":"zapis","turn":1,"server":"filesystem","tool":"write_file","allowed":true,"invalid_args":true,"is_error":false,…}
+{"type":"tool_call","step":"write","turn":1,"server":"filesystem","tool":"move_file","allowed":false,"invalid_args":false,"is_error":false,…}
+{"type":"tool_call","step":"write","turn":1,"server":"filesystem","tool":"write_file","allowed":true,"invalid_args":true,"is_error":false,…}
 ```
 
-Model dostal místo výsledku chybu (z `calls/02.tool.json` a
+Instead of a result, the model received an error (from `calls/02.tool.json` and
 `03.tool.json`):
 
 ```
-Chyba: nástroj filesystem__move_file není povolen. Povolené: filesystem__list_allowed_directories, filesystem__list_directory, filesystem__read_text_file, filesystem__write_file, load_skill
-Chyba: argumenty neprošly schématem nástroje: kořen: chybí povinné pole 'content'
+Error: tool filesystem__move_file is not allowed. Allowed: filesystem__list_allowed_directories, filesystem__list_directory, filesystem__read_text_file, filesystem__write_file, load_skill
+Error: arguments did not match the tool schema: root: missing required field 'content'
 ```
 
-Ani jeden nástroj se nespustil. Běh tím neselže — model se může opravit.
+Neither tool ran. The run does not fail because of it — the model can correct
+itself.
 
-Agent, který se točí dokola. `/tmp/dokola.yaml` (poslední odpověď se
-opakuje, takže model volá nástroje pořád):
+An agent that goes in circles. `/tmp/looping.yaml` (the last response repeats,
+so the model keeps calling tools):
 
 ```yaml
-zapis:
+write:
   - tool_calls:
       - { name: filesystem__list_directory, arguments: { path: . } }
 ```
 
 ```
-budget v kroku zapis: max_turns 5 vyčerpán bez finální odpovědi (model dál volá nástroje)
-běh 20260925-162243-tutorial-06-archiv-9f91: chyba · 0,8 s · 0,0005 USD
+budget in step write: max_turns 5 exhausted without a final answer (model keeps calling tools)
+run 20260929-190106-tutorial-06-archive-4044: failed · 0.8 s · 0.0005 USD
 ```
 
-Nástroje proběhly ve 4 tazích, pátá odpověď modelu chtěla další — konec,
-třída `budget`.
+The tools ran in 4 turns, the fifth model response wanted another one — end,
+class `budget`.
 
-Drahý agent. `/tmp/drahy.yaml` — každý tah stojí 0,02 USD (`cost` umí
-jen falešný poskytovatel):
+An expensive agent. `/tmp/expensive.yaml` — every turn costs 0.02 USD (`cost`
+is supported only by the fake provider):
 
 ```yaml
-zapis:
+write:
   - cost: 0.02
     tool_calls:
       - { name: filesystem__list_allowed_directories, arguments: {} }
 ```
 
 ```
-budget v kroku zapis: rozpočet kroku 'zapis' vyčerpán (0.0400 z 0.03 USD)
+budget in step write: budget for step 'write' exhausted (0.0400 of 0.03 USD)
 ```
 
-a v `summary.md`:
+and in `summary.md`:
 
 ```
-## Varování
-- rozpočet kroku 'zapis' překročen o 0.0100 USD (krok zapis)
+## Warnings
+- budget for step 'write' exceeded by 0.0100 USD (step write)
 ```
 
-Tah 1 stál 0,02 (pod limitem 0,03), tak se spustil tah 2. Ten limit
-překročil — dokončí se a platí (varování), ale další už se nespustí.
-`budget_usd` je tedy hranice, přes kterou se jde nejvýš o jeden tah.
+Turn 1 cost 0.02 (under the 0.03 limit), so turn 2 was started. That one
+exceeded the limit — it completes and is paid for (a warning), but no further
+turn starts. `budget_usd` is therefore a boundary that can be crossed by at
+most one turn.
 
 ---
 
-## Krok 10 — tentýž agent v `ask`
+## Step 10 — the same agent in `ask`
 
-Agent s nástroji jde použít i v `ask` — pak nemá nástroje a MCP server
-se vůbec nespustí. Skill ale model potřebuje, a `load_skill` volat
-nemůže. Proto ho framework vloží **celý**. `/tmp/pokus/workflows/scenarios/tutorial-06-ask.yaml`:
+An agent with tools can also be used in `ask` — then it has no tools and the MCP
+server does not start at all. But the model needs the skill, and it cannot call
+`load_skill`. So the framework inserts it **in full**.
+`/tmp/experiment/workflows/scenarios/tutorial-06-ask.yaml`:
 
 ```yaml
 version: 1
 name: tutorial-06-ask
-description: Stejný agent v kroku ask (bez nástrojů)
+description: The same agent in an ask step (no tools)
 steps:
-  - id: rada
+  - id: advice
     ask:
-      agent: tutorial-archivar
-      prompt: "Jak bude vypadat zápis dne 2026-09-25 s poznámkou: Ráno pršelo."
+      agent: tutorial-archivist
+      prompt: "What will the entry for 2026-09-25 look like with the note: It rained in the morning."
 ```
 
 ```bash
-agencast run /tmp/pokus/workflows/scenarios/tutorial-06-ask.yaml --fake
+agencast run /tmp/experiment/workflows/scenarios/tutorial-06-ask.yaml --fake
 ```
 
-`steps/01-rada/prompt.md`:
+`steps/01-advice/prompt.md`:
 
 ```
 # System prompt
 
-Jsi archivář. Máš přístup k jediné složce — zjistíš ji nástrojem
+You are an archivist. You have access to a single folder — find it with the
 …
-## Skill: tutorial-zapis
+## Skill: tutorial-entry
 
-Archiv má dva soubory, oba přímo v povolené složce:
+The archive has two files, both directly in the allowed folder:
 
-1. `<den>.md` — zápis jednoho dne (`<den>` je datum ze zadání, např. `2026-09-25.md`):
+1. `<day>.md` — the entry for one day (`<day>` is the date from the prompt, e.g. `2026-09-25.md`):
 …
 ```
 
-Místo řádku `- tutorial-zapis: …` pod `## Skilly` je tu celé tělo pod
-`## Skill: tutorial-zapis`. V `events.jsonl` není žádný `mcp_server`.
-(Instrukce o nástrojích tu model dostane taky, jenže nástroje nemá —
-agent psaný pro `task` do `ask` patří jen na zkoušku.)
-Důsledek: u `ask` platíš za každý skill celý, pokaždé; u `task` jen za
-ty, které si model opravdu načte.
+Instead of the line `- tutorial-entry: …` under `## Skills` there is the whole
+body under `## Skill: tutorial-entry`. There is no `mcp_server` in
+`events.jsonl`. (The model receives the instructions about tools here too, but
+it has no tools — an agent written for `task` belongs in `ask` only for
+experiments.) The consequence: with `ask` you pay for every skill in full,
+every time; with `task` only for those the model actually loads.
 
 ---
 
-## Co sis zapamatoval
+## What you have learned
 
-- `ask` = jedna odpověď; `task` = smyčka tahů s nástroji, nejvýš
-  `max_turns`, celé za `budget_usd`.
-- Oprávnění: vlastník (`mcp.yaml`: `agents`, `tools`, `scenarios`) →
-  agent (`mcp`, `tools`, `limits`) → krok (jen zúžení). Z agenta si
-  oprávnění nenapíšeš.
-- `--dry-run` spustí server a vypíše, co nabízí.
-- Záznam: `tool_call` (`allowed`, `invalid_args`, `is_error`),
+- `ask` = one answer; `task` = a loop of turns with tools, at most
+  `max_turns`, all within `budget_usd`.
+- Permissions: owner (`mcp.yaml`: `agents`, `tools`, `scenarios`) →
+  agent (`mcp`, `tools`, `limits`) → step (narrowing only). You cannot write
+  yourself a permission from the agent.
+- `--dry-run` starts the server and prints what it offers.
+- The record: `tool_call` (`allowed`, `invalid_args`, `is_error`),
   `calls/NN.tool.json`, `mcp_server`, `mcp/<server>.stderr.log`, `work/`.
-- Skill u `task` = řádek v promptu + `load_skill` (`server: "_skills"`);
-  u `ask` celé tělo.
-- Agentovi s nástroji nevěř na slovo — v záznamu je, co opravdu udělal.
+- A skill in `task` = a line in the prompt + `load_skill` (`server: "_skills"`);
+  in `ask` the whole body.
+- Do not take an agent with tools at its word — the record shows what it really did.
 
 ---
 
-## Cvičení
+## Exercise
 
-Rozděl práci na dva kroky `task` se stejným agentem: `zapis` smí jen
-zjistit složku a psát (`list_allowed_directories`, `write_file`),
-`kontrola` smí jen číst (`list_allowed_directories`, `list_directory`,
-`read_text_file`) a ohlásí, jestli soubory sedí na skill. Scénář ulož
-jako `workflows/scenarios/tutorial-06-cviceni.yaml`, napiš fixturu a
-ověř, že kontrola opravdu nemá `write_file`.
+Split the work into two `task` steps with the same agent: `write` may only
+find the folder and write (`list_allowed_directories`, `write_file`),
+`check` may only read (`list_allowed_directories`, `list_directory`,
+`read_text_file`) and reports whether the files match the skill. Save the
+scenario as `workflows/scenarios/tutorial-06-exercise.yaml`, write a fixture
+and verify that the check really does not have `write_file`.
 
 <details>
-<summary>Řešení</summary>
+<summary>Solution</summary>
 
-`workflows/scenarios/tutorial-06-cviceni.yaml`:
+`workflows/scenarios/tutorial-06-exercise.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-06-cviceni
-description: Archivář zapíše poznámku, druhý krok ji jen pro čtení zkontroluje (tutoriál, díl 6 — řešení cvičení)
+name: tutorial-06-exercise
+description: The archivist writes a note, a second step checks it read-only (tutorial, part 6 — exercise solution)
 
 inputs:
-  den:
+  day:
     type: string
     required: true
-    description: Datum zápisu, např. 2026-09-25
+    description: Date of the entry, e.g. 2026-09-25
   text:
     type: string
     required: true
-    description: Poznámka volným textem
+    description: The note as free text
 
 outputs:
-  zapis:
+  write:
     type: string
-    description: Co hlásí krok zapis
-  kontrola:
+    description: What the write step reports
+  check:
     type: string
-    description: Co hlásí krok kontrola
+    description: What the check step reports
 
 steps:
-  # 1. Zápis: krok zúží nástroje — číst ani vypisovat složku tu není potřeba.
-  - id: zapis
+  # 1. Writing: the step narrows the tools — there is no need to read or list the folder here.
+  - id: write
     task:
-      agent: tutorial-archivar
+      agent: tutorial-archivist
       prompt: |
-        Den: {{ inputs.den }}
-        Poznámka: {{ inputs.text }}
-        Zapiš poznámku do archivu. Nic nečti ani nekontroluj, to udělá kolega.
+        Day: {{ inputs.day }}
+        Note: {{ inputs.text }}
+        Write the note to the archive. Do not read or check anything, a colleague will do that.
       max_turns: 3
       tools:
         filesystem: [list_allowed_directories, write_file]
 
-  # 2. Kontrola jen pro čtení: stejný agent, stejný server (běží jednou za běh),
-  #    ale bez write_file — opravit nic nemůže, jen ohlásí.
-  - id: kontrola
+  # 2. Read-only check: the same agent, the same server (it runs once per run),
+  #    but without write_file — it cannot fix anything, only report.
+  - id: check
     task:
-      agent: tutorial-archivar
+      agent: tutorial-archivist
       prompt: |
-        Kolega hlásí: {{ steps.zapis.text }}
-        Přečti zápis dne {{ inputs.den }} a obsah archivu. NIC nezapisuj ani neopravuj.
-        Řekni, kolik vět zápis má a jestli oba soubory odpovídají skillu.
+        Your colleague reports: {{ steps.write.text }}
+        Read the entry for {{ inputs.day }} and the archive index. Do NOT write or fix anything.
+        Say how many sentences the entry has and whether both files match the skill.
       max_turns: 4
       tools:
         filesystem: [list_allowed_directories, list_directory, read_text_file]
 
   - id: out
     output:
-      zapis: "{{ steps.zapis.text }}"
-      kontrola: "{{ steps.kontrola.text }}"
+      write: "{{ steps.write.text }}"
+      check: "{{ steps.check.text }}"
 ```
 
-`fake/tutorial-06-cviceni.yaml`:
+`fake/tutorial-06-exercise.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-06-cviceni (řešení cvičení z dílu 6).
-# Dva kroky task, každý má vlastní seznam tahů. Kontrola čte soubory, které
-# zapsal krok zapis — MCP server (v testech falešný) běží jednou za běh.
-zapis:
+# Scripted responses for tutorial-06-exercise (exercise solution from part 6).
+# Two task steps, each with its own list of turns. The check step reads the files
+# written by the write step — the MCP server (fake in tests) runs once per run.
+write:
   - tool_calls:
       - { name: filesystem__list_allowed_directories, arguments: {} }
-      - { name: load_skill, arguments: { name: tutorial-zapis } }
+      - { name: load_skill, arguments: { name: tutorial-entry } }
   - tool_calls:
       - name: filesystem__write_file
-        arguments: { path: 2026-09-25.md, content: "# Zápis 2026-09-25\n- Ráno pršelo.\n- Odpoledne jsme dopsali díl 6.\n" }
+        arguments: { path: 2026-09-25.md, content: "# Entry 2026-09-25\n- It rained in the morning.\n- In the afternoon we finished part 6.\n" }
       - name: filesystem__write_file
-        arguments: { path: obsah.md, content: "# Obsah\n- 2026-09-25: Ráno pršelo.\n" }
-  - text: "Zapsáno: 2026-09-25.md a obsah.md."
-kontrola:
+        arguments: { path: index.md, content: "# Index\n- 2026-09-25: It rained in the morning.\n" }
+  - text: "Written: 2026-09-25.md and index.md."
+check:
   - tool_calls:
-      - { name: load_skill, arguments: { name: tutorial-zapis } }
+      - { name: load_skill, arguments: { name: tutorial-entry } }
       - { name: filesystem__read_text_file, arguments: { path: 2026-09-25.md } }
-      - { name: filesystem__read_text_file, arguments: { path: obsah.md } }
-  - text: "Zápis má 2 věty, oba soubory odpovídají skillu."
+      - { name: filesystem__read_text_file, arguments: { path: index.md } }
+  - text: "The entry has 2 sentences, both files match the skill."
 ```
 
 ```bash
-agencast run tutorial-06-cviceni -i den=2026-09-25 -i text="Ráno pršelo. Odpoledne jsme dopsali díl 6." --fake fake/tutorial-06-cviceni.yaml
+agencast run tutorial-06-exercise -i day=2026-09-25 -i text="It rained in the morning. In the afternoon we finished part 6." --fake fake/tutorial-06-exercise.yaml
 ```
 
 ```
-| 1 | zapis | task | ✓ | 0,8 s | 0,0003 | chytry → anthropic/claude-haiku-4.5, tahů 3, nástrojů 4 |
-| 2 | kontrola | task | ✓ | 0,0 s | 0,0002 | chytry → anthropic/claude-haiku-4.5, tahů 2, nástrojů 3 |
-| 3 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 0,8 s | 0,0005 |  |
+| 1 | write | task | ✓ | 0.9 s | 0.0003 | smart → anthropic/claude-haiku-4.5, turns 3, tools 4 |
+| 2 | check | task | ✓ | 0.0 s | 0.0002 | smart → anthropic/claude-haiku-4.5, turns 2, tools 3 |
+| 3 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 0.9 s | 0.0005 |  |
 ```
 
-Kontrola trvala 0,0 s i se serverem: ten běží od prvního kroku
-(`mcp_server started` je v `events.jsonl` jen jednou, s 0,757 s
-na start). Nástroje, které model v kroku `kontrola` dostal
-(`steps/02-kontrola/calls/01.request.json`):
+The check took 0.0 s even with the server: it has been running since the first
+step (`mcp_server started` is in `events.jsonl` only once, with 0.9 s for the
+start). The tools the model received in the `check` step
+(`steps/02-check/calls/01.request.json`):
 
 ```
 ['filesystem__list_allowed_directories', 'filesystem__list_directory', 'filesystem__read_text_file', 'load_skill']
 ```
 
-`write_file` tam není — kdyby ho model přesto zavolal, dostal by
-„nástroj není povolen" (krok 9).
+`write_file` is not there — if the model called it anyway, it would get
+"tool is not allowed" (step 9).
 
 ```bash
 cd ../../framework && uv run pytest -k tutorial-06 -v; cd ../examples/tutorial
 ```
 
 ```
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-06-archiv] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-06-cviceni] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-06-archive] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-06-exercise] PASSED
 ```
 
 </details>
 
 ---
 
-## Co přijde dál
+## What comes next
 
-**[Díl 7 — Skládání a provoz](07-skladani-a-provoz.md):** scénář volá
-scénář (`call`), `agencast serve` pro n8n (token, `request_key`, callback
-s podpisem), `report.html` a `dedupe_key` pro kroky, které smí proběhnout
-jen jednou.
+**[Part 7 — Composition and operations](07-composition-and-operations.md):** a scenario
+calls a scenario (`call`), `agencast serve` for n8n (token, `request_key`, a
+callback with a signature), `report.html` and `dedupe_key` for steps that may
+run only once.

@@ -5,7 +5,7 @@ import {
 import { t } from "../i18n";
 import type { StepType } from "../types";
 
-// Ikony typů podle §5 návrhu (lucide, 16 px, tah 1,5).
+// Type icons per §5 of the design (lucide, 16 px, stroke 1.5).
 const ICONS: Record<StepType, LucideIcon> = {
   ask: MessageSquare, task: Bot, jev: Scale, image: Image, parallel: Columns2,
   switch: Split, call: CornerDownRight, set: Equal, fail: OctagonX, output: PackageCheck,
@@ -16,7 +16,7 @@ export function TypeIcon({ type, className = "size-4" }: { type: StepType | null
   return <Icon className={className} strokeWidth={1.5} aria-hidden />;
 }
 
-/** Řetězec ikon typů na kartě scénáře: prosté ikony 18 px (gap 10, změřeno z .pen) bez koleček a šipek, nejvýš 5, pak „+N“. */
+/** Chain of type icons on a scenario card: plain 18 px icons (gap 10, measured from .pen) without circles and arrows, at most 5, then "+N". */
 export function IconChain({ types, max = 5 }: { types: (StepType | null)[]; max?: number }) {
   const shown = types.slice(0, max);
   const rest = types.length - shown.length;

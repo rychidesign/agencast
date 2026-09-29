@@ -1,4 +1,4 @@
-"""limits.max_parallel_runs a daily_budget_usd (ISSUES 40): sloty `_slots/`, denní kniha `_ledger/`."""
+"""limits.max_parallel_runs and daily_budget_usd (ISSUES 40): slots `_slots/`, daily ledger `_ledger/`."""
 import json
 import threading
 from datetime import datetime, timezone
@@ -12,13 +12,13 @@ from agencast.task import local_slots
 
 SC = """version: 1
 name: NAME
-description: Testovací scénář
+description: Test scenario
 outputs: { text: { type: string } }
 steps:
-  - id: napis
-    ask: { agent: copywriter, prompt: "Pozdrav" }
+  - id: write
+    ask: { agent: copywriter, prompt: "Say hello" }
   - id: out
-    output: { text: "{{ steps.napis.text }}" }
+    output: { text: "{{ steps.write.text }}" }
 """
 
 
@@ -51,36 +51,36 @@ def test_one_slot_second_run_waits(wf):
     limits(wf, "max_parallel_runs: 1")
     path = scenario(wf, SC)
     runs = []
-    threads = [threading.Thread(target=lambda: runs.append(run(path, script={"napis": {"text": "ahoj", "sleep": 0.5}})[0]))
+    threads = [threading.Thread(target=lambda: runs.append(run(path, script={"write": {"text": "hello", "sleep": 0.5}})[0]))
                for _ in range(2)]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
     assert [r.status for r in runs] == ["succeeded", "succeeded"], [r.error for r in runs]
-    first, second = runs  # druhý v seznamu doběhl později = čekal
+    first, second = runs  # second in the list finished later = waited
     assert events(first, "run_waiting") == []
     w = events(second, "run_waiting")
     assert len(w) == 1 and w[0]["max_parallel_runs"] == 1 and w[0]["waited_s"] > 0.2
     assert [e["type"] for e in second.rec.events[:2]] == ["run_started", "run_waiting"]
-    assert events(first, "run_finished")[0]["ts"] <= events(second, "step_started")[0]["ts"]  # nepřekrývají se
+    assert events(first, "run_finished")[0]["ts"] <= events(second, "step_started")[0]["ts"]  # no overlap
 
 
 def test_slot_wait_over_run_timeout_is_timeout(wf, capsys):
     limits(wf, "max_parallel_runs: 1", run_timeout="1s")
     path = scenario(wf, SC)
     slots = local_slots(wf.parent / "runs", 1)
-    held = slots.acquire()                      # slot drží jiný proces (n8n, cron…)
+    held = slots.acquire()                      # slot held by another process (n8n, cron…)
     try:
         r, fake = run(path)
     finally:
         slots.release(held)
-    assert "čekám na volný slot (max_parallel_runs=1)" in capsys.readouterr().err
+    assert "waiting for a free slot (max_parallel_runs=1)" in capsys.readouterr().err
     assert r.error == {"class": "timeout", "step": None,
-                       "message": "volný slot se neuvolnil do run_timeout 1s (max_parallel_runs=1) — běh nezačal"}
+                       "message": "no slot became available within run_timeout 1s (max_parallel_runs=1) — run did not start"}
     assert fake.calls == [] and events(r, "run_waiting")[0]["waited_s"] >= 1
     assert json.loads((r.rec.dir / "callback.json").read_text())["error"]["class"] == "timeout"
-    r2, _ = run(path)                           # slot je zase volný (uvolní se i po chybě)
+    r2, _ = run(path)                           # slot is free again (released even after an error)
     assert r2.status == "succeeded" and events(r2, "run_waiting") == []
 
 
@@ -92,20 +92,20 @@ def test_daily_budget_exhausted_before_any_call(wf, capsys):
     book.write_text('{"run_id": "a", "cost_usd": 0.3, "finished_at": "x"}\n'
                     '{"run_id": "b", "cost_usd": 0.2, "finished_at": "x"}\n')
     r, fake = run(path)
-    msg = f"denní limit útraty vyčerpán: dnes ({today()} UTC) už 0,5000 z 0.5 USD (daily_budget_usd) — běh nezačal"
+    msg = f"daily spend limit exhausted: already 0.5000 today ({today()} UTC) of 0.5 USD (daily_budget_usd) — run did not start"
     assert r.error == {"class": "budget", "step": None, "message": msg}
     assert fake.calls == [] and events(r, "step_started") == []
     assert json.loads((r.rec.dir / "callback.json").read_text())["error"]["message"] == msg
-    assert main(["run", "test", "--fake", "--project", str(wf.parent)]) == 1         # hláška CLI
+    assert main(["run", "test", "--fake", "--project", str(wf.parent)]) == 1         # CLI message
     assert f"budget: {msg}" in capsys.readouterr().err
-    assert not (wf.parent / "runs" / "_ledger").exists()                               # ostrá kniha nevznikla
+    assert not (wf.parent / "runs" / "_ledger").exists()                               # no real ledger created
 
 
 def test_ledger_filled_after_run_fake_separate(wf):
     limits(wf, "daily_budget_usd: 5")
     path = scenario(wf, SC)
-    r1, _ = run(path, script={"napis": {"text": "a", "cost": 0.25}})
-    r2, _ = run(path, script={"napis": {"text": "b", "cost": 0.5}})
+    r1, _ = run(path, script={"write": {"text": "a", "cost": 0.25}})
+    r2, _ = run(path, script={"write": {"text": "b", "cost": 0.5}})
     assert r1.status == r2.status == "succeeded"
     rows = ledger_rows(wf)
     assert [(x["run_id"], x["cost_usd"]) for x in rows] == [(r1.run_id, 0.25), (r2.run_id, 0.5)]

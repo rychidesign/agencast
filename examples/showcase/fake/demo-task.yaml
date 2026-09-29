@@ -1,0 +1,12 @@
+# Scripted fake-provider responses for demo-task.yaml
+# (in tests the MCP server is tests/fake_mcp_server.py with filesystem tools).
+catalog:
+  - tool_calls:
+      - { name: filesystem__list_allowed_directories, arguments: {} }
+      - { name: load_skill, arguments: { name: catalog } }
+  - tool_calls:
+      - name: filesystem__write_file
+        arguments: { path: catalog.md, content: "# Catalog\n- Austen: Pride and Prejudice (1813)\n" }
+  - tool_calls:
+      - { name: filesystem__read_text_file, arguments: { path: catalog.md } }
+  - json: { path: catalog.md, count: 1 }

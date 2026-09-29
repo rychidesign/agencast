@@ -1,0 +1,6 @@
+# Scripted responses for tutorial-07-exercise (exercise solution from part 7).
+# Path = <call step id>/<step id in the called scenario>; the parallel branch is not part of the path.
+playful_slogan/write:
+  - json: { slogan: "Ovena. The spoon that smiles." }
+serious_slogan/write:
+  - json: { slogan: "Ovena. Plant-based smoothness in every spoonful." }

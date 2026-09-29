@@ -1,0 +1,13 @@
+# Scripted responses for tutorial-03-decisions.
+# Jev gets answers: {question: value}; for choice the value is a key from criteria.
+propose:
+  - json:
+      name: "Oatsy"
+check:
+  - answers:
+      memorable: 0.835
+      tone: playful
+      originality: 1.4
+slogan_playful:
+  - json:
+      slogan: "Oatsy — ice cream that grows in the field"

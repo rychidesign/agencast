@@ -1,35 +1,35 @@
-# Formát skillu — specifikace v1
+# Skill format — specification v1
 
-Skill je znalost nebo postup, který agent použije, když ho potřebuje
-(DESIGN §5.8). Jedna složka `workflows/skills/<name>/` se souborem
-`SKILL.md`: nahoře YAML frontmatter, pod ním text v Markdownu. Agent skill
-uvádí ve `skills` ([agent.md](agent.md)).
+A skill is knowledge or a procedure that an agent uses when it needs it
+(DESIGN §5.8). It is one directory `workflows/skills/<name>/` with a
+`SKILL.md` file: YAML frontmatter at the top, Markdown text below. An agent
+lists its skills in `skills` ([agent.md](agent.md)).
 
-Strojová podoba: [`schema/skill.schema.json`](schema/skill.schema.json).
-Ukázka: `examples/showcase/workflows/skills/lumen-hlas/SKILL.md`.
+Machine-readable form: [`schema/skill.schema.json`](schema/skill.schema.json).
+Example: `examples/showcase/workflows/skills/lumen-voice/SKILL.md`.
 
 ```markdown
 ---
-name: lumen-hlas
-description: Tón a slovník značky Lumen pro texty na sociální sítě
+name: lumen-voice
+description: Lumen brand tone and vocabulary for social media copy
 ---
-Tykáme. Krátké věty. …
+Informal "you". Short sentences. …
 ```
 
-| Pole | Povinné | Co dělá | Když chybí | Příklad |
+| Field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
-| `name` | ano | Jméno skillu = jméno složky. Malá písmena, číslice, pomlčka. | Chyba `config`; nesoulad se jménem složky také. | `name: lumen-hlas` |
-| `description` | ano | Jedna věta: kdy skill použít. U `task` je to jediné, co model o skillu vidí, dokud ho nenačte — proto musí říct, k čemu skill je. | Chyba `config`. | `description: Tón a slovník značky Lumen` |
+| `name` | yes | Skill name = directory name. Lowercase letters, digits, hyphen. | `config` error; a mismatch with the directory name too. | `name: lumen-voice` |
+| `description` | yes | One sentence: when to use the skill. In `task` it is the only thing the model sees about the skill until it loads it — so it must say what the skill is for. | `config` error. | `description: Lumen brand tone and vocabulary` |
 
-Jiná pole nejsou povolená. Tělo pod frontmatterem musí být neprázdné.
-Soubor se čte jako YAML 1.2 core (viz [scenario.md](scenario.md)).
+No other fields are allowed. The body below the frontmatter must not be
+empty. The file is read as YAML 1.2 core (see [scenario.md](scenario.md)).
 
-Jak se skill dostane k modelu:
+How a skill reaches the model:
 
-- **`task`:** system prompt nese jen řádek `- <name>: <description>`; tělo
-  si model načte nástrojem `load_skill(name)`.
-- **`ask`:** tělo se vloží do system promptu celé (ask nemá nástroje).
+- **`task`:** the system prompt carries only the line `- <name>: <description>`;
+  the model loads the body with the `load_skill(name)` tool.
+- **`ask`:** the whole body is inserted into the system prompt (ask has no tools).
 
-Podrobnosti v [agent.md](agent.md#jak-vznikne-system-prompt). Skill
-nevynucuje tvar výstupu — to dělá `schema` kroku. Tajné hodnoty do skillu
-nepatří (stejně jako do agenta).
+Details in [agent.md](agent.md#how-the-system-prompt-is-built). A skill
+does not enforce the shape of the output — the step's `schema` does that.
+Secret values do not belong in a skill (same as in an agent).

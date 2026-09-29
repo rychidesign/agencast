@@ -1,95 +1,100 @@
-# Díl 5 — Od hraní k provozu
+# Part 5 — From playground to production
 
-Zmínky `maw` označují historický název AgenCast; výstupy a dobová omezení jsou archivní.
+Mentions of `maw` denote the historical name of AgenCast; the outputs and the limitations of the time are archival.
 
-Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+Run the commands from `examples/tutorial` (from the clone root: `cd examples/tutorial`).
 
-**Čas:** asi 20 minut · **Útrata:** 0 USD (všechno s `--fake` nebo bez
-volání modelu)
-**Co budeš umět:** vyměnit model jedním řádkem, udělat ze scénáře zlatý
-test, číst záznam běhu do hloubky, poslat výsledek do n8n
-(`--callback-url`) a vědět, co se ti při vylepšování frameworku nikdy
-nerozbije.
+**Time:** about 20 minutes · **Spend:** 0 USD (everything with `--fake` or without
+calling a model)
+**You will learn to:** swap a model with one line, turn a scenario into a golden
+test, read the run record in depth, send a result to n8n
+(`--callback-url`) and know what will never break while the framework is being improved.
 
-Předpoklad: díly 1–4.
+Prerequisite: parts 1–4.
 
 ---
 
-## Krok 1 — aliasy modelů: výměna = jeden řádek
+## Step 1 — model aliases: a swap = one line
 
-Tvoji agenti znají jen aliasy (`chytry`, `rychly`, `gemini-image`). Co
-se pod nimi skrývá, je v `workflows/config.yaml`:
+Your agents know only aliases (`smart`, `fast`, `gemini-image`). What hides
+behind them is in `workflows/config.yaml`:
 
 ```
 models:
-  chytry:       { id: anthropic/claude-haiku-4.5 }
-  rychly:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
+  smart:       { id: anthropic/claude-haiku-4.5 }
+  fast:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
   gemini-image: { id: google/gemini-3.1-flash-image }
 ```
 
-Tenhle soubor mění **jen vlastník** — ty v roli správce, ne jako autor
-scénáře, a vědomě: změna aliasu změní model **všem** agentům, kteří ho
-používají. Proto si výměnu nejdřív vyzkoušíme na kopii:
+Only the **owner** changes this file — you in the role of an administrator, not
+as a scenario author, and knowingly: changing an alias changes the model for
+**all** agents that use it. That is why we first try the swap on a copy:
 
 ```bash
-rm -rf /tmp/pokus && mkdir -p /tmp/pokus && cp -r workflows /tmp/pokus/
+rm -rf /tmp/experiment && mkdir -p /tmp/experiment && cp -r workflows /tmp/experiment/
 ```
 
-V `/tmp/pokus/workflows/config.yaml` udělej v řádku `chytry` překlep, který
-se dělá nejčastěji — `anthropic/claude-haiku-4-5` (pomlčka místo tečky):
-
-```bash
-agencast validate /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml
-```
-
-```
-config: config.yaml: models.chytry.id 'anthropic/claude-haiku-4-5' není v GET /models — překlep? (např. claude-haiku-4.5, ne -4-5)
-```
-
-`validate` se ptá OpenRouteru na seznam modelů, takže neexistující model
-nepustí dál. Teď řádek přepiš na jiný skutečný model:
-
-```
-  chytry:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
-```
+In `/tmp/experiment/workflows/config.yaml`, make the most common typo in the
+`smart` row — `anthropic/claude-haiku-4-5` (a dash instead of a dot):
 
 ```bash
-agencast validate /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml
-agencast run /tmp/pokus/workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina" --dry-run
+agencast validate /tmp/experiment/workflows/scenarios/tutorial-02-name-and-slogan.yaml
 ```
 
 ```
-v pořádku: tutorial-01-nazvy (2 kroky)
+config: config.yaml: models.smart.id 'anthropic/claude-haiku-4-5' is not in GET /models — typo? (e.g. claude-haiku-4.5, not -4-5)
+```
+
+`validate` asks OpenRouter for the list of models, so a model that does not
+exist does not get through. (It checks an alias only against what the scenario
+needs from it, for example structured output. That is why the check uses a
+scenario with a `schema`: `tutorial-01-names` needs nothing special from the
+model, so the typo would not show there.) Now rewrite the row to another real
+model:
+
+```
+  smart:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
+```
+
+```bash
+agencast validate /tmp/experiment/workflows/scenarios/tutorial-02-name-and-slogan.yaml
+agencast run /tmp/experiment/workflows/scenarios/tutorial-02-name-and-slogan.yaml -i product="ice cream" --dry-run
+```
+
+```
+valid: tutorial-02-name-and-slogan (4 steps)
 …
-| 1 | navrh | ask |  | agent tutorial-pojmenovavac → chytry (google/gemini-3.5-flash-lite); text | 0.01 USD, 2m |
+| 1 | propose | ask |  | agent tutorial-namer → smart (google/gemini-3.5-flash-lite); schema: names (cascade from tool_wrapper) | 0.01 USD, 2m |
 ```
 
-Agent ani scénář se nezměnily ani o písmeno. Co je
-`structured_output: tool_wrapper`: tenhle model neumí spolehlivě nativní
-JSON Schema, tak mu framework JSON předává jinou cestou (viz „kaskáda"
-v dílu 2). Kterou cestu model potřebuje, zjistí vlastník zkouškou —
-nastavuje se jednou u aliasu, ne v každém scénáři.
+Neither the agent nor the scenario changed by a single letter. What
+`structured_output: tool_wrapper` is: this model cannot reliably do native
+JSON Schema, so the framework hands it the JSON by another route (see the
+“cascade” in part 2). Which route a model needs is found out by the owner by
+trying — it is set once on the alias, not in every scenario.
 
-Která verze modelu v kterém běhu opravdu běžela, je vždy v záznamu (krok 3).
+Which version of the model really ran in which run is always in the record
+(step 3).
 
 ---
 
-## Krok 2 — zlaté testy
+## Step 2 — golden tests
 
-Tato část o testech frameworku vyžaduje klon repozitáře a práci v
-`examples/tutorial`. Z balíčku ověříš svůj scénář přímo přes `agencast run … --fake fake/…`.
+This part about the framework's tests requires a clone of the repository and
+working in `examples/tutorial`. From a package you verify your scenario directly
+with `agencast run … --fake fake/…`.
 
-Od dílu 1 píšeš ke každému scénáři fixturu do `fake/`.
-Tady je proč:
+Since part 1 you have been writing a fixture into `fake/` for every scenario.
+Here is why:
 
-> **Každý soubor ve `workflows/` je test frameworku.** Každý agent musí
-> projít kontrolou a každý scénář musí doběhnout s falešným
-> poskytovatelem. Když k němu existuje fixtura
-> `fake/<jméno scénáře>.yaml`, běh musí skončit
-> **úspěchem**; bez fixtury stačí úspěch nebo záměrný `fail`.
+> **Every file in `workflows/` is a framework test.** Every agent must
+> pass validation and every scenario must run to the end with the fake
+> provider. When a fixture `fake/<scenario name>.yaml` exists for it, the run
+> must end in **success**; without a fixture, success or an intentional
+> `fail` is enough.
 
-Až někdo (typicky agent-worker) framework vylepší, tyhle testy spustí.
-Když tvůj scénář přestane fungovat, uvidí to **on**, dřív než ty.
+When someone (typically an agent-worker) improves the framework, they run
+these tests. When your scenario stops working, **they** will see it before you.
 
 ```bash
 cd ../../framework && uv run pytest
@@ -97,502 +102,515 @@ cd ../../framework && uv run pytest
 
 ```
 ......................................................................   [100%]
-286 passed in 3.09s
+548 passed in 54.90s
 ```
 
-(Víc řádků teček zkracuji.) Jen tvoje soubory — jsi pořád ve složce
-`framework/` repozitáře:
+(I shorten the extra rows of dots.) Only your files — you are still in the
+`framework/` folder of the repository:
 
 ```bash
-uv run pytest -k tutorial -v
+uv run pytest tests/test_golden.py -k tutorial -v
 ```
 
 ```
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-01-cviceni] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-01-nazvy] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-02-cviceni] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-02-nazev-a-slogan] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-03-cviceni] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-03-rozhodovani] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-03-vyrazy] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-04-cviceni] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-04-paralelne] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-05-cviceni] PASSED
-tests/test_golden.py::test_workflow_agent_valid[tutorial-ilustrator] PASSED
-tests/test_golden.py::test_workflow_agent_valid[tutorial-pojmenovavac] PASSED
-tests/test_golden.py::test_workflow_agent_valid[tutorial-sloganista] PASSED
-====================== 13 passed, 273 deselected in 0.23s ======================
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-01-exercise] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-01-names] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-02-exercise] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-02-name-and-slogan] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-03-decisions] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-03-exercise] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-03-expressions] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-04-exercise] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-04-parallel] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-05-exercise] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-06-archive] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-06-exercise] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-archive] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-composition] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-exercise] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-slogan] PASSED
+tests/test_golden.py::test_workflow_agent_valid[tutorial-archivist] PASSED
+tests/test_golden.py::test_workflow_agent_valid[tutorial-illustrator] PASSED
+tests/test_golden.py::test_workflow_agent_valid[tutorial-namer] PASSED
+tests/test_golden.py::test_workflow_agent_valid[tutorial-slogan-writer] PASSED
+tests/test_golden.py::test_workflow_skill_valid[tutorial-entry] PASSED
+====================== 21 passed, 38 deselected in 0.87s =======================
 ```
 
-(`-k tutorial` vybere testy, v jejichž jméně je „tutorial"; ukazuji jen
-řádky s výsledky.) Zpátky do projektu tutoriálu: `cd ../examples/tutorial`.
+(`-k tutorial` selects the tests with “tutorial” in their name and
+`tests/test_golden.py` limits them to the golden tests; I show only the result
+lines.) Back to the tutorial project: `cd ../examples/tutorial`.
 
-### Jak test vypadá, když neprojde
+### What a test looks like when it fails
 
-Fixtura je smlouva stejně jako scénář: když v ní odpověď nesedí na
-`schema`, test selže. Tady je fixtura s polem, které `schema` kroku
-`navrh` nezná (`nazvy_navic`):
+A fixture is a contract, just like a scenario: when an answer in it does not
+match the `schema`, the test fails. Here is a fixture with a field that the
+`schema` of the `propose` step does not know (`name_extra`):
 
 ```yaml
-navrh:
+propose:
   - json:
-      nazvy_navic: "tohle pole ve schema není"
-      nazev: "Ovena"
+      name_extra: "this field is not in the schema"
+      name: "Ovena"
 ```
 
 ```
-FAILED tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-05-cviceni]
+FAILED tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-05-exercise]
 …
-E           AssertionError: {'class': 'schema', 'step': 'navrh', 'message': "odpověď nesedí na schema: neznámé pole 'nazvy_navic' (překlep?) (kořen)"}
+E           AssertionError: {'class': 'schema', 'step': 'propose', 'message': "response does not match schema: unknown field 'name_extra' (typo?) (root)"}
 E           assert 'failed' == 'succeeded'
 ```
 
-Čti řádek `AssertionError`: je v něm přesně to, co by bylo v `summary.md`
-— třída, krok, hláška.
+Read the `AssertionError` line: it holds exactly what would be in
+`summary.md` — the class, the step, the message.
 
-### Jak psát fixturu — shrnutí
+### How to write a fixture — a summary
 
-| Krok | Ve fixtuře | Když krok ve fixtuře chybí |
+| Step | In the fixture | When the step is missing from the fixture |
 |---|---|---|
-| `ask` bez `schema` | `text: "…"` | „Falešná odpověď." |
-| `ask` se `schema` | `json: {pole: hodnota}` — přesně pole ze `schema` | hodnoty vyrobené podle schématu |
-| `jev` | `answers: {otázka: hodnota}` | `noul` 0,5, `choice` první možnost, `score` 0 |
-| `image` | nic (nebo `image: {width: …, height: …}`) | šedé PNG v poměru `aspect_ratio` |
-| `set`, `switch`, `fail`, `output` | nic | — (nevolají model) |
+| `ask` without `schema` | `text: "…"` | “Fake response.” |
+| `ask` with `schema` | `json: {field: value}` — exactly the fields from the `schema` | values generated from the schema |
+| `jev` | `answers: {question: value}` | `noul` 0.5, `choice` the first option, `score` 0 |
+| `image` | nothing (or `image: {width: …, height: …}`) | a grey PNG in the `aspect_ratio` |
+| `set`, `switch`, `fail`, `output` | nothing | — (they don't call a model) |
 
-- Klíč je `id` kroku, hodnota je **seznam** odpovědí: 1. volání vezme
-  první, 2. druhou…, poslední se opakuje.
-- Na simulaci chyb (díl 4): `status: 429`, `refusal: "…"`,
-  `finish_reason: error`, `sleep: 5`. Takové fixtury **nedávej**
-  do `fake/` — zlatý test s fixturou čeká úspěch. Patří do `/tmp`.
-- Fixtura má projít cestou, na které ti záleží nejvíc (u `switch` si
-  vyber větev — viz cvičení).
-- Testy používají vlastní testovací `config.yaml` se stejnými aliasy
-  (`chytry`, `rychly`, `gemini-image`), ne tvůj — nic nestojí a nepotřebují
-  klíč.
+- The key is the step `id`, the value is a **list** of responses: the 1st call
+  takes the first, the 2nd the second…, the last one repeats.
+- For simulating errors (part 4): `status: 429`, `refusal: "…"`,
+  `finish_reason: error`, `sleep: 5`. **Don't** put such fixtures into
+  `fake/` — a golden test with a fixture expects success. They belong in `/tmp`.
+- A fixture should go through the path that matters most to you (for `switch`
+  pick a branch — see the exercise).
+- The tests use their own test `config.yaml` with the same aliases
+  (`smart`, `fast`, `gemini-image`), not yours — they cost nothing and need
+  no key.
 
 ---
 
-## Krok 3 — záznam běhu do hloubky
+## Step 3 — the run record in depth
 
-Vezmi ostrý běh z dílu 3 (`runs/20260925-151536-tutorial-03-rozhodovani-b547`).
+Take the live run from part 3 (`runs/20260925-151536-tutorial-03-decisions-b547`).
 
 ### `events.jsonl`
 
-Jedna událost na řádek, stroj ho čte snadno, člověk s trochou pomoci.
-Typy událostí v tomto běhu po řadě:
+One event per line; a machine reads it easily, a human with a little help.
+The event types in this run in order:
 
 ```
 run_started
-step_started navrh
-model_call navrh
-step_finished navrh
-step_started kontrola
-jev_call kontrola
-step_finished kontrola
+step_started propose
+model_call propose
+step_finished propose
+step_started check
+jev_call check
+step_finished check
 step_skipped stop
-step_started podle_tonu
-step_skipped slogan_vazny
-step_skipped neznamy_ton
-step_started slogan_hravy
-model_call slogan_hravy
-step_finished slogan_hravy
-step_finished podle_tonu
-step_started vysledek
-step_finished vysledek
+step_started by_tone
+step_skipped slogan_serious
+step_skipped unknown_tone
+step_started slogan_playful
+model_call slogan_playful
+step_finished slogan_playful
+step_finished by_tone
+step_started result
+step_finished result
 step_started out
 step_finished out
 run_finished
 ```
 
-(Výpis dělá tenhle příkaz:
-`python3 -c "import json;[print(json.loads(l)['type'], json.loads(l).get('step','')) for l in open('runs/20260925-151536-tutorial-03-rozhodovani-b547/events.jsonl')]"`.)
+(The listing is made by this command:
+`python3 -c "import json;[print(json.loads(l)['type'], json.loads(l).get('step','')) for l in open('runs/20260925-151536-tutorial-03-decisions-b547/events.jsonl')]"`.)
 
-Nejdůležitější řádky:
+The most important lines:
 
-**`run_started`** — s čím běh začal. Hlavně `models`: na co se aliasy
-**v tomhle běhu** přeložily. Když vlastník za měsíc alias změní, pořád
-víš, co běželo tehdy.
-
-```
-{"ts":"2026-09-25T15:15:36.894Z","type":"run_started","run_id":"20260925-151536-tutorial-03-rozhodovani-b547","scenario":"tutorial-03-rozhodovani","scenario_version":1,"request_key":null,"inputs":{"produkt":"veganská zmrzlina z ovesného mléka"},"models":{"chytry":"anthropic/claude-haiku-4.5","rychly":"google/gemini-3.5-flash-lite","gemini-image":"google/gemini-3.1-flash-image"},"limits":{"run_budget_usd":1.0,"run_image_budget_usd":0.3,"run_timeout":"1h"},"framework_version":"0.1.0","storage_prefix":"20260925-151536-tutorial-03-rozhodovani-b547-c6bf8457c50ee002cb94481826201908"}
-```
-
-**`model_call`** — jedno volání modelu: pokus (`attempt`), kdo ho
-obsloužil (`provider`), jak skončilo (`finish_reason`), kolik stálo
-(`usage`) a kde je celý požadavek a odpověď. `generation_id` najdeš
-i v logu OpenRouteru.
+**`run_started`** — what the run began with. Mainly `models`: what the aliases
+were translated to **in this run**. When the owner changes an alias in a month,
+you still know what ran back then.
 
 ```
-{"ts":"2026-09-25T15:15:40.532Z","type":"model_call","step":"navrh","attempt":1,"alias":"chytry","model":"anthropic/claude-haiku-4.5","structured_output":"native_schema","http_status":200,"response_model":"anthropic/claude-haiku-4.5","provider":"Amazon Bedrock","generation_id":"gen-1790349337-frPW3LQHMMPBX1MhYdjc","finish_reason":"stop","native_finish_reason":"end_turn","usage":{"input_tokens":264,"output_tokens":13,"cost_usd":0.000329},"duration_s":3.636,"request_file":"steps/01-navrh/calls/01.request.json","response_file":"steps/01-navrh/calls/01.response.json"}
+{"ts":"2026-09-25T15:15:36.894Z","type":"run_started","run_id":"20260925-151536-tutorial-03-decisions-b547","scenario":"tutorial-03-decisions","scenario_version":1,"request_key":null,"inputs":{"product":"vegan ice cream made from oat milk"},"models":{"smart":"anthropic/claude-haiku-4.5","fast":"google/gemini-3.5-flash-lite","gemini-image":"google/gemini-3.1-flash-image"},"limits":{"run_budget_usd":1.0,"run_image_budget_usd":0.3,"run_timeout":"1h"},"framework_version":"0.1.0","storage_prefix":"20260925-151536-tutorial-03-decisions-b547-c6bf8457c50ee002cb94481826201908"}
 ```
 
-**`jev_call`** — totéž pro Jev; `response_model` je datovaná verze Jevu.
+**`model_call`** — a single model call: the attempt (`attempt`), who served it
+(`provider`), how it ended (`finish_reason`), what it cost (`usage`) and where
+the whole request and response are. You can find the `generation_id` in the
+OpenRouter log too.
 
 ```
-{"ts":"2026-09-25T15:15:41.026Z","type":"jev_call","step":"kontrola","attempt":1,"model":"jev-1.13","http_status":200,"response_model":"typesafe/jev-1.13-20260917","usage":{"input_tokens":495,"output_tokens":71,"cost_usd":2.079e-05},"answers":{"zapamatovatelny":0.85,"ton":"hravy","originalita":0.64},"duration_s":0.492,"request_file":"steps/02-kontrola/calls/01.request.json","response_file":"steps/02-kontrola/calls/01.response.json"}
+{"ts":"2026-09-25T15:15:40.532Z","type":"model_call","step":"propose","attempt":1,"alias":"smart","model":"anthropic/claude-haiku-4.5","structured_output":"native_schema","http_status":200,"response_model":"anthropic/claude-haiku-4.5","provider":"Amazon Bedrock","generation_id":"gen-1790349337-frPW3LQHMMPBX1MhYdjc","finish_reason":"stop","native_finish_reason":"end_turn","usage":{"input_tokens":264,"output_tokens":13,"cost_usd":0.000329},"duration_s":3.636,"request_file":"steps/01-propose/calls/01.request.json","response_file":"steps/01-propose/calls/01.response.json"}
 ```
 
-**`step_skipped`** — vždy s důvodem a s tím, jestli se použil `default`:
+**`jev_call`** — the same for Jev; `response_model` is the dated version of Jev.
 
 ```
-{"ts":"2026-09-25T15:15:41.028Z","type":"step_skipped","step":"slogan_vazny","kind":"ask","reason_code":"switch","reason":"switch: podle_tonu = \"hravy\"","default_used":true}
+{"ts":"2026-09-25T15:15:41.026Z","type":"jev_call","step":"check","attempt":1,"model":"jev-1.13","http_status":200,"response_model":"typesafe/jev-1.13-20260917","usage":{"input_tokens":495,"output_tokens":71,"cost_usd":2.079e-05},"answers":{"memorable":0.85,"tone":"playful","originality":0.64},"duration_s":0.492,"request_file":"steps/02-check/calls/01.request.json","response_file":"steps/02-check/calls/01.response.json"}
 ```
 
-**`run_finished`** — výsledek, varování, součet spotřeby, z toho obrázky:
+**`step_skipped`** — always with a reason and with whether a `default` was used:
+
+```
+{"ts":"2026-09-25T15:15:41.028Z","type":"step_skipped","step":"slogan_serious","kind":"ask","reason_code":"switch","reason":"switch: by_tone = \"playful\"","default_used":true}
+```
+
+**`run_finished`** — the result, warnings, the usage total, of which images:
 
 ```
 {"ts":"2026-09-25T15:15:42.806Z","type":"run_finished","status":"succeeded","error":null,"warnings":[],"duration_s":5.912,"usage":{"input_tokens":1010,"output_tokens":112,"cost_usd":0.00074079},"image_cost_usd":0.0,"image_duration_s":0.0}
 ```
 
-Další typy, které jsi už viděl: `error` (díly 2 a 4: `class`,
-`will_retry`), `image_saved`, `callback_sent` / `callback_failed` (krok 4).
+Other types you have already seen: `error` (parts 2 and 4: `class`,
+`will_retry`), `image_saved`, `callback_sent` / `callback_failed` (step 4).
 
 ### `steps/<nn>-<id>/calls/`
 
-Každé volání API zvlášť: `01.request.json` (co odešlo) a
-`01.response.json` (co přišlo). Opakování = `02.*`, `03.*`. Začátek
-požadavku na Jev:
+Every API call separately: `01.request.json` (what went out) and
+`01.response.json` (what came back). A retry = `02.*`, `03.*`. The beginning of
+the request to Jev:
 
 ```bash
-head -c 400 runs/20260925-151536-tutorial-03-rozhodovani-b547/steps/02-kontrola/calls/01.request.json
+head -c 413 runs/20260925-151536-tutorial-03-decisions-b547/steps/02-check/calls/01.request.json
 ```
 
 ```
 {
   "model": "jev-1.13",
-  "state": "Produkt: veganská zmrzlina z ovesného mléka. Navržený název: Ověnka",
+  "state": "Product: vegan ice cream made from oat milk. Proposed name: Oatie",
   "questions": {
-    "zapamatovatelny": {
+    "memorable": {
       "type": "noul",
-      "instructions": "Je název snadno zapamatovatelný a dá se snadno vyslovit?"
+      "instructions": "Is the name easy to remember and easy to pronounce?"
     },
-    "ton": {
+    "tone": {
       "type": "choice",
-      "instructions": "Jaký tón má navržený název?",
+      "instructions": "What tone does the proposed name have?",
       "criteria": {
-        "hravy"
+        "playful": "Playful, witty, relaxed",
 ```
 
-### Co v záznamu nikdy není
+### What is never in the record
 
-- **API klíč** ani hlavičky — `request.json` je jen tělo požadavku.
-- **Obrázek v base64.** Odpověď obrazového modelu z dílu 4 by měla přes
-  2 MB textu; v záznamu je místo ní odkaz na soubor. A šifrované
-  „přemýšlení" modelu (`reasoning_details`, tady skoro 1 MB) je vynechané:
+- **The API key** or headers — `request.json` is only the request body.
+- **An image in base64.** The image model's response from part 4 would be
+  over 2 MB of text; in the record there is a link to the file instead. And the
+  model's encrypted “thinking” (`reasoning_details`, almost 1 MB here) is left out:
 
 ```bash
-grep -o '"url": "<[^"]*"\|"reasoning_details": "<[^"]*"' runs/20260925-151755-tutorial-04-paralelne-8c76/steps/05-fotka/calls/01.response.json
+grep -o '"url": "<[^"]*"\|"reasoning_details": "<[^"]*"' runs/20260925-151755-tutorial-04-parallel-8c76/steps/05-photo/calls/01.response.json
 ```
 
 ```
-"reasoning_details": "<vynecháno: reasoning_details, 1003920 B>"
-"url": "<soubor: steps/05-fotka/image.png, 1149417 B>"
+"reasoning_details": "<omitted: reasoning_details, 1003920 B>"
+"url": "<file: steps/05-photo/image.png, 1149417 B>"
 ```
 
-- **Tajné hodnoty kdekoli.** Hodnotu každé proměnné, na kterou odkazuje
-  pole `*_env` v `config.yaml` (klíč OpenRouteru, tajemství callbacku…),
-  framework před zápisem **každého** souboru záznamu nahradí textem
-  `<tajné: JMÉNO>`. Vyzkoušíš to bezpečně s vymyšleným tajemstvím
-  callbacku, které schválně pošleš jako vstup:
+- **Secret values anywhere.** The value of every variable referenced by an
+  `*_env` field in `config.yaml` (the OpenRouter key, the callback secret…) is
+  replaced by the framework with the text `<secret: NAME>` before writing
+  **every** record file. You can try it safely with an invented callback
+  secret that you deliberately send as an input:
 
 ```bash
-export CALLBACK_SECRET=tutorial-demo-tajemstvi
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina tutorial-demo-tajemstvi" --fake fake/tutorial-01-nazvy.yaml
+export CALLBACK_SECRET=tutorial-demo-secret
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="ice cream tutorial-demo-secret" --fake fake/tutorial-01-names.yaml
 ```
 
-  V `inputs.json`:
+  In `inputs.json`:
 
 ```
 {
-  "produkt": "zmrzlina <tajné: CALLBACK_SECRET>"
+  "product": "ice cream <secret: CALLBACK_SECRET>"
 }
 ```
 
-  v `prompt.md`:
+  in `steps/01-propose/prompt.md` (the last lines):
 
 ```
-Vymysli 3 názvy pro tento produkt: zmrzlina <tajné: CALLBACK_SECRET>. Každý na vlastní řádek.
+…
+# Message
+
+Come up with 3 names for this product: ice cream <secret: CALLBACK_SECRET>. Each on its own line.
 ```
 
-  a v `summary.md` varování:
+  and in `summary.md` the warning:
 
 ```
-## Varování
-- tajná hodnota CALLBACK_SECRET byla v záznamu nahrazena textem <tajné: CALLBACK_SECRET>
+## Warnings
+- secret value CALLBACK_SECRET was replaced in the record with <secret: CALLBACK_SECRET>
 ```
 
-  Hodnota `tutorial-demo-tajemstvi` není v žádném souboru běhu. Pozor:
-  maskuje se jen **záznam** — model tu hodnotu dostal. Tajnosti do
-  promptů nepatří; scénář je ani nemá jak přečíst (vidí jen `inputs`
-  a `steps`), leda bys je sám poslal jako vstup.
+  The value `tutorial-demo-secret` is not in any file of the run. Beware: only
+  the **record** is masked — the model received that value. Secrets do not belong
+  in prompts; a scenario has no way to read them (it sees only `inputs` and
+  `steps`), unless you send them in as an input yourself.
 
 ---
 
-## Krok 4 — `--callback-url`: co dorazí do n8n
+## Step 4 — `--callback-url`: what arrives in n8n
 
-V provozu běh spouští n8n a výsledek čeká na své „resume" adrese.
-Framework ho tam pošle `POST`em — **vždy**, při úspěchu i chybě. Z CLI
-to vyzkoušíš přepínačem `--callback-url` (jen `https://`). Potřebuje
-proměnnou z `callback.secret_env` (u nás `CALLBACK_SECRET`) — tou se
-zpráva podepisuje. V ostrém provozu je v `.env`; na zkoušku stačí
-`export` z kroku 3.
+In production n8n starts the run and waits for the result at its “resume”
+address. The framework sends it there with a `POST` — **always**, on success
+and on error. From the CLI you try it with the `--callback-url` switch
+(`https://` only). It needs the variable from `callback.secret_env` (for us
+`CALLBACK_SECRET`) — the message is signed with it. In production it is in
+`.env`; for a trial the `export` from step 3 is enough.
 
-Abys viděl, co přesně n8n dostane, pustil jsem si na počítači malý
-HTTPS server, který se tváří jako n8n a vypíše, co přišlo (skript je
-[níž](#příloha-falešné-n8n)):
+To see exactly what n8n receives, I ran a small HTTPS server on my computer that
+pretends to be n8n and prints what arrived (the script is
+[below](#appendix-fake-n8n)):
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake fake/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan ice cream" --fake fake/tutorial-01-names.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
 ```
 
 ```
-běh 20260925-163820-tutorial-01-nazvy-26eb: úspěch · 0,0 s · 0,0001 USD
+run 20260929-185938-tutorial-01-names-40ed: succeeded · 0.0 s · 0.0001 USD
 ```
 
-Falešné n8n vypsalo:
+The fake n8n printed:
 
 ```
 POST /webhook-waiting/4711
 Content-Type: application/json
-X-Run-Id: 20260925-163820-tutorial-01-nazvy-26eb
-X-Signature: sha256=ccebf60ebacc5ff2160fcf507a3d68326c6959804b64c3d75a57538ee7ec38fc
-{"run_id": "20260925-163820-tutorial-01-nazvy-26eb", "scenario": "tutorial-01-nazvy", "request_key": "n8n-4711", "status": "succeeded", "outputs": {"nazvy": "Ovesňák\nMrazík Oves\nZmrzlá Pláň"}, "error": null, "warnings": [], "cost_usd": 0.0001, "duration_s": 0.001, "report_url": "file:///…/outputs/20260925-163820-tutorial-01-nazvy-26eb-ed13aae87c48c49d241de2ab0633a6ab/report.html", "sent_at": "2026-09-25T16:38:20.885Z"}
+X-Run-Id: 20260929-185938-tutorial-01-names-40ed
+X-Signature: sha256=6cd67d35eb9636bdf981e2792be6131579d47fcbcfe48b8c59e747ef18dffe83
+{"run_id": "20260929-185938-tutorial-01-names-40ed", "scenario": "tutorial-01-names", "request_key": "n8n-4711", "status": "succeeded", "outputs": {"names": "Oatsy\nFrost Oat\nFrozen Field"}, "error": null, "warnings": [], "cost_usd": 0.0001, "duration_s": 0.001, "report_url": "file:///…/outputs/20260929-185938-tutorial-01-names-40ed-b7ea967c1f7a1ea419552469a363db35/report.html", "sent_at": "2026-09-29T18:59:38.389Z"}
 ```
 
-Pole těla:
+The body fields:
 
-| Pole | Co v n8n uděláš |
+| Field | What you do with it in n8n |
 |---|---|
-| `status` | `succeeded` / `failed` — první větvení |
-| `outputs` | přesně pole z `outputs` scénáře; při chybě `null` |
-| `error` | `{class, step, message}` — podle `class` pozná n8n záměrný `fail` od poruchy (díl 3) |
-| `warnings` | např. obrázek selhal s `on_error: continue` (díl 4) |
-| `request_key` | co poslalo n8n (`--request-key`), aby spárovalo odpověď |
-| `cost_usd`, `duration_s` | pro přehled útraty |
-| `report_url` | adresa `report.html` v úložišti (od `maw` 0.2.0; souhrn běhu s prompty a odpověďmi, díl 7); `null`, jen když se report nepodařilo vytvořit nebo nahrát (pak je o tom varování) |
+| `status` | `succeeded` / `failed` — the first branching |
+| `outputs` | exactly the fields from the scenario's `outputs`; `null` on error |
+| `error` | `{class, step, message}` — by `class` n8n tells an intentional `fail` from a malfunction (part 3) |
+| `warnings` | e.g. the image failed with `on_error: continue` (part 4) |
+| `request_key` | what n8n sent (`--request-key`), so it can pair the response |
+| `cost_usd`, `duration_s` | for an overview of spend |
+| `report_url` | the address of `report.html` in storage (since `maw` 0.2.0; a run summary with prompts and responses, part 7); `null` only when the report could not be created or uploaded (then there is a warning about it) |
 
-Typ `file` v `outputs` je **adresa** souboru v úložišti, ne soubor. U nás
-`storage.type: local` → `file://…` cesta, se kterou Instagram nic
-neudělá. Veřejná URL přijde s úložištěm R2 (mění vlastník v
+The `file` type in `outputs` is the **address** of a file in storage, not the
+file. For us `storage.type: local` → a `file://…` path that Instagram can do
+nothing with. A public URL comes with R2 storage (the owner changes it in
 `config.yaml`).
 
-### Podpis
+### The signature
 
-`X-Signature` = HMAC-SHA256 **přesných bajtů těla** s tajemstvím
-z `CALLBACK_SECRET`. n8n si ho spočítá stejně a zprávě věří, jen když
-sedí. Ověření (tělo uložené falešným n8n):
+`X-Signature` = HMAC-SHA256 of the **exact bytes of the body** with the secret
+from `CALLBACK_SECRET`. n8n computes it the same way and trusts the message only
+if they match. Verification (the body saved by the fake n8n):
 
 ```bash
 python3 -c "
 import hmac, hashlib
-telo = open('posledni-telo.json', 'rb').read()
-print('sha256=' + hmac.new(b'tutorial-demo-tajemstvi', telo, hashlib.sha256).hexdigest())
+body = open('/tmp/n8n-mock/last-body.json', 'rb').read()
+print('sha256=' + hmac.new(b'tutorial-demo-secret', body, hashlib.sha256).hexdigest())
 "
 ```
 
 ```
-sha256=db2349c82058367a50eaad251879583dc86da4ef9d5b919a62c11173aa6af601
+sha256=6cd67d35eb9636bdf981e2792be6131579d47fcbcfe48b8c59e747ef18dffe83
 ```
 
-Sedí s hlavičkou. Důležité pro n8n: počítej podpis ze **surového těla**,
-ne z JSON, který n8n už rozebralo a znovu poskládalo — jiné mezery =
-jiný podpis. (`callback.json` ve složce běhu je stejný obsah, ale hezky
-odsazený, takže podpis z něj nevyjde.)
+It matches the header. Important for n8n: compute the signature from the **raw
+body**, not from JSON that n8n has already parsed and reassembled — different
+spacing = a different signature. (`callback.json` in the run folder has the same
+content, but nicely indented, so the signature won't come out from it.)
 
-### Když n8n neodpovídá
+### When n8n does not answer
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="zmrzlina" --fake fake/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8444/webhook-waiting/4713
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="ice cream" --fake fake/tutorial-01-names.yaml --callback-url https://127.0.0.1:8444/webhook-waiting/4713
 ```
 
 ```
-callback nedoručen
-běh 20260925-152125-tutorial-01-nazvy-2fc8: úspěch · 0,0 s · 0,0001 USD
+callback not delivered
+run 20260929-185946-tutorial-01-names-89df: succeeded · 0.0 s · 0.0001 USD
 ```
 
-Trvalo to 35 s — tři pokusy s prodlevou 5 s a 30 s:
+It took 35 s — three attempts with delays of 5 s and 30 s:
 
 ```
-{"ts":"2026-09-25T15:21:25.104Z","type":"callback_sent","url":"https://127.0.0.1/webhook-waiting/4713","attempt":1,"http_status":null,"error":"ConnectError: All connection attempts failed"}
-{"ts":"2026-09-25T15:21:30.113Z","type":"callback_sent","url":"https://127.0.0.1/webhook-waiting/4713","attempt":2,"http_status":null,"error":"ConnectError: All connection attempts failed"}
-{"ts":"2026-09-25T15:22:00.146Z","type":"callback_sent","url":"https://127.0.0.1/webhook-waiting/4713","attempt":3,"http_status":null,"error":"ConnectError: All connection attempts failed"}
-{"ts":"2026-09-25T15:22:00.146Z","type":"callback_failed","url":"https://127.0.0.1/webhook-waiting/4713","attempts":3,"error":"ConnectError: All connection attempts failed"}
+{"ts":"2026-09-29T18:59:46.112Z","type":"callback_sent","url":"https://127.0.0.1/webhook-waiting/4713","attempt":1,"http_status":null,"error":"ConnectError: All connection attempts failed"}
+{"ts":"2026-09-29T18:59:51.121Z","type":"callback_sent","url":"https://127.0.0.1/webhook-waiting/4713","attempt":2,"http_status":null,"error":"ConnectError: All connection attempts failed"}
+{"ts":"2026-09-29T19:00:21.152Z","type":"callback_sent","url":"https://127.0.0.1/webhook-waiting/4713","attempt":3,"http_status":null,"error":"ConnectError: All connection attempts failed"}
+{"ts":"2026-09-29T19:00:21.152Z","type":"callback_failed","url":"https://127.0.0.1/webhook-waiting/4713","attempts":3,"error":"ConnectError: All connection attempts failed"}
 ```
 
-Běh zůstává `úspěch` — nedoručený callback nezmění výsledek. Uvidíš to
-v `summary.md` („**Callback nedoručen**") i v přehledu:
+The run stays `succeeded` — an undelivered callback does not change the result.
+You will see it in `summary.md` (“**Callback not delivered**”) and in the overview:
 
 ```bash
 agencast runs list
 ```
 
 ```
-20260925-152125-tutorial-01-nazvy-2fc8        succeeded                         0,0 s   0,0001 USD callback nedoručen
+20260929-185946-tutorial-01-names-89df        succeeded                         0.0 s   0.0001 USD callback not delivered
 ```
 
-Aby n8n nečekalo věčně, nastav mu u čekajícího kroku časový limit.
+So that n8n does not wait forever, set a timeout on its waiting step.
 
 ---
 
-## Krok 5 — co se ti nikdy nerozbije
+## Step 5 — what will never break for you
 
-Framework budou vylepšovat agenti-workeři. Pro tvoje soubory platí
-pravidla kompatibility (`docs/DESIGN.md` §5.9):
+The framework will be improved by agent-workers. The compatibility rules
+(`docs/DESIGN.md` §5.9) apply to your files:
 
-1. **`version: 1` se jen rozšiřuje.** Přibýt smí nová volitelná pole
-   a nové typy kroků. Přejmenovat, odstranit nebo změnit význam
-   existujícího pole se nesmí. Nové pole má vždy výchozí hodnotu, která
-   zachová dosavadní chování.
-2. **Zlomová změna = `version: 2`.** Framework pak umí obě verze zároveň
-   a příkaz `migrate` ti soubory převede a změny vypíše. Starý soubor
-   běží dál, dokud ho nepřevedeš sám.
-3. **Zlaté scénáře** — každý tvůj scénář, agent a skill ve `workflows/`
-   musí po každé změně frameworku projít `validate` a doběhnout
-   s `--fake` (krok 2). Tvoje fixtury tak hlídají, že se to dodržuje.
-4. **Zastarávání s varováním.** Když se nějaká konstrukce přestane
-   doporučovat, nejdřív uvidíš varování ve `validate` (běh jde dál);
-   zmizet smí až v další verzi formátu.
-5. **Neznámá verze = chyba**, nikdy tichý odhad.
+1. **`version: 1` is only ever extended.** New optional fields and new step
+   types may be added. Renaming, removing or changing the meaning of an
+   existing field is not allowed. A new field always has a default value that
+   keeps the existing behaviour.
+2. **A breaking change = `version: 2`.** The framework then handles both
+   versions at once and the `migrate` command converts your files and lists the
+   changes. An old file keeps running until you convert it yourself.
+3. **Golden scenarios** — every scenario, agent and skill of yours in
+   `workflows/` must pass `validate` and run to the end with `--fake`
+   (step 2) after every framework change. Your fixtures make sure this is kept.
+4. **Deprecation with a warning.** When a construct stops being recommended,
+   you first see a warning in `validate` (the run goes on); it may disappear
+   only in the next version of the format.
+5. **An unknown version = an error**, never a silent guess.
 
-V praxi: napiš `version: 1`, drž fixturu u každého scénáře a aktualizace
-frameworku tě nemusí zajímat.
-
----
-
-## Co přijde dál
-
-Díly 1–5 vznikly s `maw` 0.1.0; díly 6 a 7 potřebují `maw` 0.2.1:
-
-- **[Díl 6 — Agent s nástroji](06-agent-s-nastroji.md):** krok `task`
-  (smyčka model ↔ nástroje MCP s limitem tahů), `mcp.yaml` z pohledu
-  vlastníka, skilly přes `load_skill`, záznam volání nástrojů.
-- **[Díl 7 — Skládání a provoz](07-skladani-a-provoz.md):** `call`
-  (scénář volá scénář), `agencast serve` pro n8n (token, `request_key`,
-  podepsaný callback), `report.html` a `dedupe_key` pro kroky, které smí
-  proběhnout jen jednou.
-
-Přehled všech dílů: [README.md](README.md).
+In practice: write `version: 1`, keep a fixture for every scenario, and framework
+updates need not concern you.
 
 ---
 
-## Co sis zapamatoval
+## What comes next
 
-- Výměna modelu = jeden řádek v `config.yaml` (vlastník); `validate` ho
-  ověří proti OpenRouteru; záznam drží, co běželo.
-- Každý scénář ve `workflows/` je zlatý test; fixtura se jménem scénáře
-  v `fake/`; `cd ../../framework && uv run pytest`.
-- `events.jsonl` = celý příběh běhu; `calls/` = každé volání; klíče,
-  base64 ani tajné hodnoty v záznamu nejsou.
-- Callback: vždy, podepsaný HMAC; `class` v `error` odliší `fail` od
-  poruchy.
+Parts 1–5 were written with `maw` 0.1.0; parts 6 and 7 need `maw` 0.2.1:
+
+- **[Part 6 — An agent with tools](06-agent-with-tools.md):** the `task` step
+  (a model ↔ MCP tools loop with a turn limit), `mcp.yaml` from the owner's
+  point of view, skills via `load_skill`, the record of tool calls.
+- **[Part 7 — Composition and operations](07-composition-and-operations.md):** `call`
+  (a scenario calls a scenario), `agencast serve` for n8n (token, `request_key`,
+  a signed callback), `report.html` and `dedupe_key` for steps that may run
+  only once.
+
+An overview of all parts: [README.md](README.md).
 
 ---
 
-## Cvičení
+## What you remember
 
-Zlatý test scénáře z dílu 3 prochází jen větví `hravy`. Chceš mít
-otestovanou i větev `vazny`. Zkopíruj
-`workflows/scenarios/tutorial-03-rozhodovani.yaml` jako
-`tutorial-05-cviceni.yaml` a napiš k němu fixturu, se kterou běh projde
-větví `vazny`. Ověř to falešným během i `pytest`.
+- Swapping a model = one line in `config.yaml` (the owner); `validate` checks
+  it against OpenRouter; the record keeps what ran.
+- Every scenario in `workflows/` is a golden test; a fixture named after the
+  scenario in `fake/`; `cd ../../framework && uv run pytest`.
+- `events.jsonl` = the whole story of a run; `calls/` = every call; there are
+  no keys, base64 or secret values in the record.
+- Callback: always, signed with HMAC; `class` in `error` tells a `fail` from a
+  malfunction.
+
+---
+
+## Exercise
+
+The golden test of the scenario from part 3 goes only through the `playful`
+branch. You want the `serious` branch tested too. Copy
+`workflows/scenarios/tutorial-03-decisions.yaml` as
+`tutorial-05-exercise.yaml` and write a fixture for it with which the run goes
+through the `serious` branch. Verify it with a fake run and with `pytest`.
 
 <details>
-<summary>Řešení</summary>
+<summary>Solution</summary>
 
-Scénář se liší jen hlavičkou:
+The scenario differs only in the header:
 
 ```bash
-diff workflows/scenarios/tutorial-03-rozhodovani.yaml workflows/scenarios/tutorial-05-cviceni.yaml
+diff workflows/scenarios/tutorial-03-decisions.yaml workflows/scenarios/tutorial-05-exercise.yaml
 ```
 
 ```
 2,3c2,3
-< name: tutorial-03-rozhodovani
-< description: Vymyslí název, nechá ho posoudit Jevem a podle tónu napíše slogan (tutoriál, díl 3)
+< name: tutorial-03-decisions
+< description: Comes up with a name, has Jev assess it and writes a slogan based on its tone (tutorial, part 3)
 ---
-> name: tutorial-05-cviceni
-> description: Vymyslí název, nechá ho posoudit Jevem a podle tónu napíše slogan (tutoriál, díl 5 — řešení cvičení, větev vazny)
+> name: tutorial-05-exercise
+> description: Comes up with a name, has Jev assess it and writes a slogan based on its tone (tutorial, part 5 — exercise solution, serious branch)
 ```
 
-(Pozor na dvojtečku s mezerou v `description` — první verze měla
-`… řešení cvičení: fixtura …` a YAML ji odmítl:
-`config: tutorial-05-cviceni.yaml, řádek 3: YAML nejde přečíst — hodnota s {, [, ': ' nebo ' #' patří do uvozovek …`
-a pod tím původní hláška parseru `mapping values are not allowed here`.
-Text s `: ` dej do uvozovek, nebo dvojtečku vynech.)
+(Watch out for a colon followed by a space in `description` — the first version
+had `… exercise solution: fixture …` and YAML rejected it:
+`config: tutorial-05-exercise.yaml, line 3: cannot read YAML — a value containing {, [, ': ' or ' #' must be quoted (scenario.md §5 'YAML pitfalls')`
+and below it the original parser message `mapping values are not allowed here`.
+Put text containing `: ` in quotes, or leave the colon out.)
 
-`fake/tutorial-05-cviceni.yaml`:
+`fake/tutorial-05-exercise.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-05-cviceni (řešení cvičení z dílu 5).
-# Jev vrátí ton: vazny → proběhne větev vazny, takže odpověď potřebuje slogan_vazny.
-navrh:
+# Scripted responses for tutorial-05-exercise (exercise solution from part 5).
+# Jev returns tone: serious → the serious branch runs, so the responses need slogan_serious.
+propose:
   - json:
-      nazev: "Ovena"
-kontrola:
+      name: "Ovena"
+check:
   - answers:
-      zapamatovatelny: 0.9
-      ton: vazny
-      originalita: 1.1
-slogan_vazny:
+      memorable: 0.9
+      tone: serious
+      originality: 1.1
+slogan_serious:
   - json:
-      slogan: "Ovena. Rostlinná jemnost v každé lžičce."
+      slogan: "Ovena. Plant-based smoothness in every spoonful."
 ```
 
-Klíč je `slogan_vazny`, ne `slogan_hravy` — fixtura odpovídá krokům,
-které **opravdu proběhnou**.
+The key is `slogan_serious`, not `slogan_playful` — the fixture answers the steps
+that **really run**.
 
 ```bash
-agencast run workflows/scenarios/tutorial-05-cviceni.yaml -i produkt="veganská zmrzlina" --fake fake/tutorial-05-cviceni.yaml
+agencast run workflows/scenarios/tutorial-05-exercise.yaml -i product="vegan ice cream" --fake fake/tutorial-05-exercise.yaml
 ```
 
 ```
-běh 20260925-152230-tutorial-05-cviceni-c273: úspěch · 0,0 s · 0,0003 USD
+run 20260929-190038-tutorial-05-exercise-8c0a: succeeded · 0.0 s · 0.0003 USD
 ```
 
 ```
-| 4 | podle_tonu | switch | ✓ | 0,0 s | 0,0001 | větev vazny |
-| 5 | slogan_hravy | ask | přeskočeno |  |  | switch: podle_tonu = "vazny" |
-| 6 | slogan_vazny | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 7 | neznamy_ton | fail | přeskočeno |  |  | switch: podle_tonu = "vazny" |
+| 4 | by_tone | switch | ✓ | 0.0 s | 0.0001 | branch serious |
+| 5 | slogan_playful | ask | skipped |  |  | switch: by_tone = "serious" |
+| 6 | slogan_serious | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 7 | unknown_tone | fail | skipped |  |  | switch: by_tone = "serious" |
 …
-## Výstup
-- nazev: „Ovena"
-- ton: „vazny"
-- slogan: „Ovena. Rostlinná jemnost v každé lžičce."
-- zapamatovatelnost: 90
+## Output
+- name: “Ovena”
+- tone: “serious”
+- slogan: “Ovena. Plant-based smoothness in every spoonful.”
+- memorability: 90
 ```
 
 ```bash
-cd ../../framework && uv run pytest -k tutorial-05 -v; cd ../examples/tutorial
+cd ../../framework && uv run pytest tests/test_golden.py -k tutorial-05 -v; cd ../examples/tutorial
 ```
 
 ```
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-05-cviceni] PASSED [100%]
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-05-exercise] PASSED [100%]
 ```
 
-Bez `ton: vazny` ve fixtuře by falešný Jev vrátil první možnost
-(`hravy`) a test by prošel — ale jinou větví, než jsi chtěl. Proto si
-v `summary.md` vždy zkontroluj poznámku `větev …`.
+Without `tone: serious` in the fixture the fake Jev would return the first
+option (`playful`) and the test would pass — but through a different branch than
+you wanted. That is why you should always check the `branch …` note in
+`summary.md`.
 
 </details>
 
 ---
 
-## Příloha: falešné n8n
+## Appendix: fake n8n
 
-Pro zvědavé — takhle jsem zachytil callback v kroku 4. Potřebuje
-`openssl` a Python; běží jen na tvém počítači.
+For the curious — this is how I captured the callback in step 4. It needs
+`openssl` and Python; it runs only on your computer.
 
 ```bash
 mkdir -p /tmp/n8n-mock && cd /tmp/n8n-mock
 openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 1 -subj "/CN=localhost" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"
 ```
 
-`/tmp/n8n-mock/prijimac.py`:
+`/tmp/n8n-mock/receiver.py`:
 
 ```python
-# Falešné n8n: HTTPS server, který vypíše hlavičky a tělo příchozího callbacku.
+# Fake n8n: an HTTPS server that prints the headers and body of an incoming callback.
 import http.server, ssl
 
 class H(http.server.BaseHTTPRequestHandler):
@@ -602,7 +620,7 @@ class H(http.server.BaseHTTPRequestHandler):
         for k in ("Content-Type", "X-Run-Id", "X-Signature"):
             print(f"{k}: {self.headers[k]}")
         print(body.decode())
-        open("posledni-telo.json", "wb").write(body)
+        open("last-body.json", "wb").write(body)
         self.send_response(200); self.end_headers()
     def log_message(self, *a): pass
 
@@ -612,21 +630,22 @@ srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
 srv.serve_forever()
 ```
 
-Spusť ho v jednom terminálu (`cd /tmp/n8n-mock && python3 prijimac.py`),
-ve druhém (v projektu `examples/tutorial`) řekni frameworku, ať certifikátu věří,
-a pošli callback:
+Start it in one terminal (`cd /tmp/n8n-mock && python3 receiver.py`); in a second
+one (in the `examples/tutorial` project) tell the framework to trust the
+certificate and send the callback:
 
 ```bash
-export CALLBACK_SECRET=tutorial-demo-tajemstvi
+export CALLBACK_SECRET=tutorial-demo-secret
 export SSL_CERT_FILE=/tmp/n8n-mock/cert.pem
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina" --fake fake/tutorial-01-nazvy.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan ice cream" --fake fake/tutorial-01-names.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
 ```
 
-`SSL_CERT_FILE` nech nastavené jen v tomhle terminálu. Říká „věř **jen**
-tomuhle certifikátu", takže spojení k OpenRouteru pak selže:
+Leave `SSL_CERT_FILE` set only in this terminal. It says “trust **only** this
+certificate”, so a connection to OpenRouter then fails (for example
+`agencast validate` when there is no fresh model list cached in `runs/`):
 
 ```
-transient: GET https://openrouter.ai/api/v1/models selhalo ([SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)) a platná cache runs/_models.json není — kontrola modelů potřebuje síť
+transient: GET https://openrouter.ai/api/v1/models failed ([SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)) and no valid cache …/runs/_models.json exists — checking models requires network access
 ```
 
-Po zkoušce: `unset SSL_CERT_FILE CALLBACK_SECRET`.
+After the trial: `unset SSL_CERT_FILE CALLBACK_SECRET`.

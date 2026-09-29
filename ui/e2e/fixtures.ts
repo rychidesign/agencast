@@ -1,6 +1,6 @@
-// Společný výchozí stav E2E (uzivatelske-cesty.md „Společný výchozí stav“): jeden `agencast serve --fake`
-// na Playwright worker s vlastním portem a `AGENCAST_CONFIG_DIR` v tmp, projekt na test přes
-// `POST /projects/new`. Soubory se ověřují přes fs a YAML parser z venv frameworku (GUI nic neparsuje).
+// Shared E2E starting state (user-journeys.md “Shared starting state”): one `agencast serve --fake`
+// per Playwright worker with its own port and `AGENCAST_CONFIG_DIR` in tmp, one project per test via
+// `POST /projects/new`. Files are checked via fs and the YAML parser from the framework venv (the GUI parses nothing).
 import { test as base, expect, type Page } from "@playwright/test";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
@@ -14,9 +14,9 @@ const VENV = path.join(REPO, "framework/.venv/bin");
 export const AGENCAST = process.env.AGENCAST_BIN ?? path.join(VENV, "agencast");
 const PORT = Number(process.env.E2E_PORT ?? 18700);
 
-/** Falešný poskytovatel (fake.py): id kroku → odpovědi. Kroky s jiným chováním mají jiné id. */
-export const FAKE = `napis: [{text: "Dvě věty."}]
-pomalu: [{text: "Pomalá odpověď.", sleep: 4}]
+/** Fake provider (fake.py): step id → responses. Steps with different behaviour have different ids. */
+export const FAKE = `write: [{text: "Two sentences."}]
+slowly: [{text: "Slow answer.", sleep: 4}]
 `;
 
 type Json = Record<string, unknown>;
@@ -30,7 +30,7 @@ export interface Server {
   fake: string;
   env: NodeJS.ProcessEnv;
   api: <T = Json>(method: string, path: string, body?: unknown) => Promise<{ status: number; body: T }>;
-  /** Zabije `serve` (SIGKILL, jako pád) a spustí ho znovu se stejným stavem. */
+  /** Kills `serve` (SIGKILL, like a crash) and starts it again with the same state. */
   restart: () => Promise<void>;
 }
 
@@ -46,7 +46,7 @@ export interface Project {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** YAML → JSON parserem z venv frameworku (bez nové závislosti v ui/). */
+/** YAML → JSON with the parser from the framework venv (no new dependency in ui/). */
 export function readYaml<T = Json>(file: string): T {
   const r = spawnSync(path.join(VENV, "python"), ["-c", "import json,sys,yaml;print(json.dumps(yaml.safe_load(open(sys.argv[1]))))", file], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(r.stderr);
@@ -61,18 +61,18 @@ async function startServe(s: Server): Promise<ChildProcess> {
     if (proc.exitCode !== null) break;
     try {
       if ((await s.api("GET", "/projects")).status === 200) return proc;
-    } catch { /* ještě neposlouchá */ }
+    } catch { /* not listening yet */ }
     await sleep(100);
   }
   proc.kill("SIGKILL");
-  throw new Error(`agencast serve nenaběhl:\n${fs.readFileSync(path.join(s.tmp, "serve.log"), "utf8")}`);
+  throw new Error(`agencast serve did not start:\n${fs.readFileSync(path.join(s.tmp, "serve.log"), "utf8")}`);
 }
 
 export const test = base.extend<{ token: string | null; project: Project }, { server: Server }>({
   server: [async ({}, use, workerInfo) => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "agencast-e2e-"));
     const cfg = path.join(tmp, "cfg");
-    const projectsRoot = path.join(tmp, "projekty");
+    const projectsRoot = path.join(tmp, "projects");
     fs.mkdirSync(cfg);
     fs.mkdirSync(projectsRoot);
     fs.writeFileSync(path.join(cfg, "projects.yaml"), `projects_root: ${projectsRoot}\nprojects: []\n`);
@@ -80,10 +80,10 @@ export const test = base.extend<{ token: string | null; project: Project }, { se
     fs.writeFileSync(fake, FAKE);
     const port = PORT + workerInfo.parallelIndex;
     const url = `http://127.0.0.1:${port}`;
-    // Hermeticky: bez hodnot z prostředí vývojáře; callback ani webhook testy nepoužívají.
+    // Hermetic: no values from the developer's environment; the tests use neither callback nor webhook.
     const env: NodeJS.ProcessEnv = {
       PATH: process.env.PATH, HOME: process.env.HOME, LANG: "C.UTF-8", AGENCAST_CONFIG_DIR: cfg, AGENCAST_TOKEN: TOKEN,
-      OPENROUTER_API_KEY: "e2e-falesny-klic",
+      OPENROUTER_API_KEY: "e2e-fake-key",
     };
     const s: Server = {
       url, port, tmp, cfg, projectsRoot, fake, env,
@@ -112,7 +112,7 @@ export const test = base.extend<{ token: string | null; project: Project }, { se
   baseURL: async ({ server }, use) => use(server.url),
 
   page: async ({ page, token, server }, use) => {
-    // hermeticky: prohlížeč smí jen na `serve` tohoto workeru
+    // hermetic: the browser may only reach this worker's `serve`
     await page.route((u) => u.origin !== server.url, (r) => r.abort());
     if (token) await page.addInitScript((tk) => localStorage.getItem("agencast.token") || localStorage.setItem("agencast.token", tk), token);
     await use(page);
@@ -133,81 +133,81 @@ export const test = base.extend<{ token: string | null; project: Project }, { se
   },
 });
 
-// --- pomocníci ------------------------------------------------------------------------------
+// --- helpers ---------------------------------------------------------------------------------
 
-/** Fixture `dlouhy.yaml`: krok `pomalu` spí 4 s (FAKE). */
-export const DLOUHY = `version: 1
-name: dlouhy
-description: Pomalý běh pro živé sledování
+/** Fixture `slow.yaml`: step `slowly` sleeps 4 s (FAKE). */
+export const SLOW = `version: 1
+name: slow
+description: Slow run for live following
 inputs:
-  tema: { type: string, default: káva }
+  topic: { type: string, default: coffee }
 outputs:
   text: { type: string }
 steps:
-  - id: pomalu
+  - id: slowly
     ask:
-      agent: pisatel
-      prompt: "Pomalu: {{ inputs.tema }}"
-  - id: vystup
+      agent: writer
+      prompt: "Slowly: {{ inputs.topic }}"
+  - id: result
     output:
-      text: "{{ steps.pomalu.text }}"
+      text: "{{ steps.slowly.text }}"
 `;
 
-/** Fixture `chyba.yaml`: napis → stop (fail) → vystup. */
-export const CHYBA = `version: 1
-name: chyba
-description: Běh, který skončí chybou
+/** Fixture `failing.yaml`: write → stop (fail) → result. */
+export const FAILING = `version: 1
+name: failing
+description: A run that ends with an error
 inputs:
-  tema: { type: string, default: káva }
+  topic: { type: string, default: coffee }
 outputs:
   text: { type: string }
 steps:
-  - id: napis
+  - id: write
     ask:
-      agent: pisatel
-      prompt: "Napiš: {{ inputs.tema }}"
-  - id: vynech
-    when: inputs.tema == "nikdy"
+      agent: writer
+      prompt: "Write: {{ inputs.topic }}"
+  - id: skip
+    when: inputs.topic == "never"
     ask:
-      agent: pisatel
-      prompt: "Tohle se přeskočí"
-    default: { text: "výchozí" }
+      agent: writer
+      prompt: "This is skipped"
+    default: { text: "default" }
   - id: stop
-    when: inputs.tema != "nikdy"
-    fail: "Zastaveno naschvál"
-  - id: vystup
+    when: inputs.topic != "never"
+    fail: "Stopped on purpose"
+  - id: result
     output:
-      text: "{{ steps.napis.text }} {{ steps.vynech.text }}"
+      text: "{{ steps.write.text }} {{ steps.skip.text }}"
 `;
 
-/** Spustí scénář přes API a vrátí `run_id`. */
+/** Starts a scenario via the API and returns the `run_id`. */
 export async function startRun(server: Server, project: string, scenario: string, extra: Json = {}): Promise<string> {
   const r = await server.api<{ run_id: string }>("POST", `/projects/${project}/runs`, { scenario, inputs: {}, ...extra });
   expect([200, 202], JSON.stringify(r.body)).toContain(r.status);
   return r.body.run_id;
 }
 
-/** Čeká, až běh dojde do některého ze stavů `states`. */
+/** Waits until the run reaches one of `states`. */
 export async function waitRun(server: Server, project: string, id: string, states: string[], ms = 20_000): Promise<Json> {
   const until = Date.now() + ms;
   for (;;) {
     const r = await server.api<Json>("GET", `/projects/${project}/runs/${id}`);
     if (states.includes(String(r.body.state))) return r.body;
-    if (Date.now() > until) throw new Error(`běh ${id} je ${r.body.state}, čekal jsem ${states}`);
+    if (Date.now() > until) throw new Error(`run ${id} is ${r.body.state}, expected ${states}`);
     await sleep(200);
   }
 }
 
-/** Tab, dokud fokus nemá `target` (klávesnicová cesta bez myši). */
+/** Tab until `target` has focus (keyboard path without a mouse). */
 export async function tabTo(page: Page, target: ReturnType<Page["locator"]>, max = 60, key = "Tab") {
   for (let i = 0; i < max; i++) {
     if (await target.evaluate((el) => el === document.activeElement).catch(() => false)) return;
     await page.keyboard.press(key);
   }
-  throw new Error(`fokus se na cíl nedostal po ${max}× ${key}`);
+  throw new Error(`focus did not reach the target after ${max}× ${key}`);
 }
 
-/** Počet požadavků, jejichž URL projde `test`, během `fn`. */
+/** Number of requests whose URL passes `test` during `fn`. */
 export async function countRequests(page: Page, test: (url: string, method: string) => boolean, fn: () => Promise<unknown>) {
   let n = 0;
   const on = (r: { url: () => string; method: () => string }) => void (test(r.url(), r.method()) && n++);

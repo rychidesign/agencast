@@ -1,0 +1,43 @@
+version: 1
+name: demo-call
+description: Example of a call step — the copywriter writes a text, the tone-check scenario checks it
+
+inputs:
+  topic:
+    type: string
+    required: true
+    description: What the text should be about
+
+outputs:
+  caption:
+    type: string
+    description: Post text
+  on_brand:
+    type: number
+    description: Tone rating from the tone-check scenario
+
+steps:
+  # 1. The copywriter writes the text.
+  - id: copy
+    ask:
+      agent: copywriter
+      prompt: "Write an IG post about: {{ inputs.topic }}"
+      schema:
+        caption: string
+
+  # 2. Tone check as a nested scenario in the same run (same budget, record in steps/02-tone/).
+  - id: tone
+    call:
+      scenario: tone-check
+      inputs:
+        text: "{{ steps.copy.caption }}"
+
+  # 3. A text that is off the brand tone ends the run.
+  - id: stop
+    when: not steps.tone.passed
+    fail: "The text does not match the brand (on_brand = {{ steps.tone.on_brand }})"
+
+  - id: out
+    output:
+      caption: "{{ steps.copy.caption }}"
+      on_brand: "{{ steps.tone.on_brand }}"

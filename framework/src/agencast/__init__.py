@@ -1,26 +1,26 @@
-"""AgenCast — jádro frameworku (DESIGN D3).
+"""AgenCast — framework core (DESIGN D3).
 
-Vrstvy: loader (čtení souborů), validate (statické kontroly), expressions
-(výrazy a šablony), engine (běh scénáře), providers (OpenRouter + falešný),
-record (záznam běhu, report.html), mcp_client (MCP servery), task (krok task,
-dedupe_key), projects (registr projektů, šablony, popis pro GUI), server
-(webhook a čtecí API), api (veřejné API pro obálky), cli.
+Layers: loader (file reading), validate (static checks), expressions
+(expressions and templates), engine (scenario execution), providers (OpenRouter + fake),
+record (run record, report.html), mcp_client (MCP servers), task (task step,
+dedupe_key), projects (project registry, templates, GUI descriptions), server
+(webhook and read API), api (public API for wrappers), cli.
 """
 __version__ = "0.17.0"
 
-# Verze formátů, které framework umí číst (DESIGN §5.9 bod 6).
+# Format versions the framework can read (DESIGN §5.9 item 6).
 FORMAT_VERSIONS = (1,)
 
-# Třídy chyb podle scenario.md §6.
+# Error classes defined in scenario.md §6.
 ERROR_CLASSES = ("transient", "schema", "content", "budget", "timeout", "config",
                  "expression", "fail", "internal")
 
 
 class AgencastError(Exception):
-    """Chyba s třídou ze spec §6.
+    """Error with a class from spec §6.
 
-    `final` = třída po vyčerpání `retry` (např. chybějící cena → `budget`),
-    `fatal` = on_error: continue ji nepřebije (rozpočet/čas celého běhu).
+    `final` = class after exhausting `retry` (e.g. missing cost → `budget`),
+    `fatal` = on_error: continue cannot override it (budget/timeout for the entire run).
     """
 
     def __init__(self, cls: str, message: str, *, step: str | None = None,
@@ -30,14 +30,14 @@ class AgencastError(Exception):
         super().__init__(message)
         self.cls, self.message, self.step = cls, message, step
         self.http_status, self.retry_after, self.final, self.fatal = http_status, retry_after, final, fatal
-        self.logged = False  # událost `error` už je v záznamu
+        self.logged = False  # the `error` event is already in the record
 
     def __str__(self):
         return f"{self.cls}: {self.message}"
 
 
 class ConfigErrors(Exception):
-    """Seznam chyb `config` z validate (všechny najednou, ne jen první)."""
+    """List of `config` errors from validate (all at once, not just the first)."""
 
     def __init__(self, errors: list[str]):
         super().__init__("\n".join(errors))

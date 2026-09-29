@@ -1,5 +1,5 @@
-// Sloupec karet kroků (§2.3, §2.4) — stejný pro editor a prohlížeč běhu (§2.5).
-// Editor přidává `ctx.edit`: konektory s +, nabídku ⋯ a klávesy (§4.1–4.3, §6).
+// Column of step cards (§2.3, §2.4) — the same for the editor and the run viewer (§2.5).
+// The editor adds `ctx.edit`: connectors with +, the ⋯ menu and keys (§4.1–4.3, §6).
 import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Plus, TriangleAlert, Variable } from "lucide-react";
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { Anchor, ListRef } from "../edit";
@@ -13,16 +13,16 @@ import { AddButton, TypePicker, type Pick } from "./TypePicker";
 import { TypeIcon } from "./TypeIcon";
 import { btn, Menu, StatusIcon, type Status } from "./ui";
 
-/** Editační akce sloupce; kroky nesou `uid` (edit.ts `WStep`). */
+/** Editing actions of the column; steps carry a `uid` (edit.ts `WStep`). */
 export interface EditCtx {
   add: (at: Anchor, pick: Pick) => void;
   remove: (step: Step) => void;
   shift: (step: Step, delta: -1 | 1) => void;
   cut: (step: Step) => void;
-  /** Vyjmutý krok čeká na „Vložit sem“. */
+  /** A cut step waits for "Paste here". */
   cut_?: Step;
   addBranch: (step: Step) => void;
-  /** Hlavička má výstupy a krok `output` chybí → nabídka na konci hlavního seznamu. */
+  /** The header has outputs and the `output` step is missing → menu at the end of the main list. */
   addOutput?: () => void;
 }
 
@@ -33,7 +33,7 @@ export interface ListCtx {
   errors: Map<string, ErrorItem[]>;
   run?: RunCtx;
   edit?: EditCtx;
-  /** Editor: jméno scénáře a cesta přes call (`?z=`), ze kterých „otevřít“ u `call` skládá drobečky. */
+  /** Editor: scenario name and path through call (`?from=`), from which "open" on `call` builds breadcrumbs. */
   scenario?: string;
   trail?: string;
 }
@@ -44,14 +44,14 @@ const RUN_ICON: Record<RunStep["status"], Status> = {
   running: "running", succeeded: "succeeded", failed: "failed", cancelled: "cancelled", skipped: "skipped", interrupted: "interrupted",
 };
 
-/** Klíč karty: id v editoru, cesta v běhu (`navrh/copy`). */
+/** Card key: id in the editor, path in a run (`draft/copy`). */
 const keyOf = (step: Step, ctx: ListCtx) => (ctx.run ? ctx.run.prefix + step.id : step.id);
 
-/** Výběr karty z klávesnice (Enter/mezerník, `detail` 0) pošle fokus do otevřeného panelu (§6); Esc ho vrátí. */
+/** Selecting a card from the keyboard (Enter/space, `detail` 0) sends focus to the open panel (§6); Esc returns it. */
 const focusPanel = (e: MouseEvent) =>
   e.detail === 0 && requestAnimationFrame(() => document.querySelector<HTMLElement>("aside :is(select, input, textarea, [role=tab])")?.focus());
 
-/** ↑/↓ mezi kartami sloupce (§6); karty jsou tlačítka v pořadí dokumentu. */
+/** ↑/↓ between cards of the column (§6); cards are buttons in document order. */
 export function onColumnKey(e: KeyboardEvent<HTMLElement>) {
   if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || e.altKey) return;
   if (!(e.target as HTMLElement).matches("[data-step-card]")) return;
@@ -65,9 +65,9 @@ export function onColumnKey(e: KeyboardEvent<HTMLElement>) {
 interface CardProps {
   step: Step;
   ctx: ListCtx;
-  /** Hlavní karta kontejneru (`parallel`, `switch`, `call` s rozbalením) — bez vlastní plochy, obal nese kontejner. */
+  /** Main card of a container (`parallel`, `switch`, `call` with expansion) — no surface of its own, the wrapper carries the container. */
   shape?: "pill" | "head";
-  /** Kam vložit krok „nad“ (editor). */
+  /** Where to insert a step "above" (editor). */
   above?: Anchor;
 }
 
@@ -82,10 +82,10 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
   const detail = [lines.detail, step.when ? t("step.when", { expr: step.when }) : ""].filter(Boolean).join(" · ");
   const warn = !!rs?.continued;
   const status: Status | undefined = ctx.run ? (warn ? "warning" : rs ? RUN_ICON[rs.status] : "none") : undefined;
-  // nedošlo i přeskočeno (nevybraný případ, `when`) je ztlumené (§3 CaseSection); důvod nese hodnota karty.
-  // Ztlumení = čárkovaný obrys bez plochy a tlumený text, ne průhlednost (ta by shodila kontrast pod 4,5:1).
+  // not reached and skipped (unselected case, `when`) is dimmed (§3 CaseSection); the reason is carried by the card value.
+  // Dimming = dashed outline without a surface and muted text, not transparency (which would drop contrast below 4.5:1).
   const dim = ctx.run && (!rs || rs.status === "skipped");
-  // běh (návrh 12, změřeno z .pen): třetí řádek = trvání · cena (u kontejnerů a call za popisem), vpravo stav 11 px
+  // run (design 12, measured from .pen): third row = duration · cost (for containers and call after the description), state 11 px on the right
   let right: ReactNode = null;
   let runDetail: ReactNode = null;
   if (ctx.run) {
@@ -113,20 +113,20 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
     e.stopPropagation();
   };
   const head = shape === "head";
-  const pr = head || edit ? "pr-14" : ""; // místo pro ⋯ uvnitř karty
-  // návrh 05 (změřeno z .pen): pilulka p 16, gap 14, výška 96; vybraná = plocha `surface-active` bez rámečku
+  const pr = head || edit ? "pr-14" : ""; // room for ⋯ inside the card
+  // design 05 (measured from .pen): pill p 16, gap 14, height 96; selected = `surface-active` surface without a border
   const plane = head ? "rounded-card" : `rounded-full ${dim ? "border border-dashed border-line" : selected ? "bg-surface-active" : "bg-surface"}`;
   return (
-    // Karta má vlastní kontext vrstvení; popovery se proto portálují do body.
+    // The card has its own stacking context; popovers are therefore portaled to body.
     <div className={edit ? "group relative focus-within:z-10" : ""}>
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
         onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
         className={`lg:scroll-mt-[calc(var(--page-header-h,5rem)+0.25rem)] flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-24 gap-3.5 p-4 max-md:min-h-20 max-md:py-2.5 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
       >
-        {/* pořadí jen v editoru; karta v běhu ho nemá (návrh 12) */}
+        {/* order only in the editor; a card in a run does not have it (design 12) */}
         {!head && !ctx.run && <span className={`w-4 shrink-0 text-center font-mono text-[11px] in-data-branch:hidden max-md:hidden ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}</span>}
-        {/* kontejner: prostá ikona 20 px; karta: kolečko 40 px (ve větvi 30) s plochou barvy typu */}
+        {/* container: plain 20 px icon; card: 40 px circle (30 in a branch) with a type-color surface */}
         <span className={`grid shrink-0 place-items-center rounded-full ${head ? "" : "size-10 bg-type/7 max-md:size-9 in-data-branch:size-[30px]"}`}>
           {status ? <StatusIcon status={status} label="" className={head ? "size-5" : "size-4"} />
             : <TypeIcon type={step.type} className={`${head ? "size-5" : "size-4"} ${dim ? "text-fg-muted" : "text-type"}`} />}
@@ -159,7 +159,7 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
   );
 }
 
-/** ⋯ vpravo v pilulce (fidelity §6), svisle na střed karty (96 px, ve větvi 50 px). */
+/** ⋯ on the right of the pill (fidelity §6), vertically centered on the card (96 px, 50 px in a branch). */
 function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?: Anchor }) {
   const [picker, setPicker] = useState<Anchor | null>(null);
   const pickerAnchor = useRef<HTMLDivElement>(null);
@@ -183,7 +183,7 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
   );
 }
 
-/** Šipka mezi kartami; v editoru se při hoveru/fokusu promění v (+) (§2.3 Konektor). `afterId` = krok nad (+). */
+/** Arrow between cards; in the editor it turns into (+) on hover/focus (§2.3 Connector). `afterId` = the step above (+). */
 export function Connector({ ctx, at, afterId }: { ctx: ListCtx; at: Anchor; afterId?: string }) {
   const edit = ctx.edit;
   if (!edit) return <Arrow />;
@@ -204,13 +204,13 @@ function Arrow() {
   );
 }
 
-/** Pseudo-krok pro kroky volaného scénáře, které známe jen ze záznamu běhu. */
+/** Pseudo-step for steps of the called scenario known only from the run record. */
 const fromRun = (rs: RunStep, i: number): Step => ({
   nn: i + 1, address: [], id: rs.step.split("/").pop()!, type: rs.kind, when: null, fields: {}, refs: [],
 });
 
-/** Kontejner (návrh 05, změřeno z .pen): obal `surface` r14 p16 gap 16, hlavička = ikona 20 + titul 15 + mono 10
- *  („3 · parallel · varianty“), sbalení šipkou vpravo (vnitřek zmizí, zůstane počet kroků). */
+/** Container (design 05, measured from .pen): `surface` r14 p16 gap 16 wrapper, header = icon 20 + title 15 + mono 10
+ *  ("3 · parallel · variants"), collapsed with an arrow on the right (the inside disappears, the step count remains). */
 function Container({ step, ctx, above, inner, children }: {
   step: Step; ctx: ListCtx; above?: Anchor; inner: Step[]; children: ReactNode;
 }) {
@@ -282,13 +282,13 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
   if (step.type === "call") {
     const target = step.call ?? String((step.fields.call as { scenario?: string } | undefined)?.scenario ?? "");
     const path = ctx.run ? ctx.run.prefix + step.id : "";
-    // V běhu: kroky volaného scénáře ze snímku (`callees`), bez něj jen ty ze záznamu.
+    // In a run: steps of the called scenario from the snapshot (`callees`), without it only those from the record.
     const children = !ctx.run?.steps.has(path) ? []
       : ctx.run.callees[target] ?? callChildren(ctx.run, path).map(fromRun);
-    // V editoru „otevřít“ nese cestu přes call (`?z=ig-post:navrh`) pro drobečky a návrat na kartu (§4.7).
+    // In the editor "open" carries the path through call (`?from=ig-post:draft`) for breadcrumbs and returning to the card (§4.7).
     const from = ctx.trail !== undefined ? [ctx.trail, `${ctx.scenario}:${step.id}`].filter(Boolean).join(",") : undefined;
     const open = target && (
-      <a href={href(ctx.project, "scenare", target, { z: from })} className="font-mono text-xs text-fg-secondary underline hover:text-fg">
+      <a href={href(ctx.project, "scenarios", target, { from })} className="font-mono text-xs text-fg-secondary underline hover:text-fg">
         {target} {t("step.call.open")}
       </a>
     );
@@ -330,7 +330,7 @@ export function StepList({ steps, ctx, list = MAIN }: { steps: Step[]; ctx: List
         );
       })}
       {edit && last?.type !== "output" && (
-        // hlavní seznam: „+ Přidat krok“ a „+ output“ jako sekundární tlačítka (fidelity §6); větve mají (+)
+        // main list: "+ Add step" and "+ output" as secondary buttons (fidelity §6); branches have (+)
         <li className={`flex items-center justify-center gap-3 ${main ? "pt-6" : "h-14"}`}>
           <AddButton always text={main ? t("edit.addStep") : undefined} label={t("edit.addEnd")} paste={edit.cut_?.id} onPick={(p) => edit.add(end, p)} />
           {main && edit.addOutput && (
@@ -344,7 +344,7 @@ export function StepList({ steps, ctx, list = MAIN }: { steps: Step[]; ctx: List
   );
 }
 
-/** Hlavičková karta: vstupy scénáře po řádcích (jméno, povinný, typ), pod nimi výstupy; vždy první, ikona místo čísla. */
+/** Header card: scenario inputs row by row (name, required, type), outputs below them; always first, an icon instead of a number. */
 export function HeaderCard({ inputs, outputs, selected, onSelect }: {
   inputs: Record<string, IoSpec> | null; outputs: Record<string, IoSpec> | null; selected: boolean; onSelect: () => void;
 }) {
@@ -352,7 +352,7 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
   const o = Object.keys(outputs ?? {});
   const value = o.length ? `${t("count.outputs", { n: o.length })}: ${o.join(", ")}` : t("step.header.noOutputs");
   return (
-    // návrh 05 (změřeno z .pen): obdélníková karta r14 p22 gap 16, ikona 24, titul 21 semibold, pod ním vstupy/výstupy mono 13
+    // design 05 (measured from .pen): rectangular card r14 p22 gap 16, icon 24, title 21 semibold, inputs/outputs below it in mono 13
     <button type="button" data-step-card="" aria-pressed={selected} onClick={(e) => (onSelect(), !selected && focusPanel(e))}
       className={`lg:scroll-mt-[calc(var(--page-header-h,5rem)+0.25rem)] flex w-full flex-col gap-4 rounded-tile p-[22px] text-left transition-colors hover:bg-surface-hover ${selected ? "bg-surface-active ring-inset ring-1 ring-accent/70" : "bg-surface"}`}>
       <span className="flex items-center gap-3">

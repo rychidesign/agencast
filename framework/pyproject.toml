@@ -1,7 +1,7 @@
 [project]
 name = "agencast"
 version = "0.17.0"
-description = "AgenCast — scénáře s LLM agenty: scénáře v YAML, agenti v Markdownu, modely přes OpenRouter"
+description = "AgenCast — scenarios with LLM agents: YAML scenarios, Markdown agents, models via OpenRouter"
 readme = "README.md"
 license = "WTFPL"
 license-files = ["LICENSE"]
@@ -28,14 +28,14 @@ dev = ["pytest>=8"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Sestavené GUI (framework/src/agencast/ui/, výstup npm run build v ui/) do wheelu, i když ho git ignoruje.
+# Include the built GUI (framework/src/agencast/ui/, output of npm run build in ui/) in the wheel even though git ignores it.
 [tool.hatch.build.targets.wheel]
 artifacts = ["/src/agencast/ui/**"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Testy se sítí nebo skutečným npx serverem: jen `uv run pytest -m live`; běžná sada je hermetická (DESIGN §5.9).
-markers = ["live: potřebuje síť nebo skutečný MCP server přes npx — spouštět jen `-m live`"]
+# Tests using the network or a real npx server: only with `uv run pytest -m live`; the regular suite is hermetic (DESIGN §5.9).
+markers = ["live: requires network access or a real MCP server via npx — run only with `-m live`"]
 addopts = "-m 'not live'"
 
 [tool.hatch.build.targets.wheel.force-include]

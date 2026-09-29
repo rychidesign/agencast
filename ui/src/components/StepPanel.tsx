@@ -1,5 +1,5 @@
-// Panel kroku (§2.3): typ nahoře jako select, pole typu, dole sbalené Podmínka / Spolehlivost /
-// Podrobnosti kroku. Změny jdou do rozpracovaného stromu (edit.ts), na disk až tlačítkem Uložit.
+// Step panel (§2.3): type on top as a select, type fields, collapsed Condition / Reliability /
+// Step details at the bottom. Changes go into the work-in-progress tree (edit.ts), to disk only with the Save button.
 import { PanelRight, Trash2, X } from "lucide-react";
 import { useContext, useEffect, useState, type ReactNode } from "react";
 import { flat, isObj, outputFields, visibleBefore, type Header, type WStep } from "../edit";
@@ -14,12 +14,12 @@ import { Expression } from "./yaml";
 
 type Obj = Record<string, unknown>;
 
-/** Ikonové tlačítko hlavičky panelu: 32 px ghost (fidelity §7), na dotyku 44 px. */
+/** Panel header icon button: 32 px ghost (fidelity §7), 44 px on touch. */
 export const panelIcon = "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50";
 
-/** PanelShell (návrh 05, změřeno z .pen): `surface` r16; hlavička p 20 s linkou (ikona 16, eyebrow mono 10 verzálky,
- *  titul 18 semibold, zavřít 44 ghost), tělo p 20, mezera polí 18. Do 1279 px (`SheetContext`) spodní sheet:
- *  `role="dialog"`, fokus past, Esc zavře, tělo scrolluje, hlavička stojí. */
+/** PanelShell (design 05, measured from .pen): `surface` r16; header p 20 with a line (icon 16, mono 10 uppercase eyebrow,
+ *  title 18 semibold, close 44 ghost), body p 20, field gap 18. Up to 1279 px (`SheetContext`) a bottom sheet:
+ *  `role="dialog"`, focus trap, Esc closes, body scrolls, header stays. */
 export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   id: string; eyebrow: string; title: ReactNode; onClose: () => void; actions?: ReactNode; children: ReactNode;
 }) {
@@ -48,7 +48,7 @@ export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   );
 }
 
-/** Kde která společná vlastnost dává smysl (scenario.md §3). */
+/** Where each common property makes sense (scenario.md §3). */
 const RELIABILITY: Record<StepType, string[]> = {
   ask: ["timeout", "budget_usd", "retry", "on_error", "default"],
   task: ["timeout", "budget_usd", "retry", "on_error", "default", "dedupe_key"],
@@ -63,7 +63,7 @@ const RELIABILITY: Record<StepType, string[]> = {
 const TYPES: StepType[] = [...PICKER_GROUPS.flat(), "output"];
 const ID_RE = /^[a-z][a-z0-9_]*$/;
 
-/** Odebere prázdné volitelné hodnoty (pole se pak ze souboru smaže). */
+/** Removes empty optional values (the field is then deleted from the file). */
 const set = (o: Obj, k: string, v: unknown): Obj => {
   const c = { ...o };
   if (v === undefined || v === "") delete c[k];
@@ -71,16 +71,16 @@ const set = (o: Obj, k: string, v: unknown): Obj => {
   return c;
 };
 
-/** Přejmenuje klíč mapy se zachováním pořadí. */
+/** Renames a map key preserving order. */
 const renameKey = (o: Obj, from: string, to: string): Obj =>
   Object.fromEntries(Object.entries(o).map(([k, v]) => [k === from ? to : k, v]));
 
 export interface PanelEdit {
-  /** Změna kroku; stejné `key` po sobě = jeden krok zpět (psaní do pole). */
+  /** Step change; the same `key` in a row = one undo step (typing into a field). */
   change: (fn: (s: WStep) => WStep, key?: string) => void;
   retype: (type: StepType) => void;
   remove: () => void;
-  /** Nové id; čtený krok se před přejmenováním ptá na přepis odkazů. */
+  /** New id; a step that others read asks whether to rewrite the references before renaming. */
   rename: (id: string) => void;
 }
 
@@ -131,7 +131,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
           {type !== "output" && (
             <Collapsible title={t("panel.condition")} value={<span className="font-mono">{step.when ? <Expression text={step.when} /> : t("panel.always")}</span>}>
               <FormField label={t("panel.when")} help={t("panel.conditionHelp")} errors={fieldErrors("when")}>
-                {(a) => <CodeInput a11y={a} value={step.when ?? ""} candidates={candidates} placeholder="steps.kontrola.on_brand < 0.7"
+                {(a) => <CodeInput a11y={a} value={step.when ?? ""} candidates={candidates} placeholder="steps.check.on_brand < 0.7"
                   onChange={(v) => edit.change((s) => ({ ...s, when: v || null }), "when")} />}
               </FormField>
             </Collapsible>
@@ -172,7 +172,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
                 <div><dt className="text-[13px] font-semibold text-fg-secondary">{t("panel.readBy")}</dt>
                   <dd className="mt-1"><Chips ids={readBy(flat(steps), step.id)} onSelect={onSelect} /></dd></div>
               </dl>
-              <a className="inline-block text-sm text-fg-secondary underline hover:text-fg" href={href(project.name, "scenare", scenario, { krok: step.id, rezim: "yaml" })}>
+              <a className="inline-block text-sm text-fg-secondary underline hover:text-fg" href={href(project.name, "scenarios", scenario, { step: step.id, mode: "yaml" })}>
                 {t("panel.openYaml")}
               </a>
             </div>
@@ -193,7 +193,7 @@ const Chips = ({ ids, onSelect }: { ids: string[]; onSelect: (id: string) => voi
     </span>
   ) : <span className="text-fg-muted">{t("panel.nothing")}</span>;
 
-/** Přejmenování id: formát a jedinečnost; odkazy čtenářů přepíše dávka (`rename_step`, `rename_refs`). */
+/** Renaming the id: format and uniqueness; references in the steps that read it are rewritten by a batch (`rename_step`, `rename_refs`). */
 function IdField({ step, steps, errors, onRename }: {
   step: WStep; steps: WStep[]; errors: ErrorItem[]; onRename: (id: string) => void;
 }) {
@@ -206,7 +206,7 @@ function IdField({ step, steps, errors, onRename }: {
   const commit = () => {
     if (value === step.id || problem) return;
     onRename(value);
-    setValue(step.id); // po potvrzení přijde nové id, po zrušení zůstane staré
+    setValue(step.id); // after confirmation the new id arrives, after cancelling the old one stays
   };
   return (
     <FormField label="id" errors={[...(problem ? [problem] : []), ...errors]}>
@@ -227,7 +227,7 @@ function NumberInput({ value, onChange, a11y, step = 1, min }: {
   );
 }
 
-// --- pole podle typu ----------------------------------------------------------------------
+// --- fields by type -----------------------------------------------------------------------
 
 interface FormCtx {
   step: WStep;
@@ -326,7 +326,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
                   {(a) => <CodeInput a11y={a} template value={String(q.instructions ?? "")} candidates={candidates} onChange={(v) => setQ(set(q, "instructions", v))} />}
                 </FormField>
                 {q.type !== "noul" && q.type !== undefined && (
-                  <FormField label={t("field.criteria")} help={q.type === "choice" ? t("help.criteriaChoice", { ex: '{"moznost": "popis"}' }) : t("help.criteriaScore", { ex: '["stupeň 0", "stupeň 1"]' })}
+                  <FormField label={t("field.criteria")} help={q.type === "choice" ? t("help.criteriaChoice", { ex: '{"option": "description"}' }) : t("help.criteriaScore", { ex: '["level 0", "level 1"]' })}
                     errors={errors(`jev.questions.${name}.criteria`)} boxed>
                     {(a) => <JsonInput a11y={a} value={q.criteria} onChange={(v) => setQ(set(q, "criteria", v))} />}
                   </FormField>
@@ -347,7 +347,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
             )}
           </FormField>
           {tpl("prompt", t("field.prompt"))}
-          {([['aspect_ratio', '4:5', 'pomer'], ['quality', 'medium', 'kvalita'], ['resolution', '1K', 'rozliseni']] as const).map(([field, placeholder, input]) => (
+          {([['aspect_ratio', '4:5', 'aspect_ratio'], ['quality', 'medium', 'quality'], ['resolution', '1K', 'resolution']] as const).map(([field, placeholder, input]) => (
             <FormField key={field} label={t(`field.${field}`)} errors={errors(`image.${field}`)}
               help={t("help.imageParameter", { example: `{{ inputs.${input} }}` })}>
               {(a) => <CodeInput a11y={a} template placeholder={placeholder} value={str(field)} candidates={candidates}
@@ -387,7 +387,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
     }
     case "set":
       return (
-        <MapRows ctx={ctx} k="" label={t("field.values")} addLabel={t("panel.addValue")} prefix="hodnota" blank=""
+        <MapRows ctx={ctx} k="" label={t("field.values")} addLabel={t("panel.addValue")} prefix="value" blank=""
           row={(name, v, setV) => (
             <CodeInput a11y={{ id: `set-${name}` }} value={typeof v === "string" ? v : JSON.stringify(v)} candidates={candidates}
               onChange={(x) => setV(x)} />
@@ -417,7 +417,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
       return (
         <div className="space-y-4">
           <FormField label={t("field.value")} help={t("help.switch")} errors={errors("switch.value")} required>
-            {(a) => <CodeInput a11y={a} value={str("value")} candidates={candidates} placeholder="steps.kontrola.druh" onChange={(v) => setBody("value", v)} />}
+            {(a) => <CodeInput a11y={a} value={str("value")} candidates={candidates} placeholder="steps.check.kind" onChange={(v) => setBody("value", v)} />}
           </FormField>
           <p className="text-sm text-fg-muted">{t("panel.cases", { names: Object.keys(step.cases ?? {}).join(", ") || "–" })}</p>
         </div>
@@ -427,7 +427,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
   }
 }
 
-/** Mapa jméno → hodnota (otázky Jev, hodnoty `set`); `k` = klíč v těle typu, "" = celé tělo. */
+/** Map name → value (Jev questions, `set` values); `k` = key in the type body, "" = the whole body. */
 function MapRows<V>({ ctx, k, label, addLabel, prefix, blank, row }: {
   ctx: FormCtx; k: string; label: string; addLabel: string; prefix: string; blank: V;
   row: (name: string, value: V & Obj, setValue: (v: unknown) => void) => ReactNode;
@@ -467,12 +467,12 @@ function MapRows<V>({ ctx, k, label, addLabel, prefix, blank, row }: {
   );
 }
 
-/** Identifikátor ve výrazech (`inputs.tema`, `steps.x.pole`): jako Python jméno bez pomlčky. */
+/** Identifier in expressions (`inputs.topic`, `steps.x.field`): like a Python name without a hyphen. */
 export const IDENT = /^[a-z][a-z0-9_]*$/;
 const snake = (s: string) => slugify(s, "_");
 
-/** Jméno klíče (otázka, hodnota, vstup; alias modelu s `pattern` kebab): zapíše se při opuštění pole,
- *  když je platné a volné; neplatné se vrátí na původní a pravidlo je v `title` (`hint`). */
+/** Key name (question, value, input; model alias with `pattern` kebab): written when leaving the field,
+ *  if it is valid and free; an invalid one reverts to the original and the rule is in `title` (`hint`). */
 export function KeyInput({ name, taken, onRename, label, pattern = IDENT, normalize = snake, hint }: {
   name: string; taken: string[]; onRename: (to: string) => void; label?: string; pattern?: RegExp; normalize?: (s: string) => string; hint?: string;
 }) {
@@ -487,12 +487,12 @@ export function KeyInput({ name, taken, onRename, label, pattern = IDENT, normal
   );
 }
 
-// --- hlavička scénáře ---------------------------------------------------------------------
+// --- scenario header ----------------------------------------------------------------------
 
 const IO_TYPES = ["string", "number", "integer", "boolean", "list", "object", "file"];
 
 export function HeaderPanel({ name, header, errors, onClose, change }: {
-  /** Jméno scénáře jako titul (jako panel Spustit), eyebrow „HLAVIČKA“ se neopakuje. */
+  /** Scenario name as the title (like the Run panel), the eyebrow "HEADER" is not repeated. */
   name: string; header: Header; errors: ErrorItem[]; onClose: () => void; change: (fn: (h: Header) => Header, key?: string) => void;
 }) {
   const fe = (p: string) => errors.filter((e) => e.field === p || e.field?.startsWith(`${p}.`));
@@ -501,15 +501,15 @@ export function HeaderPanel({ name, header, errors, onClose, change }: {
     const write = (next: Record<string, IoSpec>, key: string) => change((h) => ({ ...h, [which]: next }), key);
     const add = () => {
       let n = 1;
-      while (`${which === "inputs" ? "vstup" : "vystup"}_${n}` in map) n++;
-      const name = `${which === "inputs" ? "vstup" : "vystup"}_${n}`;
+      while (`${which === "inputs" ? "input" : "output"}_${n}` in map) n++;
+      const name = `${which === "inputs" ? "input" : "output"}_${n}`;
       write({ ...map, [name]: which === "inputs" ? { type: "string", required: true } : { type: "string" } }, "add");
     };
     return (
       <FormField label={t(`panel.${which}`)} errors={fe(which).filter((e) => e.field === which)}
         action={<AddPill label={t(which === "inputs" ? "panel.addInput" : "panel.addOutput")} onClick={add} />}>
         {() => (
-          // každý vstup / výstup jako vnořená karta (návrh 09: `group` r8 p14)
+          // each input / output as a nested card (design 09: `group` r8 p14)
           <ul className="space-y-3">
             {Object.entries(map).map(([name, spec]) => {
               const put = (s: IoSpec, key: string) => write({ ...map, [name]: s }, `${which}:${name}:${key}`);
@@ -541,7 +541,7 @@ export function HeaderPanel({ name, header, errors, onClose, change }: {
                           value={typeof spec.default === "string" ? spec.default : JSON.stringify(spec.default ?? "")}
                           onChange={(e) => {
                             let v: unknown = e.target.value;
-                            if (spec.type !== "string") try { v = JSON.parse(e.target.value); } catch { /* text, server ohlásí typ */ }
+                            if (spec.type !== "string") try { v = JSON.parse(e.target.value); } catch { /* text; the server reports the type */ }
                             put({ ...spec, default: v }, "default");
                           }} />
                       )}

@@ -1,20 +1,20 @@
-# Ukázka mcp.yaml — registr MCP serverů. Mění jen vlastník.
-# Tady se rozhoduje, kdo smí co použít (agents, scenarios, tools).
-# Tokeny jen jménem proměnné prostředí. Specifikace: docs/spec/config.md
+# Sample mcp.yaml — MCP server registry. Changed by the owner only.
+# This is where it is decided who may use what (agents, scenarios, tools).
+# Tokens only by environment variable name. Specification: docs/spec/config.md
 version: 1
 
 servers:
   filesystem:
-    description: Čtení a zápis v pracovní složce aktuálního běhu
+    description: Reading and writing in the workspace of the current run
     command: npx
     args: ["@modelcontextprotocol/server-filesystem", "{run_dir}/work"]
-    agents: [knihovnik]
+    agents: [librarian]
 
   instagram:
-    description: Publikace na Instagram (vzdálený server, adresa je příklad)
+    description: Publishing to Instagram (remote server, the address is an example)
     url: https://mcp.example.com/instagram
     bearer_token_env: IG_MCP_TOKEN
-    agents: [publisher]              # jen tento agent smí server použít
-    scenarios: [ig-publish]          # jen z tohoto scénáře (část 2, po schválení)
+    agents: [publisher]              # only this agent may use the server
+    scenarios: [ig-publish]          # only from this scenario (part 2, after approval)
     tools: [create_media, publish_media]
     timeouts: { handshake: 10s, call: 120s }

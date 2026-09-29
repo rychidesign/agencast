@@ -1,24 +1,24 @@
-"""Falešný poskytovatel: deterministický, bez sítě, zdarma (DESIGN §5.6).
+"""Fake provider: deterministic, offline, free (DESIGN §5.6).
 
-Je to `httpx.MockTransport` místo sítě, takže konformační testy i `--fake`
-jdou přesně stejným kódem jako ostré volání (kaskáda, finish_reason, cena).
+Uses `httpx.MockTransport` instead of the network, so conformance tests and `--fake`
+follow exactly the same code as real calls (cascade, finish_reason, cost).
 
-Skript = mapa `cesta kroku: [odpověď, …]`; každé volání kroku vezme další
-odpověď, poslední se opakuje. Bez skriptu se odpověď vyrobí z požadavku
-(JSON podle schématu, Jev: noul 0.5 / první možnost / score 0, obrázek PNG
-v poměru `aspect_ratio`). Tvary odpovědi ve skriptu:
+Script = map `step path: [response, …]`; each step call takes the next
+response, repeating the last one. Without a script, the response is generated from the request
+(JSON matching the schema, Jev: noul 0.5 / first choice / score 0, PNG image
+with `aspect_ratio`). Script response shapes:
 
-    json: {...}            strukturovaný výstup (u tool_wrapper jako volání _submit_output)
-    tool_calls: [{name, arguments}]  volání nástrojů (tah kroku task)
-    text: "..."            textová odpověď (u tool_wrapper = model nezavolal _submit_output)
-    answers: {q: hodnota}  odpovědi Jev (chybějící otázky se doplní výchozí)
-    image: {width, height} obrázek PNG daných rozměrů
-    status: 429            chybový HTTP status (volitelně error: "zpráva")
-    finish_reason: error   jiný finish_reason (obsah prázdný)
-    refusal: "..."         odmítnutí
-    cost: null             odpověď bez usage.cost
-    sleep: 1.5             zdržení v sekundách (timeouty)
-    body: {...}            celé tělo odpovědi doslova
+    json: {...}            structured output (as an _submit_output call for tool_wrapper)
+    tool_calls: [{name, arguments}]  tool calls (task step turn)
+    text: "..."            text response (for tool_wrapper = model did not call _submit_output)
+    answers: {q: value}    Jev answers (missing questions get defaults)
+    image: {width, height} PNG image of given dimensions
+    status: 429            error HTTP status (optionally error: "message")
+    finish_reason: error   another finish_reason (empty content)
+    refusal: "..."         refusal
+    cost: null             response without usage.cost
+    sleep: 1.5             delay in seconds (timeouts)
+    body: {...}            literal full response body
 """
 import asyncio
 import base64
@@ -32,7 +32,7 @@ from .providers import PROMPT_SCHEMA_MARKER, SUBMIT_TOOL
 
 
 def png(width: int, height: int) -> bytes:
-    """Nejmenší platné PNG (šedá plocha) daných rozměrů."""
+    """Smallest valid PNG (gray fill) of given dimensions."""
     def chunk(tag, data):
         return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data))
     raw = b"".join(b"\x00" + b"\x80" * (3 * width) for _ in range(height))
@@ -40,8 +40,8 @@ def png(width: int, height: int) -> bytes:
             + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
 
 
-def dummy(schema: dict, name: str = "hodnota"):
-    """Deterministická hodnota podle JSON Schema."""
+def dummy(schema: dict, name: str = "value"):
+    """Deterministic value matching JSON Schema."""
     match schema.get("type"):
         case "object":
             return {k: dummy(v, k) for k, v in schema["properties"].items()}
@@ -53,7 +53,7 @@ def dummy(schema: dict, name: str = "hodnota"):
             return 1
         case "boolean":
             return True
-    return f"falešný text ({name})"
+    return f"fake text ({name})"
 
 
 class Fake:
@@ -61,7 +61,7 @@ class Fake:
         self.script = script or {}
         self.models = list(models)
         self.image_models = list(image_models)
-        self.calls: list[tuple[str, str, dict]] = []  # (cesta kroku, endpoint, tělo požadavku)
+        self.calls: list[tuple[str, str, dict]] = []  # (step path, endpoint, request body)
         self._used: dict[str, int] = {}
 
     def transport(self) -> httpx.MockTransport:
@@ -105,7 +105,7 @@ class Fake:
             return httpx.Response(spec.get("status", 200), json=spec["body"])
         if spec.get("status", 200) != 200:
             return httpx.Response(spec["status"], json={"error": {"code": spec["status"],
-                                                                  "message": spec.get("error", "falešná chyba")}},
+                                                                  "message": spec.get("error", "fake error")}},
                                   headers={"retry-after": "0"})
         cost = spec.get("cost", 0.0001)
         if path.endswith("/images"):
@@ -122,7 +122,7 @@ class Fake:
                 "model": "typesafe/jev-fake", "answers": self._answers(body["questions"], spec.get("answers") or {}),
                 "usage": {"input_tokens": 50, "output_tokens": 5, "cost": cost}, "id": f"gen-fake-{n}"})
         msg = {"role": "assistant", "content": None, "refusal": spec.get("refusal"),
-               "reasoning_details": [{"type": "reasoning.text", "signature": "falešný-podpis" * 8}]}
+               "reasoning_details": [{"type": "reasoning.text", "signature": "fake-signature" * 8}]}
         fr = spec.get("finish_reason", "stop")
         if "modalities" in body:
             if fr == "stop" and not spec.get("refusal"):
@@ -158,7 +158,7 @@ class Fake:
         if ratio:
             a, b = map(int, ratio.split(":"))
             return a * 64, b * 64
-        return 352, 192  # poměr výchozích 1408×768 (spike (a))
+        return 352, 192  # ratio of the default 1408×768 (spike (a))
 
     @staticmethod
     def _image_size(body, image):
@@ -172,7 +172,7 @@ class Fake:
 
     @staticmethod
     def _content(body, spec, msg, n):
-        """Obsah odpovědi chatu podle úrovně kaskády; vrací finish_reason."""
+        """Chat response content by cascade level; returns finish_reason."""
         if "tool_calls" in spec:
             msg["tool_calls"] = [{"id": f"call_{n}_{i}", "type": "function",
                                   "function": {"name": c["name"], "arguments": c["arguments"] if isinstance(
@@ -183,7 +183,7 @@ class Fake:
         schema = None
         if "response_format" in body:
             schema = body["response_format"]["json_schema"]["schema"]
-        elif SUBMIT_TOOL in tools and "text" not in spec:  # text = model nezavolal _submit_output
+        elif SUBMIT_TOOL in tools and "text" not in spec:  # text = model did not call _submit_output
             args = spec.get("json", dummy(tools[SUBMIT_TOOL]["parameters"]))
             msg["tool_calls"] = [{"id": "call_fake", "type": "function",
                                   "function": {"name": SUBMIT_TOOL, "arguments": json.dumps(args, ensure_ascii=False)}}]
@@ -197,5 +197,5 @@ class Fake:
         elif schema or "json" in spec:
             msg["content"] = json.dumps(spec.get("json", dummy(schema or {})), ensure_ascii=False)
         else:
-            msg["content"] = "Falešná odpověď."
+            msg["content"] = "Fake response."
         return "stop"

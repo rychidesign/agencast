@@ -1,401 +1,419 @@
-# Záznam běhu — specifikace v1
+# Run record — specification v1
 
-Každý běh má vlastní složku (D2). Z ní musí být vidět, co se stalo, bez
-znalosti vnitřku frameworku (R2): `summary.md` čte člověk, `events.jsonl`
-stroj (a budoucí GUI), `report.html` je jeden samostatný soubor
-v úložišti s odkazem v callbacku.
+Every run has its own directory (D2). It must show what happened without
+knowledge of the framework internals (R2): `summary.md` is read by humans,
+`events.jsonl` by machines (and the future GUI), `report.html` is a single
+self-contained file in storage with a link in the callback.
 
-Značení: **návrh** = DESIGN.md to neřeší, navržené výchozí chování.
+Notation: **proposal** = not covered by DESIGN.md; proposed default behavior.
 
-## Složka běhu
+## Run directory
 
 ```
 runs/20260925-140311-ig-post-a1b2/
-  plan.md              plán z validate: pořadí kroků, nástroje, limity
-  inputs.json          vstupy běhu (po doplnění default)
-  events.jsonl         strojový log — jedna událost na řádek
-  summary.md           souhrn pro člověka
-  report.html          totéž jako jeden HTML soubor (nahraje se do úložiště)
-  callback.json        přesně to, co odešlo v callbacku
-  run.lock             zámek živého běhu (od frameworku 0.7.0), prázdný
-  scenario/            snímek scénářů při startu (od frameworku 0.7.0)
+  plan.md              plan from validate: step order, tools, limits
+  inputs.json          run inputs (after filling in defaults)
+  events.jsonl         machine log — one event per line
+  summary.md           summary for humans
+  report.html          the same as a single HTML file (uploaded to storage)
+  callback.json        exactly what was sent in the callback
+  run.lock             lock of a live run (since framework 0.7.0), empty
+  scenario/            snapshot of the scenarios at start (since framework 0.7.0)
     ig-post.yaml
-  mcp/                 stderr MCP serverů: <server>.stderr.log
+  mcp/                 stderr of MCP servers: <server>.stderr.log
   steps/
     01-copy/
-      prompt.md        system prompt + zpráva, přesně jak je dostal model
+      prompt.md        system prompt + message, exactly as the model received them
       calls/01.request.json
       calls/01.response.json
-      output.json      výstup kroku (steps.copy)
-    02-kontrola/
+      output.json      step output (steps.copy)
+    02-tone_check/
       calls/01.request.json
       calls/01.response.json
       output.json
-    04-foto_prompt/ …  (03-stop byl přeskočen → nemá složku)
-    05-kontrola_obrazku/ …
-    07-foto/
+    04-photo_prompt/ …  (03-stop was skipped → has no directory)
+    05-image_check/ …
+    07-photo/
       prompt.md
       calls/01.request.json
       calls/01.response.json
       image.png
-      output.json      { "file": "steps/07-foto/image.png" }
+      output.json      { "file": "steps/07-photo/image.png" }
     08-out/
       output.json
 ```
 
-- `runs/` je `runs_dir` z `config.yaml` (výchozí `./runs`), na Modalu
-  Volume (D5). Vedle složek běhů jsou jen `_dedupe/` (samostatné soubory
-  klíčů, [scenario.md](scenario.md#dedupe_key--jednou-a-dost)), cache
-  `_models.json` a od frameworku 0.3.1:
-  - `_slots/<n>.lock`, n = 1..`max_parallel_runs` — zámky `flock`
-    ([config.md](config.md#limits--pojistky-celého-běhu)). Běh drží jeden
-    slot od chvíle před vytvořením své složky do konce (i při chybě); zámek
-    uvolní i pád procesu. Soubory zůstávají, obsah nemají. Jen s
-    `max_parallel_runs`.
-  - `_ledger/<RRRR-MM-DD>.jsonl` — denní kniha útraty (den = UTC podle
-    konce běhu), jeden řádek na dokončený běh, jen se připisuje:
+- `runs/` is `runs_dir` from `config.yaml` (default `./runs`), on Modal a
+  Volume (D5). Next to the run directories there are only `_dedupe/`
+  (separate key files,
+  [scenario.md](scenario.md#dedupe_key--once-and-only-once)), the
+  `_models.json` cache and, since framework 0.3.1:
+  - `_slots/<n>.lock`, n = 1..`max_parallel_runs` — `flock` locks
+    ([config.md](config.md#limits--safeguards-for-the-whole-run)). A run
+    holds one slot from just before creating its directory until the end
+    (even on error); a process crash releases the lock too. The files stay,
+    they have no content. Only with `max_parallel_runs`.
+  - `_ledger/<YYYY-MM-DD>.jsonl` — daily spend ledger (day = UTC by the end
+    of the run), one line per finished run, append-only:
     `{"run_id": "…", "cost_usd": 0.0123, "finished_at": "2026-09-26T08:15:02.120Z"}`
-    (`cost_usd` = `usage.cost_usd` z `run_finished`, včetně obrázků).
-    Píše se vždy; čte ji `daily_budget_usd`. Falešné běhy (`--fake`) píšou
-    do `_ledger-fake/` (jako `_dedupe-fake/`). Běhy před 0.3.1 v knize
-    nejsou.
-- **`run_id`** = `RRRRMMDD-HHMMSS-<scénář>-<4 hex znaky>` v UTC
-  (**návrh**) — řadí se podle času a je v něm vidět, co běželo. Jde
-  uhodnout, proto má klíč v úložišti navíc 32 náhodných hex znaků (viz
+    (`cost_usd` = `usage.cost_usd` from `run_finished`, including images).
+    Always written; read by `daily_budget_usd`. Fake runs (`--fake`) write
+    to `_ledger-fake/` (like `_dedupe-fake/`). Runs before 0.3.1 are not in
+    the ledger.
+- **`run_id`** = `YYYYMMDD-HHMMSS-<scenario>-<4 hex characters>` in UTC
+  (**proposal**) — sorts by time and shows what ran. It can be guessed,
+  which is why the storage key has an extra 32 random hex characters (see
   [Callback](#callback)).
-- **`<nn>`** = pořadí kroku **v souboru scénáře** (hloubkově, včetně kroků
-  ve větvích), pevné pro scénář — stejný scénář má při každém běhu stejná
-  čísla a dva běhy jdou porovnat. Skutečné pořadí startu je vidět z `ts`
-  v `events.jsonl`. Sedí s číslem v `summary.md`. Přeskočený krok složku
-  nemá, je jen v `events.jsonl` a v `summary.md` s důvodem.
-- **`calls/`** — každé volání API zvlášť (opakování i tahy `task`), číslo
-  = pořadí volání v kroku. U `task` navíc `calls/NN.tool.json` (argumenty
-  a výsledek nástroje) a obrázky z nástrojů `tool-<NN>-<k>.png` ve složce
-  kroku.
-- **`call`** — složka kroku obsahuje vlastní `steps/` volaného scénáře:
-  `steps/03-navrh/steps/01-copy/…`. Události jdou do jednoho
-  `events.jsonl` celého běhu, `step` má cestu `navrh/copy`.
-- `--dry-run` vytvoří složku jen s `plan.md` (a `inputs.json`).
-- **`run.lock`** (od frameworku 0.7.0) — proces běhu drží na souboru
-  `flock` (výhradní) od vytvoření složky do konce běhu (i při chybě);
-  zámek uvolní i pád procesu, soubor zůstává prázdný. Čtenář (`runs
-  list`, `serve`) zkusí sdílený zámek bez čekání: nejde = běh žije
-  (`state: running`), jde a chybí `run_finished` = běh přerušen
-  (`interrupted`, [api.md](api.md)). Na Modalu obálka dosadí vlastní
-  mechanismus (jako sloty `max_parallel_runs`). Dry-run zámek nemá —
-  od frameworku 0.8.0 se podle toho pozná: `plan.md` bez `events.jsonl`
-  a bez `run.lock` = dry-run; ostrý běh vytvoří `run.lock` před
-  `plan.md`, takže ostrý běh, který spadl před první událostí, je
-  přerušený, ne dry-run.
-- **`scenario/<jméno>.yaml`** (od frameworku 0.7.0) — při startu běhu
-  (po `plan.md`) kopie spouštěného scénáře a všech scénářů volaných přes
-  `call` (i vnořeně), bajt po bajtu až na maskování tajných hodnot. Detail
-  běhu z nich kreslí strom kroků, jak platil při běhu. Běh, který nezačal
-  (bez `plan.md`), a dry-run snímek nemají.
+- **`<nn>`** = the position of the step **in the scenario file**
+  (depth-first, including steps in branches), fixed for the scenario — the
+  same scenario has the same numbers on every run, and two runs can be
+  compared. The actual start order is visible from `ts` in `events.jsonl`.
+  It matches the number in `summary.md`. A skipped step has no directory;
+  it is only in `events.jsonl` and in `summary.md` with a reason.
+- **`calls/`** — every API call separately (retries and `task` turns too),
+  number = order of the call within the step. For `task` also
+  `calls/NN.tool.json` (tool arguments and result) and images from tools
+  `tool-<NN>-<k>.png` in the step directory.
+- **`call`** — the step directory contains the called scenario's own
+  `steps/`: `steps/03-propose/steps/01-copy/…`. Events go into the single
+  `events.jsonl` of the whole run; `step` has the path `propose/copy`.
+- `--dry-run` creates a directory with only `plan.md` (and `inputs.json`).
+- **`run.lock`** (since framework 0.7.0) — the run process holds an
+  (exclusive) `flock` on the file from creating the directory until the end
+  of the run (even on error); a process crash releases the lock too, and
+  the file stays empty. A reader (`runs list`, `serve`) tries a shared lock
+  without waiting: cannot get it = the run is alive (`state: running`),
+  can get it and `run_finished` is missing = the run was interrupted
+  (`interrupted`, [api.md](api.md)). On Modal the wrapper substitutes its
+  own mechanism (like the `max_parallel_runs` slots). A dry run has no
+  lock — since framework 0.8.0 this is how it is recognized: `plan.md`
+  without `events.jsonl` and without `run.lock` = dry run; a live run
+  creates `run.lock` before `plan.md`, so a live run that crashed before
+  the first event is interrupted, not a dry run.
+- **`scenario/<name>.yaml`** (since framework 0.7.0) — at run start (after
+  `plan.md`), a copy of the started scenario and of all scenarios called
+  via `call` (also nested), byte for byte except for masking secret
+  values. The run detail draws the step tree from them as it was when the
+  run happened. A run that did not start (no `plan.md`) and a dry run have
+  no snapshot.
 
-## Co do záznamu nikdy nepatří
+## What must never be in the record
 
-- **base64** (§5.7): data URL obrázku se nahradí textem
-  `"<soubor: steps/07-foto/image.png, 1510234 B>"`. Platí pro **všechny**
-  soubory záznamu: `calls/NN.request.json` (obrázek z nástroje v user
-  zprávě dalšího tahu), `calls/NN.response.json`, `calls/NN.tool.json`,
+- **base64** (§5.7): an image data URL is replaced with the text
+  `"<file: steps/07-photo/image.png, 1510234 B>"`. This applies to **all**
+  record files: `calls/NN.request.json` (an image from a tool in the user
+  message of the next turn), `calls/NN.response.json`, `calls/NN.tool.json`,
   `events.jsonl`, `output.json`.
-- **`reasoning_details`** (šifrované, u obrázku ~1,4 MB): v záznamu jen
-  `"<vynecháno: reasoning_details, 1412345 B>"` — i v `request.json`
-  dalšího tahu, kde se posílají zpět (§5.5). Framework je drží v paměti.
-- **Tajné klíče a hlavičky** požadavků. `request.json` je jen tělo.
-- **Tajné hodnoty kdekoli:** před zápisem každého souboru záznamu i
-  callbacku framework nahradí každý výskyt hodnoty kterékoli proměnné
-  z polí `*_env` (config.yaml, mcp.yaml) a z `env` v `mcp.yaml` (hodnoty
-  od 8 znaků) textem `<tajné: JMENO>` a zapíše varování. Nástroj MCP totiž
-  může klíč vrátit ve výsledku (spike (d): `get-env`; DESIGN §5.2).
-- Z URL callbacku se loguje jen `schéma://host/cesta` bez query.
+- **`reasoning_details`** (encrypted, ~1.4 MB for an image): the record
+  holds only `"<omitted: reasoning_details, 1412345 B>"` — also in the
+  `request.json` of the next turn, where they are sent back (§5.5). The
+  framework keeps them in memory.
+- **Secret keys and headers** of requests. `request.json` is the body only.
+- **Secret values anywhere:** before writing each record file and the
+  callback, the framework replaces every occurrence of the value of any
+  variable from `*_env` fields (config.yaml, mcp.yaml) and from `env` in
+  `mcp.yaml` (values of 8 characters or more) with the text
+  `<secret: NAME>` and writes a warning. An MCP tool can return a key in
+  its result (spike (d): `get-env`; DESIGN §5.2).
+- Only `scheme://host/path` without the query is logged from the callback URL.
 
 ## `events.jsonl`
 
-Každý řádek je jeden JSON objekt. Společná pole:
+Every line is one JSON object. Common fields:
 
-| Pole | Co to je | Příklad |
+| Field | What it is | Example |
 |---|---|---|
-| `ts` | čas události, ISO 8601 v UTC s milisekundami | `"2026-09-25T14:03:12.481Z"` |
-| `type` | typ události (tabulky níže) | `"step_started"` |
-| `step` | cesta ke kroku (`id`, u `call` `navrh/copy`); u událostí běhu chybí | `"copy"` |
+| `ts` | event time, ISO 8601 in UTC with milliseconds | `"2026-09-25T14:03:12.481Z"` |
+| `type` | event type (tables below) | `"step_started"` |
+| `step` | path to the step (`id`, for `call` `propose/copy`); missing for run events | `"copy"` |
 
-Časy trvání jsou v sekundách (`duration_s`), ceny v USD (`cost_usd`).
-Cena volání je přesně hodnota, kterou vrátil poskytovatel (`usage.cost`),
-bez zaokrouhlení. Součty (krok, běh, obrázky, `budget_exceeded_usd`) se
-zaokrouhlují jen na 10 desetinných míst kvůli šumu floatů
-(0.30000000000000004 → 0.3). V `summary.md`, `report.html` a výpisech
-`agencast` je cena desetinně s čárkou (nikdy exponent), aspoň na 4 místa, víc
-jen když je potřeba ukázat všechny číslice (`0,000004482`); skutečná nula
-je `0` (od frameworku 0.2.4, ISSUES 38).
+Durations are in seconds (`duration_s`), costs in USD (`cost_usd`).
+The cost of a call is exactly the value returned by the provider
+(`usage.cost`), without rounding. Totals (step, run, images,
+`budget_exceeded_usd`) are rounded only to 10 decimal places because of
+float noise (0.30000000000000004 → 0.3). In `summary.md`, `report.html`
+and `agencast` listings the cost is shown as a decimal with a decimal
+point (never an exponent), at least 4 places, more only when needed to show
+all digits (`0.000004482`); an actual zero is `0` (since framework 0.2.4,
+ISSUES 38).
 
-### Normalizované `usage` (§5.5)
+### Normalized `usage` (§5.5)
 
-Všude, kde je spotřeba, má jeden tvar:
+Wherever there is consumption, it has one shape:
 
 ```json
 "usage": { "input_tokens": 674, "output_tokens": 86, "cost_usd": 0.0000283 }
 ```
 
-| Zdroj | `input_tokens` ← | `output_tokens` ← | `cost_usd` ← |
+| Source | `input_tokens` ← | `output_tokens` ← | `cost_usd` ← |
 |---|---|---|---|
 | chat completions (`ask`, `task`, `image`) | `prompt_tokens` | `completion_tokens` | `cost` |
 | Jev (`/systemone`) | `input_tokens` | `output_tokens` | `cost` |
 
-Když poskytovatel cenu nevrátí, je `cost_usd: null` a vznikne varování
-(rozpočet pak nejde hlídat přesně) — nikdy se nedopočítává odhadem.
+When the provider does not return a cost, `cost_usd: null` and a warning
+is created (the budget cannot be tracked precisely then) — it is never
+estimated.
 
-### Typy událostí
+### Event types
 
-**`run_started`** — běh začal.
+**`run_started`** — the run started.
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `run_id` | id běhu |
-| `scenario`, `scenario_version` | jméno a `version` scénáře |
-| `request_key` | idempotenční klíč z webhooku (§5.2), jinak `null` |
-| `inputs` | vstupy po doplnění `default` |
-| `models` | mapa alias → id, jak platila při startu (reprodukovatelnost) |
+| `run_id` | run id |
+| `scenario`, `scenario_version` | name and `version` of the scenario |
+| `request_key` | idempotency key from the webhook (§5.2), otherwise `null` |
+| `inputs` | inputs after filling in `default` |
+| `models` | alias → id map as it was at start (reproducibility) |
 | `limits` | `run_budget_usd`, `run_image_budget_usd`, `run_timeout` |
-| `framework_version` | verze frameworku |
-| `storage_prefix` | `<run_id>-<32 hex>` — prefix souborů v úložišti |
-| `fake` | `true` = falešný poskytovatel (`--fake`), odpovědi modelů jsou vymyšlené (od frameworku 0.2.2) |
-| `steps_total` | počet kroků scénáře včetně vnořených ve větvích `parallel`/`switch`, bez kroků volaných scénářů; `null` u běhu, který nezačal (od frameworku 0.6.0) |
-| `callback_url` | kam odejde callback, bez query (jako `callback_sent.url`); `null` = běh bez callbacku (CLI, GUI bez `callback_url`) (od frameworku 0.6.0) |
+| `framework_version` | framework version |
+| `storage_prefix` | `<run_id>-<32 hex>` — prefix of files in storage |
+| `fake` | `true` = fake provider (`--fake`), model responses are fabricated (since framework 0.2.2) |
+| `steps_total` | number of scenario steps including those nested in `parallel`/`switch` branches, excluding steps of called scenarios; `null` for a run that did not start (since framework 0.6.0) |
+| `callback_url` | where the callback goes, without the query (like `callback_sent.url`); `null` = run without a callback (CLI, GUI without `callback_url`) (since framework 0.6.0) |
 
-**`run_waiting`** — běh čekal na volný slot `max_parallel_runs` (od
-frameworku 0.3.1). Jen když se čekalo; je hned za `run_started`, i když
-čekání proběhlo před ním (složka běhu vzniká až po získání slotu).
+**`run_waiting`** — the run waited for a free `max_parallel_runs` slot
+(since framework 0.3.1). Only when it waited; it comes right after
+`run_started`, even though the waiting happened before it (the run
+directory is created only after the slot is obtained).
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `waited_s` | jak dlouho běh čekal na slot |
-| `max_parallel_runs` | platný strop |
+| `waited_s` | how long the run waited for a slot |
+| `max_parallel_runs` | the effective cap |
 
-Nedočkaný slot (`timeout`) a vyčerpaný `daily_budget_usd` (`budget`) jsou
-běhy, které nezačaly: záznam má jen `run_started`, `error`,
-`run_finished` s `error` (`step: null`), `callback.json` a `summary.md`,
-bez `plan.md` a `inputs.json` — stejně jako běh, který webhook nespustil
-([webhook.md](webhook.md)). Callback odejde normálně, `agencast run` vypíše
-na stderr `<třída>: <hláška>` a skončí kódem 1.
+A slot not obtained in time (`timeout`) and an exhausted
+`daily_budget_usd` (`budget`) are runs that did not start: the record has
+only `run_started`, `error`, `run_finished` with `error` (`step: null`),
+`callback.json` and `summary.md`, without `plan.md` and `inputs.json` —
+just like a run the webhook did not start ([webhook.md](webhook.md)). The
+callback is sent normally, `agencast run` prints `<class>: <message>` to
+stderr and exits with code 1.
 
-**`step_started`** — krok začal.
+**`step_started`** — a step started.
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `kind` | typ kroku: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail`, `output` |
-| `branch` | jméno větve `parallel` nebo hodnota `switch`, ve které krok je; jinak chybí |
-| `nn` | číslo kroku `<nn>` v jeho scénáři (u kroku volaného scénáře číslo ve volaném scénáři) (od frameworku 0.7.0) |
-| `dir` | složka kroku ve složce běhu, např. `steps/03-navrh/steps/01-copy` (od frameworku 0.7.0) |
+| `kind` | step type: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail`, `output` |
+| `branch` | name of the `parallel` branch or the `switch` value the step is in; otherwise missing |
+| `nn` | step number `<nn>` in its scenario (for a step of a called scenario, the number in the called scenario) (since framework 0.7.0) |
+| `dir` | step directory within the run directory, e.g. `steps/03-propose/steps/01-copy` (since framework 0.7.0) |
 
-**`step_skipped`** — krok neproběhl (§5.1 bod 5: vždy s důvodem).
+**`step_skipped`** — a step did not run (§5.1 item 5: always with a reason).
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `kind` | typ kroku |
-| `reason_code` | `when`, `switch`, `dedupe`, `cancelled` (nerozběhnutý krok zrušený, protože selhala jiná větev `parallel`). Kroky uvnitř přeskočeného `parallel`/`switch` dostanou každý stejný důvod. |
-| `reason` | věta pro člověka, např. `when: steps.kontrola.on_brand < 0.7 → false` |
-| `default_used` | `true`, pokud se jako výstup použil `default` |
-| `nn` | číslo kroku jako u `step_started` (od frameworku 0.7.0) |
+| `kind` | step type |
+| `reason_code` | `when`, `switch`, `dedupe`, `cancelled` (a step that had not started, cancelled because another `parallel` branch failed). Steps inside a skipped `parallel`/`switch` each get the same reason. |
+| `reason` | a sentence for humans, e.g. `when: steps.tone_check.on_brand < 0.7 → false` |
+| `default_used` | `true` if `default` was used as the output |
+| `nn` | step number as in `step_started` (since framework 0.7.0) |
 
-**`step_finished`** — krok skončil.
+**`step_finished`** — a step finished.
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `kind` | typ kroku |
-| `status` | `succeeded`, `failed`, nebo `cancelled` (rozběhnutý krok zrušený, protože selhala jiná větev `parallel`; `cost_usd` = dosavadní volání) |
-| `continued` | `true`, když selhal s `on_error: continue` (→ varování) |
-| `default_used` | jen u `continued: true`: `true`, když se jako výstup použil `default` (od frameworku 0.7.0) |
-| `duration_s` | trvání |
-| `cost_usd` | součet všech volání kroku |
-| `output_file` | cesta k `output.json` |
+| `kind` | step type |
+| `status` | `succeeded`, `failed`, or `cancelled` (a started step cancelled because another `parallel` branch failed; `cost_usd` = the calls so far) |
+| `continued` | `true` when it failed with `on_error: continue` (→ warning) |
+| `default_used` | only with `continued: true`: `true` when `default` was used as the output (since framework 0.7.0) |
+| `duration_s` | duration |
+| `cost_usd` | total of all calls of the step |
+| `output_file` | path to `output.json` |
 
-**`model_call`** — jedno volání chat completions (`ask`, tah `task`, `image`).
+**`model_call`** — one chat completions call (`ask`, a `task` turn, `image`).
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `attempt` | pokus 1, 2, … (opakování přes `retry`) |
-| `turn` | jen u `task`: pořadí tahu |
-| `alias`, `model` | alias a id, které se poslalo |
-| `response_model`, `provider` | model a poskytovatel podle odpovědi |
-| `generation_id` | `id` odpovědi OpenRouteru (dohledání v jeho logu) |
-| `http_status` | status odpovědi |
-| `finish_reason`, `native_finish_reason` | jak volání skončilo (§5.1 bod 8) |
-| `structured_output` | použitá úroveň kaskády (§5.5): `native_schema`, `tool_wrapper`, `prompt`; bez `schema` `null` |
-| `budget_exceeded_usd` | o kolik volání překročilo rozpočet (volání se dokončí a platí), jinak chybí |
-| `timeout_s` | timeout HTTP volání: min(zbývající čas kroku, 120 s); vypršení = `transient` (od frameworku 0.2.1) |
-| `duration_s`, `usage` | trvání, normalizovaná spotřeba |
-| `request_file`, `response_file` | cesty do `calls/` |
+| `attempt` | attempt 1, 2, … (retries via `retry`) |
+| `turn` | only for `task`: turn number |
+| `alias`, `model` | alias and id that were sent |
+| `response_model`, `provider` | model and provider according to the response |
+| `generation_id` | OpenRouter response `id` (for lookup in its log) |
+| `http_status` | response status |
+| `finish_reason`, `native_finish_reason` | how the call ended (§5.1 item 8) |
+| `structured_output` | cascade level used (§5.5): `native_schema`, `tool_wrapper`, `prompt`; `null` without `schema` |
+| `budget_exceeded_usd` | by how much the call exceeded the budget (the call completes and counts), otherwise missing |
+| `timeout_s` | HTTP call timeout: min(remaining step time, 120 s); expiry = `transient` (since framework 0.2.1) |
+| `duration_s`, `usage` | duration, normalized consumption |
+| `request_file`, `response_file` | paths into `calls/` |
 
-**`tool_call`** — `task` zavolal nástroj.
+**`tool_call`** — `task` called a tool.
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `turn` | tah, ve kterém model nástroj zavolal |
-| `server`, `tool` | MCP server a nástroj; u skillů `server: "_skills"`, `tool: "load_skill"` |
-| `allowed` | `false`, když nástroj nebyl povolen (nespustil se, model dostal chybu) |
-| `invalid_args` | `true`, když argumenty neprošly validací proti schématu nástroje (nespustil se, model dostal chybu) |
-| `is_error` | nástroj vrátil chybu (předána modelu, krok pokračuje) |
-| `duration_s` | trvání |
-| `call_file` | `calls/NN.tool.json` s argumenty a výsledkem |
+| `turn` | turn in which the model called the tool |
+| `server`, `tool` | MCP server and tool; for skills `server: "_skills"`, `tool: "load_skill"` |
+| `allowed` | `false` when the tool was not allowed (it did not run, the model got an error) |
+| `invalid_args` | `true` when the arguments did not pass validation against the tool schema (it did not run, the model got an error) |
+| `is_error` | the tool returned an error (passed to the model, the step continues) |
+| `duration_s` | duration |
+| `call_file` | `calls/NN.tool.json` with arguments and result |
 
-**`jev_call`** — jedno volání Jev.
+**`jev_call`** — one Jev call.
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `attempt` | pokus |
-| `model`, `response_model` | poslaný model a datovaná verze z odpovědi (`typesafe/jev-1.13-20260917`) |
-| `http_status` | status odpovědi |
-| `answers` | hodnoty odpovědí, např. `{"on_brand": 0.91}` |
-| `timeout_s` | timeout HTTP volání: min(zbývající čas kroku, 30 s); vypršení = `transient` (od frameworku 0.2.1) |
-| `duration_s`, `usage` | trvání, normalizovaná spotřeba |
-| `request_file`, `response_file` | cesty do `calls/` |
+| `attempt` | attempt |
+| `model`, `response_model` | model sent and the dated version from the response (`typesafe/jev-1.13-20260917`) |
+| `http_status` | response status |
+| `answers` | answer values, e.g. `{"on_brand": 0.91}` |
+| `timeout_s` | HTTP call timeout: min(remaining step time, 30 s); expiry = `transient` (since framework 0.2.1) |
+| `duration_s`, `usage` | duration, normalized consumption |
+| `request_file`, `response_file` | paths into `calls/` |
 
-**`image_saved`** — obrázek uložen do složky běhu.
+**`image_saved`** — an image was saved to the run directory.
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `path` | cesta relativně ke složce běhu |
-| `media_type`, `bytes` | typ a velikost souboru |
-| `width`, `height` | rozměry z hlavičky souboru |
+| `path` | path relative to the run directory |
+| `media_type`, `bytes` | file type and size |
+| `width`, `height` | dimensions from the file header |
 
-**`error`** — chyba (i ta, která se ještě opakuje).
+**`error`** — an error (also one that will still be retried).
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `class` | třída chyby (scenario.md §6): `transient`, `schema`, `content`, `budget`, `timeout`, `config`, `expression`, `fail`, `internal` |
-| `message` | přesná hláška (u API včetně `error.message` poskytovatele) |
-| `attempt` | pokus, ve kterém chyba nastala |
-| `will_retry` | `true`, když následuje další pokus |
-| `http_status` | status, pokud jde o HTTP |
+| `class` | error class (scenario.md §6): `transient`, `schema`, `content`, `budget`, `timeout`, `config`, `expression`, `fail`, `internal` |
+| `message` | the exact message (for the API including the provider's `error.message`) |
+| `attempt` | attempt in which the error occurred |
+| `will_retry` | `true` when another attempt follows |
+| `http_status` | status, if it is HTTP |
 
-**`mcp_server`** — start, konec nebo selhání MCP serveru (DESIGN §5.8).
+**`mcp_server`** — start, stop or failure of an MCP server (DESIGN §5.8).
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `server` | jméno z `mcp.yaml` |
+| `server` | name from `mcp.yaml` |
 | `action` | `started`, `stopped`, `failed` |
-| `duration_s` | u `started` doba handshaku |
-| `error` | hláška u `failed` |
+| `duration_s` | for `started` the handshake duration |
+| `error` | message for `failed` |
 | `stderr_file` | `mcp/<server>.stderr.log` |
 
-**`file_uploaded`** — soubor z `output` nahrán do úložiště.
+**`file_uploaded`** — a file from `output` was uploaded to storage.
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `output` | jméno výstupu (`image`), u HTML záznamu `report` |
-| `path`, `url` | odkud a kam |
+| `output` | output name (`image`), `report` for the HTML record |
+| `path`, `url` | from where and to where |
 
-**`run_finished`** — běh skončil.
+**`run_finished`** — the run finished.
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `status` | `succeeded` nebo `failed` |
-| `error` | `{class, step, message}` nebo `null` |
-| `warnings` | seznam vět (kroky s `on_error: continue`, chybějící cena, …) |
-| `duration_s` | trvání bez čekání ve frontě |
-| `usage` | součet celého běhu |
-| `image_cost_usd` | z toho obrázky (§5.7 — počítají se zvlášť) |
-| `image_duration_s` | součet trvání kroků `image` (jen informace; samostatný časový limit obrázků ve v1 není) |
+| `status` | `succeeded` or `failed` |
+| `error` | `{class, step, message}` or `null` |
+| `warnings` | list of sentences (steps with `on_error: continue`, missing cost, …) |
+| `duration_s` | duration without waiting in the queue |
+| `usage` | total of the whole run |
+| `image_cost_usd` | of which images (§5.7 — counted separately) |
+| `image_duration_s` | total duration of `image` steps (information only; v1 has no separate time limit for images) |
 
-Při restartu `serve`, který obnoví záznam fronty se stávajícím
-`run_started` a bez `run_finished`, druhé `run_started` nevzniká. Server
-doplní událost `error` a `run_finished` se `status: failed`, třídou
-`internal`, `step` posledního začatého kroku a zprávou
-`běh přerušen restartem serveru`. Původní `run_started.ts` zůstává
-`started_at`. V API má takový běh `state: interrupted` a krok bez
-`step_finished` má `status: interrupted`; záznam běhu zůstává zachovaný.
+When a `serve` restart restores a queue entry with an existing
+`run_started` and no `run_finished`, no second `run_started` is created.
+The server adds an `error` event and `run_finished` with `status: failed`,
+class `internal`, the `step` of the last started step and the message
+`run interrupted by server restart` (a stored value the framework compares
+when reading records). The original `run_started.ts` stays
+`started_at`. In the API such a run has `state: interrupted` and a step
+without `step_finished` has `status: interrupted`; the run record is kept.
 
-**`callback_sent`** — jeden pokus o doručení callbacku (každý pokus =
-jedna událost).
+**`callback_sent`** — one attempt to deliver the callback (every attempt =
+one event).
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `url` | adresa bez query |
-| `attempt` | pokus 1–3 (**návrh**: 3 pokusy, prodleva 5 s a 30 s) |
-| `http_status` | odpověď n8n, `null` při chybě sítě |
-| `error` | hláška, pokud doručení selhalo |
+| `url` | address without the query |
+| `attempt` | attempt 1–3 (**proposal**: 3 attempts, delays of 5 s and 30 s) |
+| `http_status` | n8n response, `null` on a network error |
+| `error` | message, if delivery failed |
 
-**`callback_failed`** — po třetím neúspěšném pokusu (poslední řádek
-souboru). Stav běhu se **nemění**, `callback.json` zůstává ve složce běhu.
-CLI (`runs`) a `summary.md` ukazují „callback nedoručen". Obnovu řeší
-časový limit v n8n (§5.1 bod 7).
+**`callback_failed`** — after the third failed attempt (the last line of
+the file). The run status **does not change**; `callback.json` stays in the
+run directory. The CLI (`runs`) shows “callback not delivered” and
+`summary.md` shows “Callback not delivered”. Recovery is handled by the
+timeout in n8n (§5.1 item 7).
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
-| `url` | adresa bez query |
-| `attempts` | počet pokusů |
-| `error` | poslední hláška |
+| `url` | address without the query |
+| `attempts` | number of attempts |
+| `error` | last message |
 
-Příklad (zkráceno):
+Example (shortened):
 
 ```json
-{"ts":"2026-09-25T14:03:11.002Z","type":"run_started","run_id":"20260925-140311-ig-post-a1b2","scenario":"ig-post","scenario_version":1,"request_key":null,"inputs":{"tema":"nová káva"},"models":{"chytry":"anthropic/claude-haiku-4.5"},"limits":{"run_budget_usd":1.0,"run_image_budget_usd":0.3,"run_timeout":"1h"},"framework_version":"0.1.0"}
+{"ts":"2026-09-25T14:03:11.002Z","type":"run_started","run_id":"20260925-140311-ig-post-a1b2","scenario":"ig-post","scenario_version":1,"request_key":null,"inputs":{"topic":"new coffee"},"models":{"smart":"anthropic/claude-haiku-4.5"},"limits":{"run_budget_usd":1.0,"run_image_budget_usd":0.3,"run_timeout":"1h"},"framework_version":"0.1.0"}
 {"ts":"2026-09-25T14:03:11.010Z","type":"step_started","step":"copy","kind":"ask"}
-{"ts":"2026-09-25T14:03:14.720Z","type":"model_call","step":"copy","attempt":1,"alias":"chytry","model":"anthropic/claude-haiku-4.5","response_model":"anthropic/claude-haiku-4.5","provider":"Anthropic","generation_id":"gen-…","http_status":200,"finish_reason":"stop","native_finish_reason":"end_turn","structured_output":"native_schema","duration_s":3.7,"usage":{"input_tokens":812,"output_tokens":214,"cost_usd":0.0015},"request_file":"steps/01-copy/calls/01.request.json","response_file":"steps/01-copy/calls/01.response.json"}
+{"ts":"2026-09-25T14:03:14.720Z","type":"model_call","step":"copy","attempt":1,"alias":"smart","model":"anthropic/claude-haiku-4.5","response_model":"anthropic/claude-haiku-4.5","provider":"Anthropic","generation_id":"gen-…","http_status":200,"finish_reason":"stop","native_finish_reason":"end_turn","structured_output":"native_schema","duration_s":3.7,"usage":{"input_tokens":812,"output_tokens":214,"cost_usd":0.0015},"request_file":"steps/01-copy/calls/01.request.json","response_file":"steps/01-copy/calls/01.response.json"}
 {"ts":"2026-09-25T14:03:14.731Z","type":"step_finished","step":"copy","kind":"ask","status":"succeeded","continued":false,"duration_s":3.72,"cost_usd":0.0015,"output_file":"steps/01-copy/output.json"}
-{"ts":"2026-09-25T14:03:15.050Z","type":"step_skipped","step":"stop","kind":"fail","reason_code":"when","reason":"when: steps.kontrola.on_brand < 0.7 → false","default_used":false}
+{"ts":"2026-09-25T14:03:15.050Z","type":"step_skipped","step":"stop","kind":"fail","reason_code":"when","reason":"when: steps.tone_check.on_brand < 0.7 → false","default_used":false}
 ```
 
 ## `summary.md`
 
-Pro člověka, česky, vždy stejná stavba (**návrh**):
+For humans, in English, always the same structure (**proposal**):
 
 ```markdown
-# ig-post — úspěch
+# ig-post — success
 
-Návrh IG příspěvku ke schválení
-Běh `20260925-140311-ig-post-a1b2` · 25. 9. 2026 14:03:11 UTC · 17,5 s · 0,06934 USD (z toho obrázky 0,0672 USD)
+Draft IG post for approval (part 1; part 2 publishes it via n8n)
+Run `20260925-140311-ig-post-a1b2` · 2026-09-25 14:03 UTC · 17.5 s · 0.06934 USD (of which images 0.0672 USD)
 
-## Vstupy
-- tema: nová káva
+## Inputs
+- topic: new coffee
 
-## Kroky
-| # | Krok | Typ | Stav | Čas | Cena | Poznámka |
+## Steps
+| # | Step | Type | Status | Time | Cost | Note |
 |---|---|---|---|---|---|---|
-| 1 | copy | ask | ✓ | 3,7 s | 0,0015 | chytry → anthropic/claude-haiku-4.5 |
-| 2 | kontrola | jev | ✓ | 0,3 s | 0,00002 | on_brand = 0,91 |
-| 3 | stop | fail | přeskočeno | | | when: steps.kontrola.on_brand < 0.7 → false |
-| 4 | foto_prompt | ask | ✓ | 1,8 s | 0,0006 | rychly → google/gemini-3.5-flash-lite |
-| 5 | kontrola_obrazku | jev | ✓ | 0,3 s | 0,00002 | skutecna_osoba = 0,02, cizi_znacka = 0,01 |
-| 6 | stop_obrazek | fail | přeskočeno | | | when: … → false |
-| 7 | foto | image | ✓ | 10,6 s | 0,0672 | image.png, 1408×768 |
-| 8 | out | output | ✓ | 0,0 s | 0 | |
-| | Celkem | | | 17,5 s | 0,06934 | z toho obrázky 0,0672 |
+| 1 | copy | ask | ✓ | 3.7 s | 0.0015 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | tone_check | jev | ✓ | 0.3 s | 0.00002 | on_brand = 0.91 |
+| 3 | stop | fail | skipped |  |  | when: steps.tone_check.on_brand < 0.7 → false |
+| 4 | photo_prompt | ask | ✓ | 1.8 s | 0.0006 | fast → google/gemini-3.5-flash-lite (tool_wrapper) |
+| 5 | image_check | jev | ✓ | 0.3 s | 0.00002 | real_person = 0.02, other_brand = 0.01 |
+| 6 | stop_image | fail | skipped |  |  | when: … → false |
+| 7 | photo | image | ✓ | 10.6 s | 0.0672 | image.png, 1408×768 |
+| 8 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 17.5 s | 0.06934 | of which images 0.0672 |
 
-## Varování
-žádná
+## Warnings
+none
 
-## Výstup
-- caption: „…"
-- hashtags: #kava, #lumen
+## Output
+- caption: “…”
+- hashtags: #coffee, #lumen
 - image: https://files.example.com/20260925-140311-ig-post-a1b2-3f9c1e7a0b5d4c2e8a6f1d9b7c3e5a0f/image.png
 ```
 
-Poslední řádek tabulky **Celkem** má čas a cenu běhu (`duration_s` a
-`cost_usd` v `run_finished`, stejná čísla jako v hlavičce a
-`callback.json`) a u běhu s obrázky poznámku „z toho obrázky …". Čas
-Celkem je čas celého běhu, ne součet kroků: kroky v `parallel` běží
-současně a čas i cena `parallel`, `switch` a `call` už obsahují kroky
-uvnitř, proto Celkem není prostý součet sloupce. Řádek Celkem má i
-neúspěšný běh (dosavadní čas a cena). Od frameworku 0.2.4, čas od 0.2.5.
+The header shows the start as `YYYY-MM-DD HH:MM UTC`; numbers use a decimal
+point. The Status column is `✓` (succeeded), `failed`, `cancelled`, `skipped` or
+`failed, continuing` (`on_error: continue`).
 
-Při chybě je nadpis `— chyba`, hned pod ním blok **Chyba** s třídou,
-krokem a přesnou hláškou, a v tabulce kroků je vidět, kde běh skončil.
-Falešný běh (`--fake`) má pod hlavičkou řádek **Falešný běh** (od
-frameworku 0.2.2).
+The last row of the table, **Total**, has the time and cost of the run
+(`duration_s` and `cost_usd` in `run_finished`, the same numbers as in the
+header and `callback.json`) and, for a run with images, the note “of which
+images …”. The Total time is the time of the whole run, not the sum of the
+steps: steps in `parallel` run concurrently and the time and cost of
+`parallel`, `switch` and `call` already include the steps inside, so Total
+is not a plain sum of the column. A failed run has a Total row too (time
+and cost so far). Since framework 0.2.4, time since 0.2.5.
 
-`report.html` má stejný obsah plus rozbalitelné prompty a odpovědi
-(bez base64). Podobu HTML určí Fáze 2.
+On error the heading is `— failed`, right below it is an **Error** block
+with the class, the step and the exact message, and the steps table shows
+where the run ended. A fake run (`--fake`) has a **Fake run** line below
+the header (since framework 0.2.2).
+
+`report.html` has the same content plus expandable prompts and responses
+(without base64). The HTML layout is decided in Phase 2.
 
 ## Callback
 
-Posílá se **vždy**, jakmile běh dostal `run_id` — při úspěchu i chybě,
-i když `validate` selže až po vyzvednutí z fronty (D2, §5.1 bod 2).
-Požadavky odmítnuté hned webhookem (401, 422) `run_id` ani callback
-nemají ([webhook.md](webhook.md)). `POST` na `callback_url` z požadavku,
-tělo JSON:
+It is sent **always** once the run has a `run_id` — on success and on
+error, even when `validate` fails only after the run is taken from the
+queue (D2, §5.1 item 2). Requests rejected immediately by the webhook
+(401, 422) have neither a `run_id` nor a callback
+([webhook.md](webhook.md)). `POST` to the `callback_url` from the request,
+JSON body:
 
 ```json
 {
@@ -405,7 +423,7 @@ tělo JSON:
   "status": "succeeded",
   "outputs": {
     "caption": "…",
-    "hashtags": ["#kava", "#lumen"],
+    "hashtags": ["#coffee", "#lumen"],
     "image": "https://files.example.com/20260925-140311-ig-post-a1b2-3f9c1e7a0b5d4c2e8a6f1d9b7c3e5a0f/image.png"
   },
   "error": null,
@@ -417,7 +435,7 @@ tělo JSON:
 }
 ```
 
-Při chybě:
+On error:
 
 ```json
 {
@@ -429,7 +447,7 @@ Při chybě:
   "error": {
     "class": "fail",
     "step": "stop",
-    "message": "Text neodpovídá značce (on_brand = 0.42)"
+    "message": "The text does not match the brand (on_brand = 0.42)"
   },
   "warnings": [],
   "cost_usd": 0.0016,
@@ -439,22 +457,23 @@ Při chybě:
 }
 ```
 
-| Pole | Co to je |
+| Field | What it is |
 |---|---|
 | `status` | `succeeded` / `failed` |
-| `outputs` | hodnoty podle `outputs` scénáře; `file` je nahrazen **URL** v úložišti. Při chybě `null`. |
-| `error` | `{class, step, message}` nebo `null`; `step` je cesta (`navrh/copy`) |
-| `warnings` | stejné jako v `run_finished` |
-| `report_url` | URL `report.html`; když nahrání záznamu selže, `null` a varování |
+| `outputs` | values according to the scenario's `outputs`; a `file` is replaced with a **URL** in storage. `null` on error. |
+| `error` | `{class, step, message}` or `null`; `step` is a path (`propose/copy`) |
+| `warnings` | the same as in `run_finished` |
+| `report_url` | URL of `report.html`; when uploading the record fails, `null` and a warning |
+| `sent_at` | send time — n8n can reject old messages |
 
-Adresy souborů mají tvar `<public_base_url>/<run_id>-<32 hex náhodných
-znaků>/<jméno>` — pro všechny soubory včetně `report.html` (DESIGN §5.2).
-Náhodná část vzniká při startu běhu a je jen v callbacku a v záznamu
-(`run_started.storage_prefix`), aby nikdo nenašel neschválené obrázky ani
-prompty zkoušením `run_id`.
-| `sent_at` | čas odeslání — n8n může odmítnout staré zprávy |
+File addresses have the form `<public_base_url>/<run_id>-<32 random hex
+characters>/<name>` — for all files including `report.html` (DESIGN §5.2).
+The random part is created at run start and is only in the callback and in
+the record (`run_started.storage_prefix`), so that nobody can find
+unapproved images or prompts by trying `run_id` values.
 
-Podpis (§5.2, **návrh** podoby): hlavička
-`X-Signature: sha256=<hex>`, kde `<hex>` = HMAC-SHA256 nad přesnými bajty
-těla s tajemstvím z `callback.secret_env`. Hlavička `X-Run-Id` nese
-`run_id`. n8n podpis ověří, než zprávě uvěří.
+Signature (§5.2, **proposal** of the shape): header
+`X-Signature: sha256=<hex>`, where `<hex>` = HMAC-SHA256 over the exact
+bytes of the body with the secret from `callback.secret_env`. The
+`X-Run-Id` header carries the `run_id`. n8n verifies the signature before
+trusting the message.

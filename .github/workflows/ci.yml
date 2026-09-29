@@ -49,5 +49,5 @@ jobs:
         run: |
           .smoke/bin/agencast new project "$RUNNER_TEMP/demo" --example showcase
           .smoke/bin/agencast --project "$RUNNER_TEMP/demo" validate ig-post --offline
-          .smoke/bin/agencast --project "$RUNNER_TEMP/demo" run ig-post -i tema=x --fake fake/ig-post.yaml
+          .smoke/bin/agencast --project "$RUNNER_TEMP/demo" run ig-post -i topic=x --fake fake/ig-post.yaml
       - run: unzip -l dist/*.whl | grep LICENSE

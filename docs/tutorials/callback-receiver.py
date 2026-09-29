@@ -1,12 +1,12 @@
-"""Místní přijímač callbacku z `agencast serve` (tutoriál, díl 7). Jen stdlib.
+"""Local callback receiver for `agencast serve` (tutorial, part 7). Stdlib only.
 
-    python3 docs/tutorials/callback-prijemac.py [port]      # výchozí 8799
+    python3 docs/tutorials/callback-receiver.py [port]      # default 8799
 
-Poslouchá na http://127.0.0.1:<port>/ (agencast dovolí http:// jen na 127.0.0.1),
-každý POST vypíše a ověří podpis podle docs/spec/run-record.md: hlavička
-`X-Signature: sha256=<hex>` = HMAC-SHA256 přesných bajtů těla s tajemstvím
-CALLBACK_SECRET. Tajemství se bere z prostředí, jinak z `.env` v kořeni
-repozitáře; nikdy se nevypisuje. Poslední tělo uloží do /tmp/posledni-callback.json.
+Listen on http://127.0.0.1:<port>/ (agencast allows http:// only on 127.0.0.1),
+print each POST and verify its signature as described in docs/spec/run-record.md:
+`X-Signature: sha256=<hex>` = HMAC-SHA256 of the exact body bytes with the
+CALLBACK_SECRET secret. Read the secret from the environment, otherwise from `.env`
+at the repository root; never print it. Save the latest body to /tmp/last-callback.json.
 """
 import hashlib
 import hmac
@@ -27,7 +27,7 @@ def secret() -> bytes:
             key, _, value = line.strip().removeprefix("export ").partition("=")
             if key.strip() == "CALLBACK_SECRET" and value.strip():
                 return value.strip().strip("\"'").encode()
-    sys.exit("chybí CALLBACK_SECRET (v prostředí ani v .env) — bez něj nejde ověřit podpis")
+    sys.exit("missing CALLBACK_SECRET (in the environment or .env) — required to verify the signature")
 
 
 SECRET = secret()
@@ -39,22 +39,22 @@ class Handler(BaseHTTPRequestHandler):
         expected = "sha256=" + hmac.new(SECRET, body, hashlib.sha256).hexdigest()
         ok = hmac.compare_digest(expected, self.headers.get("X-Signature") or "")
         print(f"POST {self.path}  X-Run-Id: {self.headers.get('X-Run-Id')}")
-        print("podpis: sedí" if ok else "podpis: NESEDÍ — zprávě nevěř")
+        print("signature: valid" if ok else "signature: INVALID — do not trust the message")
         try:
             print(json.dumps(json.loads(body), ensure_ascii=False, indent=2))
         except ValueError:
             print(body.decode(errors="replace"))
-        Path("/tmp/posledni-callback.json").write_bytes(body)
-        # n8n by zprávu s nesedícím podpisem odmítlo; 401 → agencast to zkusí znovu a pak zapíše callback_failed
+        Path("/tmp/last-callback.json").write_bytes(body)
+        # n8n would reject a message with an invalid signature; 401 → agencast retries, then records callback_failed
         self.send_response(200 if ok else 401)
         self.end_headers()
         sys.stdout.flush()
 
     def log_message(self, format, *args):
-        pass  # vlastní výpis výš
+        pass  # custom output above
 
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8799
-    print(f"čekám na callback na http://127.0.0.1:{port}/ (Ctrl+C = konec)", flush=True)
+    print(f"waiting for a callback at http://127.0.0.1:{port}/ (Ctrl+C to stop)", flush=True)
     HTTPServer(("127.0.0.1", port), Handler).serve_forever()

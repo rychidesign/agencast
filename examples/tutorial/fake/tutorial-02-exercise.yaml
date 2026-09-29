@@ -1,0 +1,8 @@
+# Scripted responses for tutorial-02-exercise (exercise solution from part 2).
+# A step with schema gets its response as json: {field: value}.
+propose:
+  - json:
+      names: ["Oatsy", "Frost Oat", "Frozen Field"]
+slogan:
+  - json:
+      slogan: "Ice cream that grows in the field"

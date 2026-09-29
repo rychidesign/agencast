@@ -1,14 +1,14 @@
-"""Výrazy a šablony `{{ }}` (scenario.md §5, DESIGN D1c).
+"""Expressions and templates `{{ }}` (scenario.md §5, DESIGN D1c).
 
-Vlastní evaluátor nad `ast` (spike (c)): whitelist uzlů, žádné getattr ani
-eval. Tečka i `[]` jen čtou klíč/prvek. Přísné typy: bool není číslo,
-porovnání napříč typy je chyba (kromě `== null`), `and/or/not` jen nad bool.
+Custom evaluator over `ast` (spike (c)): node whitelist, no getattr or
+eval. Dot access and `[]` only read keys/items. Strict types: bool is not a number,
+comparing different types is an error (except `== null`), `and/or/not` require bool.
 
-Stejná typová pravidla (`*_rule`) používá běh (nad hodnotami) i `validate`
-(nad typy známými předem, `infer`).
+The same type rules (`*_rule`) are used at runtime (on values) and by `validate`
+(on types known in advance, `infer`).
 
-Statický typ: None = neznámý; text = druh (`"string"`, `"number"`, …);
-dict = objekt se známými klíči; `[t]` = seznam prvků typu t.
+Static type: None = unknown; text = kind (`"string"`, `"number"`, …);
+dict = object with known keys; `[t]` = list of items of type t.
 """
 import ast
 import json
@@ -18,9 +18,9 @@ import re
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-MAX_LEN = 2000        # znaků výrazu, kontrola před parserem
-MAX_DEPTH = 100       # hloubka AST, kontrola před vyhodnocením
-MAX_SIZE = 100_000    # znaků textu / prvků seznamu ve výsledku
+MAX_LEN = 2000        # expression characters, checked before parsing
+MAX_DEPTH = 100       # AST depth, checked before evaluation
+MAX_SIZE = 100_000    # text characters / list items in the result
 LITERALS = {"true": True, "false": False, "null": None}
 ROOTS = ("inputs", "steps")
 FUNCS = ("len", "min", "max", "round", "str", "int", "float", "join")
@@ -36,12 +36,12 @@ TEMPLATE_RE = re.compile(r"\{\{(.*?)\}\}", re.S)
 
 @dataclass(frozen=True)
 class FileRef:
-    """Hodnota typu `file`: cesta relativně ke složce běhu (scenario.md Typ file)."""
+    """Value of type `file`: path relative to the run directory (scenario.md File type)."""
     path: str
 
 
 class ExprError(Exception):
-    """Chyba výrazu/šablony; `text` + `col` = řádek se stříškou."""
+    """Expression/template error; `text` + `col` = line with a caret."""
 
     def __init__(self, msg: str, col: int | None = None, text: str | None = None):
         super().__init__(msg)
@@ -53,7 +53,7 @@ class ExprError(Exception):
         return f"{self.msg}\n  {self.text}\n  {' ' * self.col}^"
 
 
-# --- typy a převod na text --------------------------------------------------
+# --- types and text conversion --------------------------------------------------
 
 def kind(v) -> str:
     if v is None:
@@ -68,7 +68,7 @@ def kind(v) -> str:
 
 
 def tkind(t) -> str | None:
-    """Druh statického typu."""
+    """Static type kind."""
     if isinstance(t, dict):
         return "object"
     if isinstance(t, list):
@@ -81,7 +81,7 @@ def to_json(v):
 
 
 def to_text(v) -> str:
-    """Stejný text jako `str()` ve výrazu i šablona v textu (§5)."""
+    """Same text as `str()` in an expression or a template within text (§5)."""
     if isinstance(v, str):
         return v
     if isinstance(v, FileRef):
@@ -93,49 +93,49 @@ def to_text(v) -> str:
 
 def _check_result(v):
     if isinstance(v, float) and not math.isfinite(v):
-        raise ExprError("výsledek není konečné číslo (nan nebo nekonečno)")
+        raise ExprError("result is not a finite number (nan or infinity)")
     if isinstance(v, (str, list)) and len(v) > MAX_SIZE:
-        raise ExprError(f"výsledek má {len(v)} znaků/prvků, nejvýš {MAX_SIZE}")
+        raise ExprError(f"result has {len(v)} characters/items, maximum {MAX_SIZE}")
     return v
 
 
-# --- typová pravidla (sdílí běh i validate; None = typ neznámý) --------------
+# --- type rules (shared by runtime and validate; None = unknown type) --------------
 
 def arith_rule(sym: str, a, b):
     if sym != "+":
         for k in (a, b):
             if k and k != "number":
-                raise ExprError(f"'{sym}' chce čísla, dostal {k}")
+                raise ExprError(f"'{sym}' requires numbers, got {k}")
         return "number"
     if a and b:
         if a == b and a in ("number", "string", "list"):
             return a
-        hint = " — převeď výslovně, např. str(x)" if {a, b} == {"string", "number"} else ""
-        raise ExprError(f"nelze {a} + {b}{hint}")
+        hint = " — convert explicitly, e.g. str(x)" if {a, b} == {"string", "number"} else ""
+        raise ExprError(f"cannot add {a} + {b}{hint}")
     k = a or b
     if k and k not in ("number", "string", "list"):
-        raise ExprError(f"'+' nejde použít na {k}")
+        raise ExprError(f"'+' cannot be used on {k}")
     return None
 
 
 def compare_rule(op: str, a, b):
     if op in ("in", "not in"):
         if b and b not in ("list", "string", "object"):
-            raise ExprError(f"'in' chce vpravo list, string nebo object, dostal {b}")
+            raise ExprError(f"'in' requires a list, string or object on the right, got {b}")
         if a and b in ("string", "object") and a != "string":
-            raise ExprError(f"'in' nad {b} chce vlevo string, dostal {a}")
+            raise ExprError(f"'in' on {b} requires a string on the left, got {a}")
         return
     if a and b and a != b and "null" not in (a, b):
-        raise ExprError(f"porovnání {a} s {b} — převeď typ výslovně (float(), str())")
+        raise ExprError(f"comparing {a} with {b} — convert the type explicitly (float(), str())")
     if op not in ("==", "!="):
         for k in (a, b):
             if k and k not in ("number", "string"):
-                raise ExprError(f"'{op}' umí jen čísla nebo texty, dostal {k}")
+                raise ExprError(f"'{op}' only supports numbers or strings, got {k}")
 
 
 def bool_rule(op: str, k):
     if k and k != "boolean":
-        raise ExprError(f"'{op}' chce true/false, dostal {k} — porovnej výslovně (např. len(x) > 0)")
+        raise ExprError(f"'{op}' requires true/false, got {k} — compare explicitly (e.g. len(x) > 0)")
 
 
 def func_rule(name: str, kinds: list):
@@ -143,11 +143,11 @@ def func_rule(name: str, kinds: list):
 
     def need(*counts):
         if n not in counts:
-            raise ExprError(f"{name}() chce {' nebo '.join(map(str, counts))} argument(y), dostal {n}")
+            raise ExprError(f"{name}() requires {' or '.join(map(str, counts))} argument(s), got {n}")
 
     def allow(k, allowed):
         if k and k not in allowed:
-            raise ExprError(f"{name}() nepřijímá {k} (jen {', '.join(allowed)})")
+            raise ExprError(f"{name}() does not accept {k} (only {', '.join(allowed)})")
 
     match name:
         case "len":
@@ -155,7 +155,7 @@ def func_rule(name: str, kinds: list):
             allow(kinds[0], ("string", "list", "object"))
         case "min" | "max":
             if n == 0:
-                raise ExprError(f"{name}() chce aspoň jeden argument")
+                raise ExprError(f"{name}() requires at least one argument")
             for k in kinds:
                 allow(k, ("number", "list") if n == 1 else ("number",))
         case "round":
@@ -178,13 +178,13 @@ def func_rule(name: str, kinds: list):
 
 def _round(x, nd):
     if nd is not None and not float(nd).is_integer():
-        raise ExprError("round(): počet míst musí být celé číslo")
+        raise ExprError("round(): number of decimal places must be an integer")
     d = Decimal(repr(x))
     try:
         if nd is None:
             return int(d.quantize(Decimal(1), ROUND_HALF_UP))
         r = d.quantize(Decimal(1).scaleb(-int(nd)), ROUND_HALF_UP)
-    except InvalidOperation:  # číslo má víc číslic, než se zaokrouhluje
+    except InvalidOperation:  # number has more digits than the rounding precision
         return x
     return int(r) if isinstance(x, int) else float(r)
 
@@ -198,10 +198,10 @@ def call_func(name: str, args: list):
         case "min" | "max":
             vals = a if isinstance(a, list) else args
             if not vals:
-                raise ExprError(f"{name}() z prázdného seznamu")
+                raise ExprError(f"{name}() on an empty list")
             for i, x in enumerate(vals):
                 if kind(x) != "number":
-                    raise ExprError(f"{name}(): prvek [{i}] je {kind(x)}, ne number")
+                    raise ExprError(f"{name}(): item [{i}] is {kind(x)}, not number")
             return (min if name == "min" else max)(vals)
         case "round":
             return _round(a, args[1] if len(args) == 2 else None)
@@ -210,51 +210,51 @@ def call_func(name: str, args: list):
         case "int":
             if isinstance(a, str):
                 if not _INT_RE.fullmatch(a):
-                    raise ExprError(f"int({to_json(a)}): text není celé číslo")
+                    raise ExprError(f"int({to_json(a)}): string is not an integer")
                 return int(a)
             _check_result(a)
             return int(a)
         case "float":
             if isinstance(a, str) and not _FLOAT_RE.fullmatch(a):
-                raise ExprError(f"float({to_json(a)}): text není číslo")
+                raise ExprError(f"float({to_json(a)}): string is not a number")
             return _check_result(float(a))
         case "join":
             for i, x in enumerate(a):
                 if not isinstance(x, str):
-                    raise ExprError(f"join(): prvek [{i}] je {kind(x)}, ne string")
+                    raise ExprError(f"join(): item [{i}] is {kind(x)}, not string")
             return _check_result(args[1].join(a))
 
 
-# --- čtení výrazu -----------------------------------------------------------
+# --- expression parsing -----------------------------------------------------------
 
 def _src(expr: str) -> str:
-    """Výraz na jeden řádek bez okrajových mezer (YAML `>-`, `{{ x }}`)."""
+    """Expression on one line without surrounding whitespace (YAML `>-`, `{{ x }}`)."""
     return expr.replace("\n", " ").strip()
 
 
 def _col(text: str, byte_offset: int) -> int:
-    """ast dává pozici v bajtech UTF-8, stříška potřebuje znaky."""
+    """ast gives offsets in UTF-8 bytes; the caret needs characters."""
     return len(text.encode()[:byte_offset].decode(errors="ignore"))
 
 
 def parse(expr: str) -> ast.expr:
-    """Syntaxe, limity a zakázané konstrukce. Chyba = ExprError se stříškou."""
+    """Syntax, limits and forbidden constructs. Error = ExprError with a caret."""
     if len(expr) > MAX_LEN:
-        raise ExprError(f"výraz má {len(expr)} znaků, nejvýš {MAX_LEN}")
+        raise ExprError(f"expression has {len(expr)} characters, maximum {MAX_LEN}")
     src = _src(expr)
     try:
         tree = ast.parse(src, mode="eval").body
     except SyntaxError as e:
         eof = not e.offset or e.offset > len(src)
-        msg = "neočekávaný konec výrazu" if eof else f"chyba syntaxe ({e.msg})"
+        msg = "unexpected end of expression" if eof else f"syntax error ({e.msg})"
         raise ExprError(msg, len(src) if eof else e.offset - 1, src) from None
     except (RecursionError, MemoryError):
-        raise ExprError("výraz je příliš hluboko vnořený", None, src) from None
+        raise ExprError("expression is nested too deeply", None, src) from None
     stack = [(tree, 1)]
     while stack:
         node, depth = stack.pop()
         if depth > MAX_DEPTH:
-            raise ExprError(f"vnoření hlubší než {MAX_DEPTH}", _col(src, getattr(node, "col_offset", 0)), src)
+            raise ExprError(f"nesting deeper than {MAX_DEPTH}", _col(src, getattr(node, "col_offset", 0)), src)
         stack.extend((c, depth + 1) for c in ast.iter_child_nodes(node))
     _whitelist(tree, src)
     return tree
@@ -267,75 +267,75 @@ def _whitelist(n, src):
     match n:
         case ast.Constant(value=v):
             if v is None or isinstance(v, bool):
-                bad(f"neznámé jméno '{v}' — literály se píšou true, false, null")
+                bad(f"unknown name '{v}' — literals are written as true, false, null")
             if type(v) not in (int, float, str):
-                bad("tento zápis není ve výrazech povolený")
+                bad("this syntax is not allowed in expressions")
             if isinstance(v, float) and not math.isfinite(v):
-                bad("číslo je mimo rozsah")
+                bad("number is out of range")
             return
         case ast.Name(id=name):
             if name == "item":
-                bad("'item' je vyhrazené pro budoucí foreach, ve v1 neexistuje")
+                bad("'item' is reserved for future foreach, unavailable in v1")
             if name not in ROOTS and name not in LITERALS:
-                bad(f"neznámé jméno '{name}' (známá jména: inputs, steps, true, false, null)")
+                bad(f"unknown name '{name}' (known names: inputs, steps, true, false, null)")
             return
         case ast.Attribute(attr=attr):
             if attr.startswith("__"):
-                bad("atributy a dunder (__x__) nejsou povolené")
+                bad("attributes and dunder (__x__) are not allowed")
         case ast.Subscript(slice=ast.Slice()):
-            bad("řezy (x[1:3]) nejsou povolené")
+            bad("slices (x[1:3]) are not allowed")
         case ast.Subscript() | ast.List() | ast.BoolOp():
             pass
         case ast.UnaryOp(op=op):
             if not isinstance(op, (ast.Not, ast.USub, ast.UAdd)):
-                bad("tento operátor není povolený")
+                bad("this operator is not allowed")
         case ast.BinOp(op=op):
             if isinstance(op, ast.Pow):
-                bad("mocnina ** není povolená")
+                bad("exponentiation ** is not allowed")
             if isinstance(op, ast.FloorDiv):
-                bad("celočíselné dělení // není povolené — použij int(a / b)")
+                bad("integer division // is not allowed — use int(a / b)")
             if type(op) not in _ARITH:
-                bad("tento operátor není povolený")
+                bad("this operator is not allowed")
         case ast.Compare(ops=ops):
             for op in ops:
                 if isinstance(op, (ast.Is, ast.IsNot)):
-                    bad("'is' není povolené — napiš == null")
+                    bad("'is' is not allowed — write == null")
         case ast.Call(func=ast.Name(id=name), args=args, keywords=kws):
             if name not in FUNCS:
-                bad(f"funkce '{name}' není povolená (povolené: {', '.join(FUNCS)})")
+                bad(f"function '{name}' is not allowed (allowed: {', '.join(FUNCS)})")
             if kws or any(isinstance(a, ast.Starred) for a in args):
-                bad("pojmenované argumenty a *args nejsou povolené")
+                bad("keyword arguments and *args are not allowed")
             for a in args:
                 _whitelist(a, src)
             return
         case ast.Call(func=ast.Attribute()):
-            bad("volání metod není povolené")
+            bad("method calls are not allowed")
         case ast.Call(func=f):
             _whitelist(f, src)
-            bad("volat jde jen povolené funkce jménem")
+            bad("only whitelisted functions can be called by name")
         case ast.IfExp():
-            bad("podmínka 'x if c else y' není povolená")
+            bad("conditional 'x if c else y' is not allowed")
         case ast.Lambda():
-            bad("lambda není povolená")
+            bad("lambda is not allowed")
         case ast.ListComp() | ast.SetComp() | ast.DictComp() | ast.GeneratorExp():
-            bad("comprehension ([x for x in …]) není povolená")
+            bad("comprehension ([x for x in …]) is not allowed")
         case ast.NamedExpr():
-            bad("přiřazení := není povolené")
+            bad("assignment := is not allowed")
         case ast.JoinedStr():
-            bad("f-řetězce nejsou povolené")
+            bad("f-strings are not allowed")
         case ast.Dict():
-            bad("objektový literál {…} není povolený")
+            bad("object literal {…} is not allowed")
         case ast.Tuple():
-            bad("n-tice nejsou povolené")
+            bad("tuples are not allowed")
         case _:
-            bad(f"konstrukce '{type(n).__name__}' není ve výrazech povolená")
+            bad(f"construct '{type(n).__name__}' is not allowed in expressions")
     for c in ast.iter_child_nodes(n):
         if not isinstance(c, (ast.expr_context, ast.boolop, ast.operator, ast.unaryop, ast.cmpop)):
             _whitelist(c, src)
 
 
 def parse_path(expr: str) -> ast.expr:
-    """Obsah `{{ }}`: jen cesta k hodnotě (scenario.md §5 Šablony)."""
+    """Contents of `{{ }}`: only a path to a value (scenario.md §5 Templates)."""
     tree = parse(expr)
     src = _src(expr)
     n = tree
@@ -349,12 +349,12 @@ def parse_path(expr: str) -> ast.expr:
                     ast.Subscript(value=v, slice=ast.UnaryOp(op=ast.USub(), operand=ast.Constant(value=int()))):
                 n = v
             case _:
-                raise ExprError("v šabloně smí být jen cesta k hodnotě, např. {{ steps.copy.caption }}"
-                                " — výpočet patří do kroku set", _col(src, n.col_offset), src)
+                raise ExprError("a template may only contain a path to a value, e.g. {{ steps.copy.caption }}"
+                                " — calculations belong in a set step", _col(src, n.col_offset), src)
 
 
 def path_step(tree) -> str | None:
-    """Id kroku, na který cesta `steps.<id>…` ukazuje."""
+    """ID of the step referenced by the path `steps.<id>…`."""
     chain = []
     while isinstance(tree, (ast.Attribute, ast.Subscript)):
         chain.append(tree)
@@ -368,14 +368,14 @@ def path_step(tree) -> str | None:
     return None
 
 
-# --- vyhodnocení ------------------------------------------------------------
+# --- evaluation ------------------------------------------------------------
 
 class _Walk:
     def __init__(self, src):
         self.src = src
 
     def at(self, node, fn, *args, end_len: int | None = None):
-        """Zavolá pravidlo; chybě doplní pozici uzlu."""
+        """Call a rule; add the node position to any error."""
         try:
             return fn(*args)
         except ExprError as e:
@@ -414,12 +414,12 @@ class _Eval(_Walk):
                     return self.key(obj, i, base, n, None)
                 if isinstance(obj, list):
                     if kind(i) != "number" or not float(i).is_integer():
-                        raise self.err(f"index seznamu musí být celé číslo, dostal {kind(i)}", idx)
+                        raise self.err(f"list index must be an integer, got {kind(i)}", idx)
                     i = int(i)
                     if -len(obj) <= i < len(obj):
                         return obj[i]
-                    raise self.err(f"index {i} mimo rozsah '{ast.unparse(base)}' (délka {len(obj)})", idx)
-                raise self.err(f"'{ast.unparse(base)}' je {kind(obj)} — indexovat jde jen list nebo object", n)
+                    raise self.err(f"index {i} out of range for '{ast.unparse(base)}' (length {len(obj)})", idx)
+                raise self.err(f"'{ast.unparse(base)}' is {kind(obj)} — only list or object can be indexed", n)
             case ast.List(elts=elts):
                 return self.at(n, _check_result, [self.ev(e) for e in elts])
             case ast.BoolOp(op=op, values=vals):
@@ -437,14 +437,14 @@ class _Eval(_Walk):
             case ast.UnaryOp(op=op, operand=x):
                 v = self.ev(x)
                 if kind(v) != "number":
-                    raise self.err(f"znaménko chce number, dostal {kind(v)}", x)
+                    raise self.err(f"unary sign requires number, got {kind(v)}", x)
                 return -v if isinstance(op, ast.USub) else v
             case ast.BinOp(left=l, op=op, right=r):
                 a, b = self.ev(l), self.ev(r)
                 sym = _ARITH[type(op)]
                 self.at(r, arith_rule, sym, kind(a), kind(b))
                 if sym in ("/", "%") and b == 0:
-                    raise self.err("dělení nulou", r)
+                    raise self.err("division by zero", r)
                 return self.at(n, _check_result, _OPS[sym](a, b))
             case ast.Compare(left=l, ops=ops, comparators=rs):
                 a = self.ev(l)
@@ -457,16 +457,16 @@ class _Eval(_Walk):
             case ast.Call(func=ast.Name(id=name), args=args):
                 vals = [self.ev(a) for a in args]
                 return self.at(n, call_func, name, vals)
-        raise self.err(f"konstrukce '{type(n).__name__}' není povolená", n)  # parse() to nepustí
+        raise self.err(f"construct '{type(n).__name__}' is not allowed", n)  # parse() rejects this
 
     def key(self, obj, key, base, n, end_len):
         where = ast.unparse(base)
         if not isinstance(obj, dict):
-            raise self.err(f"'{where}' je {kind(obj)}, ne object — nemá klíč '{key}'", n, end_len)
+            raise self.err(f"'{where}' is {kind(obj)}, not object — has no key '{key}'", n, end_len)
         if not isinstance(key, str):
-            raise self.err(f"klíč objektu musí být text, dostal {kind(key)}", n, end_len)
+            raise self.err(f"object key must be a string, got {kind(key)}", n, end_len)
         if key not in obj:
-            raise self.err(f"'{where}' nemá klíč '{key}' (dostupné: {', '.join(map(str, obj)) or '—'})", n, end_len)
+            raise self.err(f"'{where}' has no key '{key}' (available: {', '.join(map(str, obj)) or '—'})", n, end_len)
         return obj[key]
 
     def compare(self, op, a, b, rn):
@@ -476,7 +476,7 @@ class _Eval(_Walk):
                 if isinstance(b, list):
                     for i, x in enumerate(b):
                         if kind(x) != kind(a):
-                            raise self.err(f"'in': prvek [{i}] je {kind(x)}, hledaná hodnota je {kind(a)}", rn)
+                            raise self.err(f"'in': item [{i}] is {kind(x)}, searched value is {kind(a)}", rn)
                 return (a in b) is (op == "in")
             case "==":
                 return a == b and kind(a) == kind(b)
@@ -486,14 +486,14 @@ class _Eval(_Walk):
 
 
 def evaluate(expr: str, ctx: dict, tree=None):
-    """Vyhodnotí výraz nad `{"inputs": …, "steps": …}`. Chyba = ExprError."""
+    """Evaluate an expression over `{"inputs": …, "steps": …}`. Error = ExprError."""
     tree = tree or parse(expr)
     return _Eval(_src(expr), ctx).ev(tree)
 
 
-# --- statická kontrola (validate) --------------------------------------------
+# --- static checking (validate) --------------------------------------------
 
-STEPS = object()  # typ jména `steps`: klíče řeší resolve_step
+STEPS = object()  # type of the name `steps`: resolve_step handles keys
 
 
 class _Infer(_Walk):
@@ -525,7 +525,7 @@ class _Infer(_Walk):
                     return None
                 if t in (None, "object") or isinstance(t, dict):
                     return None
-                raise self.err(f"'{ast.unparse(base)}' je {tkind(t)} — indexovat jde jen list nebo object", n)
+                raise self.err(f"'{ast.unparse(base)}' is {tkind(t)} — only list or object can be indexed", n)
             case ast.List(elts=elts):
                 ts = {repr(self.ty(e)) for e in elts}
                 return [self.ty(elts[0])] if len(ts) == 1 else [None]
@@ -539,7 +539,7 @@ class _Infer(_Walk):
             case ast.UnaryOp(operand=x):
                 k = tkind(self.ty(x))
                 if k and k != "number":
-                    raise self.err(f"znaménko chce number, dostal {k}", x)
+                    raise self.err(f"unary sign requires number, got {k}", x)
                 return "number"
             case ast.BinOp(left=l, op=op, right=r):
                 a, b = self.ty(l), self.ty(r)
@@ -550,7 +550,7 @@ class _Infer(_Walk):
                     b = self.ty(rn)
                     self.at(rn, compare_rule, _CMP[type(op)], tkind(a), tkind(b))
                     if isinstance(b, list) and tkind(b[0]) and tkind(a) and tkind(b[0]) != tkind(a):
-                        raise self.err(f"'in': prvky seznamu jsou {tkind(b[0])}, hledaná hodnota je {tkind(a)}", rn)
+                        raise self.err(f"'in': list items are {tkind(b[0])}, searched value is {tkind(a)}", rn)
                     a = b
                 return "boolean"
             case ast.Call(func=ast.Name(id=name), args=args):
@@ -559,13 +559,13 @@ class _Infer(_Walk):
                 if name in ("join", "min", "max") and ts and isinstance(ts[0], list) and tkind(ts[0][0]):
                     want = "string" if name == "join" else "number"
                     if tkind(ts[0][0]) != want:
-                        raise self.err(f"{name}() chce seznam {want}, dostal seznam {tkind(ts[0][0])}", args[0])
+                        raise self.err(f"{name}() requires a list of {want}, got a list of {tkind(ts[0][0])}", args[0])
                 return r
         return None
 
     def need_index(self, it, idx):
         if tkind(it) and tkind(it) != "number":
-            raise self.err(f"index seznamu musí být číslo, dostal {tkind(it)}", idx)
+            raise self.err(f"list index must be a number, got {tkind(it)}", idx)
 
     def key(self, t, key, base, n, end_len):
         if t is STEPS:
@@ -575,42 +575,42 @@ class _Infer(_Walk):
                 raise self.err(e.msg, n, end_len) from None
         if isinstance(t, dict):
             if key not in t:
-                raise self.err(f"'{ast.unparse(base)}' nemá klíč '{key}' (dostupné: {', '.join(t) or '—'})", n, end_len)
+                raise self.err(f"'{ast.unparse(base)}' has no key '{key}' (available: {', '.join(t) or '—'})", n, end_len)
             return t[key]
         k = tkind(t)
         if k and k != "object":
-            raise self.err(f"'{ast.unparse(base)}' je {k}, ne object — nemá klíč '{key}'", n, end_len)
+            raise self.err(f"'{ast.unparse(base)}' is {k}, not object — has no key '{key}'", n, end_len)
         return None
 
 
 def infer(expr: str, inputs_type: dict, resolve_step, tree=None):
-    """Statický typ výrazu; chyby typů známých předem = ExprError."""
+    """Static expression type; errors in types known in advance = ExprError."""
     tree = tree or parse(expr)
     return _Infer(_src(expr), inputs_type, resolve_step).ty(tree)
 
 
-# --- šablony ------------------------------------------------------------------
+# --- templates ------------------------------------------------------------------
 
 def template_parts(s: str) -> list[tuple[int, int, str]]:
-    """(začátek, konec, výraz) každé `{{ }}`; neuzavřené `{{` je chyba."""
+    """(start, end, expression) of each `{{ }}`; unclosed `{{` is an error."""
     parts = [(m.start(), m.end(), m.group(1)) for m in TEMPLATE_RE.finditer(s)]
     rest = TEMPLATE_RE.sub("", s)
     if "{{" in rest:
         i = s.find("{{", parts[-1][1] if parts else 0)
-        raise ExprError("neuzavřená šablona '{{' (doslovné {{ ve v1 napsat nejde)", 0, s[i:i + 40])
+        raise ExprError("unclosed template '{{' (literal {{ cannot be written in v1)", 0, s[i:i + 40])
     return parts
 
 
 def _fragment_error(e: ExprError, s: str, start: int, end: int) -> ExprError:
-    """Stříška v chybě výrazu → pozice v `{{ … }}` (text kolem je u promptů víceřádkový)."""
+    """Expression error caret → position in `{{ … }}` (surrounding prompt text may span lines)."""
     inner = s[start + 2:end - 2]
     col = None if e.col is None else e.col + 2 + len(inner) - len(inner.lstrip())
     return ExprError(e.msg, col, s[start:end].replace("\n", " "))
 
 
 def render(s: str, ctx: dict, null_ok=lambda tree: False):
-    """Vyhodnotí šablonu. Celá hodnota = jedna šablona → hodnota se svým typem;
-    jinak text. `null` je chyba, pokud `null_ok(strom cesty)` neřekne jinak."""
+    """Evaluate a template. Entire value = one template → value with its type;
+    otherwise text. `null` is an error unless `null_ok(path tree)` says otherwise."""
     parts = template_parts(s)
     if not parts:
         return s
@@ -620,7 +620,7 @@ def render(s: str, ctx: dict, null_ok=lambda tree: False):
             tree = parse_path(expr)
             v = evaluate(expr, ctx, tree)
             if v is None and not null_ok(tree):
-                raise ExprError(f"'{expr.strip()}' je null — šablona null nevloží (výjimka: výslovný default)", 0)
+                raise ExprError(f"'{expr.strip()}' is null — a template cannot insert null (exception: explicit default)", 0)
         except ExprError as e:
             raise _fragment_error(e, s, start, end) from None
         if len(parts) == 1 and start == 0 and end == len(s):
@@ -631,7 +631,7 @@ def render(s: str, ctx: dict, null_ok=lambda tree: False):
 
 
 def template_type(s: str, inputs_type: dict, resolve_step):
-    """Statický typ šablony (validate). Text se šablonou uvnitř = string."""
+    """Static template type (validate). Text containing a template = string."""
     parts = template_parts(s)
     if not parts:
         return "string"
@@ -640,7 +640,7 @@ def template_type(s: str, inputs_type: dict, resolve_step):
             tree = parse_path(expr)
             t = infer(expr, inputs_type, resolve_step, tree)
             if t == "null":
-                raise ExprError(f"'{expr.strip()}' je vždy null — šablona null nevloží", 0)
+                raise ExprError(f"'{expr.strip()}' is always null — a template cannot insert null", 0)
         except ExprError as e:
             raise _fragment_error(e, s, start, end) from None
         if len(parts) == 1 and start == 0 and end == len(s):

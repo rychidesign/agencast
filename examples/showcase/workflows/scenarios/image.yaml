@@ -1,0 +1,20 @@
+version: 1
+name: image
+description: Generates an image for Lumen café with the prompt, aspect ratio and quality from the caller
+callable: true
+inputs:
+  prompt: { type: string, default: "A cup of coffee on a white table in Lumen café, no lettering or logos" }
+  aspect_ratio: { type: string, default: "1:1" }
+  quality: { type: string, default: medium }
+outputs:
+  image: { type: file }
+steps:
+  - id: photo
+    image:
+      model: gemini-image
+      prompt: "{{ inputs.prompt }}"
+      aspect_ratio: "{{ inputs.aspect_ratio }}"
+      quality: "{{ inputs.quality }}"
+  - id: out
+    output:
+      image: "{{ steps.photo.file }}"

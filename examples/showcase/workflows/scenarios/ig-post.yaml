@@ -1,91 +1,91 @@
 version: 1
 name: ig-post
-description: Návrh IG příspěvku ke schválení (část 1; publikaci dělá část 2 přes n8n)
+description: Draft IG post for approval (part 1; part 2 publishes it via n8n)
 
 inputs:
-  tema:
+  topic:
     type: string
     required: true
-    description: O čem má příspěvek být
+    description: What the post should be about
 
 outputs:
   caption:
     type: string
-    description: Text příspěvku
+    description: Post text
   hashtags:
     type: list
-    description: Hashtagy, každý začíná znakem mřížky
+    description: Hashtags, each starting with a hash sign
   image:
     type: file
-    description: Fotka k příspěvku — v callbacku jako URL
+    description: Photo for the post — a URL in the callback
 
-# Čísla kroků v komentářích sedí s tabulkou v summary.md záznamu běhu.
+# Step numbers in the comments match the table in the run record's summary.md.
 steps:
-  # 1. Copywriter napíše text, hashtagy a nápad na fotku.
+  # 1. The copywriter writes the text, hashtags and a photo idea.
   - id: copy
     ask:
       agent: copywriter
-      prompt: "Napiš IG příspěvek na téma: {{ inputs.tema }}"
+      prompt: "Write an IG post about: {{ inputs.topic }}"
       schema:
         caption: string
         hashtags: [string]
         image_idea: string
 
-  # 2. Jev zkontroluje, že text sedí na tón značky.
-  #    noul = míra „ano" od 0 do 1; 0.5 = Jev si není jistý.
-  - id: kontrola
+  # 2. Jev checks that the text matches the brand tone.
+  #    noul = degree of "yes" from 0 to 1; 0.5 = Jev is not sure.
+  - id: tone_check
     jev:
       state: "{{ steps.copy.caption }}"
       questions:
         on_brand:
           type: noul
           instructions: >-
-            Odpovídá text tónu kavárny Lumen — česky, krátce, přátelsky a věcně,
-            tyká, bez emoji a reklamních klišé?
+            Does the text match the tone of Lumen café — English, short, friendly and
+            matter-of-fact, talks to the reader directly, no emoji and no advertising clichés?
 
-  # 3. Když ne, běh skončí chybou a n8n pošle upozornění.
+  # 3. If not, the run ends with an error and n8n sends an alert.
   - id: stop
-    when: steps.kontrola.on_brand < 0.7
-    fail: "Text neodpovídá značce (on_brand = {{ steps.kontrola.on_brand }})"
+    when: steps.tone_check.on_brand < 0.7
+    fail: "The text does not match the brand (on_brand = {{ steps.tone_check.on_brand }})"
 
-  # 4. Fotograf z nápadu udělá přesný popis fotky pro generátor.
-  - id: foto_prompt
+  # 4. The photographer turns the idea into a precise photo description for the generator.
+  - id: photo_prompt
     ask:
       agent: photographer
       prompt: |
-        Text příspěvku: {{ steps.copy.caption }}
-        Nápad na fotku: {{ steps.copy.image_idea }}
+        Post text: {{ steps.copy.caption }}
+        Photo idea: {{ steps.copy.image_idea }}
       schema:
-        popis_fotky: string
+        photo_description: string
 
-  # 5. Poskytovatel sám nic neodmítne, proto popis fotky kontrolujeme my.
-  - id: kontrola_obrazku
+  # 5. The provider refuses nothing on its own, so we check the photo description ourselves.
+  - id: image_check
     jev:
-      state: "{{ steps.foto_prompt.popis_fotky }}"
+      state: "{{ steps.photo_prompt.photo_description }}"
       questions:
-        skutecna_osoba:
+        real_person:
           type: noul
-          instructions: Popisuje text konkrétní skutečnou nebo známou osobu?
-        cizi_znacka:
+          instructions: Does the text describe a specific real or well-known person?
+        other_brand:
           type: noul
-          instructions: Zmiňuje text logo nebo značku jiné firmy než Lumen?
+          instructions: Does the text mention a logo or brand of a company other than Lumen?
 
-  # 6. Když popis porušuje pravidla, běh skončí.
-  #    Přísnější práh než u tónu: raději zastavit.
-  - id: stop_obrazek
-    when: steps.kontrola_obrazku.skutecna_osoba > 0.5 or steps.kontrola_obrazku.cizi_znacka > 0.5
-    fail: "Popis fotky porušuje pravidla obsahu: {{ steps.foto_prompt.popis_fotky }}"
+  # 6. If the description breaks the rules, the run ends.
+  #    A stricter threshold than for the tone: better to stop.
+  - id: stop_image
+    when: steps.image_check.real_person > 0.5 or steps.image_check.other_brand > 0.5
+    fail: "The photo description breaks the content rules: {{ steps.photo_prompt.photo_description }}"
 
-  # 7. Vygeneruje se fotka ve formátu pro Instagram.
-  - id: foto
+  # 7. The photo is generated in the Instagram format.
+  - id: photo
     image:
       model: gemini-image
-      prompt: "{{ steps.foto_prompt.popis_fotky }}"
+      prompt: "{{ steps.photo_prompt.photo_description }}"
       aspect_ratio: "4:5"
 
-  # 8. Výsledek pro n8n: text, hashtagy a URL fotky ke schválení.
+  # 8. The result for n8n: text, hashtags and photo URL for approval.
   - id: out
     output:
       caption: "{{ steps.copy.caption }}"
       hashtags: "{{ steps.copy.hashtags }}"
-      image: "{{ steps.foto.file }}"
+      image: "{{ steps.photo.file }}"

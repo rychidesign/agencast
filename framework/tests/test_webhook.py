@@ -1,6 +1,6 @@
-"""Webhook server (webhook.md): 401/422 bez run_id, 202 + callback, idempotence
-request_key, fronta jeden po druhém, podpis HMAC, callback_failed. Server i
-přijímač callbacku běží lokálně ve vláknech, poskytovatel je falešný."""
+"""Webhook server (webhook.md): 401/422 without run_id, 202 + callback, request_key
+idempotency, sequential queue, HMAC signature, callback_failed. The server and
+callback receiver run locally in threads with a fake provider."""
 import hashlib
 import hmac
 import json
@@ -17,7 +17,7 @@ from agencast import api
 from agencast.server import Server, Webhook
 
 class Receiver:
-    """Lokální přijímač callbacku; `status` = co odpoví."""
+    """Local callback receiver; `status` = response status."""
 
     def __init__(self, status=200):
         self.status, self.got = status, []
@@ -36,27 +36,27 @@ class Receiver:
 
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
-        self.url = f"http://127.0.0.1:{self.srv.server_address[1]}/cb?resume=tajne"
+        self.url = f"http://127.0.0.1:{self.srv.server_address[1]}/cb?resume=secret"
 
     def wait(self, n=1, timeout=10.0):
         end = time.monotonic() + timeout
         while len(self.got) < n:
-            assert time.monotonic() < end, f"callback nepřišel ({len(self.got)} z {n})"
+            assert time.monotonic() < end, f"callback did not arrive ({len(self.got)} of {n})"
             time.sleep(0.02)
         return [json.loads(b) for _, b in self.got]
 
 
 def finished(hook, run_id, timeout=10.0):
-    """Běh je celý hotový včetně callbacku a jeho událostí — server maže záznam fronty až potom.
-    (Přijímač má callback dřív, než framework zapíše callback_sent: čekat jen na něj je souběh.)"""
+    """The run is fully finished, including its callback and events — only then does the server delete the queue entry.
+    (The receiver gets the callback before the framework records callback_sent: waiting only for it creates a race.)"""
     end = time.monotonic() + timeout
     while (hook.qdir / f"{run_id}.json").exists():
-        assert time.monotonic() < end, f"běh {run_id} nedoběhl"
+        assert time.monotonic() < end, f"run {run_id} did not finish"
         time.sleep(0.02)
 
 
 def hold(hook) -> threading.Event:
-    """Pracovní vlákno nezačne běh, dokud test nezavolá .set() — pořadí ve frontě bez spoléhání na časy."""
+    """The worker does not start a run until the test calls .set() — queue ordering without relying on timing."""
     gate, execute = threading.Event(), hook.execute
     hook.execute = lambda entry: (gate.wait(10), execute(entry))[1]
     return gate
@@ -93,7 +93,7 @@ def server(wf, env):
 
 
 def req(rcv, **kw):
-    return {"scenario": "kontrola-tonu", "inputs": {"text": "Ahoj, dáš kafe?"}, "callback_url": rcv.url, **kw}
+    return {"scenario": "tone-check", "inputs": {"text": "Hi, want some coffee?"}, "callback_url": rcv.url, **kw}
 
 
 def no_runs(wf):
@@ -102,35 +102,35 @@ def no_runs(wf):
         (runs / "_queue").glob("*.json"))
 
 
-# --- synchronní odmítnutí ------------------------------------------------------------------
+# --- synchronous rejection ------------------------------------------------------------------
 
 def test_401_without_or_with_wrong_token(wf, server):
     _, _, client = server()
     rcv = Receiver()
     r = client.post("/runs", json=req(rcv), headers={"Authorization": ""})
     assert r.status_code == 401 and "run_id" not in r.json()
-    assert client.post("/runs", json=req(rcv), headers={"Authorization": "Bearer spatny"}).status_code == 401
+    assert client.post("/runs", json=req(rcv), headers={"Authorization": "Bearer wrong"}).status_code == 401
     assert client.get("/runs/20260925-140311-ig-post-a1b2", headers={"Authorization": ""}).status_code == 401
     assert no_runs(wf) and rcv.got == []
 
 
 @pytest.mark.parametrize("body,msg", [
-    ({"scenario": "neexistuje"}, "neznámý scénář 'neexistuje'"),
-    ({"scenario": "../config"}, "scenario: chybí"),
+    ({"scenario": "nonexistent"}, "unknown scenario 'nonexistent'"),
+    ({"scenario": "../config"}, "scenario: missing"),
     ({"callback_url": None}, "callback_url"),
     ({"callback_url": "http://n8n.example.com/w"}, "callback_url"),
-    ({"inputs": {}}, "chybí povinný vstup 'text'"),
-    ({"inputs": {"text": 1}}, "vstup 'text' má být string"),
-    ({"inputs": {"text": "x", "navic": 1}}, "neznámý vstup 'navic'"),
-    ({"scenario": "rozbity"}, "neznámé jméno"),
-    ({"scenario": "soubor", "inputs": {"obr": "/etc/passwd"}}, "typu file"),
-    ({"tema": "x"}, "neznámé pole 'tema'"),
+    ({"inputs": {}}, "missing required input 'text'"),
+    ({"inputs": {"text": 1}}, "input 'text' must be string"),
+    ({"inputs": {"text": "x", "extra": 1}}, "unknown input 'extra'"),
+    ({"scenario": "broken"}, "unknown name"),
+    ({"scenario": "file", "inputs": {"image": "/etc/passwd"}}, "has type file"),
+    ({"topic": "x"}, "unknown field 'topic'"),
     ({"request_key": ""}, "request_key"),
 ])
 def test_422_without_run_id(wf, server, body, msg):
-    scenario(wf, "version: 1\nname: NAME\ndescription: x\nsteps: [{ id: a, set: { x: nic } }]\n", "rozbity")
-    scenario(wf, "version: 1\nname: NAME\ndescription: x\ninputs: { obr: { type: file, required: true } }\n"
-                 "steps: [{ id: a, set: { x: 1 } }]\n", "soubor")
+    scenario(wf, "version: 1\nname: NAME\ndescription: x\nsteps: [{ id: a, set: { x: missing } }]\n", "broken")
+    scenario(wf, "version: 1\nname: NAME\ndescription: x\ninputs: { image: { type: file, required: true } }\n"
+                 "steps: [{ id: a, set: { x: 1 } }]\n", "file")
     _, _, client = server()
     rcv = Receiver()
     r = client.post("/runs", json={k: v for k, v in {**req(rcv), **body}.items() if v is not None})
@@ -140,16 +140,16 @@ def test_422_without_run_id(wf, server, body, msg):
 
 
 def test_422_all_errors_at_once(wf, server):
-    """BUGS 9: neznámé pole i špatný vstup v jedné odpovědi."""
+    """BUGS 9: unknown field and invalid input in one response."""
     _, _, client = server()
-    r = client.post("/runs", json={**req(Receiver()), "priorita": 1, "inputs": {"text": 1}})
-    assert r.status_code == 422 and r.json()["details"][0].startswith("neznámé pole 'priorita'")
-    assert any("vstup 'text' má být string" in d for d in r.json()["details"]), r.json()
+    r = client.post("/runs", json={**req(Receiver()), "priority": 1, "inputs": {"text": 1}})
+    assert r.status_code == 422 and r.json()["details"][0].startswith("unknown field 'priority'")
+    assert any("input 'text' must be string" in d for d in r.json()["details"]), r.json()
 
 
 def test_422_not_json(wf, server):
     _, _, client = server()
-    assert client.post("/runs", content=b"{nic").json()["error"] == "tělo není platný JSON"
+    assert client.post("/runs", content=b"{missing").json()["error"] == "body is not valid JSON"
 
 
 # --- 202, callback, idempotence ------------------------------------------------------------------
@@ -167,15 +167,15 @@ def test_202_and_signed_callback(wf, server):
     assert headers["x-run-id"] == run_id
     assert headers["x-signature"] == "sha256=" + hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest()
     assert cb["run_id"] == run_id and cb["status"] == "succeeded" and cb["request_key"] == "n8n-1"
-    assert cb["outputs"] == {"on_brand": 0.5, "v_poradku": False}
+    assert cb["outputs"] == {"on_brand": 0.5, "passed": False}
     assert cb["report_url"].startswith("file://") and cb["report_url"].endswith("/report.html")
     d = hook.runs / run_id
     assert json.loads((d / "callback.json").read_text()) == cb
     sent = [json.loads(x) for x in (d / "events.jsonl").read_text().splitlines() if '"callback_sent"' in x]
-    assert sent[0]["url"].endswith("/cb") and "tajne" not in sent[0]["url"]  # z URL se loguje jen cesta bez query
+    assert sent[0]["url"].endswith("/cb") and "secret" not in sent[0]["url"]  # only the URL path is logged, without the query
     st = client.get(f"/runs/{run_id}").json()
     assert st["status"] == "succeeded" and st["callback_failed"] is False
-    assert client.get("/runs/20260925-140311-nic-a1b2").status_code == 404
+    assert client.get("/runs/20260925-140311-missing-a1b2").status_code == 404
 
 
 def test_request_key_is_idempotent_across_restart(wf, server):
@@ -184,13 +184,13 @@ def test_request_key_is_idempotent_across_restart(wf, server):
     first = client.post("/runs", json=req(rcv, request_key="n8n-4711")).json()
     again = client.post("/runs", json=req(rcv, request_key="n8n-4711"))
     assert again.status_code == 200 and again.json() == {"run_id": first["run_id"], "queue_position": None}
-    finished(hook, first["run_id"])  # jinak by nový server vzal nedokončený záznam fronty jako přerušený běh
-    _, _, client2 = server()  # restart: nový server nad stejnou složkou běhů
+    finished(hook, first["run_id"])  # otherwise the new server would treat the unfinished queue entry as an interrupted run
+    _, _, client2 = server()  # restart: new server using the same run directory
     third = client2.post("/runs", json=req(rcv, request_key="n8n-4711"))
     assert third.status_code == 200 and third.json()["run_id"] == first["run_id"]
     time.sleep(0.2)
     assert len(rcv.got) == 1
-    assert [p.name for p in (wf.parent / "runs").glob("*kontrola-tonu*")] == [first["run_id"]]
+    assert [p.name for p in (wf.parent / "runs").glob("*tone-check*")] == [first["run_id"]]
 
 
 def test_queue_runs_one_after_another(wf, server):
@@ -209,12 +209,12 @@ def test_queue_runs_one_after_another(wf, server):
             e = json.loads(line)
             if e["type"] == type_:
                 return e["ts"]
-    assert ts(a["run_id"], "callback_sent") <= ts(b["run_id"], "run_started")  # bez překryvu
+    assert ts(a["run_id"], "callback_sent") <= ts(b["run_id"], "run_started")  # no overlap
 
 
 def test_workers_run_in_parallel(wf, server):
-    """--workers 2: tři požadavky, dva běhy se časově překrývají, všechny callbacky dojdou."""
-    hook, _, client = server({"kontrola": {"sleep": 0.3}}, workers=2)
+    """--workers 2: three requests, two runs overlap, all callbacks arrive."""
+    hook, _, client = server({"check": {"sleep": 0.3}}, workers=2)
     gate, rcv = hold(hook), Receiver()
     ids = [client.post("/runs", json=req(rcv)).json()["run_id"] for _ in range(3)]
     assert len(set(ids)) == 3
@@ -227,19 +227,19 @@ def test_workers_run_in_parallel(wf, server):
         ev = [json.loads(x) for x in (hook.runs / run_id / "events.jsonl").read_text().splitlines()]
         spans.append((ev[0]["ts"], next(e["ts"] for e in ev if e["type"] == "run_finished")))
     spans.sort()
-    assert spans[1][0] < spans[0][1]  # druhý běh začal dřív, než první skončil
+    assert spans[1][0] < spans[0][1]  # the second run started before the first finished
 
 
 def test_validate_failing_after_dequeue_still_sends_callback(wf, server):
     hook, _, client = server()
     gate, rcv = hold(hook), Receiver()
     client.post("/runs", json=req(rcv))
-    b = client.post("/runs", json=req(rcv, scenario="ukazka-call", inputs={"tema": "káva"})).json()
-    (wf / "agents" / "copywriter.md").unlink()  # změna souborů, zatímco požadavek čeká ve frontě
+    b = client.post("/runs", json=req(rcv, scenario="demo-call", inputs={"topic": "coffee"})).json()
+    (wf / "agents" / "copywriter.md").unlink()  # files change while the request is queued
     gate.set()
     cb = rcv.wait(2)[1]
     assert cb["run_id"] == b["run_id"] and cb["status"] == "failed"
-    assert cb["error"]["class"] == "config" and "agent 'copywriter' neexistuje" in cb["error"]["message"]
+    assert cb["error"]["class"] == "config" and "agent 'copywriter' does not exist" in cb["error"]["message"]
 
 
 def test_callback_failed_after_three_attempts(wf, server):
@@ -248,7 +248,7 @@ def test_callback_failed_after_three_attempts(wf, server):
     run_id = client.post("/runs", json=req(rcv)).json()["run_id"]
     finished(hook, run_id)
     st = client.get(f"/runs/{run_id}").json()
-    assert st["status"] == "succeeded" and st["callback_failed"] is True  # stav běhu se nemění
+    assert st["status"] == "succeeded" and st["callback_failed"] is True  # run status is unchanged
     events = [json.loads(x) for x in (hook.runs / run_id / "events.jsonl").read_text().splitlines()]
     assert [e["attempt"] for e in events if e["type"] == "callback_sent"] == [1, 2, 3]
     assert events[-1]["type"] == "callback_failed" and events[-1]["attempts"] == 3
@@ -258,15 +258,15 @@ def test_queue_survives_restart(wf, env):
     rcv = Receiver()
     runs = wf.parent / "runs"
     (runs / "_queue").mkdir(parents=True)
-    waiting = {"run_id": "20260925-140000-kontrola-tonu-aaaa", "scenario": "kontrola-tonu",
+    waiting = {"run_id": "20260925-140000-tone-check-aaaa", "scenario": "tone-check",
                "inputs": {"text": "x"}, "callback_url": rcv.url, "request_key": None, "queued_ns": 1}
-    broken = {**waiting, "run_id": "20260925-135959-kontrola-tonu-bbbb", "queued_ns": 0}
+    broken = {**waiting, "run_id": "20260925-135959-tone-check-bbbb", "queued_ns": 0}
     interrupted = runs / broken["run_id"]
     interrupted.mkdir()
     prior = [
         {"ts": "2026-09-25T13:59:59.250Z", "type": "run_started", "run_id": broken["run_id"],
-         "scenario": "kontrola-tonu", "scenario_version": 1, "fake": True},
-        {"ts": "2026-09-25T13:59:59.500Z", "type": "step_started", "step": "kontrola", "kind": "jev"},
+         "scenario": "tone-check", "scenario_version": 1, "fake": True},
+        {"ts": "2026-09-25T13:59:59.500Z", "type": "step_started", "step": "check", "kind": "jev"},
     ]
     (interrupted / "events.jsonl").write_text("".join(json.dumps(e) + "\n" for e in prior))
     for e in (waiting, broken):
@@ -279,12 +279,12 @@ def test_queue_survives_restart(wf, env):
         srv.server_close()
     assert [c["run_id"] for c in cbs] == [broken["run_id"], waiting["run_id"]]
     assert cbs[0]["status"] == "failed" and cbs[0]["error"]["class"] == "internal"
-    assert cbs[0]["error"]["step"] == "kontrola"
+    assert cbs[0]["error"]["step"] == "check"
     events = [json.loads(x) for x in (interrupted / "events.jsonl").read_text().splitlines()]
     assert sum(e["type"] == "run_started" for e in events) == 1
     finished_event = next(e for e in events if e["type"] == "run_finished")
     assert finished_event["status"] == "failed" and finished_event["error"] == {
-        "class": "internal", "step": "kontrola", "message": "běh přerušen restartem serveru"}
+        "class": "internal", "step": "check", "message": "run interrupted by server restart"}
     detail = api.run_detail(wf.parent, broken["run_id"])
     assert detail["state"] == "interrupted" and detail["started_at"] == prior[0]["ts"]
     assert detail["steps"][0]["status"] == "interrupted"

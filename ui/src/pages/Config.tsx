@@ -1,6 +1,6 @@
-// §2.8 Config: formulář pro models, limits, storage, webhook, callback a openrouter.api_key_env
-// (`PUT …/config`, merge patch); YAML režim = config.yaml a mcp.yaml jako text (`files/`).
-// Proměnné prostředí jen ✓/✗, nikdy hodnota.
+// §2.8 Config: form for models, limits, storage, webhook, callback and openrouter.api_key_env
+// (`PUT …/config`, merge patch); YAML mode = config.yaml and mcp.yaml as text (`files/`).
+// Environment variables only as ✓/✗, never the value.
 import { CodeXml, Plus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { enc } from "../api";
@@ -17,7 +17,7 @@ import type { SectionHeader } from "./Project";
 
 type Obj = Record<string, unknown>;
 
-/** Část config.yaml, kterou `PUT …/config` smí měnit (api.md „Operace“). */
+/** The part of config.yaml that `PUT …/config` may change (api.md "Operations"). */
 export function configFields(data: unknown): Obj {
   const d: Obj = isObj(data) ? data : {};
   const out: Obj = {};
@@ -46,7 +46,7 @@ const Section = ({ title, children, action }: { title: string; children: ReactNo
 );
 
 export function ConfigTab({ name, project, header, onChanged }: { name: string; project?: Project; header: SectionHeader; onChanged?: () => void }) {
-  // Bez projektu (config neprošel, 422) rovnou text souboru.
+  // Without a project (the config did not pass, 422) straight to the file text.
   const [mode, setMode] = useState<"form" | "yaml">(project ? "form" : "yaml");
   const url = `/projects/${enc(name)}/config`;
   const form = useFileDraft<Obj>(name, mode === "form" ? "config.yaml" : null, {
@@ -131,7 +131,7 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
   );
 }
 
-/** Alias modelu podle config.schema.json (`kebab`): jako jméno agenta a scénáře, s pomlčkou. */
+/** Model alias per config.schema.json (`kebab`): like an agent or scenario name, with hyphens. */
 const KEBAB = /^[a-z][a-z0-9-]*$/;
 
 const LIMITS: [string, "usd" | "time" | "int"][] = [
@@ -166,7 +166,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
     const v = String(sub(section)[k] ?? "");
     return (
       <FormField label={label} errors={fe(`${section}.${k}`)} help={<EnvVar name={v} env={env} />}>
-        {(a) => <input {...a} className={`${inputCls} font-mono`} value={v} placeholder="JMENO_PROMENNE"
+        {(a) => <input {...a} className={`${inputCls} font-mono`} value={v} placeholder="VARIABLE_NAME"
           onChange={(e) => put(section, clean(sub(section), k, e.target.value))} />}
       </FormField>
     );

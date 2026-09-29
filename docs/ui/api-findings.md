@@ -1,248 +1,248 @@
-# Nálezy API pro GUI (ui/ část 1 čtecí verze, část 2 editace, část 3 API 0.7.0, část 4 API 0.8.0–0.9.0)
+# API findings for the GUI (ui/ part 1 read-only version, part 2 editing, part 3 API 0.7.0, part 4 API 0.8.0–0.9.0)
 
-Co GUI při stavbě čtecí verze (2026-09-26, agencast 0.6.0) od HTTP API
-`serve` postrádalo nebo dostalo v nevhodném tvaru (návrh GUI §7). Jádro se
-neměnilo; u každého bodu je, jak to GUI zatím obchází. Pořadí zhruba podle
-dopadu.
+What the GUI lacked, or got in an unsuitable shape, from the `serve` HTTP API while
+the read-only version was built (2026-09-26, agencast 0.6.0; GUI design §7). The core
+was not changed; each item says how the GUI works around it for now. Roughly in order
+of impact.
 
-1. **`GET /projects/<p>/runs` a `…/runs/<id>` — běžící a přerušený běh
-   nejdou odlišit.** `status: "běží nebo přerušen"` má i běh, jehož proces
-   dávno skončil (pád, restart `serve`). GUI ho ukazuje jako „běží“
-   a dotazuje se na něj navždy (detail 2 s → 5 s, seznam 5 s).
-   *Potřeba:* `running` jen u běhu, který drží živý worker, jinak
-   `interrupted` (nebo příznak).
-   **Stav (0.7.0):** hotovo — `state` v seznamu i detailu (`running` jen se zámkem `<run>/run.lock` drženým živým procesem, jinak `interrupted`); `status` je `běží` / `přerušen`.
+1. **`GET /projects/<p>/runs` and `…/runs/<id>` — a running run and an interrupted
+   run cannot be told apart.** the combined `status` text “running or interrupted” also applies to a run whose
+   process ended long ago (a crash, a `serve` restart). The GUI shows it as “running”
+   and keeps polling it forever (detail 2 s → 5 s, list 5 s).
+   *Needed:* `running` only for a run held by a live worker, otherwise
+   `interrupted` (or a flag).
+   **Resolved (0.7.0):** done — `state` in both the list and the detail (`running` only with `<run>/run.lock` held by a live process, otherwise `interrupted`); `status` is `running` / `interrupted`.
 
-2. **`GET /projects/<p>/runs/<id>` — kroky bez podrobností.** Položka
-   `steps` nemá `nn` ani složku kroku, chybovou hlášku, `continued`,
-   `default_used`, volání (alias → model, tokeny, `finish_reason`, úroveň
-   kaskády), nástroje ani odpovědi Jev. GUI proto stahuje celý
-   `…/files/events.jsonl` (při živém běhu při každém dotazu) a složku kroku
-   hledá v `files` vzorem `steps/\d+-<id>/` (u `call` vnořeně).
-   *Potřeba:* v `steps` aspoň `nn`/`dir`, `error {class, message}`,
-   `continued`, `default_used`, a souhrn volání; nebo
-   `GET …/runs/<id>/steps/<cesta>` s událostmi jednoho kroku.
-   **Stav (0.7.0):** hotovo — `steps` mají `nn`, `dir`, `error {class, message}`, `continued`, `default_used`, `reason`, `calls` (bez úrovně kaskády navíc: `structured_output` je v `calls`), u `task` `turns` a `tool_calls`, u `jev` `answers`; nový `GET …/runs/<id>/steps/<cesta>` (události, `output`, `files`). Chyba vnořeného kroku (`call`, větev) je u něj, ne u nadřazeného.
+2. **`GET /projects/<p>/runs/<id>` — steps without details.** The `steps` item
+   has no `nn` or step folder, no error message, `continued`,
+   `default_used`, calls (alias → model, tokens, `finish_reason`, cascade
+   level), tools or Jev answers. The GUI therefore downloads the whole
+   `…/files/events.jsonl` (on every poll of a live run) and looks for the step
+   folder in `files` with the pattern `steps/\d+-<id>/` (nested for `call`).
+   *Needed:* at least `nn`/`dir`, `error {class, message}`,
+   `continued`, `default_used` and a summary of calls in `steps`; or
+   `GET …/runs/<id>/steps/<path>` with the events of a single step.
+   **Resolved (0.7.0):** done — `steps` have `nn`, `dir`, `error {class, message}`, `continued`, `default_used`, `reason`, `calls` (no extra cascade level: `structured_output` is in `calls`), `turns` and `tool_calls` for `task`, `answers` for `jev`; new `GET …/runs/<id>/steps/<path>` (events, `output`, `files`). The error of a nested step (`call`, branch) is on that step, not on its parent.
 
-3. **`GET /projects/<p>` — scénáře bez typů kroků.** `IconChain` na kartě
-   scénáře (§2.2) potřebuje typy kroků hlavního seznamu; GUI kvůli tomu volá
-   `GET …/scenarios/<s>` pro každý scénář (u původní společné sady workflows 20 dotazů; dnes `examples/`
-   na jedno otevření projektu). *Potřeba:* `types` (typy kroků hlavního
-   seznamu v pořadí souboru) v položce `scenarios`.
-   **Stav (0.7.0):** hotovo — `types` v položkách `scenarios`.
+3. **`GET /projects/<p>` — scenarios without step types.** The `IconChain` on a
+   scenario card (§2.2) needs the step types of the main list; the GUI therefore calls
+   `GET …/scenarios/<s>` for every scenario (20 requests for the original shared workflows set; today `examples/`
+   on every project open). *Needed:* `types` (step types of the main
+   list, in file order) in the `scenarios` item.
+   **Resolved (0.7.0):** done — `types` in the `scenarios` items.
 
-4. **Rozbitý `config.yaml` → chyby jen jako texty a bez řádku.**
-   `GET /projects/<p>` vrací 422 s `details` (texty), `GET
-   …/files/config.yaml` vrací `errors: []`, takže YAML režim Configu nemůže
-   označit chybný řádek ani pole. Současně `…/runs` a `…/spend` vrací 422 —
-   staré běhy takového projektu nejdou číst. *Potřeba:* `errors` jako objekty
-   (`file`, `field`, `line`) i v `files/config.yaml` a v 422 odpovědích;
-   čtení běhů nezávislé na platném configu (stačí `runs_dir`).
-   **Stav (0.7.0):** hotovo — `files/config.yaml` a `mcp.yaml` vrací všechny chyby jako objekty (`line` jen u syntaxe a duplicitního klíče; u chyb schématu `field`); 422 z `GET /projects/<p>` má i `errors`; `…/runs`, `…/runs/<id>` a `…/spend` fungují s neplatným configem (`runs_dir`, jinak `./runs`).
+4. **Broken `config.yaml` → errors only as texts and without a line.**
+   `GET /projects/<p>` returns 422 with `details` (texts), `GET
+   …/files/config.yaml` returns `errors: []`, so the YAML mode of Config cannot
+   mark the faulty line or field. At the same time `…/runs` and `…/spend` return 422 —
+   the old runs of such a project cannot be read. *Needed:* `errors` as objects
+   (`file`, `field`, `line`) in `files/config.yaml` and in 422 responses too;
+   reading runs independent of a valid config (`runs_dir` is enough).
+   **Resolved (0.7.0):** done — `files/config.yaml` and `mcp.yaml` return all errors as objects (`line` only for syntax and duplicate keys; `field` for schema errors); the 422 from `GET /projects/<p>` also has `errors`; `…/runs`, `…/runs/<id>` and `…/spend` work with an invalid config (`runs_dir`, otherwise `./runs`).
 
-5. **`GET /projects/<p>/runs` — chybí údaje pro řádek seznamu (§2.6).**
-   Chybí `fake` (návrh ukazuje „falešný běh“; GUI ho umí jen v detailu
-   z `run_started`), `queue_position` u čekajících (GUI bere pořadí
-   v seznamu) a číslo běžícího kroku (návrh „krok 4/8“; GUI ukazuje
-   „krok foto_prompt (z 8)“). Dry-run má `scenario` a `started_at` `null`
-   (GUI je bere z `run_id`). *Potřeba:* `fake`, `queue_position`,
-   `current_nn` nebo počet dokončených kroků, u dry-runu `scenario`.
-   **Stav (0.7.0):** hotovo — `fake`, `queue_position` (u `queued`), `current_nn` a `steps_done` (u `running`), u dry-runu `scenario` a `started_at` z `run_id`.
+5. **`GET /projects/<p>/runs` — data for the list row is missing (§2.6).**
+   Missing are `fake` (the design shows “fake run”; the GUI can only get it in the detail
+   from `run_started`), `queue_position` for waiting runs (the GUI uses the order
+   in the list) and the number of the running step (the design shows “step 4/8”; the GUI shows
+   “step photo_prompt (of 8)”). A dry run has `scenario` and `started_at` set to `null`
+   (the GUI takes them from `run_id`). *Needed:* `fake`, `queue_position`,
+   `current_nn` or the number of finished steps, and `scenario` for a dry run.
+   **Resolved (0.7.0):** done — `fake`, `queue_position` (for `queued`), `current_nn` and `steps_done` (for `running`), and for a dry run `scenario` and `started_at` derived from `run_id`.
 
-6. **Seznam běhů bez filtru a stránkování.** Karta projektu i karta
-   scénáře (stavový čip posledního běhu) stahují celé `…/runs`; s počtem
-   běhů to poroste. *Potřeba:* `?scenario=&limit=`, nebo `last_run`
-   (stav + čas) přímo v položce `scenarios` a v `GET /projects`.
-   **Stav (0.7.0):** hotovo — `GET …/runs?scenario=&limit=` a `last_run {run_id, state, finished_at, cost_usd}` ve `scenarios` i v `GET /projects` (může to být i čekající běh nebo dry-run).
+6. **The run list has no filter and no pagination.** The project card and the scenario
+   card (status chip of the last run) download the whole `…/runs`; this will grow with the
+   number of runs. *Needed:* `?scenario=&limit=`, or `last_run`
+   (state + time) directly in the `scenarios` item and in `GET /projects`.
+   **Resolved (0.7.0):** done — `GET …/runs?scenario=&limit=` and `last_run {run_id, state, finished_at, cost_usd}` in `scenarios` and in `GET /projects` (it can also be a waiting run or a dry run).
 
-7. **`GET /projects` — chybí důvod nedostupnosti a cesta k registru.**
-   Karta nedostupného projektu ukazuje důvod; GUI ho získá jen dalším
-   `GET /projects/<p>` a přečte text 404. Nadpis „Registr
-   ~/.config/agencast/projects.yaml“ (§2.1) GUI ukázat nemůže.
-   *Potřeba:* `reason` u `available: false` a `registry` (cesta)
-   v odpovědi.
-   **Stav (0.7.0):** hotovo — `reason` u `available: false`, `registry` v odpovědi.
+7. **`GET /projects` — the reason for unavailability and the registry path are missing.**
+   The card of an unavailable project shows the reason; the GUI gets it only with another
+   `GET /projects/<p>` and reads the 404 text. The heading “Registry
+   ~/.config/agencast/projects.yaml” (§2.1) cannot be shown by the GUI.
+   *Needed:* `reason` for `available: false` and `registry` (the path)
+   in the response.
+   **Resolved (0.7.0):** done — `reason` for `available: false`, `registry` in the response.
 
-8. **`links.scenario_agent` bez id kroku.** Agent v §2.7 má „Používá:
-   ig-post (copy)“; GUI umí jen jména scénářů. *Potřeba:* trojice
-   `[scénář, krok, agent]` (nebo zvláštní pole).
-   **Stav (0.7.0):** hotovo aditivně — `links.scenario_step_agent` jako trojice `[scénář, krok, agent]`; `scenario_agent` beze změny (GUI část 1 ho čte).
+8. **`links.scenario_agent` without the step id.** An agent in §2.7 has “Used by:
+   ig-post (copy)”; the GUI only knows scenario names. *Needed:* a
+   `[scenario, step, agent]` triple (or a separate field).
+   **Resolved (0.7.0):** done additively — `links.scenario_step_agent` as a `[scenario, step, agent]` triple; `scenario_agent` unchanged (GUI part 1 reads it).
 
-9. **Detail běhu kreslí strom podle současného souboru scénáře.** API nevrací
-   strom kroků platný při běhu (`scenario_version` je jen číslo formátu), takže
-   po úpravě scénáře může detail starého běhu ukázat karty, které tehdy
-   neexistovaly (jako „nedošlo“), a kroky, které zmizely, vynechat.
-   *Potřeba:* strom kroků v `run_started` (nebo otisk `etag` scénáře, se
-   kterým běh začal).
+9. **The run detail draws the tree from the current scenario file.** The API does not return
+   the step tree that was valid during the run (`scenario_version` is just the format
+   number), so after a scenario edit the detail of an old run may show cards that did not
+   exist then (as “not reached”) and omit steps that have disappeared.
+   *Needed:* the step tree in `run_started` (or the `etag` fingerprint of the scenario
+   the run started with).
 
-   **Stav (0.7.0):** hotovo — snímek `<run>/scenario/<jméno>.yaml` (spouštěný i volané přes `call`); `GET …/runs/<id>` vrací `tree` (tvar `steps` z `…/scenarios/<s>`), `callees` a `tree_source` (`snapshot`, u starších běhů `current`). Místo stromu v `run_started` kopie souboru — stejný parser, žádný nový formát.
+   **Resolved (0.7.0):** done — a snapshot `<run>/scenario/<name>.yaml` (of the started scenario and of those called via `call`); `GET …/runs/<id>` returns `tree` (the shape of `steps` from `…/scenarios/<s>`), `callees` and `tree_source` (`snapshot`, `current` for older runs). Instead of a tree in `run_started`, a copy of the file — same parser, no new format.
 
-## Část 2 (editační verze)
+## Part 2 (editing version)
 
-Co chybělo při stavbě editoru (2026-09-26, agencast 0.6.0), ověřeno proti
-`agencast serve --fake`. Jádro se neměnilo; u bodu je, jak to GUI obchází.
+What was missing while the editor was built (2026-09-26, agencast 0.6.0), verified against
+`agencast serve --fake`. The core was not changed; each item says how the GUI works around it.
 
-10. **Přejmenování kroku, který někdo čte, nejde uložit.** Každá operace
-    se validuje zvlášť a nesmí přidat novou chybu: `PATCH …/steps/<a>`
-    s novým `id` rozbije odkazy čtenářů (422), úprava odkazů předem
-    odkazuje na neexistující id (422). Totéž smazání čteného kroku,
-    dokud čtenáři odkaz mají. *GUI:* přejmenování čteného kroku ve
-    formuláři nepustí a nabídne YAML režim; mazání varuje, že uložení
-    projde jen s upravenými čtenáři. *Potřeba:* `PATCH` s `rename_refs:
-    true` (přepíše `steps.<old>.` ve všech krocích), nebo dávka operací
-    validovaná jako celek (`POST …/scenarios/<s>/batch`).
-    **Stav (0.8.0):** `POST …/scenarios/<s>/batch` s operací `rename_step` (`rename_refs`, výchozí `true`); smazání čteného kroku + úprava čtenářů v jedné dávce. `PATCH` s `rename_refs` není — dávka to pokrývá.
+10. **Renaming a step that someone reads cannot be saved.** Every operation
+    is validated separately and must not add a new error: `PATCH …/steps/<a>`
+    with a new `id` breaks the readers' references (422), and fixing the references first
+    points to a nonexistent id (422). The same goes for deleting a read step
+    while its readers still reference it. *GUI:* the form does not allow renaming a read step
+    and offers YAML mode; deleting warns that saving
+    only succeeds with the readers updated. *Needed:* `PATCH` with `rename_refs:
+    true` (rewrites `steps.<old>.` in all steps), or a batch of operations
+    validated as a whole (`POST …/scenarios/<s>/batch`).
+    **Resolved (0.8.0):** `POST …/scenarios/<s>/batch` with the `rename_step` operation (`rename_refs`, default `true`); deleting a read step + updating its readers in a single batch. `PATCH` with `rename_refs` does not exist — the batch covers it.
 
-11. **Řada operací není atomická.** Uložení z formuláře = několik
-    operací po sobě; když n-tá dostane 422/409, předchozí už jsou na
-    disku. *GUI:* po selhání načte soubor znovu, kroky na disku převezme
-    (uid ← id) a zbytek nechá rozpracovaný s hláškou „na disku je N
-    operací z uložení“. *Potřeba:* dávka (viz 10) se zápisem jen při
-    úspěchu všech.
-    **Stav (0.8.0):** dávka zapíše všechno, nebo nic; chyba operace = 422 s `op` (index), chyba výsledku = 422 bez `op`.
+11. **A series of operations is not atomic.** Saving from the form = several
+    operations in a row; when the nth gets 422/409, the previous ones are already
+    on disk. *GUI:* after a failure it reloads the file, adopts the steps on disk
+    (uid ← id) and leaves the rest in progress with the message “N
+    operations from the save are on disk”. *Needed:* a batch (see 10) written only
+    when all of it succeeds.
+    **Resolved (0.8.0):** the batch writes everything or nothing; an operation error = 422 with `op` (index), a result error = 422 without `op`.
 
-12. **Rozpracovaný stav nejde validovat ani převést mezi režimy.**
-    `POST …/validate` bere jen text; formulář drží strom a YAML
-    nesestavuje, takže průběžná validace ve Form režimu není (odchylka
-    u §4.4 návrhu) a Form ↔ YAML s neuloženými změnami se musí nejdřív
-    uložit nebo zahodit. *Potřeba:* `validate` s operacemi (`{path,
-    ops: [...]}`) a vrácením výsledného textu/stromu, nebo
-    `POST …/scenarios/<s>/render` (operace → text bez zápisu).
-    **Stav (0.8.0):** `POST …/scenarios/<s>/render` `{etag?, ops}` → `{text, tree, errors}` bez zápisu (všechny chyby, 200 i s chybami).
+12. **A work-in-progress state can be neither validated nor converted between modes.**
+    `POST …/validate` takes only text; the form holds a tree and does not
+    build YAML, so there is no continuous validation in Form mode (a deviation
+    from design §4.4) and Form ↔ YAML with unsaved changes must first be
+    saved or discarded. *Needed:* `validate` with operations (`{path,
+    ops: [...]}`) returning the resulting text/tree, or
+    `POST …/scenarios/<s>/render` (operations → text without writing).
+    **Resolved (0.8.0):** `POST …/scenarios/<s>/render` `{etag?, ops}` → `{text, tree, errors}` without writing (all errors, 200 even with errors).
 
-13. **Nový krok nejde uložit neúplný.** Prázdný `ask` (bez agenta
-    a promptu) je nová chyba → 422; nový `parallel`/`switch` potřebuje
-    kroky ve větvích a nová větev existujícího kontejneru jde přidat jen
-    s prvním krokem (`PATCH` s `{parallel: {<větev>: [krok]}}`).
-    *GUI:* nový krok drží lokálně a pošle ho jedním `POST …/steps` až
-    s vyplněnými poli; větev bez nového kroku ohlásí před odesláním.
-    **Stav (0.8.0):** validace beze změny; krok vložit a doplnit (nebo větev přidat operací `add_branch` a naplnit) v jedné dávce, rozpracovaný stav přes `render`.
+13. **A new step cannot be saved incomplete.** An empty `ask` (without an agent
+    and a prompt) is a new error → 422; a new `parallel`/`switch` needs
+    steps in its branches, and a new branch of an existing container can only be added
+    with its first step (`PATCH` with `{parallel: {<branch>: [step]}}`).
+    *GUI:* holds a new step locally and sends it in a single `POST …/steps` only
+    once the fields are filled in; it reports a branch without a new step before sending.
+    **Resolved (0.8.0):** validation unchanged; insert and complete the step (or add a branch with the `add_branch` operation and fill it) in one batch, the work-in-progress state goes through `render`.
 
-14. **Merge patch neumí hodnotu `null`** (api.md to uvádí) — `default:
-    {file: null}` jde jen v YAML režimu. *GUI:* formulář takovou změnu
-    odmítne s odkazem na YAML. *Potřeba:* `PUT …/steps/<a>` s celým
-    krokem (nahrazení), nebo JSON Patch.
-    **Stav (0.8.0):** `PUT …/steps/<adresa>` `{step}` a operace dávky `replace_step` — celý krok, umí `null`.
+14. **Merge patch cannot express a `null` value** (api.md says so) — `default:
+    {file: null}` works only in YAML mode. *GUI:* the form rejects such a change
+    with a pointer to YAML. *Needed:* `PUT …/steps/<a>` with the whole
+    step (replacement), or JSON Patch.
+    **Resolved (0.8.0):** `PUT …/steps/<address>` `{step}` and the batch operation `replace_step` — the whole step, handles `null`.
 
-15. **Čerstvě spuštěný běh je na okamžik `dry-run`.** Hned po `202` na
-    `POST /projects/<p>/runs` vrací `GET …/runs/<id>` `status:
-    "dry-run"` (složka má `plan.md`, ještě ne `events.jsonl`); GUI by
-    přestalo číst. *GUI:* po ostrém spuštění (`?spusteno=1`) čte detail
-    dál ještě 15 s. *Potřeba:* `queued`/`running` od první chvíle
-    (třeba podle záznamu ve frontě), `dry-run` jen u skutečného plánu.
-    **Stav (0.8.0):** záznam ve frontě `_queue/` → `queued` (s `queue_position`), dokud běh nedrží zámek (`running`) nebo neskončí; `dry_run` jen bez `run.lock` (dry-run ho nikdy neměl) — formát záznamu beze změny.
+15. **A freshly started run is `dry-run` for a moment.** Right after `202` on
+    `POST /projects/<p>/runs`, `GET …/runs/<id>` returns `status:
+    "dry-run"` (the folder has `plan.md`, not yet `events.jsonl`); the GUI would
+    stop reading. *GUI:* after starting a live run (a temporary URL flag) it keeps reading the detail
+    for another 15 s. *Needed:* `queued`/`running` from the first moment
+    (for example from the record in the queue), `dry-run` only for a real plan.
+    **Resolved (0.8.0):** a record in the `_queue/` queue → `queued` (with `queue_position`) until the run holds the lock (`running`) or finishes; `dry_run` only without `run.lock` (a dry run never had one) — the record format is unchanged.
 
-16. **Změny na disku jen dotazováním.** Konflikt (§4.6) GUI pozná
-    `GET` celého scénáře/souboru každých 5 s a při fokusu okna. *Potřeba:*
-    lehký `HEAD`/`GET …/files/<cesta>?etag_only=1`, nebo SSE se změnami
-    souborů.
-    **Stav (0.8.0):** `HEAD /projects/<p>/files/<cesta>` (hlavička `ETag`, s `--cors` vystavená) a `GET …?etag_only=1` → `{etag}`. SSE ne.
+16. **Changes on disk are found only by polling.** The GUI detects a conflict (§4.6) with a
+    `GET` of the whole scenario/file every 5 s and on window focus. *Needed:*
+    a light `HEAD`/`GET …/files/<path>?etag_only=1`, or SSE with file
+    changes.
+    **Resolved (0.8.0):** `HEAD /projects/<p>/files/<path>` (the `ETag` header, exposed with `--cors`) and `GET …?etag_only=1` → `{etag}`. No SSE.
 
-17. **`GET …/files/<cesta>` hlásí jen chyby loaderu.** `errors` nejsou
-    chyby `validate`, takže YAML režim volá hned po načtení
-    `POST …/validate` s textem z disku. *Potřeba:* v `files/` stejné
-    `errors` jako v `GET /projects/<p>` pro daný soubor.
-    **Stav (0.8.0):** `errors` v `GET …/files/<cesta>` = chyby `validate` souboru, stejné jako u položky v `GET /projects/<p>`.
+17. **`GET …/files/<path>` reports only loader errors.** Its `errors` are not
+    `validate` errors, so YAML mode calls `POST …/validate` with the text from
+    disk right after loading. *Needed:* the same `errors` in `files/`
+    as in `GET /projects/<p>` for the given file.
+    **Resolved (0.8.0):** `errors` in `GET …/files/<path>` = the `validate` errors of the file, the same as for the item in `GET /projects/<p>`.
 
-18. **`POST …/agents` a `POST …/scenarios` jen se jménem.** Popis nového
-    scénáře jde až druhou operací (`PUT` hlavičky), nový agent má
-    šablonový popis `TODO`. *Potřeba:* volitelné `description` (a u
-    agenta `model`) v těle.
-    **Stav (0.8.0):** volitelné `description`, u agenta `model` (alias z configu, jiný → 422).
+18. **`POST …/agents` and `POST …/scenarios` take only a name.** The description of a new
+    scenario can only be set by a second operation (`PUT` of the header), a new agent
+    gets the template description `TODO`. *Needed:* an optional `description` (and for
+    an agent `model`) in the body.
+    **Resolved (0.8.0):** optional `description`, and for an agent `model` (an alias from the config, anything else → 422).
 
-19. **Použití aliasu modelu v krocích `image`.** `links` má jen agent →
-    alias přes `agents[].model`; alias použitý jen v `image.model` GUI
-    neumí označit jako „v užití“ (smazání pak odmítne až validace, 422).
-    *Potřeba:* `links.scenario_model` (nebo `models_used`).
-    **Stav (0.8.0):** `links.scenario_model` (dvojice scénář–alias z `image.model`) a `models_used` (`{alias: [agents/…md, scenarios/…yaml]}`, všechny aliasy).
+19. **Use of a model alias in `image` steps.** `links` has only agent →
+    alias via `agents[].model`; an alias used only in `image.model` cannot be marked by the GUI
+    as “in use” (deleting it is then rejected only by validation, 422).
+    *Needed:* `links.scenario_model` (or `models_used`).
+    **Resolved (0.8.0):** `links.scenario_model` (scenario–alias pairs from `image.model`) and `models_used` (`{alias: [agents/…md, scenarios/…yaml]}`, all aliases).
 
-20. **`openrouter.jev_model` a `runs_dir` přes `PUT …/config` měnit nejde**
-    (povolené jen `openrouter.api_key_env` a pět sekcí); GUI je ukazuje
-    jen ke čtení a odkazuje na YAML režim. Je-li to záměr, stačí věta
-    v api.md.
-    **Stav (0.8.0):** povoleno i `runs_dir` a `openrouter.jev_model`; `version` a `openrouter.base_url` zůstávají zakázané (api.md „`PUT …/config`“ — formát, kam odchází klíč).
-
-
-## Část 3 (GUI nad API 0.7.0)
-
-GUI přešlo na `state`, `steps` s podrobnostmi, `GET …/steps/<cesta>`, `tree`/`callees`,
-`types`/`last_run`, `?scenario=&limit=`, `scenario_step_agent`, `reason`/`registry` (body 1–9).
-Ověřeno 2026-09-26 proti `agencast serve --fake` (framework 0.7.0 z větve). Jádro se neměnilo.
-
-21. **Restart `serve` udělá z přerušeného běhu `failed`.** Běh, který běžel pod `serve`
-    v okamžiku pádu, dostane po startu `serve` dopsaný `run_started` + `error internal`
-    („běh přerušen — server skončil uprostřed běhu…“) + `run_finished failed`. `state:
-    interrupted` je tak vidět jen mezi pádem a restartem (a u běhu z CLI, který nikdo
-    nedokončí). Navíc: `status` je `failed (internal v None)` (krok `null` → „None“),
-    `started_at` je čas obnovy (druhý `run_started`) a `duration_s` `0.0`. *GUI:* ukáže, co
-    přijde (`chyba: internal v None`). *Potřeba:* `status` bez „v None“, `started_at` z prvního
-    `run_started`; zvážit, jestli obnovený běh nemá zůstat `interrupted` (nebo nést příznak).
-    **Stav (0.10.0):** obnova zachová původní `run_started` a doplní chybu `internal` s posledním
-    rozběhnutým krokem a zprávou „běh přerušen restartem serveru“; `run_finished.status` je `failed`,
-    ale API `state` zůstává `interrupted` a `started_at` původní.
-22. **Krok bez konce má v ukončeném běhu `status: running`.** Položka `steps` kroku, který
-    měl `step_started` a pak běh spadl, zůstane `running` i u `state` `interrupted`/`failed`.
-    *GUI:* když běh není `queued`/`running`, ukáže takový krok jako „přerušen“ (nepulzuje).
-    *Potřeba:* u neživého běhu `status: interrupted` (nebo `null`) místo `running`.
-    **Stav (0.10.0):** krok bez `step_finished` má `status: interrupted`, když ho nedrží živý worker.
-23. **Chyby schématu `config.yaml` bez řádku.** `files/config.yaml` vrací u chyb schématu jen
-    `field` (`limits.run_budget_usd`), `line` jen u syntaxe a duplicitního klíče (jak api.md
-    uvádí). YAML režim Configu proto u nich řádek neoznačí, jen vypíše hlášku. *Potřeba:*
-    `line` i u chyb schématu (loader zná pozici uzlu).
-    **Stav (0.10.0):** chyby schématu `config.yaml` obsahují `line` podle klíče v YAML, v `files/config.yaml`
-    i v 422 z `GET /projects/<p>`.
-24. **`GET /projects` bez počtů.** Karta projektu ukazuje „20 scénářů · 8 agentů“ a dnešní
-    útratu, takže dál volá na každý dostupný projekt `GET /projects/<p>` (celý projekt kvůli
-    dvěma číslům) a `…/spend`. *Potřeba:* `counts {scenarios, agents}` a `spend_today_usd`
-    v položce `GET /projects`.
-    **Stav (0.10.0):** dostupné i nedostupné položky vrací počty podle výpisu souborů a `spend_today_usd`
-    z denní knihy bez validace projektu.
-25. **Stránkování jen `limit`.** „Načíst další“ stáhne znovu celý delší seznam (`limit`
-    +50); `last_run` nemá `started_at`, takže čas u čekajícího/přerušeného běhu a dry-runu
-    GUI bere z `run_id`. *Potřeba (až bude běhů hodně):* kurzor `?before=<run_id>`; v `last_run`
-    `started_at`.
-    **Stav (0.10.0):** `before` stránkuje podle názvu složky a `next_before` se vrací, když jsou další běhy;
-    `last_run.started_at` je aditivní.
+20. **`openrouter.jev_model` and `runs_dir` cannot be changed via `PUT …/config`**
+    (only `openrouter.api_key_env` and five sections are allowed); the GUI shows them
+    read-only and points to YAML mode. If this is intentional, one sentence
+    in api.md is enough.
+    **Resolved (0.8.0):** `runs_dir` and `openrouter.jev_model` are now allowed too; `version` and `openrouter.base_url` remain forbidden (api.md “`PUT …/config`” — the format, where the key goes).
 
 
-## Část 4 (projekty z GUI, dávky 0.8.0, Playwright E2E)
+## Part 3 (GUI on API 0.7.0)
 
-GUI přešlo na `POST /projects/new`, `POST /projects`, `DELETE /projects/<p>`, `projects_root`/`writable`
-(0.9.0), dávku `…/batch`, náhled `…/render`, `HEAD …/files/<cesta>`, `description`/`model` v `POST`
-(0.8.0) — body 10–18 GUI už neobchází. Ověřeno 2026-09-26 E2E testy (`ui/e2e/`, Playwright proti
-`agencast serve --fake` z větve, framework 0.9.0). Jádro se neměnilo. Nálezy 21 a 22 platí i v 0.9.0;
-N5b tehdy zachytil chybu obnovy, opravenou v 0.10.0.
+The GUI moved to `state`, `steps` with details, `GET …/steps/<path>`, `tree`/`callees`,
+`types`/`last_run`, `?scenario=&limit=`, `scenario_step_agent`, `reason`/`registry` (items 1–9).
+Verified 2026-09-26 against `agencast serve --fake` (framework 0.7.0 from the branch). The core was not changed.
 
-26. **`render` bere jen operace, ne text.** Form → YAML s neuloženými změnami jde (`render` vrátí
-    `text`), ale opačně ne: GUI YAML nesestavuje ani neparsuje a žádný endpoint z rozpracovaného
-    textu nevrátí strom (`validate` vrací jen `errors`). *GUI:* YAML → Form s neuloženým textem se dál
-    ptá „Uložit a přepnout“ / „Zahodit a přepnout“. *Potřeba:* `POST …/scenarios/<s>/render`
-    (nebo `validate`) s `{text}` místo `ops`, který vrátí `tree` a `errors` bez zápisu.
-    **Stav (0.10.0):** `render` přijímá `{text}` a vrací `{tree, errors}`; `validate` u textu scénáře
-    vrací `tree` navíc k `errors`, bez zápisu.
-27. **Chyba operace dávky nemá krok.** 422 s `op` nese v `errors` jen `message`
-    (`ops[0] update_step: …`), bez `step`/`field`. *GUI:* drží si ke každé operaci id kroku, ze kterého
-    vznikla, a chybu ukáže u jeho karty. *Potřeba:* `step` (id kroku podle `address` před operací)
-    v chybě operace, u `add_step` id vkládaného kroku.
-    **Stav (0.10.0):** chyby operace dávky vrací `step` podle adresy před operací (u `add_step` podle vloženého
-    kroku) a `field`, pokud ho chyba určuje.
-28. **Ostrý (i falešný) běh v registru chce `CALLBACK_SECRET`, i když se callback neposílá.**
-    `POST /projects/<p>/runs` bez `callback_url` vrátí u projektu ze šablony 422 „chybí proměnná
-    prostředí CALLBACK_SECRET (.env nebo prostředí)“, dokud proměnnou nemá prostředí `serve` (ověřeno
-    s `--fake`; E2E proto nastavuje `CALLBACK_SECRET` a `WEBHOOK_TOKEN` na zástupné hodnoty). Projekt
-    založený z GUI tak nejde spustit, i když callback nepotřebuje. *GUI:* ukáže 422 i s `details`
-    v panelu spuštění. *Potřeba:* kontrolovat `callback.secret_env` jen s `callback_url` (a
-    `webhook.token_env` jen tam, kde se token opravdu čte).
-    **Stav (0.10.0):** `callback.secret_env` se vyžaduje jen při callbacku; `webhook.token_env` jen v režimu
-    jednoho projektu. Projekt ze šablony lze spustit s `--fake` bez `CALLBACK_SECRET`.
+21. **A `serve` restart turns an interrupted run into `failed`.** A run that was running under `serve`
+    at the moment of a crash gets, after `serve` starts, an appended `run_started` + `error internal`
+    (“run interrupted — server stopped during the run…”) + `run_finished failed`. `state:
+    interrupted` is therefore visible only between the crash and the restart (and for a CLI run
+    that nobody finishes). In addition: `status` is `failed (internal in None)` (step `null` → “None”),
+    `started_at` is the recovery time (the second `run_started`) and `duration_s` is `0.0`. *GUI:* shows what
+    it receives (`error: internal in None`). *Needed:* `status` without “in None”, `started_at` from the first
+    `run_started`; consider whether a recovered run should stay `interrupted` (or carry a flag).
+    **Resolved (0.10.0):** recovery keeps the original `run_started` and appends an `internal` error with the last
+    started step and the message “run interrupted by server restart”; `run_finished.status` is `failed`,
+    but the API `state` stays `interrupted` and `started_at` stays the original.
+22. **A step without an end has `status: running` in a finished run.** The `steps` item of a step that
+    had `step_started` and then the run crashed stays `running` even with `state` `interrupted`/`failed`.
+    *GUI:* when the run is not `queued`/`running`, it shows such a step as “interrupted” (no pulsing).
+    *Needed:* `status: interrupted` (or `null`) instead of `running` for a run that is not alive.
+    **Resolved (0.10.0):** a step without `step_finished` has `status: interrupted` when no live worker holds it.
+23. **`config.yaml` schema errors without a line.** For schema errors `files/config.yaml` returns only
+    `field` (`limits.run_budget_usd`); `line` only for syntax and duplicate keys (as api.md
+    says). The YAML mode of Config therefore does not mark the line for them, it only prints the message. *Needed:*
+    `line` for schema errors too (the loader knows the node position).
+    **Resolved (0.10.0):** `config.yaml` schema errors contain `line` according to the key in the YAML, in `files/config.yaml`
+    and in the 422 from `GET /projects/<p>`.
+24. **`GET /projects` without counts.** The project card shows “20 scenarios · 8 agents” and today's
+    spend, so it still calls `GET /projects/<p>` for every available project (the whole project for
+    two numbers) and `…/spend`. *Needed:* `counts {scenarios, agents}` and `spend_today_usd`
+    in the `GET /projects` item.
+    **Resolved (0.10.0):** available and unavailable items return counts based on the file listing and `spend_today_usd`
+    from the daily ledger without validating the project.
+25. **Pagination with `limit` only.** “Load more” downloads the whole longer list again (`limit`
+    +50); `last_run` has no `started_at`, so the GUI takes the time of a waiting/interrupted run and of a dry run
+    from `run_id`. *Needed (once there are many runs):* a cursor `?before=<run_id>`; `started_at`
+    in `last_run`.
+    **Resolved (0.10.0):** `before` paginates by folder name and `next_before` is returned when there are more runs;
+    `last_run.started_at` is additive.
 
-## Část 5 (GUI nad API 0.10.0)
 
-GUI používá nová pole a endpointy; nic z API neobchází.
+## Part 4 (projects from the GUI, 0.8.0 batches, Playwright E2E)
 
-29. **`render`/`validate` s `{text}` nevrací hlavičku scénáře.** Při přepnutí YAML → Form
-    s neuloženým textem GUI dostane `tree` a `errors`, ale ne `description`, `inputs`, `outputs`
-    a `callable`. *GUI:* hlavičku převezme z verze na disku a v hlavičkové kartě to řekne větou
-    „Hlavička podle verze na disku — změny hlavičky z YAML se projeví po uložení.“ *Potřeba:*
-    `header {description, inputs, outputs, callable}` v odpovědi `render`/`validate` s textem,
-    aby GUI nic neparsovalo (rozhodnutí koordinátora 2026-09-26).
+The GUI moved to `POST /projects/new`, `POST /projects`, `DELETE /projects/<p>`, `projects_root`/`writable`
+(0.9.0), the `…/batch` batch, the `…/render` preview, `HEAD …/files/<path>`, `description`/`model` in `POST`
+(0.8.0) — the GUI no longer works around items 10–18. Verified 2026-09-26 with E2E tests (`ui/e2e/`, Playwright against
+`agencast serve --fake` from the branch, framework 0.9.0). The core was not changed. Findings 21 and 22 also hold in 0.9.0;
+N5b caught the recovery error back then, fixed in 0.10.0.
+
+26. **`render` takes only operations, not text.** Form → YAML with unsaved changes works (`render` returns
+    `text`), but not the other way round: the GUI neither builds nor parses YAML, and no endpoint returns a tree
+    from a work-in-progress text (`validate` returns only `errors`). *GUI:* YAML → Form with unsaved text still
+    asks “Save and switch” / “Discard and switch”. *Needed:* `POST …/scenarios/<s>/render`
+    (or `validate`) with `{text}` instead of `ops`, returning `tree` and `errors` without writing.
+    **Resolved (0.10.0):** `render` accepts `{text}` and returns `{tree, errors}`; for scenario text `validate`
+    returns `tree` in addition to `errors`, without writing.
+27. **A batch operation error has no step.** A 422 with `op` carries in `errors` only a `message`
+    (`ops[0] update_step: …`), without `step`/`field`. *GUI:* keeps, for every operation, the id of the step it
+    came from and shows the error on its card. *Needed:* `step` (the step id according to `address` before the operation)
+    in the operation error, and for `add_step` the id of the inserted step.
+    **Resolved (0.10.0):** batch operation errors return `step` according to the address before the operation (for `add_step` according to the inserted
+    step) and `field` if the error determines one.
+28. **A live (even fake) run in the registry wants `CALLBACK_SECRET` even though no callback is sent.**
+    `POST /projects/<p>/runs` without `callback_url` returns, for a project from the template, 422 “missing environment
+    variable CALLBACK_SECRET (callback signature)” until the `serve` environment has the variable (verified
+    with `--fake`; E2E therefore sets `CALLBACK_SECRET` and `WEBHOOK_TOKEN` to placeholder values). A project
+    created from the GUI thus cannot be run even though it does not need a callback. *GUI:* shows the 422 with `details`
+    in the run panel. *Needed:* check `callback.secret_env` only together with `callback_url` (and
+    `webhook.token_env` only where the token is actually read).
+    **Resolved (0.10.0):** `callback.secret_env` is required only for a callback; `webhook.token_env` only in single-project
+    mode. A project from the template can be run with `--fake` without `CALLBACK_SECRET`.
+
+## Part 5 (GUI on API 0.10.0)
+
+The GUI uses the new fields and endpoints; it works around nothing in the API.
+
+29. **`render`/`validate` with `{text}` does not return the scenario header.** When switching YAML → Form
+    with unsaved text, the GUI gets `tree` and `errors`, but not `description`, `inputs`, `outputs`
+    and `callable`. *GUI:* takes the header from the version on disk and says so with a sentence in the header card:
+    “Header taken from the version on disk — header changes made in YAML appear after saving.” *Needed:*
+    `header {description, inputs, outputs, callable}` in the `render`/`validate` response with text,
+    so that the GUI parses nothing (coordinator's decision 2026-09-26).

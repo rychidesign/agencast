@@ -1,161 +1,161 @@
-# Otevřené otázky ke specifikaci v1
+# Open questions on the v1 specification
 
-Historický záznam rozhodování; nejde o seznam čekající na nové schválení.
-Spec v1 je schválená a zmražená podle [DESIGN, R8 a §5.9](../DESIGN.md)
-a [pokynů přispěvatelům](../../CLAUDE.md). Všech 14 voleb níže je součástí
-platné v1; původní doporučení a alternativy zůstávají jako kontext.
-Samostatný záznam uživatelského souhlasu ke každému bodu zde není doložen;
-stav vychází ze schválení celé v1, nikoli z dodatečně domyšlených hlasování.
-[Nezávislá revize, Stav oprav](REVIEW.md#stav-oprav) dokládá zapracování nálezů.
+A historical record of decisions; it is not a list waiting for new approval.
+The v1 spec is approved and frozen per [DESIGN, R8 and §5.9](../DESIGN.md)
+and the [contributor guidelines](../../CLAUDE.md). All 14 choices below are part of the
+valid v1; the original recommendations and alternatives stay as context.
+A separate record of user consent for each item is not documented here;
+the status follows from the approval of the whole v1, not from votes worked out after the fact.
+[Independent review, Status of fixes](REVIEW.md#status-of-fixes) documents how the findings were incorporated.
 
-### 1. `prompt` místo `task` uvnitř kroku `ask`
+### 1. `prompt` instead of `task` inside the `ask` step
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §4, `prompt`](scenario.md).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §4, `prompt`](scenario.md).
 
-DESIGN §6 píše `ask: { agent, task: "…" }`. Slovo `task` je ale zároveň
-typ kroku, takže by ve scénáři znamenalo dvě různé věci.
-**Doporučení:** `prompt` (u `ask`, `task` i `image` stejně).
+DESIGN §6 writes `ask: { agent, task: "…" }`. But the word `task` is also a
+step type, so in a scenario it would mean two different things.
+**Recommendation:** `prompt` (the same for `ask`, `task` and `image`).
 
-### 2. `schema` uvnitř `ask`/`task`, ne jako vlastnost každého kroku
+### 2. `schema` inside `ask`/`task`, not as a property of every step
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §4, `schema`](scenario.md).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §4, `schema`](scenario.md).
 
-D1d řadí `schema` mezi vlastnosti libovolného kroku, §6 ho píše uvnitř
-`ask`. Smysl má jen u kroků s modelem, který vrací text.
-**Doporučení:** uvnitř `ask`/`task` (jak je v §6).
+D1d lists `schema` among the properties of any step, §6 writes it inside
+`ask`. It only makes sense for steps with a model that returns text.
+**Recommendation:** inside `ask`/`task` (as in §6).
 
-### 3. `budget_usd` místo `budget`
+### 3. `budget_usd` instead of `budget`
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §3, `budget_usd`](scenario.md).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §3, `budget_usd`](scenario.md).
 
-D1d jmenuje vlastnost kroku `budget`, D1a u agenta `limits.budget_usd`.
-Jedno slovo pro jednu věc.
-**Doporučení:** `budget_usd` všude (jednotka je vidět v názvu).
+D1d names the step property `budget`, D1a `limits.budget_usd` on an agent.
+One word for one thing.
+**Recommendation:** `budget_usd` everywhere (the unit is visible in the name).
 
-### 4. Výstup scénáře: `outputs` v hlavičce + `output` jako poslední krok
+### 4. Scenario output: `outputs` in the header + `output` as the last step
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md, hlavička a `output`](scenario.md).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md, the header and `output`](scenario.md).
 
-§5.3 chce, aby scénář deklaroval `outputs`. Spec to řeší hlavičkou
-(typy) a krokem `output` (hodnoty), který smí být jen jednou a jen na
-konci — ne ve větvích `switch`/`parallel`. Různé výsledky podle větve se
-řeší přes `default` a `set`.
-**Doporučení:** ano, takto. Scénář se tak čte „nahoře co vrací, dole
-odkud to vezme".
+§5.3 wants a scenario to declare `outputs`. The spec solves this with a header
+(types) and an `output` step (values), which may appear only once and only at
+the end — not inside `switch`/`parallel` branches. Different results depending on the branch are
+handled with `default` and `set`.
+**Recommendation:** yes, like this. A scenario then reads “at the top what it returns, at the bottom
+where it takes it from”.
 
-### 5. Nové třídy chyb `fail` a `internal`
+### 5. New error classes `fail` and `internal`
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §6, třídy chyb](scenario.md).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §6, error classes](scenario.md).
 
-§5.1 zná `transient`, `schema`, `content`, `budget`, `timeout`, `config`.
-Záměrný krok `fail` a chyba samotného frameworku do žádné nepatří, a
-callback by je jinak nerozlišil od poruchy poskytovatele.
-**Doporučení:** přidat obě.
+§5.1 knows `transient`, `schema`, `content`, `budget`, `timeout`, `config`.
+A deliberate `fail` step and an error of the framework itself belong to none of them, and
+the callback could not otherwise tell them apart from a provider failure.
+**Recommendation:** add both.
 
-### 6. Server v `mcp` bez záznamu v `tools` — **vyřešeno**
+### 6. A server in `mcp` without an entry in `tools` — **resolved**
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [DESIGN §5.8](../DESIGN.md) a [REVIEW, B2](REVIEW.md#stav-oprav).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [DESIGN §5.8](../DESIGN.md) and [REVIEW, B2](REVIEW.md#status-of-fixes).
 
-Původní doporučení („všechny nástroje") odporovalo DESIGN §5.8 (allowlist
-podle jména; nový nástroj, který server přidá, agent nesmí uvidět).
-**Rozhodnuto podle DESIGN §5.8 (koordinátor, 2026-09-25):** každý server
-z `mcp` agenta musí mít v `tools` výslovný seznam; server bez záznamu je
-chyba `config`; `validate --dry-run` vypíše nástroje, které server
-nabízí. Navíc vlastník v `mcp.yaml` určuje `agents`, `scenarios` a horní
-`tools` serveru.
+The original recommendation (“all tools”) contradicted DESIGN §5.8 (an allowlist
+by name; a new tool that the server adds must not be seen by the agent).
+**Decided per DESIGN §5.8 (coordinator, 2026-09-25):** every server
+from an agent's `mcp` must have an explicit list in `tools`; a server without an entry is
+a `config` error; `validate --dry-run` prints the tools the server
+offers. In addition the owner in `mcp.yaml` determines `agents`, `scenarios` and the upper
+`tools` of the server.
 
-### 7. Literály ve výrazech: `true` / `false` / `null`
+### 7. Literals in expressions: `true` / `false` / `null`
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §5, literály](scenario.md).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §5, literals](scenario.md).
 
-D1c říká „výrazy v pythonovském stylu", Python ale píše `True`, `False`,
-`None`. Uživatel přitom stejné hodnoty vidí v YAML, JSON a záznamu běhu
-jako `true` / `false` / `null`.
-**Rozhodnuto (koordinátor, 2026-09-25):** `true` / `false` / `null`.
-Platí tedy `x == null` a `str(null)` = `"null"`.
-
----
-
-Otázky 8–10 vznikly ze spiku (c) (report na větvi `spike-expressions`; spike byl vyřazen ze stromu,
-výstupy jsou v historii repozitáře do commitu fe90e05). Koordinátor je rozhodl a spec je podle toho napsaná;
-jejich dnešní stav je součástí zmražené v1.
-
-### 8. `and` / `or` / `not` jen nad `true` / `false`
-
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §5, operátory](scenario.md).
-
-Python bere i „pravdivost" jiných hodnot (prázdný text nebo seznam =
-nepravda, `0` = nepravda). Spec to zakazuje: `steps.copy.hashtags and …`
-je chyba s radou napsat `len(steps.copy.hashtags) > 0`. Ve scénáři je
-tak vždy vidět, na co se podmínka ptá.
-**Výchozí volba:** jen `true`/`false`. Alternativa: pythonová pravdivost.
-
-### 9. `round` zaokrouhluje půlku od nuly
-
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §5, funkce `round`](scenario.md).
-
-Python zaokrouhluje bankéřsky (`round(2.5)` = `2`, `round(3.5)` = `4`).
-Spec definuje školní zaokrouhlení: `round(2.5)` = `3`, `round(-2.5)` =
-`-3` — výslovná odchylka od Pythonu.
-**Výchozí volba:** půlka od nuly. Alternativa: jako Python.
-
-### 10. `null` v šabloně je chyba
-
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §5, šablony](scenario.md).
-
-`{{ x }}`, kde `x` je `null`, se nevloží potichu: chyba v `validate`
-(`config`), když to jde poznat předem, jinak za běhu (`expression`).
-Výjimka: `null` z výslovného `default` kroku se vloží jako `null` (v textu
-jako `null`).
-**Výchozí volba:** chyba s výjimkou pro výslovný `default`.
-Alternativa: vkládat vždy text `null` (nic neselže, ale chybějící hodnota
-může potichu projít až do promptu nebo callbacku).
+D1c says “Python-style expressions”, but Python writes `True`, `False`,
+`None`. The user, however, sees the same values in YAML, JSON and the run record
+as `true` / `false` / `null`.
+**Decided (coordinator, 2026-09-25):** `true` / `false` / `null`.
+So `x == null` and `str(null)` = `"null"` apply.
 
 ---
 
-Otázky 11–14 vznikly z nezávislé kontroly (`REVIEW.md`, nálezy B1, B4,
-M10). Doporučení jsou zapracovaná ve zmražené v1.
+Questions 8–10 came from spike (c) (the report on the `spike-expressions` branch; the spike was removed from the tree,
+its outputs are in the repository history up to commit fe90e05). The coordinator decided them and the spec is written accordingly;
+their current status is part of the frozen v1.
 
-### 11. Skilly u `ask` se vkládají celé
+### 8. `and` / `or` / `not` only over `true` / `false`
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [agent.md, system prompt](agent.md) a [REVIEW, B1](REVIEW.md#stav-oprav).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §5, operators](scenario.md).
 
-U `task` nese system prompt jen seznam skillů a tělo si model načte
-nástrojem `load_skill` (DESIGN §5.8). `ask` je jedno volání bez nástrojů,
-takže `load_skill` v něm nejde. Spec proto u `ask` vkládá těla skillů
-celá do system promptu.
-**Doporučení:** vkládat celé. Alternativa: agent se skilly v `ask`
-zakázat (chyba `config`).
+Python also accepts the “truthiness” of other values (empty text or list =
+false, `0` = false). The spec forbids this: `steps.copy.hashtags and …`
+is an error with the advice to write `len(steps.copy.hashtags) > 0`. In a scenario
+it is thus always visible what a condition asks about.
+**Default choice:** only `true`/`false`. Alternative: Python truthiness.
 
-### 12. `dedupe` jako sdílený stav mezi běhy
+### 9. `round` rounds half away from zero
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [DESIGN D2 a §5.2](../DESIGN.md) a [REVIEW, B4](REVIEW.md#stav-oprav).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §5, the `round` function](scenario.md).
 
-D2: běhy si nesdílí soubory (kromě `state` a úložiště). `dedupe_key` ale
-musí přežít běh, jinak neochrání před dvojí publikací. Spec ho proto dělá
-výjimkou jako `state`: každý klíč je samostatný atomicky vytvořený soubor
-v `<runs>/_dedupe/`, nikdy jeden sdílený log (souběžné zápisy se tak
-neztratí). Stav `started` bez `succeeded` zastaví další běh s výzvou
-„ověř ručně".
-**Doporučení:** ponechat (hlavní DESIGN to už v D2 a §5.2 uvádí).
+Python rounds half to even (`round(2.5)` = `2`, `round(3.5)` = `4`).
+The spec defines school rounding: `round(2.5)` = `3`, `round(-2.5)` =
+`-3` — an explicit deviation from Python.
+**Default choice:** half away from zero. Alternative: like Python.
 
-### 13. `retry`, `timeout`, `on_error` jen u některých kroků
+### 10. `null` in a template is an error
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §3, tabulka vlastností](scenario.md) a [REVIEW, M10](REVIEW.md#stav-oprav).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §5, templates](scenario.md).
 
-D1d dává `retry`, `timeout`, `budget`, `on_error` „libovolnému kroku".
-Spec je povoluje jen tam, kde mají smysl (tabulka v scenario.md §3):
-např. `retry` u `set` nebo `on_error` u `fail` nic neznamená, tak je
-zápis chyba `config`, ne tiše ignorované pole.
-**Doporučení:** ponechat (hlavní DESIGN to už v D1d upřesňuje odkazem na
+`{{ x }}` where `x` is `null` is not inserted silently: an error in `validate`
+(`config`) when it can be detected in advance, otherwise at run time (`expression`).
+Exception: `null` from a step's explicit `default` is inserted as `null` (in text
+as `null`).
+**Default choice:** an error, with an exception for an explicit `default`.
+Alternative: always insert the text `null` (nothing fails, but a missing value
+may silently make its way into the prompt or the callback).
+
+---
+
+Questions 11–14 came from the independent review (`REVIEW.md`, findings B1, B4,
+M10). The recommendations are incorporated in the frozen v1.
+
+### 11. Skills in `ask` are inserted whole
+
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [agent.md, system prompt](agent.md) and [REVIEW, B1](REVIEW.md#status-of-fixes).
+
+For `task` the system prompt carries only a list of skills and the model loads the body
+with the `load_skill` tool (DESIGN §5.8). `ask` is a single call without tools,
+so `load_skill` cannot be used in it. The spec therefore inserts the skill bodies
+whole into the system prompt for `ask`.
+**Recommendation:** insert them whole. Alternative: forbid agents with skills in `ask`
+(a `config` error).
+
+### 12. `dedupe` as state shared between runs
+
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [DESIGN D2 and §5.2](../DESIGN.md) and [REVIEW, B4](REVIEW.md#status-of-fixes).
+
+D2: runs do not share files (except `state` and storage). But `dedupe_key`
+must survive a run, otherwise it does not protect against double publishing. The spec therefore makes it
+an exception like `state`: each key is a separate atomically created file
+in `<runs>/_dedupe/`, never one shared log (concurrent writes thus
+are not lost). A `started` state without `succeeded` stops the next run with a
+“verify manually” prompt.
+**Recommendation:** keep it (the main DESIGN already states this in D2 and §5.2).
+
+### 13. `retry`, `timeout`, `on_error` only on some steps
+
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §3, the property table](scenario.md) and [REVIEW, M10](REVIEW.md#status-of-fixes).
+
+D1d gives `retry`, `timeout`, `budget`, `on_error` to “any step”.
+The spec allows them only where they make sense (the table in scenario.md §3):
+e.g. `retry` on `set` or `on_error` on `fail` means nothing, so
+writing them is a `config` error, not a silently ignored field.
+**Recommendation:** keep it (the main DESIGN already refines this in D1d with a reference to the
 spec).
 
-### 14. Porovnání napříč typy u neznámých typů až za běhu
+### 14. Comparison across types for unknown types only at run time
 
-**Stav: součást schválené v1** ([DESIGN §5.9](../DESIGN.md)); platné znění: [scenario.md §5, typová kontrola](scenario.md) a [REVIEW, M10](REVIEW.md#stav-oprav).
+**Status: part of the approved v1** ([DESIGN §5.9](../DESIGN.md)); current wording: [scenario.md §5, type checking](scenario.md) and [REVIEW, M10](REVIEW.md#status-of-fixes).
 
-§5.4 říká, že porovnání napříč typy je chyba **validace**. Když ale typ
-hodnoty předem znát nejde (např. prvek objektu `details` od Jev), spec
-chybu hlásí až za běhu jako třídu `expression`. Typy známé předem
-(`inputs`, `schema`, `jev`, `set`) kontroluje `validate`.
-**Doporučení:** ponechat.
+§5.4 says that comparing across types is a **validation** error. But when the type
+of a value cannot be known in advance (e.g. an element of Jev's `details` object), the spec
+reports the error only at run time as class `expression`. Types known in advance
+(`inputs`, `schema`, `jev`, `set`) are checked by `validate`.
+**Recommendation:** keep it.

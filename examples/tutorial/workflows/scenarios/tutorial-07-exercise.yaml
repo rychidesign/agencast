@@ -1,0 +1,41 @@
+version: 1
+name: tutorial-07-exercise
+description: Two slogans for one name at once — the tutorial-07-slogan building block twice in parallel (tutorial, part 7 — exercise solution)
+
+inputs:
+  name:
+    type: string
+    required: true
+    description: Product name
+
+outputs:
+  playful:
+    type: string
+    description: Playful slogan
+  serious:
+    type: string
+    description: Serious slogan
+
+steps:
+  # The same scenario twice, each branch with a different tone. The call steps have different ids,
+  # so they have different paths in the record and in the fixture (playful_slogan/write, serious_slogan/write).
+  - id: variants
+    parallel:
+      playful:
+        - id: playful_slogan
+          call:
+            scenario: tutorial-07-slogan
+            inputs:
+              name: "{{ inputs.name }}"
+      serious:
+        - id: serious_slogan
+          call:
+            scenario: tutorial-07-slogan
+            inputs:
+              name: "{{ inputs.name }}"
+              tone: serious
+
+  - id: out
+    output:
+      playful: "{{ steps.playful_slogan.slogan }}"
+      serious: "{{ steps.serious_slogan.slogan }}"

@@ -1,22 +1,27 @@
-# Díl 1 — První agent a první scénář
+# Part 1 — First agent and first scenario
 
-**Čas:** asi 15 minut · **Útrata:** jeden ostrý běh za ~0,0002 USD
-**Co budeš umět:** napsat agenta, napsat scénář s jedním krokem, zkontrolovat
-ho, vyzkoušet ho zadarmo a jednou pustit naostro.
+**Time:** about 15 minutes · **Spend:** one live run for ~0.0002 USD
+**You will learn to:** write an agent, write a one-step scenario, check it,
+try it for free and run it live once.
 
-Úkol dílu je schválně primitivní: agent **pojmenovávač** vymyslí tři názvy
-pro produkt.
+The task in this part is deliberately primitive: a **namer** agent comes up
+with three names for a product.
 
-> Všechny příkazy spouštěj **z projektu `examples/tutorial`** (z kořene klonu
-> nejprve `cd examples/tutorial`, z balíčku `cd ~/agencast-tutorial`). Výstupy v tomto dílu jsou skutečné — z běhů
-> 25. 9. 2026. Tvoje `run_id`, časy a texty od modelu budou jiné.
+> Run all commands **from the `examples/tutorial` project** (from the clone
+> root first `cd examples/tutorial`, from the package `cd ~/agencast-tutorial`).
+> The outputs in this part are real runs of the tutorial project (run ids and
+> timestamps from 25 Sep 2026); the only illustrative bit is the text of the
+> live model response in step 8. Your `run_id`, times and model texts will be
+> different. The real output prints absolute paths; they are shortened to `…/`
+> here.
 
 ---
 
-## Krok 0 — zkratka pro příkaz
+## Step 0 — a shortcut for the command
 
-Po instalaci balíčku je `agencast` přímo v PATH. Pouze při práci z klonu
-bez instalace nástroje si nastav zkratku (platí do zavření terminálu):
+After you install the package, `agencast` is right on your PATH. Only when you
+work from a clone without installing the tool, set up a shortcut (valid until
+you close the terminal):
 
 ```bash
 alias agencast="uv run --project ../../framework agencast"
@@ -24,36 +29,39 @@ agencast --help
 ```
 
 ```
-usage: agencast [-h] {validate,run,runs} ...
+usage: agencast [-h] [--project PATH]
+                {validate,run,runs,serve,migrate,new,projects,rename,skills,docs}
+                ...
 
-AgenCast 0.3.0 — scénáře s LLM agenty
+AgenCast 0.17.0 — scenarios with LLM agents
 
 positional arguments:
-  {validate,run,runs}
-    validate           zkontroluje scénář, agenty, skilly a config
-    run                spustí scénář
-    runs               záznamy běhů
+  {validate,run,runs,serve,migrate,new,projects,rename,skills,docs}
+    validate            validate a scenario, agents, skills and config
+    run                 run a scenario
+    runs                run records
 …
 ```
 
-Tři příkazy — to je všechno, co budeš v dílech 1–5 potřebovat.
+Three commands — `validate`, `run` and `runs` — are all you will need in parts
+1–5.
 
 ---
 
-## Krok 1 — kam co patří
+## Step 1 — what goes where
 
 ```
 workflows/
-  agents/       ← sem píšeš agenty (*.md)
-  scenarios/    ← sem píšeš scénáře (*.yaml)
-  skills/       ← skilly (v tomhle dílu nepotřebuješ)
-  config.yaml   ← modely, limity, klíče — mění jen vlastník
+  agents/       ← you write agents here (*.md)
+  scenarios/    ← you write scenarios here (*.yaml)
+  skills/       ← skills (you do not need them in this part)
+  config.yaml   ← models, limits, keys — changed by the owner only
 ```
 
-`config.yaml` už existuje. **Neměníš ho** — patří vlastníkovi (to jsi sice
-ty, ale v roli „správce", ne „autora scénáře"; k tomu se vrátíme v dílu 5).
-Pro teď z něj potřebuješ vědět jen jedno: jaké **aliasy modelů** máš
-k dispozici.
+`config.yaml` already exists. **You do not change it** — it belongs to the
+project owner (that is you, of course, but in the role of the "administrator",
+not the "scenario author"; we come back to this in part 5). For now you only
+need to know one thing from it: which **model aliases** are available to you.
 
 ```bash
 grep -A4 "^models:" workflows/config.yaml
@@ -61,492 +69,510 @@ grep -A4 "^models:" workflows/config.yaml
 
 ```
 models:
-  chytry:       { id: anthropic/claude-haiku-4.5 }
-  rychly:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
+  smart:       { id: anthropic/claude-haiku-4.5 }
+  fast:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
   gemini-image: { id: google/gemini-3.1-flash-image }
 ```
 
-Agent nikdy neříká „chci Claude Haiku 4.5". Říká „chci `chytry`". Který
-model se pod tím schovává, rozhoduje `config.yaml`.
+An agent never says "I want Claude Haiku 4.5". It says "I want `smart`".
+Which model hides behind that name is decided by `config.yaml`.
 
 ---
 
-## Krok 2 — první agent
+## Step 2 — the first agent
 
-Vytvoř soubor `workflows/agents/tutorial-pojmenovavac.md`:
+Create the file `workflows/agents/tutorial-namer.md`:
 
 ```markdown
 ---
 version: 1
-name: tutorial-pojmenovavac
-description: Vymýšlí krátké názvy pro produkty (tutoriál, díl 1)
-model: chytry
+name: tutorial-namer
+description: Comes up with short product names (tutorial, part 1)
+model: smart
 limits:
   budget_usd: 0.01
 ---
-Jsi zkušený tvůrce názvů produktů. Píšeš česky.
+You are an experienced product namer. You write in English.
 
-Pravidla:
-- Každý název má nejvýš dvě slova a dá se snadno vyslovit.
-- Nepoužívej existující známé značky.
-- Odpovídej jen názvy, bez vysvětlování.
+Rules:
+- Each name has at most two words and is easy to pronounce.
+- Do not use existing well-known brands.
+- Reply with the names only, without explanations.
 ```
 
-Soubor má dvě části:
+The file has two parts:
 
-1. **Frontmatter** — mezi dvěma řádky `---`. Konfigurace v YAML.
-2. **Tělo** — pod druhým `---`. Instrukce pro model (system prompt), běžný
-   Markdown. Nesmí být prázdné.
+1. **Frontmatter** — between two `---` lines. Configuration in YAML.
+2. **Body** — below the second `---`. Instructions for the model (the system
+   prompt), plain Markdown. It must not be empty.
 
-Pole ve frontmatteru, která jsou **povinná**:
+Frontmatter fields that are **required**:
 
-| Pole | Co znamená |
+| Field | What it means |
 |---|---|
-| `version` | verze formátu, vždy `1` |
-| `name` | jméno agenta — **stejné jako jméno souboru** bez `.md`; malá písmena, číslice, pomlčka |
-| `description` | jedna věta pro tebe; modelu se neposílá |
-| `model` | alias z `config.yaml` (tady `chytry`) |
-| `limits.budget_usd` | kolik USD smí stát jeden krok s tímto agentem |
+| `version` | format version, always `1` |
+| `name` | the agent's name — **the same as the file name** without `.md`; lowercase letters, digits, hyphen |
+| `description` | one sentence for you; it is not sent to the model |
+| `model` | an alias from `config.yaml` (here `smart`) |
+| `limits.budget_usd` | how many USD a single step with this agent may cost |
 
-Nic jiného ve frontmatteru být nesmí — ani překlep. To je dobrá zpráva:
-framework ti překlep neodpustí potichu, ale řekne ti ho (uvidíš v kroku 4).
+Nothing else may appear in the frontmatter — not even a typo. That is good
+news: the framework will not silently forgive a typo, it will tell you about
+it (you will see that in step 4).
 
-> Proč prefix `tutorial-`? Aby soubory z tutoriálu nepletly tvoje skutečné
-> agenty. Ve vlastní práci pojmenuj agenta, jak chceš.
+> Why the `tutorial-` prefix? So that the tutorial files do not get mixed up
+> with your real agents. In your own work, name the agent whatever you like.
 
 ---
 
-## Krok 3 — první scénář
+## Step 3 — the first scenario
 
-Vytvoř `workflows/scenarios/tutorial-01-nazvy.yaml`:
+Create `workflows/scenarios/tutorial-01-names.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-01-nazvy
-description: Vymyslí tři názvy pro produkt (tutoriál, díl 1)
+name: tutorial-01-names
+description: Comes up with three names for a product (tutorial, part 1)
 
 inputs:
-  produkt:
+  product:
     type: string
     required: true
-    description: Jaký produkt pojmenováváme
+    description: The product we are naming
 
 outputs:
-  nazvy:
+  names:
     type: string
-    description: Tři návrhy názvů, každý na vlastním řádku
+    description: Three name ideas, each on its own line
 
 steps:
-  # 1. Agent vymyslí názvy.
-  - id: navrh
+  # 1. The agent comes up with names.
+  - id: propose
     ask:
-      agent: tutorial-pojmenovavac
-      prompt: "Vymysli 3 názvy pro tento produkt: {{ inputs.produkt }}. Každý na vlastní řádek."
+      agent: tutorial-namer
+      prompt: "Come up with 3 names for this product: {{ inputs.product }}. Each on its own line."
 
-  # 2. Výsledek běhu.
+  # 2. The result of the run.
   - id: out
     output:
-      nazvy: "{{ steps.navrh.text }}"
+      names: "{{ steps.propose.text }}"
 ```
 
-Čti ho shora dolů:
+Read it from top to bottom:
 
-- **Hlavička** — `version`, `name` (opět = jméno souboru bez `.yaml`),
+- **Header** — `version`, `name` (again = the file name without `.yaml`),
   `description`.
-- **`inputs`** — co scénář dostane zvenku. Každý vstup má `type` a buď
-  `required: true`, **nebo** `default` (nikdy obojí, nikdy nic).
-- **`outputs`** — co scénář vrátí. Je to „smlouva": n8n (nebo kdokoli, kdo
-  scénář spustí) se může spolehnout, že dostane právě tato pole.
-- **`steps`** — kroky, běží shora dolů, jeden po druhém.
-  - `ask` = jedno volání modelu přes agenta. Bez `schema` vrátí text,
-    který je pak vidět jako `steps.navrh.text`.
-  - `output` = poslední krok; plní pole z `outputs`.
-- **`{{ … }}`** je **šablona**: jen vloží hodnotu. `{{ inputs.produkt }}`
-  vloží vstup, `{{ steps.navrh.text }}` vloží odpověď kroku `navrh`.
+- **`inputs`** — what the scenario receives from outside. Every input has a
+  `type` and either `required: true` **or** `default` (never both, never
+  neither).
+- **`outputs`** — what the scenario returns. It is a "contract": n8n (or
+  anyone who runs the scenario) can rely on getting exactly these fields.
+- **`steps`** — the steps run from top to bottom, one after another.
+  - `ask` = one model call through an agent. Without `schema` it returns text,
+    which is then visible as `steps.propose.text`.
+  - `output` = the last step; it fills the fields from `outputs`.
+- **`{{ … }}`** is a **template**: it only inserts a value. `{{ inputs.product }}`
+  inserts the input, `{{ steps.propose.text }}` inserts the response of the step
+  `propose`.
 
 ---
 
-## Krok 4 — `agencast validate`
+## Step 4 — `agencast validate`
 
-Než cokoli spustíš, nech si scénář zkontrolovat:
+Before you run anything, have the scenario checked:
 
 ```bash
-agencast validate workflows/scenarios/tutorial-01-nazvy.yaml
+agencast validate workflows/scenarios/tutorial-01-names.yaml
 ```
 
 ```
-v pořádku: tutorial-01-nazvy (2 kroky)
+valid: tutorial-01-names (2 steps)
 ```
 
-`validate` ověří scénář, agenta, `config.yaml` a navíc se zeptá
-OpenRouteru, jestli model `anthropic/claude-haiku-4.5` opravdu existuje.
-(Bez sítě přidej `--offline`, pak tuhle poslední kontrolu vynechá.)
+`validate` checks the scenario, the agent and `config.yaml`, and it also asks
+OpenRouter whether the model `anthropic/claude-haiku-4.5` really exists.
+(Without a network add `--offline`; it then skips this last check and says so:
+`valid: tutorial-01-names (2 steps, model checks skipped)`.)
 
-Teď schválně něco rozbij, ať víš, jak vypadá chyba. Smaž z agenta dva řádky
-`limits:` a `budget_usd: 0.01` a spusť `validate` znovu:
-
-```
-config: agents/tutorial-pojmenovavac.md: chybí povinné pole 'limits'
-```
-
-Vrať je zpátky. Přepiš `model:` na `modle:`:
+Now break something on purpose so you know what an error looks like. Delete the
+two lines `limits:` and `budget_usd: 0.01` from the agent and run `validate`
+again:
 
 ```
-config: agents/tutorial-pojmenovavac.md: neznámé pole 'modle' (překlep?)
-config: agents/tutorial-pojmenovavac.md: chybí povinné pole 'model'
+config: agents/tutorial-namer.md: missing required field 'limits'
 ```
 
-Oprav a napiš alias s překlepem, `model: chytrej`:
+Put them back. Change `model:` to `modle:`:
 
 ```
-config: agents/tutorial-pojmenovavac.md: model 'chytrej' není alias v config.yaml (aliasy: chytry, rychly, gemini-image)
+config: agents/tutorial-namer.md: modle: unknown field 'modle' (typo?)
+config: agents/tutorial-namer.md: missing required field 'model'
 ```
 
-A ve scénáři `agent: pojmenovavac` (bez prefixu):
+Fix that and write an alias with a typo, `model: smrt`:
 
 ```
-config: tutorial-01-nazvy.yaml: krok "navrh": agent 'pojmenovavac' neexistuje (agents/pojmenovavac.md)
+config: agents/tutorial-namer.md: model 'smrt' is not an alias in config.yaml (aliases: smart, fast, gemini-image)
 ```
 
-Jak hlášku číst: **třída chyby** (`config` = chyba v souborech), **soubor**,
-případně **krok**, a co je špatně. Všechno oprav, ať `validate` zase píše
-`v pořádku`.
+And in the scenario `agent: namer` (without the prefix):
+
+```
+config: tutorial-01-names.yaml: step "propose": agent 'namer' does not exist (agents/namer.md)
+```
+
+How to read a message: the **error class** (`config` = an error in the files),
+the **file**, possibly the **step**, and what is wrong. Fix everything until
+`validate` says `valid` again.
 
 ---
 
-## Krok 5 — `--dry-run`: co by se stalo
+## Step 5 — `--dry-run`: what would happen
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --dry-run
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan oat milk ice cream" --dry-run
 ```
 
 ```
-# Plán: tutorial-01-nazvy
+project tutorial added to the registry (/home/you/.config/agencast/projects.yaml)
+# Plan: tutorial-01-names
 
-Vymyslí tři názvy pro produkt (tutoriál, díl 1)
+Comes up with three names for a product (tutorial, part 1)
 
-Limity běhu: rozpočet 1.0 USD (z toho obrázky 0.3 USD), čas 1h. Jev: jev-1.13.
+Run limits: budget 1.0 USD (of which images 0.3 USD), time 1h. Jev: jev-1.13.
 
-| # | Krok | Typ | Podmínka | Co udělá | Limity |
+| # | Step | Type | Condition | Action | Limits |
 |---|---|---|---|---|---|
-| 1 | navrh | ask |  | agent tutorial-pojmenovavac → chytry (anthropic/claude-haiku-4.5); text | 0.01 USD, 2m |
-| 2 | out | output |  | nazvy |  |
+| 1 | propose | ask |  | agent tutorial-namer → smart (anthropic/claude-haiku-4.5); text | 0.01 USD, 2m |
+| 2 | out | output |  | names |  |
 
 
-plán: runs/20260925-150947-tutorial-01-nazvy-3c6f/plan.md
+plan: …/runs/20260925-150947-tutorial-01-names-3c6f/plan.md
 ```
 
-- `-i klíč=hodnota` předá vstup. Více vstupů = více `-i`.
-- `--dry-run` nic nevolá a nic nestojí. Uloží jen `plan.md` (a
-  `inputs.json`) do nové složky v `runs/`.
-- V plánu vidíš, na jaký **skutečný model** se alias přeložil a jaké
-  limity platí: 0,01 USD z agenta, 2 minuty je výchozí časový limit kroku
-  `ask`.
+- The first line (printed to stderr) appears only once: the first `run` in a
+  project adds it to the project registry.
+- `-i key=value` passes an input. More inputs = more `-i`.
+- `--dry-run` calls nothing and costs nothing. It only saves `plan.md` (and
+  `inputs.json`) into a new folder in `runs/`.
+- In the plan you can see which **real model** the alias resolved to and which
+  limits apply: 0.01 USD from the agent, and 2 minutes is the default timeout
+  of an `ask` step.
 
-Zkus vynechat `-i`:
+Try leaving out `-i`:
 
 ```
-config: chybí povinný vstup 'produkt' (string)
+config: missing required input 'product' (string)
 ```
 
-Běh vůbec nezačne.
+The run does not even start.
 
 ---
 
-## Krok 6 — `--fake`: modelové odpovědi zadarmo
+## Step 6 — `--fake`: model responses for free
 
-`--fake` nahrazuje jen volání modelů: bez ceny za model a bez klíče OpenRouteru.
-Krok `task` stále spouští skutečné MCP servery z `mcp.yaml`; ukázkový
-`filesystem` používá `npx`, potřebuje Node.js a při prvním spuštění stahuje balíček.
-`--callback-url` odesílá skutečný callback (a potřebuje jeho podpisové tajemství).
-Zaručeně offline jsou jen scénáře bez `task` (i ve volaných scénářích)
-a bez `--callback-url`, například `ig-post`.
-
-```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake
-```
-
-```
-běh 20260925-150949-tutorial-01-nazvy-b761: úspěch · 0,0 s · 0,0001 USD
-záznam: runs/20260925-150949-tutorial-01-nazvy-b761/summary.md
-```
-
-`--fake` místo OpenRouteru použije **falešného poskytovatele**: běží celý
-framework (šablony, kroky, záznam), jen odpověď modelu je vymyšlená. Cena
-0,0001 USD je taky vymyšlená — nic se neplatí.
-
-Podívej se, co „model" odpověděl:
+`--fake` replaces only the model calls: no model cost and no OpenRouter key.
+A `task` step still starts the real MCP servers from `mcp.yaml`; the sample
+`filesystem` uses `npx`, needs Node.js and downloads a package on the first run.
+`--callback-url` sends a real callback (and needs its signing secret).
+Guaranteed offline are only scenarios without `task` (also in called scenarios)
+and without `--callback-url`, for example `ig-post`.
 
 ```bash
-cat runs/20260925-150949-tutorial-01-nazvy-b761/steps/01-navrh/output.json
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan oat milk ice cream" --fake
+```
+
+```
+run 20260925-150949-tutorial-01-names-b761: succeeded · 0.0 s · 0.0001 USD
+run record: …/runs/20260925-150949-tutorial-01-names-b761/summary.md
+report: file:///…/outputs/20260925-150949-tutorial-01-names-b761-487c1d49d9ff8d4dda3b9105eb7e8c29/report.html
+```
+
+Instead of OpenRouter, `--fake` uses a **fake provider**: the whole framework
+runs (templates, steps, the record), only the model's response is made up. The
+cost of 0.0001 USD is made up too — nothing is paid.
+
+Look at what the "model" answered:
+
+```bash
+cat runs/20260925-150949-tutorial-01-names-b761/steps/01-propose/output.json
 ```
 
 ```
 {
-  "text": "Falešná odpověď."
+  "text": "Fake response."
 }
 ```
 
-Na zkoušení, že scénář **jde projít**, to stačí. Jenže „Falešná odpověď."
-nevypadá jako tři názvy. Chceš-li, aby falešný model odpovídal
-realisticky, napíšeš mu **fixturu** — soubor s předem danými odpověďmi.
+To check that a scenario **can run through**, that is enough. But "Fake
+response." does not look like three names. If you want the fake model to answer
+realistically, you write it a **fixture** — a file with predefined responses.
 
-### Fixtura
+### The fixture
 
-Vytvoř `fake/tutorial-01-nazvy.yaml`:
+Create `fake/tutorial-01-names.yaml`:
 
 ```yaml
-# Skriptované odpovědi falešného poskytovatele pro tutorial-01-nazvy.
-# Klíč = id kroku, pod ním seznam odpovědí (každé volání vezme další).
-navrh:
-  - text: "Ovesňák\nMrazík Oves\nZmrzlá Pláň"
+# Scripted fake-provider responses for tutorial-01-names.
+# Key = step id, below it a list of responses (each call takes the next one).
+propose:
+  - text: "Oatsy\nFrost Oat\nFrozen Field"
 ```
 
-a spusť s ní:
+and run with it:
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-01-nazvy.yaml
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan oat milk ice cream" --fake fake/tutorial-01-names.yaml
 ```
 
 ```
-běh 20260925-150957-tutorial-01-nazvy-c3a6: úspěch · 0,0 s · 0,0001 USD
-záznam: runs/20260925-150957-tutorial-01-nazvy-c3a6/summary.md
+run 20260925-150957-tutorial-01-names-c3a6: succeeded · 0.0 s · 0.0001 USD
+run record: …/runs/20260925-150957-tutorial-01-names-c3a6/summary.md
+report: file:///…/outputs/20260925-150957-tutorial-01-names-c3a6-133fa5cdaf2b36f9f69945523e989f39/report.html
 ```
 
-Proč zrovna do `fake/` a proč stejné jméno jako scénář?
-Protože **každý scénář v příkladech klonu ve `workflows/scenarios/` je zároveň test
-frameworku** (tzv. zlatý scénář). Testy ho spustí s `--fake` a když
-k němu najdou fixturu se stejným jménem, použijí ji a čekají úspěch. Díky
-tomu, až někdo framework vylepší, hned uvidí, jestli tvůj scénář pořád
-běží. Víc v dílu 5.
+Why into `fake/`, and why the same name as the scenario? Because **every
+scenario in the examples of the clone in `workflows/scenarios/` is also a
+framework test** (a so-called golden scenario). The tests run it with `--fake`
+and when they find a fixture with the same name, they use it and expect
+success. That way, when someone improves the framework, they immediately see
+whether your scenario still runs. More in part 5.
 
-Pravidla fixtury, která zatím potřebuješ:
+The fixture rules you need so far:
 
-- klíč = `id` kroku,
-- `text: "…"` = textová odpověď (pro `ask` bez `schema`),
-- seznam = odpověď na 1., 2., … volání kroku; poslední se opakuje.
+- key = the step's `id`,
+- `text: "…"` = a text response (for `ask` without `schema`),
+- a list = the response to the 1st, 2nd, … call of the step; the last one repeats.
 
 ---
 
-## Krok 7 — složka běhu a `summary.md`
+## Step 7 — the run folder and `summary.md`
 
-Každý běh (i falešný) má vlastní složku v `runs/`:
+Every run (even a fake one) has its own folder in `runs/`:
 
 ```bash
-find runs/20260925-150949-tutorial-01-nazvy-b761 -type f | sort
+find runs/20260925-150949-tutorial-01-names-b761 -type f | sort
 ```
 
 ```
-runs/20260925-150949-tutorial-01-nazvy-b761/callback.json
-runs/20260925-150949-tutorial-01-nazvy-b761/events.jsonl
-runs/20260925-150949-tutorial-01-nazvy-b761/inputs.json
-runs/20260925-150949-tutorial-01-nazvy-b761/plan.md
-runs/20260925-150949-tutorial-01-nazvy-b761/steps/01-navrh/calls/01.request.json
-runs/20260925-150949-tutorial-01-nazvy-b761/steps/01-navrh/calls/01.response.json
-runs/20260925-150949-tutorial-01-nazvy-b761/steps/01-navrh/output.json
-runs/20260925-150949-tutorial-01-nazvy-b761/steps/01-navrh/prompt.md
-runs/20260925-150949-tutorial-01-nazvy-b761/steps/02-out/output.json
-runs/20260925-150949-tutorial-01-nazvy-b761/summary.md
+runs/20260925-150949-tutorial-01-names-b761/callback.json
+runs/20260925-150949-tutorial-01-names-b761/events.jsonl
+runs/20260925-150949-tutorial-01-names-b761/inputs.json
+runs/20260925-150949-tutorial-01-names-b761/plan.md
+runs/20260925-150949-tutorial-01-names-b761/report.html
+runs/20260925-150949-tutorial-01-names-b761/run.lock
+runs/20260925-150949-tutorial-01-names-b761/scenario/tutorial-01-names.yaml
+runs/20260925-150949-tutorial-01-names-b761/steps/01-propose/calls/01.request.json
+runs/20260925-150949-tutorial-01-names-b761/steps/01-propose/calls/01.response.json
+runs/20260925-150949-tutorial-01-names-b761/steps/01-propose/output.json
+runs/20260925-150949-tutorial-01-names-b761/steps/01-propose/prompt.md
+runs/20260925-150949-tutorial-01-names-b761/steps/02-out/output.json
+runs/20260925-150949-tutorial-01-names-b761/summary.md
 ```
 
-Pro teď stačí tři soubory:
+Three files are enough for now:
 
-| Soubor | K čemu |
+| File | What it is for |
 |---|---|
-| `summary.md` | souhrn pro člověka — čti vždy jako první |
-| `steps/01-navrh/prompt.md` | **přesně** to, co dostal model: system prompt (tělo agenta) + zpráva (prompt kroku po dosazení) |
-| `steps/01-navrh/output.json` | výstup kroku — to, co vidíš jako `steps.navrh` |
+| `summary.md` | a summary for humans — always read it first |
+| `steps/01-propose/prompt.md` | **exactly** what the model received: the system prompt (the agent's body) + the message (the step's prompt after substitution) |
+| `steps/01-propose/output.json` | the step's output — what you see as `steps.propose` |
 
-`01` je pořadí kroku v souboru scénáře. Zbytek (`events.jsonl`, `calls/`,
-`callback.json`) rozebereme v dílu 5.
+`01` is the step's order in the scenario file. We will go through the rest
+(`events.jsonl`, `calls/`, `callback.json`, `report.html`) in parts 5 and 7.
 
 ```bash
-cat runs/20260925-150949-tutorial-01-nazvy-b761/steps/01-navrh/prompt.md
+cat runs/20260925-150949-tutorial-01-names-b761/steps/01-propose/prompt.md
 ```
 
 ```
 # System prompt
 
-Jsi zkušený tvůrce názvů produktů. Píšeš česky.
+You are an experienced product namer. You write in English.
 
-Pravidla:
-- Každý název má nejvýš dvě slova a dá se snadno vyslovit.
-- Nepoužívej existující známé značky.
-- Odpovídej jen názvy, bez vysvětlování.
+Rules:
+- Each name has at most two words and is easy to pronounce.
+- Do not use existing well-known brands.
+- Reply with the names only, without explanations.
 
-# Zpráva
+# Message
 
-Vymysli 3 názvy pro tento produkt: veganská zmrzlina z ovesného mléka. Každý na vlastní řádek.
+Come up with 3 names for this product: vegan oat milk ice cream. Each on its own line.
 ```
 
-Když model odpoví divně, **tady** hledáš proč: co přesně dostal.
+When the model answers strangely, **this** is where you look for why: what
+exactly it received.
 
 ---
 
-## Krok 8 — jeden ostrý běh
+## Step 8 — one live run
 
-Klíč `OPENROUTER_API_KEY` je v souboru `.env` v projektu `examples/tutorial`;
-framework si ho načte sám (a nikam ho nevypisuje). Spusť bez `--fake`:
-
-```bash
-agencast run workflows/scenarios/tutorial-01-nazvy.yaml -i produkt="veganská zmrzlina z ovesného mléka"
-```
-
-```
-běh 20260925-151000-tutorial-01-nazvy-8d6a: úspěch · 1,6 s · 0,0002 USD
-záznam: runs/20260925-151000-tutorial-01-nazvy-8d6a/summary.md
-```
+The `OPENROUTER_API_KEY` key is in the `.env` file in the `examples/tutorial`
+project; the framework loads it by itself (and never prints it anywhere). Run
+without `--fake`:
 
 ```bash
-agencast runs show 20260925-151000-tutorial-01-nazvy-8d6a
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan oat milk ice cream"
 ```
 
 ```
-# tutorial-01-nazvy — úspěch
+run 20260925-151000-tutorial-01-names-8d6a: succeeded · 1.6 s · 0.0002 USD
+run record: …/runs/20260925-151000-tutorial-01-names-8d6a/summary.md
+report: file:///…/outputs/20260925-151000-tutorial-01-names-8d6a-ac84f994cef7d8b66082e2f51b941ff9/report.html
+```
 
-Vymyslí tři názvy pro produkt (tutoriál, díl 1)
-Běh `20260925-151000-tutorial-01-nazvy-8d6a` · 25. 9. 2026 15:10:00 UTC · 1,6 s · 0,0002 USD
+```bash
+agencast runs show 20260925-151000-tutorial-01-names-8d6a
+```
 
-## Vstupy
-- produkt: veganská zmrzlina z ovesného mléka
+```
+# tutorial-01-names — success
 
-## Kroky
-| # | Krok | Typ | Stav | Čas | Cena | Poznámka |
+Comes up with three names for a product (tutorial, part 1)
+Run `20260925-151000-tutorial-01-names-8d6a` · 2026-09-25 15:10 UTC · 1.6 s · 0.0002 USD
+
+## Inputs
+- product: vegan oat milk ice cream
+
+## Steps
+| # | Step | Type | Status | Time | Cost | Note |
 |---|---|---|---|---|---|---|
-| 1 | navrh | ask | ✓ | 1,6 s | 0,0002 | chytry → anthropic/claude-haiku-4.5 |
-| 2 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 1,6 s | 0,0002 |  |
+| 1 | propose | ask | ✓ | 1.6 s | 0.0002 | smart → anthropic/claude-haiku-4.5 |
+| 2 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 1.6 s | 0.0002 |  |
 
-## Varování
-žádná
+## Warnings
+none
 
-## Výstup
-- nazvy: „Ovesanka
-Mlékový led
-Zrníčko"
+## Output
+- names: “Oat Bliss
+Frost Grain
+Oaty Cloud”
 ```
 
-**Kde vidíš cenu:**
+**Where you see the cost:**
 
-- v prvním řádku po běhu (`0,0002 USD`),
-- v `summary.md` — celkem v záhlaví, po krocích ve sloupci **Cena**,
-- v přehledu všech běhů:
+- on the first line after the run (`0.0002 USD`),
+- in `summary.md` — the total in the header, per step in the **Cost** column,
+- in the overview of all runs:
 
 ```bash
 agencast runs list
 ```
 
 ```
-20260925-151000-tutorial-01-nazvy-8d6a        succeeded                         1,6 s   0,0002 USD 
-20260925-150957-tutorial-01-nazvy-c3a6        succeeded                         0,0 s   0,0001 USD 
-20260925-150949-tutorial-01-nazvy-b761        succeeded                         0,0 s   0,0001 USD 
-20260925-150947-tutorial-01-nazvy-3c6f        dry-run
+20260925-151000-tutorial-01-names-8d6a        succeeded                         1.6 s   0.0002 USD 
+20260925-150957-tutorial-01-names-c3a6        succeeded                         0.0 s   0.0001 USD 
+20260925-150949-tutorial-01-names-b761        succeeded                         0.0 s   0.0001 USD 
+20260925-150947-tutorial-01-names-3c6f        dry-run
 ```
 
-Cenu počítá OpenRouter, framework ji jen přečte z odpovědi (přesně:
-0,000234 USD, 134 tokenů dovnitř, 20 ven). Nikdy ji neodhaduje.
+OpenRouter calculates the cost; the framework only reads it from the response
+(exactly: 0.000234 USD, 134 tokens in, 20 out). It never estimates it.
 
 ---
 
-## Co sis zapamatoval
+## What you have learned
 
-- Agent = `workflows/agents/<jméno>.md`: frontmatter (`version`, `name`,
-  `description`, `model`, `limits.budget_usd`) + instrukce.
-- Scénář = `workflows/scenarios/<jméno>.yaml`: hlavička, `inputs`,
-  `outputs`, `steps`; `ask` bez `schema` dává `steps.<id>.text`.
-- Postup vždy: **`validate` → `--dry-run` → `--fake` → ostrý běh.**
-- První, co po běhu čteš: `summary.md`. Když něco nesedí: `prompt.md`.
+- Agent = `workflows/agents/<name>.md`: frontmatter (`version`, `name`,
+  `description`, `model`, `limits.budget_usd`) + instructions.
+- Scenario = `workflows/scenarios/<name>.yaml`: header, `inputs`,
+  `outputs`, `steps`; `ask` without `schema` gives `steps.<id>.text`.
+- The procedure is always: **`validate` → `--dry-run` → `--fake` → live run.**
+- The first thing you read after a run: `summary.md`. When something is off:
+  `prompt.md`.
 
 ---
 
-## Cvičení
+## Exercise
 
-Přidej do scénáře druhý vstup **`styl`** (text), který **nemusí** přijít —
-když nepřijde, platí `hravý`. Vlož ho do promptu. Scénář ulož jako
-`workflows/scenarios/tutorial-01-cviceni.yaml` a udělej k němu fixturu.
-Ověř falešným během, že bez `-i styl=…` model dostal „hravý" a s
-`-i styl="luxusní"` dostal „luxusní".
+Add a second input **`style`** (text) to the scenario, which **does not have**
+to be provided — when it is not, `playful` applies. Put it into the prompt. Save
+the scenario as `workflows/scenarios/tutorial-01-exercise.yaml` and make a
+fixture for it. Verify with a fake run that without `-i style=…` the model
+received "playful" and with `-i style="luxury"` it received "luxury".
 
 <details>
-<summary>Řešení</summary>
+<summary>Solution</summary>
 
-`workflows/scenarios/tutorial-01-cviceni.yaml`:
+`workflows/scenarios/tutorial-01-exercise.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-01-cviceni
-description: Vymyslí tři názvy pro produkt v zadaném stylu (tutoriál, díl 1 — řešení cvičení)
+name: tutorial-01-exercise
+description: Comes up with three names for a product in a given style (tutorial, part 1 — exercise solution)
 
 inputs:
-  produkt:
+  product:
     type: string
     required: true
-    description: Jaký produkt pojmenováváme
-  styl:
+    description: The product we are naming
+  style:
     type: string
-    default: hravý
-    description: Jaký styl názvů chceme
+    default: playful
+    description: The style of names we want
 
 outputs:
-  nazvy:
+  names:
     type: string
-    description: Tři návrhy názvů, každý na vlastním řádku
+    description: Three name ideas, each on its own line
 
 steps:
-  - id: navrh
+  - id: propose
     ask:
-      agent: tutorial-pojmenovavac
-      prompt: "Vymysli 3 názvy ve stylu „{{ inputs.styl }}“ pro tento produkt: {{ inputs.produkt }}. Každý na vlastní řádek."
+      agent: tutorial-namer
+      prompt: "Come up with 3 names in a “{{ inputs.style }}” style for this product: {{ inputs.product }}. Each on its own line."
 
   - id: out
     output:
-      nazvy: "{{ steps.navrh.text }}"
+      names: "{{ steps.propose.text }}"
 ```
 
-Pozor: `name` se musí změnit spolu se jménem souboru. Vstup `styl` má
-`default`, proto **nemá** `required`.
+Watch out: `name` must change together with the file name. The `style` input has
+a `default`, so it does **not** have `required`.
 
-`fake/tutorial-01-cviceni.yaml`:
+`fake/tutorial-01-exercise.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-01-cviceni (řešení cvičení z dílu 1).
-navrh:
-  - text: "Ovesňáček\nMrazíček\nKopeček Oves"
+# Scripted responses for tutorial-01-exercise (exercise solution from part 1).
+propose:
+  - text: "Little Oatsy\nFrosty\nOat Scoop"
 ```
 
-Ověření:
-
-```bash
-agencast validate workflows/scenarios/tutorial-01-cviceni.yaml
-agencast run workflows/scenarios/tutorial-01-cviceni.yaml -i produkt="veganská zmrzlina" --fake fake/tutorial-01-cviceni.yaml
-```
-
-```
-v pořádku: tutorial-01-cviceni (2 kroky)
-běh 20260925-151019-tutorial-01-cviceni-6b59: úspěch · 0,0 s · 0,0001 USD
-záznam: runs/20260925-151019-tutorial-01-cviceni-6b59/summary.md
-```
+Verification:
 
 ```bash
-cat runs/20260925-151019-tutorial-01-cviceni-6b59/inputs.json
+agencast validate workflows/scenarios/tutorial-01-exercise.yaml
+agencast run workflows/scenarios/tutorial-01-exercise.yaml -i product="vegan ice cream" --fake fake/tutorial-01-exercise.yaml
+```
+
+```
+valid: tutorial-01-exercise (2 steps)
+run 20260925-151019-tutorial-01-exercise-6b59: succeeded · 0.0 s · 0.0001 USD
+run record: …/runs/20260925-151019-tutorial-01-exercise-6b59/summary.md
+report: file:///…/outputs/20260925-151019-tutorial-01-exercise-6b59-c0f8f5d83b45c8395fa549206d5c6c9b/report.html
+```
+
+```bash
+cat runs/20260925-151019-tutorial-01-exercise-6b59/inputs.json
 ```
 
 ```
 {
-  "produkt": "veganská zmrzlina",
-  "styl": "hravý"
+  "product": "vegan ice cream",
+  "style": "playful"
 }
 ```
 
-a v `steps/01-navrh/prompt.md` pod `# Zpráva`:
+and in `steps/01-propose/prompt.md` under `# Message`:
 
 ```
-Vymysli 3 názvy ve stylu „hravý“ pro tento produkt: veganská zmrzlina. Každý na vlastní řádek.
+Come up with 3 names in a “playful” style for this product: vegan ice cream. Each on its own line.
 ```
 
-S `-i styl="luxusní"` je ve zprávě `ve stylu „luxusní“`.
+With `-i style="luxury"` the message contains `in a “luxury” style`.
 
 </details>
 
-**Další díl:** [Navazování kroků](02-navazovani-kroku.md) — druhý krok
-čte výstup prvního a `schema` z odpovědi udělá data.
+**Next part:** [Chaining steps](02-chaining-steps.md) — the second step
+reads the output of the first, and `schema` turns a response into data.

@@ -1,4 +1,4 @@
-// `TypePicker` (§3, §4.1): prostý seznam typů vpravo od +, psaní filtruje, šipky/Enter/Esc.
+// `TypePicker` (§3, §4.1): plain list of types to the right of +, typing filters, arrows/Enter/Esc.
 import { Plus } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
@@ -6,12 +6,12 @@ import { t } from "../i18n";
 import type { StepType } from "../types";
 import { btn } from "./ui";
 
-/** Skupiny oddělené hairline; `output` se nenabízí (jde jen na konec hlavního seznamu). */
+/** Groups separated by a hairline; `output` is not offered (it only goes at the end of the main list). */
 export const PICKER_GROUPS: StepType[][] = [["ask", "task", "jev", "image"], ["parallel", "switch", "call", "fail"], ["set"]];
 
 export type Pick = StepType | "paste";
 
-/** Položky po filtru: klíčové slovo začíná filtrem, jinak ho obsahuje slovo nebo popis. */
+/** Items after filtering: the keyword starts with the filter, otherwise a word or the description contains it. */
 export function filterTypes(filter: string): StepType[] {
   const all = PICKER_GROUPS.flat();
   const f = filter.toLowerCase();
@@ -21,7 +21,7 @@ export function filterTypes(filter: string): StepType[] {
 }
 
 export function TypePicker({ onPick, onClose, paste, anchor }: {
-  onPick: (p: Pick) => void; onClose: () => void; anchor?: RefObject<HTMLElement | null>; /** id vyjmutého kroku → položka „Vložit ‚x‘ sem“. */ paste?: string;
+  onPick: (p: Pick) => void; onClose: () => void; anchor?: RefObject<HTMLElement | null>; /** id of the cut step → item "Paste 'x' here". */ paste?: string;
 }) {
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
@@ -102,8 +102,8 @@ export function TypePicker({ onPick, onClose, paste, anchor }: {
   );
 }
 
-/** `AddButton` (§3): (+) 44 px kolečko (návrh 05); mezi kartami se ukazuje při hoveru/fokusu místo šipky, na konci trvale.
- *  S `text` je to sekundární tlačítko „+ Přidat krok“ pod hlavním sloupcem (fidelity §6). */
+/** `AddButton` (§3): (+) 44 px circle (design 05); between cards it shows on hover/focus instead of the arrow, permanently at the end.
+ *  With `text` it is the secondary button "+ Add step" below the main column (fidelity §6). */
 export function AddButton({ label, onPick, paste, always = false, testid, text }: {
   label: string; onPick: (p: Pick) => void; paste?: string; always?: boolean; testid?: string; text?: string;
 }) {

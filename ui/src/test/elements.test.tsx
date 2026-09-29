@@ -6,7 +6,7 @@ import { CodeBlock, Menu, StatusChip, type Status } from "../components/ui";
 
 afterEach(cleanup);
 
-it("čipy rozlišují všech deset stavů ikonou, textem a tokenovou barvou", () => {
+it("chips tell all ten states apart by icon, text and token color", () => {
   const colors: Record<Status, string> = {
     succeeded: "text-success", failed: "text-error", warning: "text-warning",
     cancelled: "text-warning", interrupted: "text-warning", running: "text-running",
@@ -22,17 +22,17 @@ it("čipy rozlišují všech deset stavů ikonou, textem a tokenovou barvou", ()
   }
 });
 
-it("menu označí nebezpečnou položku a přeskočí zakázanou", () => {
+it("menu marks the dangerous item and skips the disabled one", () => {
   const select = vi.fn();
-  render(<Menu label="Akce" items={[
-    { label: "Nedostupné", disabled: "Bez oprávnění", onSelect: select },
-    { label: "Smazat", danger: true, onSelect: select },
+  render(<Menu label="Actions" items={[
+    { label: "Unavailable", disabled: "No permission", onSelect: select },
+    { label: "Delete", danger: true, onSelect: select },
   ]} />);
-  const trigger = screen.getByRole("button", { name: "Akce" });
+  const trigger = screen.getByRole("button", { name: "Actions" });
   fireEvent.click(trigger);
-  const blocked = screen.getByRole("menuitem", { name: "Nedostupné" });
-  const danger = screen.getByRole("menuitem", { name: "Smazat" });
-  expect(blocked.getAttribute("title")).toBe("Bez oprávnění");
+  const blocked = screen.getByRole("menuitem", { name: "Unavailable" });
+  const danger = screen.getByRole("menuitem", { name: "Delete" });
+  expect(blocked.getAttribute("title")).toBe("No permission");
   expect(blocked.getAttribute("aria-disabled")).toBe("true");
   expect(danger.className).toContain("text-error");
   fireEvent.click(blocked);
@@ -42,14 +42,14 @@ it("menu označí nebezpečnou položku a přeskočí zakázanou", () => {
   expect(document.activeElement).toBe(trigger);
 });
 
-it("modál vrací fokus, nebezpečná akce používá danger a souborové pole je zakázané", () => {
+it("modal returns focus, the dangerous action uses danger and a file field is disabled", () => {
   const outside = document.createElement("button");
   document.body.append(outside);
   outside.focus();
   const cancel = vi.fn();
-  const { unmount } = render(<Modal title="Smazat" actions={[{ label: "Smazat", danger: true, onSelect: vi.fn() }]} onCancel={cancel} />);
+  const { unmount } = render(<Modal title="Delete" actions={[{ label: "Delete", danger: true, onSelect: vi.fn() }]} onCancel={cancel} />);
   const dialog = screen.getByRole("dialog");
-  const first = screen.getByRole("button", { name: "Smazat" });
+  const first = screen.getByRole("button", { name: "Delete" });
   expect(first.className).toContain("text-error");
   expect(document.activeElement).toBe(first);
   fireEvent.keyDown(dialog, { key: "Escape" });
@@ -58,30 +58,30 @@ it("modál vrací fokus, nebezpečná akce používá danger a souborové pole j
   expect(document.activeElement).toBe(outside);
   outside.remove();
 
-  render(<ValueInput a11y={{ id: "soubor" }} type="file" value={undefined} onChange={vi.fn()} />);
+  render(<ValueInput a11y={{ id: "file" }} type="file" value={undefined} onChange={vi.fn()} />);
   expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(true);
 });
 
-it("Markdown vykreslí odkazy a blok kódu bezpečně", () => {
-  render(<Markdown text={'# Přehled\n[Web](https://example.com) [nebezpečné](javascript:alert(1))\n```js\nconst x = 1\n```'} />);
+it("Markdown renders links and a code block safely", () => {
+  render(<Markdown text={'# Overview\n[Web](https://example.com) [dangerous](javascript:alert(1))\n```js\nconst x = 1\n```'} />);
   expect(screen.getByRole("link", { name: "Web" }).getAttribute("href")).toBe("https://example.com");
-  expect(screen.queryByRole("link", { name: "nebezpečné" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "dangerous" })).toBeNull();
   expect(screen.getByRole("region", { name: "js" }).className).toContain("bg-nested");
 });
 
-it("blok kódu čísluje řádky a kopíruje původní text", async () => {
+it("code block numbers lines and copies the original text", async () => {
   const text = '{"ok": true}\n42';
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
   render(<CodeBlock title="output.json" text={text} />);
   expect(screen.getByRole("region", { name: "output.json" }).querySelectorAll("tr")).toHaveLength(2);
-  fireEvent.click(screen.getByRole("button", { name: "Kopírovat" }));
+  fireEvent.click(screen.getByRole("button", { name: "Copy" }));
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(text));
 });
 
-it("čip „běží“: pulzuje jen ikona, text drží kontrast (vlna F)", () => {
-  render(<StatusChip status="running">běží</StatusChip>);
-  const chip = screen.getByText("běží");
+it("“running” chip: only the icon pulses, the text keeps its contrast (wave F)", () => {
+  render(<StatusChip status="running">running</StatusChip>);
+  const chip = screen.getByText("running");
   expect(chip.className).not.toContain("animate-pulse");
   expect(chip.querySelector("svg")!.getAttribute("class")).toContain("motion-safe:animate-pulse");
 });

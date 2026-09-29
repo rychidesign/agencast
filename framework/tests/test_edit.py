@@ -1,4 +1,4 @@
-"""Editační operace (edit.py, api.md „Editace“): round-trip YAML, adresa kroku, otisk, validace před zápisem."""
+"""Editing operations (edit.py, api.md “Editing”): round-trip YAML, step address, hash, validation before writing."""
 import difflib
 import re
 from pathlib import Path
@@ -15,7 +15,7 @@ AGENTS = example_files("agents/*.md")
 
 
 def changed_lines(a: str, b: str) -> list[str]:
-    """Řádky originálu, které změna přepsala nebo smazala (vložené řádky se nepočítají)."""
+    """Original lines replaced or deleted by a change (inserted lines do not count)."""
     sm = difflib.SequenceMatcher(None, a.splitlines(), b.splitlines(), autojunk=False)
     return [ln for op, i1, i2, _, _ in sm.get_opcodes() if op in ("replace", "delete") for ln in a.splitlines()[i1:i2]]
 
@@ -24,20 +24,20 @@ def changed_lines(a: str, b: str) -> list[str]:
 def test_scenario_roundtrip(path):
     name = path.name
     text = path.read_text(encoding="utf-8")
-    assert yaml_edit(text, lambda d: None, name) == text  # no-op = bajtově stejný soubor
+    assert yaml_edit(text, lambda d: None, name) == text  # no-op = byte-identical file
 
-    new_step = {"id": "rt_novy", "fail": "Víc řádků\n{{ inputs.x }}"}
+    new_step = {"id": "rt_new", "fail": "Multiple lines\n{{ inputs.x }}"}
 
     def change(d):
-        merge(d, {"description": "Nový popis: {{ neni šablona }}"})
+        merge(d, {"description": "New description: {{ not a template }}"})
         d["steps"].insert(1, _new(new_step))
     new = yaml_edit(text, change, name)
     want = load_yaml(text, name)
-    want["description"] = "Nový popis: {{ neni šablona }}"
+    want["description"] = "New description: {{ not a template }}"
     want["steps"].insert(1, new_step)
-    assert load_yaml(new, name) == want  # loader (PyYAML 1.2 core) čte očekávaný obsah
-    assert 'description: "Nový popis: {{ neni šablona }}"' in new
-    # přepsaný je jen popis (u víceřádkového jeho řádky); komentáře, uvozovky a zbytek zůstaly doslova
+    assert load_yaml(new, name) == want  # loader (PyYAML 1.2 core) reads the expected content
+    assert 'description: "New description: {{ not a template }}"' in new
+    # only the description is rewritten (all its lines if multiline); comments, quotes and the rest remain verbatim
     lines = text.splitlines()
     i = next(n for n, ln in enumerate(lines) if ln.startswith("description:"))
     j = next(n for n in range(i + 1, len(lines)) if not lines[n].startswith(" "))
@@ -51,15 +51,15 @@ def test_agent_roundtrip(path):
     m = FRONTMATTER.match(src)
     assert m
     assert m[1] + yaml_edit(m[2], lambda d: merge(d, {}), name) + m[3] + m[4] == src  # no-op
-    fm = yaml_edit(m[2], lambda d: merge(d, {"description": "Jiný popis", "limits": {"budget_usd": 0.5}}), name)
+    fm = yaml_edit(m[2], lambda d: merge(d, {"description": "Another description", "limits": {"budget_usd": 0.5}}), name)
     new = m[1] + fm + m[3] + m[4]
     want = load_yaml(m[2], name)
-    want["description"] = "Jiný popis"
+    want["description"] = "Another description"
     want.setdefault("limits", {})["budget_usd"] = 0.5
     m2 = FRONTMATTER.match(new)
-    assert m2 and load_yaml(m2[2], name) == want and m2[4] == m[4]  # tělo beze změny
+    assert m2 and load_yaml(m2[2], name) == want and m2[4] == m[4]  # body unchanged
     assert [ln for ln in m[2].splitlines() if ln.lstrip().startswith("#")] == \
-           [ln for ln in fm.splitlines() if ln.lstrip().startswith("#")]  # komentáře zůstaly
+           [ln for ln in fm.splitlines() if ln.lstrip().startswith("#")]  # comments preserved
 
 
 def test_noop_operation_on_golden_project(wf):
@@ -72,41 +72,41 @@ def test_noop_operation_on_golden_project(wf):
     assert p.read_bytes() == before and r["etag"] == d["etag"]
 
 
-VETVE = """\
+BRANCHES = """\
 version: 1
-name: vetve
-description: Větve na libovolnou hloubku
+name: branches
+description: Arbitrarily nested branches
 inputs:
-  tema: { type: string, default: káva }   # zarovnání a mezery zůstanou
+  topic: { type: string, default: café }   # alignment and spacing preserved
 outputs:
   text: { type: string }
 steps:
-  # rozhodnutí podle tématu
-  - id: rozhodni
+  # branch by topic
+  - id: decide
     switch:
-      value: inputs.tema
+      value: inputs.topic
       cases:
-        káva:
+        café:
           - id: par
             parallel:
               a:
                 - id: a1
-                  ask: { agent: pisatel, prompt: "A {{ inputs.tema }}" }
+                  ask: { agent: writer, prompt: "A {{ inputs.topic }}" }
               b:
                 - id: b1
-                  ask: { agent: pisatel, prompt: "B {{ inputs.tema }}" }
+                  ask: { agent: writer, prompt: "B {{ inputs.topic }}" }
                 - id: b2
-                  ask: { agent: pisatel, prompt: "B2 {{ inputs.tema }}" }
+                  ask: { agent: writer, prompt: "B2 {{ inputs.topic }}" }
               c:
                 - id: c1
-                  ask: { agent: pisatel, prompt: "C {{ inputs.tema }}" }
+                  ask: { agent: writer, prompt: "C {{ inputs.topic }}" }
       default:
         - id: d1
-          ask: { agent: pisatel, prompt: "D {{ inputs.tema }}" }
+          ask: { agent: writer, prompt: "D {{ inputs.topic }}" }
 
-  - id: vystup
+  - id: result
     output:
-      text: "{{ inputs.tema }}"
+      text: "{{ inputs.topic }}"
 """
 
 
@@ -114,7 +114,7 @@ steps:
 def proj(tmp_path):
     root = tmp_path / "p"
     api.new_project(root)
-    r = api.write_file(root, "scenarios/vetve.yaml", None, VETVE)
+    r = api.write_file(root, "scenarios/branches.yaml", None, BRANCHES)
     assert r["errors"] == []
     return root
 
@@ -129,72 +129,72 @@ def ids(tree):
 
 
 def test_address_in_get_and_nested_ops(proj):
-    d = api.describe_scenario(proj, "vetve")
+    d = api.describe_scenario(proj, "branches")
     assert d
     assert ids(d["steps"]) == [
-        ("rozhodni", ["steps", 0]), ("par", ["steps", 0, "switch", "cases", "káva", 0]),
-        ("a1", ["steps", 0, "switch", "cases", "káva", 0, "parallel", "a", 0]),
-        ("b1", ["steps", 0, "switch", "cases", "káva", 0, "parallel", "b", 0]),
-        ("b2", ["steps", 0, "switch", "cases", "káva", 0, "parallel", "b", 1]),
-        ("c1", ["steps", 0, "switch", "cases", "káva", 0, "parallel", "c", 0]),
-        ("d1", ["steps", 0, "switch", "default", 0]), ("vystup", ["steps", 1])]
-    a = ["steps", 0, "switch", "cases", "káva", 0, "parallel", "a"]
-    # add na začátek větve (adresa seznamu) a za krok (adresa kroku); adresy z URL jsou texty
-    r = api.add_step(proj, "vetve", d["etag"], a, {"id": "a0", "ask": {"agent": "pisatel", "prompt": "Nula {{ inputs.tema }}"}})
-    r = api.add_step(proj, "vetve", r["etag"], [*a[:-1], "a", "1"],
-                     {"id": "a2", "ask": {"agent": "pisatel", "prompt": "Dva\n{{ steps.a1.text }}"}})
-    text = (proj / "workflows" / "scenarios" / "vetve.yaml").read_text()
-    assert 'prompt: "Nula {{ inputs.tema }}"' in text and "prompt: |-\n" in text
-    assert "  tema: { type: string, default: káva }   # zarovnání a mezery zůstanou\n" in text
-    assert "  # rozhodnutí podle tématu\n" in text
-    tree = api.describe_scenario(proj, "vetve")
-    assert tree and [i for i, _ in ids(tree["steps"])] == ["rozhodni", "par", "a0", "a1", "a2", "b1", "b2", "c1", "d1", "vystup"]
-    # update: merge patch, null maže pole
-    r = api.update_step(proj, "vetve", r["etag"], ["steps", 0, "switch", "default", 0],
-                        {"ask": {"prompt": "Jiný {{ inputs.tema }}"}, "timeout": "1m"})
-    r = api.update_step(proj, "vetve", r["etag"], ["steps", 0, "switch", "default", 0], {"timeout": None})
-    data = load_yaml((proj / "workflows" / "scenarios" / "vetve.yaml").read_text(), "")
-    assert data["steps"][0]["switch"]["default"][0] == {"id": "d1", "ask": {"agent": "pisatel", "prompt": "Jiný {{ inputs.tema }}"}}
-    # move: z hloubky větve b na začátek default; pak delete
-    r = api.move_step(proj, "vetve", r["etag"], [*a[:-1], "b", 0], ["steps", 0, "switch", "default"])
-    tree = api.describe_scenario(proj, "vetve")
-    assert tree and [i for i, _ in ids(tree["steps"])] == ["rozhodni", "par", "a0", "a1", "a2", "b2", "c1", "b1", "d1", "vystup"]
+        ("decide", ["steps", 0]), ("par", ["steps", 0, "switch", "cases", "café", 0]),
+        ("a1", ["steps", 0, "switch", "cases", "café", 0, "parallel", "a", 0]),
+        ("b1", ["steps", 0, "switch", "cases", "café", 0, "parallel", "b", 0]),
+        ("b2", ["steps", 0, "switch", "cases", "café", 0, "parallel", "b", 1]),
+        ("c1", ["steps", 0, "switch", "cases", "café", 0, "parallel", "c", 0]),
+        ("d1", ["steps", 0, "switch", "default", 0]), ("result", ["steps", 1])]
+    a = ["steps", 0, "switch", "cases", "café", 0, "parallel", "a"]
+    # add at branch start (list address) and after a step (step address); URL addresses are strings
+    r = api.add_step(proj, "branches", d["etag"], a, {"id": "a0", "ask": {"agent": "writer", "prompt": "Zero {{ inputs.topic }}"}})
+    r = api.add_step(proj, "branches", r["etag"], [*a[:-1], "a", "1"],
+                     {"id": "a2", "ask": {"agent": "writer", "prompt": "Two\n{{ steps.a1.text }}"}})
+    text = (proj / "workflows" / "scenarios" / "branches.yaml").read_text()
+    assert 'prompt: "Zero {{ inputs.topic }}"' in text and "prompt: |-\n" in text
+    assert "  topic: { type: string, default: café }   # alignment and spacing preserved\n" in text
+    assert "  # branch by topic\n" in text
+    tree = api.describe_scenario(proj, "branches")
+    assert tree and [i for i, _ in ids(tree["steps"])] == ["decide", "par", "a0", "a1", "a2", "b1", "b2", "c1", "d1", "result"]
+    # update: merge patch, null deletes fields
+    r = api.update_step(proj, "branches", r["etag"], ["steps", 0, "switch", "default", 0],
+                        {"ask": {"prompt": "Another {{ inputs.topic }}"}, "timeout": "1m"})
+    r = api.update_step(proj, "branches", r["etag"], ["steps", 0, "switch", "default", 0], {"timeout": None})
+    data = load_yaml((proj / "workflows" / "scenarios" / "branches.yaml").read_text(), "")
+    assert data["steps"][0]["switch"]["default"][0] == {"id": "d1", "ask": {"agent": "writer", "prompt": "Another {{ inputs.topic }}"}}
+    # move: from nested branch b to the start of default; then delete
+    r = api.move_step(proj, "branches", r["etag"], [*a[:-1], "b", 0], ["steps", 0, "switch", "default"])
+    tree = api.describe_scenario(proj, "branches")
+    assert tree and [i for i, _ in ids(tree["steps"])] == ["decide", "par", "a0", "a1", "a2", "b2", "c1", "b1", "d1", "result"]
     assert ("b1", ["steps", 0, "switch", "default", 0]) in ids(tree["steps"])
-    r = api.delete_step(proj, "vetve", r["etag"], ["steps", 0, "switch", "default", 0])
-    r = api.delete_step(proj, "vetve", r["etag"], [*a[:-1], "c", 0])  # poslední krok větve → větev zmizí
-    tree = api.describe_scenario(proj, "vetve")
+    r = api.delete_step(proj, "branches", r["etag"], ["steps", 0, "switch", "default", 0])
+    r = api.delete_step(proj, "branches", r["etag"], [*a[:-1], "c", 0])  # last step in a branch → remove the branch
+    tree = api.describe_scenario(proj, "branches")
     assert tree and tree["etag"] == r["etag"]
-    assert [i for i, _ in ids(tree["steps"])] == ["rozhodni", "par", "a0", "a1", "a2", "b2", "d1", "vystup"]
-    assert list(tree["steps"][0]["cases"]["káva"][0]["branches"]) == ["a", "b"]
+    assert [i for i, _ in ids(tree["steps"])] == ["decide", "par", "a0", "a1", "a2", "b2", "d1", "result"]
+    assert list(tree["steps"][0]["cases"]["café"][0]["branches"]) == ["a", "b"]
     with pytest.raises(api.NotFound):
-        api.delete_step(proj, "vetve", r["etag"], ["steps", 0, "parallel", "x", 0])
-    with pytest.raises(ConfigErrors, match="vlastní větve"):
-        api.move_step(proj, "vetve", r["etag"], ["steps", 0], ["steps", 0, "switch", "default"])
+        api.delete_step(proj, "branches", r["etag"], ["steps", 0, "parallel", "x", 0])
+    with pytest.raises(ConfigErrors, match="its own branch"):
+        api.move_step(proj, "branches", r["etag"], ["steps", 0], ["steps", 0, "switch", "default"])
 
 
 def test_etag_conflict_and_validation_write_nothing(proj):
-    p = proj / "workflows" / "scenarios" / "vetve.yaml"
+    p = proj / "workflows" / "scenarios" / "branches.yaml"
     before = p.read_bytes()
-    cur = api.describe_scenario(proj, "vetve")["etag"]  # type: ignore[index]
+    cur = api.describe_scenario(proj, "branches")["etag"]  # type: ignore[index]
     with pytest.raises(api.Conflict) as e:
-        api.set_header(proj, "vetve", "stary", {"description": "x"})
+        api.set_header(proj, "branches", "stale", {"description": "x"})
     assert e.value.etag == cur and p.read_bytes() == before
-    # output musí zůstat poslední → chyba config, nic se nezapíše
+    # output must remain last → config error, nothing is written
     with pytest.raises(ConfigErrors) as e2:
-        api.add_step(proj, "vetve", cur, ["steps", 1], {"id": "po", "fail": "konec"})
+        api.add_step(proj, "branches", cur, ["steps", 1], {"id": "after", "fail": "done"})
     assert any("output" in x for x in e2.value.errors) and p.read_bytes() == before
-    with pytest.raises(ConfigErrors):  # odkaz na neexistující krok
-        api.update_step(proj, "vetve", cur, ["steps", 1], {"output": {"text": "{{ steps.nic.text }}"}})
+    with pytest.raises(ConfigErrors):  # reference to a nonexistent step
+        api.update_step(proj, "branches", cur, ["steps", 1], {"output": {"text": "{{ steps.missing.text }}"}})
     with pytest.raises(ConfigErrors, match="steps"):
-        api.set_header(proj, "vetve", cur, {"steps": []})
+        api.set_header(proj, "branches", cur, {"steps": []})
     assert p.read_bytes() == before
 
 
 def test_file_changed_during_validation_conflicts(proj, monkeypatch):
-    rel = "scenarios/vetve.yaml"
+    rel = "scenarios/branches.yaml"
     p = proj / "workflows" / rel
     doc = api.read_file(proj, rel)
-    manual = p.read_text() + "# ruční změna během validace\n"
+    manual = p.read_text() + "# manual change during validation\n"
 
     def check(root, path, text):
         p.write_text(manual)
@@ -202,7 +202,7 @@ def test_file_changed_during_validation_conflicts(proj, monkeypatch):
 
     monkeypatch.setattr(edit, "_check", check)
     with pytest.raises(api.Conflict) as exc:
-        api.write_file(proj, rel, doc["etag"], "změna z GUI\n")
+        api.write_file(proj, rel, doc["etag"], "change from the GUI\n")
 
     assert exc.value.etag == api.read_file(proj, rel)["etag"]
     assert p.read_text() == manual
@@ -211,157 +211,157 @@ def test_file_changed_during_validation_conflicts(proj, monkeypatch):
 
 def test_existing_errors_do_not_block(proj):
     wf = proj / "workflows"
-    (wf / "scenarios" / "rozbity.yaml").write_text("version: 1\nname: rozbity\ndescription: x\nsteps: []\n")
-    r = api.set_header(proj, "ukazka", api.describe_scenario(proj, "ukazka")["etag"], {"description": "Nový"})  # type: ignore[index]
-    assert any("rozbity" in e for e in r["errors"])  # zůstává hlášená, ale změnu neblokuje
+    (wf / "scenarios" / "broken.yaml").write_text("version: 1\nname: broken\ndescription: x\nsteps: []\n")
+    r = api.set_header(proj, "demo", api.describe_scenario(proj, "demo")["etag"], {"description": "New"})  # type: ignore[index]
+    assert any("broken" in e for e in r["errors"])  # still reported, but does not block the change
 
 
 def test_rename_scenario_updates_calls_and_keeps_comments(wf):
     proj = wf.parent
-    api.new_scenario(proj, "ukazka")
-    callee = api.read_file(proj, "scenarios/ukazka.yaml")
-    api.set_header(proj, "ukazka", callee["etag"], {"callable": True})
-    api.new_scenario(proj, "volani")
-    caller = api.read_file(proj, "scenarios/volani.yaml")
-    api.add_step(proj, "volani", caller["etag"], ["steps", 0],
-                 {"id": "zavolej", "call": {"scenario": "ukazka"}})
-    callee_path = wf / "scenarios" / "ukazka.yaml"
-    callee_path.write_text(callee_path.read_text().replace("name: ukazka\n", "# zachovaný komentář\nname: ukazka\n"))
-    caller_path = wf / "scenarios" / "volani.yaml"
-    caller_path.write_text(caller_path.read_text().replace("scenario: ukazka", "scenario: ukazka # volání"))
+    api.new_scenario(proj, "demo")
+    callee = api.read_file(proj, "scenarios/demo.yaml")
+    api.set_header(proj, "demo", callee["etag"], {"callable": True})
+    api.new_scenario(proj, "caller")
+    caller = api.read_file(proj, "scenarios/caller.yaml")
+    api.add_step(proj, "caller", caller["etag"], ["steps", 0],
+                 {"id": "invoke", "call": {"scenario": "demo"}})
+    callee_path = wf / "scenarios" / "demo.yaml"
+    callee_path.write_text(callee_path.read_text().replace("name: demo\n", "# preserved comment\nname: demo\n"))
+    caller_path = wf / "scenarios" / "caller.yaml"
+    caller_path.write_text(caller_path.read_text().replace("scenario: demo", "scenario: demo # call"))
 
-    r = api.rename_scenario(proj, "ukazka", api.read_file(proj, "scenarios/ukazka.yaml")["etag"], "uvod")
+    r = api.rename_scenario(proj, "demo", api.read_file(proj, "scenarios/demo.yaml")["etag"], "intro")
 
-    assert r["name"] == "uvod" and r["etag"] == api.read_file(proj, "scenarios/uvod.yaml")["etag"]
-    assert r["changed"] == ["scenarios/uvod.yaml", "scenarios/volani.yaml"]
-    assert "# zachovaný komentář" in (wf / "scenarios" / "uvod.yaml").read_text()
-    assert re.search(r"scenario: uvod\s+# volání", caller_path.read_text())
-    assert ["volani", "uvod"] in api.describe_project(proj)["links"]["scenario_scenario"]
+    assert r["name"] == "intro" and r["etag"] == api.read_file(proj, "scenarios/intro.yaml")["etag"]
+    assert r["changed"] == ["scenarios/caller.yaml", "scenarios/intro.yaml"]
+    assert "# preserved comment" in (wf / "scenarios" / "intro.yaml").read_text()
+    assert re.search(r"scenario: intro\s+# call", caller_path.read_text())
+    assert ["caller", "intro"] in api.describe_project(proj)["links"]["scenario_scenario"]
     with pytest.raises(api.NotFound):
-        api.read_file(proj, "scenarios/ukazka.yaml")
+        api.read_file(proj, "scenarios/demo.yaml")
 
 
 def test_rename_agent_updates_task_and_mcp(wf):
     proj = wf.parent
-    agent_path = wf / "agents" / "knihovnik.md"
-    before = api.read_file(proj, "agents/knihovnik.md")
-    agent_path.write_text(before["text"].replace("name: knihovnik\n", "# zachovaný frontmatter\nname: knihovnik\n"))
+    agent_path = wf / "agents" / "librarian.md"
+    before = api.read_file(proj, "agents/librarian.md")
+    agent_path.write_text(before["text"].replace("name: librarian\n", "# preserved frontmatter\nname: librarian\n"))
     mcp_path = wf / "mcp.yaml"
     mcp_path.write_text(yaml_edit(mcp_path.read_text(),
-                                  lambda d: d["servers"]["filesystem"]["agents"].yaml_add_eol_comment("zachované povolení", 0),
+                                  lambda d: d["servers"]["filesystem"]["agents"].yaml_add_eol_comment("preserved permission", 0),
                                   "mcp.yaml"))
 
-    r = api.rename_agent(proj, "knihovnik", api.read_file(proj, "agents/knihovnik.md")["etag"], "archivar")
+    r = api.rename_agent(proj, "librarian", api.read_file(proj, "agents/librarian.md")["etag"], "archivist")
 
-    assert r["name"] == "archivar"
-    assert r["changed"] == ["agents/archivar.md", "mcp.yaml", "scenarios/ukazka-task.yaml"]
-    new_agent = api.read_file(proj, "agents/archivar.md")
-    assert new_agent["frontmatter"]["name"] == "archivar"
-    assert "# zachovaný frontmatter" in new_agent["text"]
+    assert r["name"] == "archivist"
+    assert r["changed"] == ["agents/archivist.md", "mcp.yaml", "scenarios/demo-task.yaml"]
+    new_agent = api.read_file(proj, "agents/archivist.md")
+    assert new_agent["frontmatter"]["name"] == "archivist"
+    assert "# preserved frontmatter" in new_agent["text"]
     assert new_agent["body"] == before["body"]
-    task = api.read_file(proj, "scenarios/ukazka-task.yaml")["data"]["steps"][0]["task"]
-    assert task["agent"] == "archivar"
-    assert "archivar" in api.read_file(proj, "mcp.yaml")["data"]["servers"]["filesystem"]["agents"]
-    assert "# zachované povolení" in api.read_file(proj, "mcp.yaml")["text"]
+    task = api.read_file(proj, "scenarios/demo-task.yaml")["data"]["steps"][0]["task"]
+    assert task["agent"] == "archivist"
+    assert "archivist" in api.read_file(proj, "mcp.yaml")["data"]["servers"]["filesystem"]["agents"]
+    assert "# preserved permission" in api.read_file(proj, "mcp.yaml")["text"]
     links = api.describe_project(proj)["links"]
-    assert ["ukazka-task", "katalog", "archivar"] in links["scenario_step_agent"]
-    assert ["archivar", "filesystem"] in links["agent_server"]
+    assert ["demo-task", "catalog", "archivist"] in links["scenario_step_agent"]
+    assert ["archivist", "filesystem"] in links["agent_server"]
 
 
 def test_rename_rejects_conflicts_collisions_names_and_new_errors(wf):
     proj = wf.parent
-    rel = "scenarios/ukazka-task.yaml"
+    rel = "scenarios/demo-task.yaml"
     source = wf / rel
     original = source.read_bytes()
     tag = api.read_file(proj, rel)["etag"]
     with pytest.raises(api.Conflict):
-        api.rename_scenario(proj, "ukazka-task", "stary", "novy")
+        api.rename_scenario(proj, "demo-task", "stale", "new")
     with pytest.raises(ConfigErrors):
-        api.rename_scenario(proj, "ukazka-task", tag, "Pisatel")
+        api.rename_scenario(proj, "demo-task", tag, "Writer")
     with pytest.raises(ConfigErrors):
-        api.rename_scenario(proj, "ukazka-task", tag, "kontrola-tonu")
+        api.rename_scenario(proj, "demo-task", tag, "tone-check")
     assert source.read_bytes() == original
 
-    # Nová chyba: scénář používající MCP server není po přejmenování v jeho allowlistu.
+    # New error: after renaming, a scenario using an MCP server is absent from its allowlist.
     mcp = wf / "mcp.yaml"
     mcp.write_text(yaml_edit(mcp.read_text(),
-                             lambda d: d["servers"]["filesystem"].update({"scenarios": ["ukazka-task"]}), "mcp.yaml"))
+                             lambda d: d["servers"]["filesystem"].update({"scenarios": ["demo-task"]}), "mcp.yaml"))
     mcp_before = mcp.read_bytes()
     source_before = source.read_bytes()
-    with pytest.raises(ConfigErrors, match="nesmí spustit agenta"):
-        api.rename_scenario(proj, "ukazka-task", api.read_file(proj, rel)["etag"], "ukazka-nova")
+    with pytest.raises(ConfigErrors, match="cannot run an agent"):
+        api.rename_scenario(proj, "demo-task", api.read_file(proj, rel)["etag"], "demo-new")
     assert source.read_bytes() == source_before and mcp.read_bytes() == mcp_before
-    assert not (wf / "scenarios" / "ukazka-nova.yaml").exists()
+    assert not (wf / "scenarios" / "demo-new.yaml").exists()
 
 
 def test_rename_allows_existing_error_with_name_as_substring(wf):
     proj = wf.parent
-    api.new_scenario(proj, "ukazka")
-    unrelated = wf / "scenarios" / "ukazkaextra.yaml"
+    api.new_scenario(proj, "demo")
+    unrelated = wf / "scenarios" / "demoextra.yaml"
     unrelated.write_text("version: [\n")
 
-    result = api.rename_scenario(proj, "ukazka", api.read_file(proj, "scenarios/ukazka.yaml")["etag"], "uvod")
+    result = api.rename_scenario(proj, "demo", api.read_file(proj, "scenarios/demo.yaml")["etag"], "intro")
 
-    assert result["name"] == "uvod"
+    assert result["name"] == "intro"
     assert unrelated.read_text() == "version: [\n"
-    assert any("ukazkaextra.yaml" in error for error in result["errors"])
+    assert any("demoextra.yaml" in error for error in result["errors"])
 
 
 def test_delete_refused_when_used(proj):
     wf = proj / "workflows"
     d = api.describe_project(proj)
-    tag = {a["name"]: a["etag"] for a in d["agents"]}["pisatel"]
-    with pytest.raises(ConfigErrors, match="pisatel.*ukazka"):
-        api.delete_agent(proj, "pisatel", tag)
-    assert (wf / "agents" / "pisatel.md").is_file()
-    # skill: nový, použitý agentem → nejde smazat
-    r = api.set_skill(proj, "hlas", None, "---\nname: hlas\ndescription: Tón textů\n---\nTykáme.\n")
-    ra = api.set_agent(proj, "pisatel", tag, {"skills": ["hlas"]})
-    with pytest.raises(ConfigErrors, match="hlas.*pisatel"):
-        api.delete_skill(proj, "hlas", r["etag"])
-    api.set_agent(proj, "pisatel", ra["etag"], {"skills": None})
-    assert api.delete_skill(proj, "hlas", r["etag"])["etag"] is None and not (wf / "skills" / "hlas").exists()
-    # scénář volaný přes call nejde smazat
-    callee = api.read_file(proj, "scenarios/ukazka.yaml")
-    api.set_header(proj, "ukazka", callee["etag"], {"callable": True})
-    callee = api.read_file(proj, "scenarios/ukazka.yaml")
-    vetve = api.read_file(proj, "scenarios/vetve.yaml")
-    api.add_step(proj, "vetve", vetve["etag"], ["steps"], {"id": "volej", "call": {"scenario": "ukazka"}})
-    with pytest.raises(ConfigErrors, match="ukazka.*vetve"):
-        api.delete_scenario(proj, "ukazka", callee["etag"])
-    assert api.delete_scenario(proj, "vetve", api.read_file(proj, "scenarios/vetve.yaml")["etag"])["etag"] is None
+    tag = {a["name"]: a["etag"] for a in d["agents"]}["writer"]
+    with pytest.raises(ConfigErrors, match="writer.*demo"):
+        api.delete_agent(proj, "writer", tag)
+    assert (wf / "agents" / "writer.md").is_file()
+    # skill: new, used by an agent → cannot be deleted
+    r = api.set_skill(proj, "voice", None, "---\nname: voice\ndescription: Tone of texts\n---\nUse an informal tone.\n")
+    ra = api.set_agent(proj, "writer", tag, {"skills": ["voice"]})
+    with pytest.raises(ConfigErrors, match="voice.*writer"):
+        api.delete_skill(proj, "voice", r["etag"])
+    api.set_agent(proj, "writer", ra["etag"], {"skills": None})
+    assert api.delete_skill(proj, "voice", r["etag"])["etag"] is None and not (wf / "skills" / "voice").exists()
+    # a scenario referenced by call cannot be deleted
+    callee = api.read_file(proj, "scenarios/demo.yaml")
+    api.set_header(proj, "demo", callee["etag"], {"callable": True})
+    callee = api.read_file(proj, "scenarios/demo.yaml")
+    branches = api.read_file(proj, "scenarios/branches.yaml")
+    api.add_step(proj, "branches", branches["etag"], ["steps"], {"id": "invoke", "call": {"scenario": "demo"}})
+    with pytest.raises(ConfigErrors, match="demo.*branches"):
+        api.delete_scenario(proj, "demo", callee["etag"])
+    assert api.delete_scenario(proj, "branches", api.read_file(proj, "scenarios/branches.yaml")["etag"])["etag"] is None
 
 
 def test_set_agent_keeps_comments_and_creates(proj):
     wf = proj / "workflows"
-    f = api.read_file(proj, "agents/pisatel.md")
-    assert f["frontmatter"]["model"] == "chytry" and f["body"].startswith("Píšeš")
-    api.set_agent(proj, "pisatel", f["etag"], {"description": "Jiný"}, "Nové tělo.\n")
-    text = (wf / "agents" / "pisatel.md").read_text()
-    assert "description: Jiný\n" in text and text.endswith("---\nNové tělo.\n")
-    with pytest.raises(ConfigErrors, match="frontmatter i body"):
-        api.set_agent(proj, "novy", None, {"description": "x"})
-    r = api.set_agent(proj, "novy", None, {"description": "Nový agent", "model": "rychly", "limits": {"budget_usd": 0.01}},
-                      "Instrukce.\n")
-    assert r["etag"] and api.read_file(proj, "agents/novy.md")["frontmatter"]["name"] == "novy"
-    api.new_agent(proj, "komentovany")
-    k = api.read_file(proj, "agents/komentovany.md")
-    api.set_agent(proj, "komentovany", k["etag"], {"model": "rychly"})
-    assert "model: rychly    # alias z config.yaml" in (wf / "agents" / "komentovany.md").read_text()
+    f = api.read_file(proj, "agents/writer.md")
+    assert f["frontmatter"]["model"] == "smart" and f["body"].startswith("Write")
+    api.set_agent(proj, "writer", f["etag"], {"description": "Different"}, "New body.\n")
+    text = (wf / "agents" / "writer.md").read_text()
+    assert "description: Different\n" in text and text.endswith("---\nNew body.\n")
+    with pytest.raises(ConfigErrors, match="frontmatter and body"):
+        api.set_agent(proj, "new", None, {"description": "x"})
+    r = api.set_agent(proj, "new", None, {"description": "New agent", "model": "fast", "limits": {"budget_usd": 0.01}},
+                      "Instructions.\n")
+    assert r["etag"] and api.read_file(proj, "agents/new.md")["frontmatter"]["name"] == "new"
+    api.new_agent(proj, "commented")
+    k = api.read_file(proj, "agents/commented.md")
+    api.set_agent(proj, "commented", k["etag"], {"model": "fast"})
+    assert "model: fast     # alias from config.yaml" in (wf / "agents" / "commented.md").read_text()
 
 
 def test_set_config_no_secrets(proj):
     c = api.read_file(proj, "config.yaml")
-    r = api.set_config(proj, c["etag"], {"models": {"levny": {"id": "google/gemini-3.5-flash-lite"}},
+    r = api.set_config(proj, c["etag"], {"models": {"cheap": {"id": "google/gemini-3.5-flash-lite"}},
                                          "limits": {"run_budget_usd": 2}})
     text = (proj / "workflows" / "config.yaml").read_text()
-    assert "  levny:" in text and "run_budget_usd: 2\n" in text and "# Pojistky jednoho běhu." in text
+    assert "  cheap:" in text and "run_budget_usd: 2\n" in text and "# Limits for a single run." in text
     for bad in ({"version": 2}, {"openrouter": {"base_url": "http://127.0.0.1/x"}}):
-        with pytest.raises(ConfigErrors, match="nejde"):
+        with pytest.raises(ConfigErrors, match="cannot"):
             api.set_config(proj, r["etag"], bad)
-    with pytest.raises(ConfigErrors) as e:  # hodnota místo jména proměnné
-        api.set_config(proj, r["etag"], {"openrouter": {"api_key_env": "sk-or-v1-tajny"}})
-    assert "tajny" not in " ".join(e.value.errors)
+    with pytest.raises(ConfigErrors) as e:  # value instead of a variable name
+        api.set_config(proj, r["etag"], {"openrouter": {"api_key_env": "sk-or-v1-secret"}})
+    assert "secret" not in " ".join(e.value.errors)
 
 
 @pytest.mark.parametrize("rel", ["../.env", ".env", "agents/../../.env", "agents/x.txt", "scenarios/a/b.yaml",
@@ -374,13 +374,13 @@ def test_files_only_inside_workflows(proj, rel):
 
 
 def test_write_file_raw(proj):
-    f = api.read_file(proj, "scenarios/ukazka.yaml")
-    assert f["data"]["name"] == "ukazka" and f["errors"] == []
-    with pytest.raises(ConfigErrors):  # rozbitý YAML se nezapíše
-        api.write_file(proj, "scenarios/ukazka.yaml", f["etag"], "version: 1\nname: [\n")
-    new = f["text"].replace("description: ", "# komentář\ndescription: ")
-    r = api.write_file(proj, "scenarios/ukazka.yaml", f["etag"], new)
-    assert (proj / "workflows" / "scenarios" / "ukazka.yaml").read_text() == new and r["etag"] != f["etag"]
+    f = api.read_file(proj, "scenarios/demo.yaml")
+    assert f["data"]["name"] == "demo" and f["errors"] == []
+    with pytest.raises(ConfigErrors):  # broken YAML is not written
+        api.write_file(proj, "scenarios/demo.yaml", f["etag"], "version: 1\nname: [\n")
+    new = f["text"].replace("description: ", "# comment\ndescription: ")
+    r = api.write_file(proj, "scenarios/demo.yaml", f["etag"], new)
+    assert (proj / "workflows" / "scenarios" / "demo.yaml").read_text() == new and r["etag"] != f["etag"]
     assert not list((proj / "workflows").rglob("*.tmp"))
     assert re.fullmatch(r"[0-9a-f]{64}", r["etag"])
 
@@ -395,17 +395,17 @@ def test_describe_has_etags(proj):
 
 
 def test_merge_new_map_matches_sibling_style():
-    """Nový alias v `models` (GUI Config) vedle map `{ … }` se zapíše řádkově; vedle bloků blokem (0.10.3)."""
-    flow = "models:\n  chytry:       { id: a/b }\n  rychly: { id: c/d, structured_output: tool_wrapper }\nlimits:\n  run_budget_usd: 1\n"
+    """A new alias in `models` (GUI Config) uses flow style next to `{ … }` mappings, block style next to blocks (0.10.3)."""
+    flow = "models:\n  smart:       { id: a/b }\n  fast: { id: c/d, structured_output: tool_wrapper }\nlimits:\n  run_budget_usd: 1\n"
     out = yaml_edit(flow, lambda d: merge(d, {"models": {"gpt-image": {"id": "openai/gpt-image-2"}}}), "config.yaml")
-    assert "  chytry:       { id: a/b }\n" in out and "  gpt-image: {id: openai/gpt-image-2}\n" in out
+    assert "  smart:       { id: a/b }\n" in out and "  gpt-image: {id: openai/gpt-image-2}\n" in out
     assert load_yaml(out, "")["models"]["gpt-image"] == {"id": "openai/gpt-image-2"}
-    block = "models:\n  chytry:\n    id: a/b\n"
-    out = yaml_edit(block, lambda d: merge(d, {"models": {"novy": {"id": "x/y"}}}), "config.yaml")
-    assert "  novy:\n    id: x/y\n" in out
+    block = "models:\n  smart:\n    id: a/b\n"
+    out = yaml_edit(block, lambda d: merge(d, {"models": {"new": {"id": "x/y"}}}), "config.yaml")
+    assert "  new:\n    id: x/y\n" in out
     out = yaml_edit("limits:\n  run_budget_usd: 1\n", lambda d: merge(d, {"storage": {"type": "local"}}), "config.yaml")
-    assert "storage:\n  type: local\n" in out  # bez sourozeneckých map zůstává blok
-    # přejmenování blokového aliasu vedle řádkových: mazání jde první, nový dostane řádkový styl (i s null na konci)
+    assert "storage:\n  type: local\n" in out  # keep block style without sibling mappings
+    # rename a block alias next to flow mappings: delete first, then use flow style (even with null last)
     mixed = flow.replace("limits:", "  model-1:\n    id: openai/gpt-image-2\nlimits:")
     out = yaml_edit(mixed, lambda d: merge(d, {"models": {"gpt-image": {"id": "openai/gpt-image-2"}, "model-1": None}}), "config.yaml")
     assert "model-1" not in out and "  gpt-image: {id: openai/gpt-image-2}\n" in out

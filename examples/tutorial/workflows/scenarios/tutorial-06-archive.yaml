@@ -1,0 +1,38 @@
+version: 1
+name: tutorial-06-archive
+description: The archivist writes a note to the run workspace and reads it back (tutorial, part 6)
+
+inputs:
+  day:
+    type: string
+    required: true
+    description: Date of the entry, e.g. 2026-09-25
+  text:
+    type: string
+    required: true
+    description: The note as free text
+
+outputs:
+  message:
+    type: string
+    description: What the archivist wrote and checked (its final reply)
+
+steps:
+  # 1. An agent with tools: it finds the folder itself, loads the skill, writes two files,
+  #    lists the folder and reads the files. Tools are allowed by mcp.yaml (owner)
+  #    and the agent; the step may only narrow them — here it only lowers max_turns.
+  #    No schema: with it, Haiku in maw 0.2.1 often replies at once, without tools
+  #    (part 6, "Watch out for schema in task"; BUGS.md, maw 0.2.1).
+  - id: write
+    task:
+      agent: tutorial-archivist
+      prompt: |
+        Day: {{ inputs.day }}
+        Note: {{ inputs.text }}
+        Write the note to the archive and check it.
+      max_turns: 5
+
+  # 2. Result.
+  - id: out
+    output:
+      message: "{{ steps.write.text }}"

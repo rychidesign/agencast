@@ -1,195 +1,195 @@
-# Zadání pro redesign GUI AgenCast (pen.dev)
+# Brief for the AgenCast GUI redesign (pen.dev)
 
-## Co je to za aplikaci
+## What the application is
 
-AgenCast je webové rozhraní pro stavbu a spouštění workflow LLM agentů. Uživatel v něm spravuje projekty, v projektu scénáře (posloupnost kroků), agenty, skilly a config, spouští běhy a čte jejich výsledky (kroky, soubory, cena). Rozhraní je technické a husté: hodně identifikátorů, cest, výrazů a YAML, proto se v něm hodně používá neproporcionální písmo. Primárně desktop, ale musí jít ovládat i dotykem na tabletu. Jazyk rozhraní je čeština. Dnes je tmavé; tmavá varianta je povinná, světlá je bonus.
+AgenCast is a web interface for building and running LLM agent workflows. In it the user manages projects, and within a project scenarios (a sequence of steps), agents, skills and config, starts runs and reads their results (steps, files, cost). The interface is technical and dense: lots of identifiers, paths, expressions and YAML, so a monospace font is used a lot. Primarily desktop, but it must also be operable by touch on a tablet. The interface language is English (with an optional Czech translation). Today it is dark; the dark variant is mandatory, a light one is a bonus.
 
-## Co od tebe potřebuji
+## What I need from you
 
-Knihovnu komponent v pen.dev, kde každá komponenta má stavy a varianty ze seznamu níže, a k tomu jednoduchý celkový rámec obrazovek. Rozložení a vizuální jazyk jsou na tobě. Pojmenuj komponenty a varianty podle názvů v tomto seznamu, ať je můžu mapovat na kód.
+A component library in pen.dev, where each component has the states and variants from the list below, plus a simple overall frame of screens. The layout and the visual language are up to you. Name the components and variants after the names in this list, so I can map them to code.
 
-Implementace je React + Tailwind, ikony Lucide. Když použiješ Lucide ikony, přenesu je 1:1; jiná sada je možná, ale pak potřebuji SVG.
+The implementation is React + Tailwind, Lucide icons. If you use Lucide icons I'll carry them over 1:1; another set is possible, but then I need SVGs.
 
-## Základy
+## Foundations
 
-### Písmo
+### Typography
 
-- Proporcionální rodina pro texty a mono rodina pro identifikátory, cesty, výrazy, YAML, JSON a čísla (tabulkové číslice).
-- Velikosti, které potřebuji rozlišit: eyebrow (malý štítek verzálkami, např. „KROK 3“, „HLAVIČKA“, „SPUSTIT BĚH“), nadpis stránky/karty, název sekce, tělo, popisek pole, nápověda k poli, meta text na kartách (počty, čas, soubor).
+- A proportional family for texts and a mono family for identifiers, paths, expressions, YAML, JSON and numbers (tabular figures).
+- The sizes I need to distinguish: eyebrow (a small uppercase label, e.g. “STEP 3”, “HEADER”, “START RUN”), page/card heading, section title, body, field label, field help, meta text on cards (counts, time, file).
 
-### Barvy
+### Colours
 
-- Tři úrovně povrchu: pozadí stránky, karta/panel, vnořený prvek (pole, čip, blok kódu).
-- Tři úrovně textu: primární, sekundární, ztlumený.
-- Sémantické stavy, každý má ikonu i barvu (viz Stavy): úspěch, chyba, varování, běží, neutrální/čeká.
-- Dvě vyhrazené barvy mimo stavy: jedna pro „proměnná“ (tlačítko vkládání proměnných, položky proměnných), jedna pro „typ kroku“ (ikony typů). Nesmí se plést se stavovými.
-- Ztlumení pro: nedostupné, přeskočené, nedošlo, vyjmuto, disabled.
+- Three surface levels: page background, card/panel, nested element (field, chip, code block).
+- Three text levels: primary, secondary, muted.
+- Semantic states, each with an icon and a colour (see States): success, error, warning, running, neutral/waiting.
+- Two reserved colours outside the states: one for “variable” (the variable-insert button, variable items), one for “step type” (type icons). They must not be confused with the state colours.
+- Dimming for: unavailable, skipped, not reached, cut, disabled.
 
-### Ikony
+### Icons
 
-Sada 16 px, jednotný tah. Potřebuji:
+A 16 px set, uniform stroke. I need:
 
-- Typy kroků (10): ask (dotaz agentovi), task (agent s nástroji), jev (levné rozhodnutí), image (obrázek), parallel (větve zároveň), switch (jedna z možností), call (jiný scénář), set (výpočet bez LLM), fail (zastavit s chybou), output (výstup scénáře) + „neznámý typ“.
-- Stavy (10): úspěch, chyba, přeskočeno, běží, ve frontě, varování, zrušeno, přerušeno, dry-run (jen plán), bez běhu.
-- Akce: přidat, smazat, kopírovat, zkopírováno, načíst znovu, zpět (navigace), vrátit zpět (undo), spustit, zavřít, menu ⋯, rozbalit/sbalit, proměnná {}, kód/YAML, klíč (token), hlavička scénáře, šipka toku mezi kroky, otevřít v jiném kontextu ↗, dostupnost projektu (tečka).
+- Step types (10): ask (a question to an agent), task (agent with tools), jev (cheap decision), image (image), parallel (branches in parallel), switch (one of several options), call (another scenario), set (computation without an LLM), fail (stop with an error), output (scenario output) + “unknown type”.
+- States (10): success, error, skipped, running, queued, warning, cancelled, interrupted, dry run (plan only), no run.
+- Actions: add, delete, copy, copied, reload, back (navigation), undo, run, close, ⋯ menu, expand/collapse, variable {}, code/YAML, key (token), scenario header, flow arrow between steps, open in another context ↗, project availability (dot).
 
-## Komponenty
+## Components
 
-### 1. Tlačítka
+### 1. Buttons
 
-Varianty: primární, sekundární, nebezpečná (smazat, přepsat, odebrat), ikonová (jen ikona), pilulka „+ přidat …“ (drobná, u štítku sekce), kulaté (+) na konektoru toku.
-Stavy každé: default, hover, focus (klávesnice), disabled, busy s textem („Ukládám…“, „Spouštím…“). S ikonou i bez ikony. Dotyková velikost (44 px) jako varianta.
+Variants: primary, secondary, dangerous (delete, overwrite, remove), icon (icon only), a “+ add …” pill (small, next to a section label), the round (+) on the flow connector.
+States of each: default, hover, focus (keyboard), disabled, busy with text (“Saving…”, “Starting…”). With and without an icon. A touch size (44 px) as a variant.
 
-### 2. Pole formuláře (obal)
+### 2. Form field (wrapper)
 
-Štítek, hvězdička povinného pole, volitelná akce u štítku (např. pilulka „+ přidat“), nápověda, chyba (mono, může být víceřádková, obsahuje ukazatel ^ na místo chyby).
-Stavy: default, hover, focus, disabled, invalid, s nápovědou, s chybou, povinné.
+Label, an asterisk for a required field, an optional action next to the label (e.g. a “+ add” pill), help, error (mono, may be multi-line, contains a ^ pointer to the place of the error).
+States: default, hover, focus, disabled, invalid, with help, with an error, required.
 
-### 3. Typy vstupů
+### 3. Input types
 
-- Text jednořádkový; varianta mono (identifikátor, cesta, jméno souboru).
-- Textarea; varianta mono (instrukce agenta, JSON, YAML).
-- Číslo (max_turns, budget, limity).
-- Select (agent, model/alias, API chat/images, kvalita, typ úložiště, filtr scénáře, filtr stavu, typ vstupu).
-- Checkbox samostatný i v seznamu (MCP servery a jejich nástroje; disabled s poznámkou „vlastník nepovolil“).
-- Radio se dvěma řádky (název + vysvětlení): „Dry-run: jen plán, zdarma“ / „Ostrý běh: volá modely a stojí peníze“.
-- Heslo (token serveru).
-- Čip s odebráním (skilly agenta) + select „přidat skill“.
-- Inline editace klíče (název vstupu, výstupu, otázky, aliasu modelu): stav platný, neplatný formát, „už existuje“; potvrzuje se opuštěním pole.
+- Single-line text; a mono variant (identifier, path, file name).
+- Textarea; a mono variant (agent instructions, JSON, YAML).
+- Number (max_turns, budget, limits).
+- Select (agent, model/alias, API chat/images, quality, storage type, scenario filter, status filter, input type).
+- Checkbox standalone and in a list (MCP servers and their tools; disabled with the note “not allowed by the owner”).
+- A radio with two lines (name + explanation): “Dry run: plan only, free” / “Live run: calls models and costs money”.
+- Password (server token).
+- A chip with removal (agent skills) + a select “add skill”.
+- Inline editing of a key (name of an input, output, question, model alias): states valid, invalid format, “already exists”; confirmed by leaving the field.
 
-### 4. Pole pro výraz / šablonu (CodeInput)
+### 4. Expression / template field (CodeInput)
 
-Mono pole, jedno- i víceřádkové, s tlačítkem „Vložit proměnnou“ (ikona {}) v barvě proměnných. Stavy tlačítka: default, hover, otevřené, disabled („Žádné dostupné proměnné“ v tooltipu).
+A mono field, single- and multi-line, with an “Insert variable” button ({} icon) in the variable colour. Button states: default, hover, open, disabled (“No variables available” in the tooltip).
 
-- Našeptávač při psaní: seznam položek mono, aktivní položka.
-- Nabídka proměnných po kliknutí na {}: skupiny „Vstupy“ a „Krok <id>“, položky mono, aktivní/hover.
+- Autocomplete while typing: a list of mono items, an active item.
+- The variables menu after clicking {}: groups “Inputs” and “Step <id>”, mono items, active/hover.
 
-### 5. Stavy (StatusIcon, StatusBadge, StatusChip)
+### 5. States (StatusIcon, StatusBadge, StatusChip)
 
-Deset stavů z části Ikony. Tři formy: samotná ikona, ikona + text, čip (pilulka s ikonou a textem).
-Texty: „úspěch“, „chyba“, „přeskočeno“, „běží“ (ikona pulzuje), „ve frontě“, „varování“, „zrušeno“, „přerušen“, „jen plán (dry-run)“, „bez běhů“.
-Čip posledního běhu nese i čas: „✓ před 12 min“, „✗ včera 14:02“, „◌ běží“. Chybový čip s počtem: „3 chyby“ (může být klikací).
+The ten states from the Icons part. Three forms: the icon alone, icon + text, a chip (a pill with an icon and text).
+Texts: “succeeded”, “failed”, “skipped”, “running” (the icon pulses), “queued”, “warning”, “cancelled”, “interrupted”, “plan only (dry run)”, “no runs”.
+The chip of the last run also carries the time: “✓ 12 min ago”, “✗ yesterday 2:02 PM”, “◌ running”. An error chip with a count: “3 errors” (may be clickable).
 
-### 6. Zpětná vazba a prázdné stavy
+### 6. Feedback and empty states
 
-- Skeleton: řádek, pilulka, karta.
-- Prázdný stav: text + volitelný CLI řádek s příkazem („Projekt zatím nemá žádný scénář.“, „Žádné běhy.“, „Vyber soubor.“).
-- Chybový text s ikonou; seznam chyb validace (položky s ikonou, mono text, položka klikací jako odkaz na soubor/krok).
-- CLI řádek: příkaz mono + tlačítko kopírovat, stav „Zkopírováno“.
-- Lišty: „Server agencast neodpovídá, zkouším znovu…“ (trvalá); konfliktní lišta „Soubor se na disku změnil.“ / „Rozpracované změny v prohlížeči patří ke starší verzi souboru.“ se třemi akcemi (Zobrazit rozdíl, Načíst z disku a zahodit moje změny, Ponechat moje); stavový řádek po přejmenování („Přepsáno: a.yaml, b.yaml“); blok chyby configu (text + seznam + odkaz „Otevřít Config“).
-- Stav uložení (SaveNote): „Ukládám…“, „Neuloženo“, „Uloženo ✓ 14:02“, „Načteno z disku (14:02)“, chyba uložení (text z API) + volitelný čip počtu chyb.
-- Živý ukazatel v seznamu běhů: „2 běží · 1 ve frontě“.
-- Progress bar denní útraty („dnes 1,20 / 5,00 USD“) a pruh pravděpodobnosti 0–1 u odpovědí Jev.
+- Skeleton: row, pill, card.
+- Empty state: text + an optional CLI line with a command (“This project has no scenarios yet.”, “No runs.”, “Pick a file on the left.”).
+- Error text with an icon; a list of validation errors (items with an icon, mono text, the item clickable as a link to the file/step).
+- CLI line: a mono command + a copy button, the state “Copied”.
+- Bars: “The agencast server is not responding, retrying…” (permanent); the conflict bar “The file changed on disk.” / “The unsaved changes in this browser belong to an older version of the file.” with three actions (Show diff, Reload from disk and discard my changes, Keep mine); a status row after a rename (“Updated: a.yaml, b.yaml”); the config error block (text + list + an “Open Config” link).
+- Save state (SaveNote): “Saving…”, “Unsaved”, “Saved ✓ 2:02 PM”, “Reloaded from disk (2:02 PM)”, a save error (text from the API) + an optional error-count chip.
+- The live indicator in the run list: “2 running · 1 queued”.
+- The daily spend progress bar (“today 1.20 / 5.00 USD”) and the 0–1 probability bar for Jev answers.
 
-### 7. Menu ⋯, záložky, přepínač, akordeon
+### 7. ⋯ menu, tabs, toggle, accordion
 
-- Menu ⋯: spouštěč (ikonový), otevřený seznam, položka default/hover/focus, položka nebezpečná (Smazat, Odebrat z registru).
-- Záložky (odkazy): aktivní, neaktivní, hover; varianta s počtem „Volání (3)“.
-- Segmentový přepínač se dvěma volbami (Form | YAML, Form | Markdown, Založit nový | Přidat existující): aktivní, neaktivní, disabled s tooltipem („Oprav YAML: řádek 12“).
-- Akordeon řádek: titul + shrnutí hodnoty + šipka; zavřený, otevřený, hover. Používá se pro Podmínka (hodnota „vždy“ nebo výraz), Spolehlivost („výchozí“ nebo seznam vyplněných polí), Podrobnosti kroku.
-- Sbalitelný strom souborů (složka otevřená/zavřená, soubor, vybraný soubor).
+- ⋯ menu: the trigger (icon), the open list, an item default/hover/focus, a dangerous item (Delete, Remove from registry).
+- Tabs (links): active, inactive, hover; a variant with a count “Calls (3)”.
+- A segmented toggle with two options (Form | YAML, Form | Markdown, Create new | Add existing): active, inactive, disabled with a tooltip (“Fix the YAML: line 12”).
+- Accordion row: title + value summary + arrow; closed, open, hover. Used for Condition (value “always” or an expression), Reliability (“default” or a list of filled-in fields), Step details.
+- A collapsible file tree (folder open/closed, file, selected file).
 
-### 8. Modály
+### 8. Modals
 
-Jeden rámec: titul, tělo, akce (primární / sekundární / nebezpečná) + Zrušit nebo Zavřít; stav busy. Obsahové varianty:
+One frame: title, body, actions (primary / secondary / dangerous) + Cancel or Close; a busy state. Content variants:
 
-- Nový scénář / agent / skill: jméno (mono, kontrola formátu a kolize), popis, model (select).
-- Nový projekt: přepínač Založit nový / Přidat existující, jméno, cesta; varianta bez práva zápisu jen s CLI příkazem.
-- Přejmenovat (scénář, agent, krok): jméno; u kroku výčet kroků, ve kterých se přepíšou odkazy.
-- Smazat (krok, scénář, agent, skill, projekt z registru): text důvodu; varianta „krok čtou jiné kroky“ s výčtem; varianta „smaže i N kroků uvnitř“; varianta odmítnutí z API s důvodem.
-- Změnit typ kroku (co zůstane, co se zahodí).
-- Neuložené změny při přepnutí režimu: Uložit a přepnout / Zahodit a přepnout.
-- Přepsat verzi na disku (nebezpečná akce).
-- Rozdíl proti disku: blok mono s řádky − a + barevně, „Texty jsou stejné.“
-- Validace scénáře: načítám, seznam chyb, nebo čip „bez chyb“.
+- New scenario / agent / skill: name (mono, format and collision check), description, model (select).
+- New project: a toggle Create new / Add existing, name, path; a variant without write access with only a CLI command.
+- Rename (scenario, agent, step): name; for a step a list of the steps in which references will be rewritten.
+- Delete (step, scenario, agent, skill, project from the registry): the reason text; a variant “the step is read by other steps” with a list; a variant “this also deletes N steps inside”; a variant of a refusal from the API with the reason.
+- Change the step type (what stays, what is discarded).
+- Unsaved changes when switching mode: Save and switch / Discard and switch.
+- Overwrite the version on disk (a dangerous action).
+- Diff against disk: a mono block with rows − and + in colour, “The texts are identical.”
+- Scenario validation: loading, a list of errors, or a chip “no errors”.
 
-### 9. Karta projektu (ProjectCard)
+### 9. Project card (ProjectCard)
 
-Obsah: ukazatel dostupnosti (tečka + „dostupný“/„nedostupný“), název, cesta (mono), počet scénářů a agentů, útrata dnes, čip posledního běhu (všechny stavy z části 5 včetně „bez běhů“), menu ⋯ (Otevřít, Kopírovat cestu, Odebrat z registru).
-Stavy: default, hover, focus, nedostupný (ztlumená, místo počtů text důvodu), skeleton. Zvláštní karta „Přidat projekt“ (default, hover).
+Content: an availability indicator (dot + “available”/“unavailable”), name, path (mono), number of scenarios and agents, spend today, the chip of the last run (all states from part 5 including “no runs”), the ⋯ menu (Open, Copy path, Remove from registry).
+States: default, hover, focus, unavailable (dimmed, the reason text instead of the counts), skeleton. A special “Add project” card (default, hover).
 
-### 10. Karta scénáře (ScenarioCard)
+### 10. Scenario card (ScenarioCard)
 
-Obsah: řetěz ikon typů kroků v pořadí (nejvýš 5, pak čip „+N“), název nebo popis, meta řádek (počet kroků · agenti · vstupy · výstupy · „volatelný“), jméno souboru (mono), čas posledního běhu nebo „bez běhů“, čip posledního běhu NEBO čip chyb validace („2 chyby“), menu ⋯ (Otevřít, Běhy tohoto scénáře, Kopírovat příkaz spuštění, Validovat).
-Stavy: default, hover, focus, s chybami validace, bez běhů, s posledním během v každém stavu, volatelný. Zvláštní karta „Nový scénář“ a prázdný stav seznamu.
+Content: a chain of step type icons in order (at most 5, then a “+N” chip), name or description, a meta row (number of steps · agents · inputs · outputs · “callable”), the file name (mono), the time of the last run or “no runs”, the chip of the last run OR a validation error chip (“2 errors”), the ⋯ menu (Open, Runs of this scenario, Copy run command, Validate).
+States: default, hover, focus, with validation errors, without runs, with the last run in each state, callable. A special “New scenario” card and the empty state of the list.
 
-### 11. Položka seznamu agentů / skillů
+### 11. Agent / skill list item
 
-Jméno (mono), volitelný ukazatel chyb („✗ 2 chyby“). Stavy: aktivní, neaktivní, hover. Tlačítko „Nový agent“ / „Nový skill“ a prázdný stav.
+Name (mono), an optional error indicator (“✗ 2 errors”). States: active, inactive, hover. The “New agent” / “New skill” button and the empty state.
 
-### 12. Řádek běhu (RunRow) a filtr
+### 12. Run row (RunRow) and filter
 
-Sloupce: stav (ikona + text), run_id (mono), scénář, kdy („před 5 min“, „dnes 14:02“) nebo u běžícího „běží · krok 3/7 navrh“ nebo „ve frontě (2.)“, trvání, cena USD, poznámka (důvod chyby, „jen plán (dry-run)“, „přerušen“, „falešný běh“, callback).
-Stavy řádku: běží (živě), ve frontě, úspěch, chyba, přerušen, zrušen, dry-run; hover. Filtry (select scénář, select stav), tlačítko „Načíst další“, prázdný stav s CLI příkazem.
+Columns: status (icon + text), run_id (mono), scenario, when (“5 min ago”, “today 2:02 PM”) or for a running one “running · step 3/7 propose” or “queued (#2)”, duration, cost USD, a note (error reason, “plan only (dry run)”, “interrupted”, “fake run”, callback).
+Row states: running (live), queued, succeeded, failed, interrupted, cancelled, dry run; hover. Filters (scenario select, status select), the “Load more” button, an empty state with a CLI command.
 
-### 13. Karta kroku (StepCard) v editoru
+### 13. Step card (StepCard) in the editor
 
-Obsah: pořadové číslo, řádek typu (ikona typu + název typu + id mono), hodnota kroku, volitelně podmínka „když <výraz>“ (mono), ukazatel chyby a text chyby, ovládání karty (menu ⋯: Posunout nahoru/dolů, Vyjmout, Vložit krok nad/pod, Smazat; samostatné tlačítko koš).
-Stavy: default, hover, vybraná, focus, s chybou, prázdná hodnota („doplň v panelu“, ztlumeně), s podmínkou, vyjmutá (čeká na vložení jinam), ovládání skryté/zobrazené (hover, fokus; na dotyku trvale ztlumeně).
-Varianty hodnoty podle typu (příklady): ask/task „pisatel: „Napiš úvod…““; jev „„Je text hotový?“ · choice; +2 otázky“; image „gpt-image · 1:1 · medium · „Produktová fotka…““; call „→ obrazek · 2 vstupy“; set/output „nadpis, perex“; fail text zprávy; parallel „a ∥ b“; switch „podle steps.jev.volba: ano, ne, jinak“.
+Content: the sequence number, the type row (type icon + type name + id mono), the step value, optionally the condition “when <expression>” (mono), an error indicator and error text, card controls (⋯ menu: Move up/down, Cut, Insert step above/below, Delete; a separate trash button).
+States: default, hover, selected, focus, with an error, an empty value (“fill in the panel”, muted), with a condition, cut (waiting to be pasted elsewhere), controls hidden/shown (hover, focus; on touch permanently muted).
+Value variants by type (examples): ask/task “writer: “Write an introduction…””; jev ““Is the text finished?” · choice; +2 questions”; image “gpt-image · 1:1 · medium · “Product photo…””; call “→ image · 2 inputs”; set/output “title, intro”; fail the message text; parallel “a ∥ b”; switch “by steps.jev.choice: yes, no, otherwise”.
 
-### 14. Karta kroku v běhu
+### 14. Step card in a run
 
-Stejná komponenta; místo pořadového čísla ikona stavu, místo podmínky trvání a cena (mono).
-Stavy: běží (pulzuje, běžící čas), úspěch, chyba, zrušeno, přeskočeno (ztlumená, důvod v hodnotě), přerušen, nedošlo (ztlumená), varování „Varování: krok selhal, běh pokračoval (on_error: continue).“ jako řádek u karty.
+The same component; instead of the sequence number a status icon, instead of the condition the duration and cost (mono).
+States: running (pulses, elapsed time), succeeded, failed, cancelled, skipped (dimmed, the reason in the value), interrupted, not reached (dimmed), the warning “Warning: the step failed and the run continued (on_error: continue).” as a row at the card.
 
-### 15. Hlavičková karta scénáře (HeaderCard)
+### 15. Scenario header card (HeaderCard)
 
-Ikona místo čísla, štítek „HLAVIČKA“, hodnota „2 vstupy: zadani, pomer · 1 výstup: obrazek“ nebo „bez vstupů · bez výstupů“. Stavy: default, hover, vybraná.
+An icon instead of the number, the label “HEADER”, the value “2 inputs: prompt, aspect_ratio · 1 output: image” or “no inputs · no outputs”. States: default, hover, selected.
 
-### 16. Kontejnery kroků (parallel, switch, call)
+### 16. Step containers (parallel, switch, call)
 
-- Hlavní karta kontejneru (odlišitelná od běžné karty), tlačítko sbalit/rozbalit; sbalený stav ukazuje „N kroků“.
-- Větev: štítek (název větve / „= hodnota“ / „jinak (default)“), uvnitř seznam karet nebo prázdno; text „jinak: nic“; tlačítko „+ větev“ / „+ případ“. Parallel má větve vedle sebe, switch případy za sebou.
-- Call: karta s odkazem „<cíl> otevřít ↗“; v běhu jako kontejner s kroky volaného scénáře.
-- Všechny také ve stavech běhu (viz 14).
+- The main container card (distinguishable from an ordinary card), a collapse/expand button; the collapsed state shows “N steps”.
+- Branch: a label (branch name / “= value” / “otherwise (default)”), inside a list of cards or empty; the text “otherwise: nothing”; the button “+ branch” / “+ case”. Parallel has branches side by side, switch has cases one after another.
+- Call: a card with a link “<target> open ↗”; in a run as a container with the steps of the called scenario.
+- All also in the run states (see 14).
 
-### 17. Konektor toku a přidání kroku
+### 17. Flow connector and adding a step
 
-Šipka mezi kartami; v editoru se na hover/fokus mění v (+); s vyjmutým krokem je (+) zobrazené trvale a zvýrazněné; na konci seznamu (+) trvale + pilulka „+ output“.
-Výběr typu (TypePicker): seznam položek „klíčové slovo (mono) + popis“ ve třech skupinách oddělených linkou, aktivní položka, řádek filtru („filtr: as“), „Žádný typ neodpovídá.“, položka „Vložit ‚x‘ sem“.
-Popisy typů: ask „jedno volání agenta“, task „agent s nástroji“, jev „levné rozhodnutí Jev“, image „vygenerovat obrázek“, parallel „větve zároveň“, switch „jedna z možností“, call „spustit jiný scénář“, fail „zastavit běh s chybou“, set „spočítat hodnoty bez LLM“.
+An arrow between cards; in the editor it turns into a (+) on hover/focus; with a cut step the (+) is shown permanently and highlighted; at the end of the list a permanent (+) + an “+ output” pill.
+The type picker (TypePicker): a list of items “keyword (mono) + description” in three groups separated by a line, an active item, a filter row (“filter: as”), “No type matches.”, the item “Paste ‘x’ here”.
+Type descriptions: ask “single agent call”, task “agent with tools”, jev “cheap Jev decision”, image “generate an image”, parallel “branches in parallel”, switch “one of several options”, call “run another scenario”, fail “stop the run with an error”, set “compute values without an LLM”.
 
-### 18. Panel (PanelShell) a jeho obsahy
+### 18. Panel (PanelShell) and its contents
 
-Rámec: eyebrow, titul, tlačítko zavřít, volitelné akce. Obsahy:
+Frame: eyebrow, title, a close button, optional actions. Contents:
 
-- Panel kroku v editoru: select Typ kroku, pole id (s pravidlem formátu), akordeon Podmínka, pole podle typu (Agent select; Prompt šablona; Schéma výstupu JSON; Otázky jako řádky: klíč + otázka + typ + kritéria + odebrat, „+ Přidat otázku“; State; Model; Poměr stran / Kvalita / Rozlišení „pevně, nebo {{ inputs.x }}“; Scénář + Vstupy u call, čip „nevolatelný“ s vysvětlením; Hodnoty u set; Zpráva u fail; Nejvýš tahů; MCP servery checkboxy; Nástroje), akordeon Spolehlivost (timeout, budget_usd, retry, on_error, default, dedupe_key), akordeon Podrobnosti (čipy „Čte z“ / „Výstup čtou“ jako odkazy na kroky, „nic“, odkaz „Otevřít v YAML“), seznam chyb kroku.
-- Panel hlavičky: popis, přepínač „Scénář smí volat jiný scénář krokem call“ s vysvětlením, Vstupy a Výstupy jako řádky (jméno inline, typ select, popis, výchozí hodnota, odebrat; „+ Přidat vstup“ / „+ Přidat výstup“).
-- Panel spuštění („SPUSTIT BĚH“): vstupy podle typu (text, číslo, checkbox, JSON, disabled „soubor předá jen krok call“), radio Dry-run / Ostrý běh, tabulka limitů (na běh, z toho obrázky, čas běhu, dnes utraceno / limit), varování („Máš neuložené změny: běh použije verzi na disku.“, „Scénář má vstup typu file…“), chyba API, tlačítko „Spustit dry-run“ / „Spustit ostrý běh“ / „Spouštím…“.
-- Panel kroku v běhu: řádek stavu (badge + trvání + cena + „3 tahy · 2 volání nástrojů“), text přeskočení / varování / chyba, záložky podle typu (Prompt, Odpověď, Výstup, Volání (n), Nástroje, Obrázek, Soubory), obsahy: blok kódu (mono, JSON/Markdown), odpovědi Jev (klíč, hodnota, pruh 0–1), položka volání (pokus · tah · alias → model; provider · finish_reason · HTTP; trvání · tokeny · cena; chybová položka s „↻“ při opakování), položka nástroje (tah · server.tool; trvání; odkaz na soubor; varianty „nepovolený“ / „neplatné argumenty“ / „nástroj vrátil chybu“), obrázek, seznam souborů, prázdný stav „Nic k zobrazení.“
+- Step panel in the editor: the Step type select, the id field (with the format rule), the Condition accordion, fields by type (Agent select; Prompt template; Output schema JSON; Questions as rows: key + question + type + criteria + remove, “+ Add question”; State; Model; Aspect ratio / Quality / Resolution “fixed, or {{ inputs.x }}”; Scenario + Inputs for call, a chip “not callable” with an explanation; Values for set; Message for fail; Max turns; MCP servers checkboxes; Tools), the Reliability accordion (timeout, budget_usd, retry, on_error, default, dedupe_key), the Step details accordion (chips “Reads from” / “Output read by” as links to steps, “nothing”, the link “Open in YAML”), the list of step errors.
+- Header panel: description, the toggle “Other scenarios may call this scenario with a call step” with an explanation, Inputs and Outputs as rows (inline name, type select, description, default value, remove; “+ Add input” / “+ Add output”).
+- Run panel (“START RUN”): inputs by type (text, number, checkbox, JSON, disabled “a file can only be passed by a call step”), the radio Dry run / Live run, a table of limits (per run, of which images, run timeout, spent today / limit), warnings (“You have unsaved changes — the run will use the version on disk.”, “The scenario has an input of type file…”), an API error, the button “Start dry run” / “Start live run” / “Starting…”.
+- Step panel in a run: a status row (badge + duration + cost + “3 turns · 2 tool calls”), skip / warning / error text, tabs by type (Prompt, Response, Output, Calls (n), Tools, Image, Files), contents: a code block (mono, JSON/Markdown), Jev answers (key, value, a 0–1 bar), a call item (attempt · turn · alias → model; provider · finish_reason · HTTP; duration · tokens · cost; an error item with “↻” on retry), a tool item (turn · server.tool; duration; a link to the file; variants “not allowed” / “invalid arguments” / “tool returned an error”), an image, a list of files, the empty state “Nothing to show.”
 
-### 19. Editory textu
+### 19. Text editors
 
-- YAML editor: čísla řádků, zvýrazněný rozsah vybraného kroku, řádek s chybou, jen ke čtení s hintem „Soubor x, jen ke čtení.“, hint „Upravuješ přímo soubor… Uloží se až tlačítkem Uložit.“
-- Markdown editor agenta/skillu (mono textarea) a náhled Markdownu.
-- Blok kódu jen ke čtení (výstup kroku, soubory běhu), obrázek běhu, report v rámu.
+- YAML editor: line numbers, a highlighted range of the selected step, an error line, read-only with the hint “File x — read-only.”, the hint “You are editing … directly. Changes are written only when you click Save.”
+- Agent/skill Markdown editor (a mono textarea) and a Markdown preview.
+- A read-only code block (step output, run files), a run image, the report in a frame.
 
-### 20. Formuláře agenta, skillu a configu
+### 20. Agent, skill and config forms
 
-- Agent: popis, model (select aliasů + nápověda „Alias z config.yaml, nikdy konkrétní id modelu.“), skilly (čipy + přidat), MCP (server checkbox a k němu checkboxy nástrojů; poznámky „(vlastník nepovolil)“, „server nástroje neomezuje“), limity (max_turns povinné podmíněně s textem „Povinné: agent má MCP server.“, budget_usd, timeout), Instrukce (velká textarea), seznam „Používá“ (odkazy na scénáře). Skill: Markdown + „používají“.
-- Config: sekce Modely (řádky aliasů: alias inline, id modelu, API select chat/images, kvalita select jen u images, structured_output, max_tokens, smazat alias disabled s důvodem „Alias používá pisatel: smazat nejde.“, poznámka „používají 2 agenti“; „+ alias“), Jev model, Úložiště (type select + pole; pole *_env s ukazatelem „nastavena na serveru“ / „na serveru chybí“ / „server o proměnné zatím neví“), Limity, Proměnné, MCP servery jen ke čtení (agenti, scénáře, nástroje; „mění se v YAML režimu“, „Projekt nemá mcp.yaml.“), stav „config.yaml neprošel kontrolou, oprav ho v YAML“.
+- Agent: description, model (an alias select + the help “An alias from config.yaml, never a concrete model id.”), skills (chips + add), MCP (a server checkbox and tool checkboxes under it; notes “(not allowed by the owner)”, “the server doesn't restrict tools”), limits (max_turns conditionally required with the text “Required: the agent has an MCP server.”, budget_usd, timeout), Instructions (a large textarea), the “Used by” list (links to scenarios). Skill: Markdown + “used by”.
+- Config: the Models section (alias rows: alias inline, model id, API select chat/images, quality select only for images, structured_output, max_tokens, delete alias disabled with the reason “The alias is used by writer — it can't be deleted.”, a note “used by 2 agents”; “+ alias”), Jev model, Storage (type select + fields; *_env fields with the indicator “set on the server” / “missing on the server” / “the server doesn't know this variable yet”), Limits, Variables, MCP servers read-only (agents, scenarios, tools; “edit in YAML mode”, “The project has no mcp.yaml.”), the state “config.yaml failed validation — fix it in YAML”.
 
-## Celkový rámec (obrazovky)
+## Overall frame (screens)
 
-Stačí jednoduchý rámec, kam se komponenty skládají; detailní layout je na tobě.
+A simple frame into which the components are assembled is enough; the detailed layout is up to you.
 
-1. Token serveru: karta s polem hesla, nápovědou, chybou „Token serveru nesedí.“, Uložit.
-2. Projekty: nadpis, podtitul, cesta registru (mono), načíst znovu, mřížka karet projektů.
-3. Projekt: navigace zpět, název, cesta (mono), útrata dnes + progress denního limitu, limity běhu, čip „N chyb“ s rozbalovacím seznamem chyb, načíst znovu; záložky Scénáře · Agenti · Config · Skilly · Běhy; obsah záložky (mřížka karet / seznam + detail / formulář / tabulka běhů).
-4. Editor scénáře: zpět („projekt / Scénáře“), drobečky cesty přes call, název (mono), popis, přepínač Form | YAML, stav uložení, Přejmenovat, Smazat, Vrátit zpět, Spustit, Uložit; konfliktní lišta; sloupec karet kroků s konektory; panel (krok / hlavička / spuštění); YAML režim.
-5. Detail běhu: zpět („projekt / Běhy“), scénář (mono, odkaz) + run_id, badge stavu (u chyby „chyba: <důvod>“), čip „falešný běh“, trvání · cena, řádek vstupů („zadani = „…““), záložky Kroky · Souhrn · Report · Soubory, checkbox „sledovat běh“, hint pro přerušený běh, stavový řádek „Běh skončil: úspěch“; obsah: sloupec karet kroků v běhu + panel, nebo „Běh čeká ve frontě.“, nebo dry-run s plánem, souhrn Markdown, report, strom souborů + prohlížeč.
-6. Stránka „Tahle adresa v GUI neexistuje.“ s odkazem na Projekty.
+1. Server token: a card with a password field, help, the error “The server token doesn't match — the server returned 401.”, Save.
+2. Projects: heading, subtitle, registry path (mono), reload, a grid of project cards.
+3. Project: back navigation, name, path (mono), spend today + the daily limit progress, run limits, a chip “N errors” with a drop-down list of errors, reload; tabs Scenarios · Agents · Config · Skills · Runs; the tab content (a grid of cards / list + detail / form / runs table).
+4. Scenario editor: back (“project / Scenarios”), the call path breadcrumbs, name (mono), description, the Form | YAML toggle, save state, Rename, Delete, Undo, Run, Save; the conflict bar; a column of step cards with connectors; a panel (step / header / run); YAML mode.
+5. Run detail: back (“project / Runs”), scenario (mono, link) + run_id, a status badge (for a failure “error: <reason>”), a “fake run” chip, duration · cost, an inputs row (“prompt = “…””), tabs Steps · Summary · Report · Files, the “follow run” checkbox, the hint for an interrupted run, the status row “Run finished: succeeded”; content: a column of step cards in the run + panel, or “The run is waiting in the queue.”, or a dry run with a plan, a Markdown summary, a report, a file tree + viewer.
+6. The page “There's nothing at this address.” with a link to Projects.
 
-## Pravidla, která musí zůstat
+## Rules that must remain
 
-- Stav je vždy ikona + text, nikdy jen barva.
-- Identifikátory, cesty, výrazy, YAML, JSON a čísla v mono.
-- Karta kroku v editoru a v běhu je jedna komponenta; liší se jen obsahem místa pro číslo a pravé části.
-- Barva proměnných a barva typů kroků nesmí kolidovat se stavovými barvami.
-- Dotykové cíle 44 px na dotykových zařízeních.
-- Vše česky, texty ber z tohoto seznamu.
+- Status is always icon + text, never colour alone.
+- Identifiers, paths, expressions, YAML, JSON and numbers in mono.
+- The step card in the editor and in a run is a single component; they differ only in the content of the number slot and the right part.
+- The variable colour and the step type colour must not collide with the state colours.
+- Touch targets 44 px on touch devices.
+- Everything in English, take the texts from this list.
 
-## Výstup
+## Output
 
-Jeden .pen soubor s knihovnou komponent (varianty = stavy) a rámci obrazovek. Ke každé komponentě název z tohoto seznamu.
+One .pen file with a component library (variants = states) and a frame of screens. For each component the name from this list.

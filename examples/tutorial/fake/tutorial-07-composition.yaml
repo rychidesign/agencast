@@ -1,0 +1,8 @@
+# Scripted responses for tutorial-07-composition. Steps of called scenarios
+# have the path <call step id>/<step id in the called scenario>.
+propose:
+  - json: { name: "Ovena" }
+slogan/write:
+  - json: { slogan: "Ovena. Ice cream that grows in the field." }
+tone/check:
+  - answers: { on_brand: 0.82 }

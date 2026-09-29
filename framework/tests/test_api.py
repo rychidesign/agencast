@@ -1,4 +1,4 @@
-"""Čtecí API `serve` (api.md): režim registru s AGENCAST_TOKEN a jeden projekt; falešný poskytovatel."""
+"""Read API for `serve` (api.md): registry mode with AGENCAST_TOKEN and single-project mode; fake provider."""
 from pathlib import Path
 
 from conftest import SECRET, TOKEN, serve
@@ -14,62 +14,62 @@ from agencast.task import local_ledger
 
 def test_registry_mode_read_api(registry_server):
     projects, client, a, b = registry_server
-    assert client.get("/projects", headers={"Authorization": "Bearer spatne"}).status_code == 401
+    assert client.get("/projects", headers={"Authorization": "Bearer wrong"}).status_code == 401
     assert client.get("/projects").json() == {"projects": [
-        {"name": "alfa", "root": str(a), "available": True, "last_run": None,
+        {"name": "alpha", "root": str(a), "available": True, "last_run": None,
          "counts": {"scenarios": 1, "agents": 1}, "spend_today_usd": 0},
         {"name": "beta", "root": str(b), "available": True, "last_run": None,
          "counts": {"scenarios": 1, "agents": 1}, "spend_today_usd": 0}],
         "registry": str(a.parent / "agencast-config" / "projects.yaml"),
         "projects_root": str(api.projects_root()), "writable": True}
-    p = client.get("/projects/alfa").json()
-    assert p["name"] == "alfa" and p["models"]["chytry"] == "anthropic/claude-haiku-4.5" and p["errors"] == []
+    p = client.get("/projects/alpha").json()
+    assert p["name"] == "alpha" and p["models"]["smart"] == "anthropic/claude-haiku-4.5" and p["errors"] == []
     (sc,) = p["scenarios"]
-    assert (sc["name"], sc["steps_count"], sc["callable"], sc["errors"]) == ("ukazka", 2, False, [])
+    assert (sc["name"], sc["steps_count"], sc["callable"], sc["errors"]) == ("demo", 2, False, [])
     assert p["agents"][0]["model_id"] == "anthropic/claude-haiku-4.5"
-    assert p["links"]["scenario_agent"] == [["ukazka", "pisatel"]] and p["limits"]["run_timeout"] == "1h"
-    steps = client.get("/projects/alfa/scenarios/ukazka").json()["steps"]
-    assert [(s["nn"], s["id"], s["type"]) for s in steps] == [(1, "napis", "ask"), (2, "vystup", "output")]
-    assert steps[0]["agent"] == "pisatel" and steps[1]["refs"] == ["steps.napis.text"]
-    for url in ("/projects/nic", "/projects/alfa/scenarios/nic", "/projects/alfa/runs/20260101-000000-x-abcd",
-                "/projects/alfa/nic"):
+    assert p["links"]["scenario_agent"] == [["demo", "writer"]] and p["limits"]["run_timeout"] == "1h"
+    steps = client.get("/projects/alpha/scenarios/demo").json()["steps"]
+    assert [(s["nn"], s["id"], s["type"]) for s in steps] == [(1, "write", "ask"), (2, "result", "output")]
+    assert steps[0]["agent"] == "writer" and steps[1]["refs"] == ["steps.write.text"]
+    for url in ("/projects/missing", "/projects/alpha/scenarios/missing", "/projects/alpha/runs/20260101-000000-x-abcd",
+                "/projects/alpha/missing"):
         r = client.get(url)
         assert r.status_code == 404 and r.json()["error"], url
-    assert client.post("/runs", json={}).status_code == 404  # bez projektu jen /projects/<p>/runs
+    assert client.post("/runs", json={}).status_code == 404  # outside a project, only /projects/<p>/runs
 
     rcv = Receiver()
-    r = client.post("/projects/alfa/runs", json={"scenario": "ukazka", "callback_url": rcv.url})
+    r = client.post("/projects/alpha/runs", json={"scenario": "demo", "callback_url": rcv.url})
     assert r.status_code == 202
     run_id = r.json()["run_id"]
     finished(projects.hooks[a], run_id)
     assert rcv.wait()[0]["status"] == "succeeded"
-    assert [x["run_id"] for x in client.get("/projects/alfa/runs").json()["runs"]] == [run_id]
-    d = client.get(f"/projects/alfa/runs/{run_id}").json()
+    assert [x["run_id"] for x in client.get("/projects/alpha/runs").json()["runs"]] == [run_id]
+    d = client.get(f"/projects/alpha/runs/{run_id}").json()
     assert d["status"] == "succeeded" and [(s["step"], s["status"]) for s in d["steps"]] == [
-        ("napis", "succeeded"), ("vystup", "succeeded")]
+        ("write", "succeeded"), ("result", "succeeded")]
     assert d["steps"][0]["cost_usd"] > 0 and "summary.md" in d["files"] and "events.jsonl" in d["files"]
-    f = client.get(f"/projects/alfa/runs/{run_id}/files/summary.md")
-    assert f.status_code == 200 and "# ukazka — úspěch" in f.text
-    assert client.get(f"/projects/alfa/runs/{run_id}/files/steps/01-napis/output.json").json()
-    for rel in ("%2e%2e/%2e%2e/workflows/config.yaml", "..%2F..%2F.env.example", "%2Fetc%2Fpasswd", "nic.md"):
-        assert client.get(f"/projects/alfa/runs/{run_id}/files/{rel}").status_code == 404, rel
-    assert projects.get(f"Bearer {TOKEN}", f"/projects/alfa/runs/{run_id}/files/../../../.env.example", "")[0] == 404
+    f = client.get(f"/projects/alpha/runs/{run_id}/files/summary.md")
+    assert f.status_code == 200 and "# demo — success" in f.text
+    assert client.get(f"/projects/alpha/runs/{run_id}/files/steps/01-write/output.json").json()
+    for rel in ("%2e%2e/%2e%2e/workflows/config.yaml", "..%2F..%2F.env.example", "%2Fetc%2Fpasswd", "missing.md"):
+        assert client.get(f"/projects/alpha/runs/{run_id}/files/{rel}").status_code == 404, rel
+    assert projects.get(f"Bearer {TOKEN}", f"/projects/alpha/runs/{run_id}/files/../../../.env.example", "")[0] == 404
     assert client.get("/projects/beta/runs").json() == {"runs": []}
 
     local_ledger(a / "runs", False).add("2000-01-01", {"run_id": "x", "cost_usd": 0.25, "finished_at": "…"})
     local_ledger(a / "runs", False).add("2000-01-01", {"run_id": "y", "cost_usd": 0.05, "finished_at": "…"})
-    s = client.get("/projects/alfa/spend", params={"day": "2000-01-01"}).json()
+    s = client.get("/projects/alpha/spend", params={"day": "2000-01-01"}).json()
     assert s["total_usd"] == 0.3 and [x["run_id"] for x in s["runs"]] == ["x", "y"]
-    assert client.get("/projects/alfa/spend").json()["runs"] == []  # dnešek: falešné běhy mají vlastní knihu
-    assert client.get("/projects/alfa/spend", params={"day": "včera"}).status_code == 422
+    assert client.get("/projects/alpha/spend").json()["runs"] == []  # today: fake runs have their own ledger
+    assert client.get("/projects/alpha/spend", params={"day": "yesterday"}).status_code == 422
 
     (b / "workflows" / "config.yaml").unlink()
     assert client.get("/projects").json()["projects"][1]["available"] is False
-    assert "nedostupný" in client.get("/projects/beta").json()["error"]
+    assert "unavailable" in client.get("/projects/beta").json()["error"]
 
 
 def test_single_project_mode(wf, monkeypatch):
-    """Dnešní serve v projektu: /runs beze změny, /projects s tímhle jedním projektem a jeho tokenem."""
+    """Current serve inside a project: /runs unchanged, /projects with this single project and its token."""
     monkeypatch.setenv("WEBHOOK_TOKEN", TOKEN)
     monkeypatch.setenv("CALLBACK_SECRET", SECRET)
     hook = Webhook(wf, fake=Fake(None))
@@ -83,23 +83,23 @@ def test_single_project_mode(wf, monkeypatch):
                      "last_run": None, "counts": counts, "spend_today_usd": 0}
         listing = client.get("/projects").json()
         assert listing["writable"] is False and listing["projects_root"] == str(api.projects_root())
-        api.add_project(wf.parent, "muj")
-        assert client.get("/projects").json()["projects"][0]["name"] == "muj"
+        api.add_project(wf.parent, "mine")
+        assert client.get("/projects").json()["projects"][0]["name"] == "mine"
         for response in (client.post("/projects", json={"root": str(wf.parent)}),
-                         client.post("/projects/new", json={"name": "novy"}),
-                         client.delete("/projects/muj")):
-            assert response.status_code == 405 and "režimu registru" in response.json()["error"]
+                         client.post("/projects/new", json={"name": "new"}),
+                         client.delete("/projects/mine")):
+            assert response.status_code == 405 and "registry mode" in response.json()["error"]
         assert (wf.parent / "workflows" / "config.yaml").is_file()
-        assert "ig-post" in [s["name"] for s in client.get("/projects/muj").json()["scenarios"]]
+        assert "ig-post" in [s["name"] for s in client.get("/projects/mine").json()["scenarios"]]
         rcv = Receiver()
-        body = {"scenario": "kontrola-tonu", "inputs": {"text": "Ahoj"}, "callback_url": rcv.url}
-        run_id = client.post("/projects/muj/runs", json=body).json()["run_id"]
+        body = {"scenario": "tone-check", "inputs": {"text": "Hello"}, "callback_url": rcv.url}
+        run_id = client.post("/projects/mine/runs", json=body).json()["run_id"]
         finished(hook, run_id)
         assert client.get(f"/runs/{run_id}").json()["status"] == "succeeded"
-        assert client.get(f"/projects/muj/runs/{run_id}").json()["status"] == "succeeded"
-        assert client.post("/projects/jiny/runs", json=body).status_code == 404
-        sw = client.get("/projects/muj/scenarios/ukazka-call").json()["steps"]
-        assert [s["call"] for s in sw if s["type"] == "call"] == ["kontrola-tonu"]
+        assert client.get(f"/projects/mine/runs/{run_id}").json()["status"] == "succeeded"
+        assert client.post("/projects/other/runs", json=body).status_code == 404
+        sw = client.get("/projects/mine/scenarios/demo-call").json()["steps"]
+        assert [s["call"] for s in sw if s["type"] == "call"] == ["tone-check"]
     finally:
         client.close()
         srv.shutdown()
@@ -117,27 +117,27 @@ def test_registry_project_create_register_remove(tmp_path, registry, monkeypatch
         info = client.get("/projects").json()
         assert info["projects"] == [] and info["projects_root"] == str(workspace) and info["writable"] is True
 
-        created = client.post("/projects/new", json={"name": "nova"})
+        created = client.post("/projects/new", json={"name": "fresh"})
         assert created.status_code == 201
         body = created.json()
-        root = workspace / "nova"
-        assert body["name"] == "nova" and body["root"] == str(root)
+        root = workspace / "fresh"
+        assert body["name"] == "fresh" and body["root"] == str(root)
         assert {Path(path).relative_to(root).as_posix() for path in body["created"]} == {
-            ".env.example", ".gitignore", "workflows/config.yaml", "workflows/agents/pisatel.md",
-            "workflows/scenarios/ukazka.yaml"}
-        assert [p["name"] for p in client.get("/projects").json()["projects"]] == ["nova"]
+            ".env.example", ".gitignore", "workflows/config.yaml", "workflows/agents/writer.md",
+            "workflows/scenarios/demo.yaml"}
+        assert [p["name"] for p in client.get("/projects").json()["projects"]] == ["fresh"]
         assert "projects_root:" in registry.read_text()
-        assert client.post("/projects/new", json={"name": "nova"}).status_code == 409
-        exists = client.post("/projects/new", json={"name": "jin", "root": str(root)})
-        assert exists.status_code == 409 and "přidej existující" in exists.json()["error"]
+        assert client.post("/projects/new", json={"name": "fresh"}).status_code == 409
+        exists = client.post("/projects/new", json={"name": "another", "root": str(root)})
+        assert exists.status_code == 409 and "add the existing" in exists.json()["error"]
 
         imported = workspace / "imported"
-        api.new_project(imported, "odlozeny")
-        api.remove_project("odlozeny")
+        api.new_project(imported, "detached")
+        api.remove_project("detached")
         registered = client.post("/projects", json={"root": "imported", "name": "import"})
         assert registered.status_code == 201 and registered.json() == {"name": "import", "root": str(imported)}
         assert client.post("/projects", json={"root": str(imported)}).status_code == 409
-        assert client.post("/projects", json={"root": "../mimo"}).status_code == 422
+        assert client.post("/projects", json={"root": "../outside"}).status_code == 422
         assert client.post("/projects", json={"root": str(tmp_path / "missing")}).status_code == 422
         outside = tmp_path / "outside"
         api.new_project(outside, "outside")
@@ -149,7 +149,7 @@ def test_registry_project_create_register_remove(tmp_path, registry, monkeypatch
 
         removed = client.delete("/projects/import")
         assert removed.status_code == 200 and removed.json()["files_deleted"] is False
-        assert "soubory zůstávají" in removed.json()["message"]
+        assert "files are kept" in removed.json()["message"]
         assert (imported / "workflows" / "config.yaml").is_file()
         assert client.get("/projects/import").status_code == 404
         assert client.delete("/projects/expanded").status_code == 200
@@ -167,94 +167,94 @@ def test_serve_registry_needs_token(tmp_path, monkeypatch, capsys):
 
 
 def test_edit_api(registry_server):
-    """Editační operace přes HTTP (api.md „Editace“): etag, 409, 422, 404 mimo workflows/, stejný token."""
+    """Editing via HTTP (api.md “Editing”): etag, 409, 422, 404 outside workflows/, same token."""
     _, client, a, _ = registry_server
-    sc = client.get("/projects/alfa/scenarios/ukazka").json()
+    sc = client.get("/projects/alpha/scenarios/demo").json()
     assert [s["address"] for s in sc["steps"]] == [["steps", 0], ["steps", 1]]
-    assert client.put("/projects/alfa/scenarios/ukazka", json={"etag": sc["etag"], "fields": {}},
-                      headers={"Authorization": "Bearer spatne"}).status_code == 401
-    step = {"id": "zkrat", "ask": {"agent": "pisatel", "prompt": "Zkrať: {{ steps.napis.text }}"}}
-    r = client.post("/projects/alfa/scenarios/ukazka/steps", json={"etag": sc["etag"], "after": ["steps", 0], "step": step})
+    assert client.put("/projects/alpha/scenarios/demo", json={"etag": sc["etag"], "fields": {}},
+                      headers={"Authorization": "Bearer wrong"}).status_code == 401
+    step = {"id": "shorten", "ask": {"agent": "writer", "prompt": "Shorten: {{ steps.write.text }}"}}
+    r = client.post("/projects/alpha/scenarios/demo/steps", json={"etag": sc["etag"], "after": ["steps", 0], "step": step})
     assert r.status_code == 200 and r.json()["errors"] == []
     tag = r.json()["etag"]
-    stale = client.patch("/projects/alfa/scenarios/ukazka/steps/1", json={"etag": sc["etag"], "fields": {"timeout": "1m"}})
+    stale = client.patch("/projects/alpha/scenarios/demo/steps/1", json={"etag": sc["etag"], "fields": {"timeout": "1m"}})
     assert stale.status_code == 409 and stale.json()["etag"] == tag
-    bad = client.patch("/projects/alfa/scenarios/ukazka/steps/1",
-                       json={"etag": tag, "fields": {"ask": {"agent": "nikdo"}}})
+    bad = client.patch("/projects/alpha/scenarios/demo/steps/1",
+                       json={"etag": tag, "fields": {"ask": {"agent": "nobody"}}})
     assert bad.status_code == 422
-    (e,) = [e for e in bad.json()["errors"] if "nikdo" in e["message"]]  # 0.6.0: chyby jako objekty
-    assert e == {"message": 'ukazka.yaml: krok "zkrat": agent \'nikdo\' neexistuje (agents/nikdo.md)',
-                 "file": "scenarios/ukazka.yaml", "step": "zkrat"}
-    r = client.post("/projects/alfa/scenarios/ukazka/steps/1/move", json={"etag": tag, "to": ["steps"]})
-    assert r.status_code == 422  # zkrat by odkazoval na krok, který běží až po něm
-    r = client.patch("/projects/alfa/scenarios/ukazka/steps/1", json={"etag": tag, "fields": {"timeout": "1m"}})
+    (e,) = [e for e in bad.json()["errors"] if "nobody" in e["message"]]  # 0.6.0: errors as objects
+    assert e == {"message": 'demo.yaml: step "shorten": agent \'nobody\' does not exist (agents/nobody.md)',
+                 "file": "scenarios/demo.yaml", "step": "shorten"}
+    r = client.post("/projects/alpha/scenarios/demo/steps/1/move", json={"etag": tag, "to": ["steps"]})
+    assert r.status_code == 422  # shorten would reference a step that runs after it
+    r = client.patch("/projects/alpha/scenarios/demo/steps/1", json={"etag": tag, "fields": {"timeout": "1m"}})
     assert r.status_code == 200
-    assert client.request("DELETE", "/projects/alfa/scenarios/ukazka/steps/9", json={"etag": r.json()["etag"]}).status_code == 404
-    r = client.request("DELETE", "/projects/alfa/scenarios/ukazka/steps/1", json={"etag": r.json()["etag"]})
+    assert client.request("DELETE", "/projects/alpha/scenarios/demo/steps/9", json={"etag": r.json()["etag"]}).status_code == 404
+    r = client.request("DELETE", "/projects/alpha/scenarios/demo/steps/1", json={"etag": r.json()["etag"]})
     assert r.status_code == 200
-    f = client.get("/projects/alfa/files/scenarios/ukazka.yaml").json()
-    assert f["etag"] == r.json()["etag"] and f["data"]["name"] == "ukazka" and "zkrat" not in f["text"]
-    assert client.put("/projects/alfa/files/scenarios/ukazka.yaml",
-                      json={"etag": f["etag"], "text": "# nahoře\n" + f["text"]}).status_code == 200
-    assert (a / "workflows" / "scenarios" / "ukazka.yaml").read_text().startswith("# nahoře\n")
-    for url in ("/projects/alfa/files/..%2F.env", "/projects/alfa/files/%2e%2e/.env", "/projects/alfa/files/.env",
-                "/projects/alfa/files/agents/..%2F..%2F.env.example", "/projects/beta/files/runs/x.yaml"):
+    f = client.get("/projects/alpha/files/scenarios/demo.yaml").json()
+    assert f["etag"] == r.json()["etag"] and f["data"]["name"] == "demo" and "shorten" not in f["text"]
+    assert client.put("/projects/alpha/files/scenarios/demo.yaml",
+                      json={"etag": f["etag"], "text": "# at the top\n" + f["text"]}).status_code == 200
+    assert (a / "workflows" / "scenarios" / "demo.yaml").read_text().startswith("# at the top\n")
+    for url in ("/projects/alpha/files/..%2F.env", "/projects/alpha/files/%2e%2e/.env", "/projects/alpha/files/.env",
+                "/projects/alpha/files/agents/..%2F..%2F.env.example", "/projects/beta/files/runs/x.yaml"):
         assert client.get(url).status_code == 404, url
         assert client.put(url, json={"etag": None, "text": "X=1"}).status_code == 404, url
     assert not (a / "workflows" / ".env").exists()
 
-    # agent: new přes HTTP, PUT, DELETE odmítnutý, když ho scénář používá
-    r = client.post("/projects/alfa/agents", json={"name": "redaktor"})
+    # agent: new via HTTP, PUT, DELETE rejected when used by a scenario
+    r = client.post("/projects/alpha/agents", json={"name": "editor"})
     assert r.status_code == 200
-    r = client.put("/projects/alfa/agents/redaktor", json={"etag": r.json()["etag"],
-                                                           "frontmatter": {"description": "Rediguje"}, "body": "Rediguj.\n"})
+    r = client.put("/projects/alpha/agents/editor", json={"etag": r.json()["etag"],
+                                                           "frontmatter": {"description": "Edits"}, "body": "Edit.\n"})
     assert r.status_code == 200
-    assert client.request("DELETE", "/projects/alfa/agents/redaktor", json={"etag": r.json()["etag"]}).status_code == 200
-    pis = client.get("/projects/alfa/files/agents/pisatel.md").json()
-    assert pis["frontmatter"]["name"] == "pisatel"
-    r = client.request("DELETE", "/projects/alfa/agents/pisatel", json={"etag": pis["etag"]})
-    assert r.status_code == 422 and "ukazka" in r.json()["errors"][0]["message"]
-    assert client.post("/projects/alfa/scenarios", json={"name": "druhy"}).status_code == 200
-    assert client.post("/projects/alfa/scenarios", json={"name": "druhy"}).status_code == 422  # nepřepisuje
+    assert client.request("DELETE", "/projects/alpha/agents/editor", json={"etag": r.json()["etag"]}).status_code == 200
+    writer = client.get("/projects/alpha/files/agents/writer.md").json()
+    assert writer["frontmatter"]["name"] == "writer"
+    r = client.request("DELETE", "/projects/alpha/agents/writer", json={"etag": writer["etag"]})
+    assert r.status_code == 422 and "demo" in r.json()["errors"][0]["message"]
+    assert client.post("/projects/alpha/scenarios", json={"name": "second"}).status_code == 200
+    assert client.post("/projects/alpha/scenarios", json={"name": "second"}).status_code == 422  # no overwrites
 
-    # skill a config
-    r = client.put("/projects/alfa/skills/hlas", json={"etag": None, "text": "---\nname: hlas\ndescription: Tón\n---\nTykáme.\n"})
+    # skill and config
+    r = client.put("/projects/alpha/skills/voice", json={"etag": None, "text": "---\nname: voice\ndescription: Tone\n---\nUse an informal tone.\n"})
     assert r.status_code == 200
-    assert client.request("DELETE", "/projects/alfa/skills/hlas", json={"etag": r.json()["etag"]}).status_code == 200
-    c = client.get("/projects/alfa/files/config.yaml").json()
-    r = client.put("/projects/alfa/config", json={"etag": c["etag"], "fields": {"limits": {"run_budget_usd": 2}}})
-    assert r.status_code == 200 and client.get("/projects/alfa").json()["limits"]["run_budget_usd"] == 2
-    assert client.put("/projects/alfa/config", json={"etag": r.json()["etag"], "fields": {"version": 2}}).status_code == 422
-    assert client.put("/projects/alfa/nic", json={}).status_code == 404
+    assert client.request("DELETE", "/projects/alpha/skills/voice", json={"etag": r.json()["etag"]}).status_code == 200
+    c = client.get("/projects/alpha/files/config.yaml").json()
+    r = client.put("/projects/alpha/config", json={"etag": c["etag"], "fields": {"limits": {"run_budget_usd": 2}}})
+    assert r.status_code == 200 and client.get("/projects/alpha").json()["limits"]["run_budget_usd"] == 2
+    assert client.put("/projects/alpha/config", json={"etag": r.json()["etag"], "fields": {"version": 2}}).status_code == 422
+    assert client.put("/projects/alpha/missing", json={}).status_code == 404
 
 
 def test_rename_api_routes(registry_server):
     _, client, root, _ = registry_server
-    callee = api.read_file(root, "scenarios/ukazka.yaml")
-    api.set_header(root, "ukazka", callee["etag"], {"callable": True})
-    api.new_scenario(root, "volani")
-    caller = api.read_file(root, "scenarios/volani.yaml")
-    api.add_step(root, "volani", caller["etag"], ["steps", 0],
-                 {"id": "zavolej", "call": {"scenario": "ukazka"}})
-    source = client.get("/projects/alfa/scenarios/ukazka").json()
+    callee = api.read_file(root, "scenarios/demo.yaml")
+    api.set_header(root, "demo", callee["etag"], {"callable": True})
+    api.new_scenario(root, "caller")
+    caller = api.read_file(root, "scenarios/caller.yaml")
+    api.add_step(root, "caller", caller["etag"], ["steps", 0],
+                 {"id": "invoke", "call": {"scenario": "demo"}})
+    source = client.get("/projects/alpha/scenarios/demo").json()
 
-    stale = client.post("/projects/alfa/scenarios/ukazka/rename", json={"etag": "stary", "name": "uvod"})
+    stale = client.post("/projects/alpha/scenarios/demo/rename", json={"etag": "stale", "name": "intro"})
     assert stale.status_code == 409 and stale.json()["etag"] == source["etag"]
-    invalid = client.post("/projects/alfa/scenarios/ukazka/rename", json={"etag": source["etag"], "name": "Uvod"})
+    invalid = client.post("/projects/alpha/scenarios/demo/rename", json={"etag": source["etag"], "name": "Intro"})
     assert invalid.status_code == 422 and isinstance(invalid.json()["errors"][0], dict)
-    collision = client.post("/projects/alfa/scenarios/ukazka/rename",
-                            json={"etag": source["etag"], "name": "volani"})
+    collision = client.post("/projects/alpha/scenarios/demo/rename",
+                            json={"etag": source["etag"], "name": "caller"})
     assert collision.status_code == 422
 
-    renamed = client.post("/projects/alfa/scenarios/ukazka/rename", json={"etag": source["etag"], "name": "uvod"})
+    renamed = client.post("/projects/alpha/scenarios/demo/rename", json={"etag": source["etag"], "name": "intro"})
     assert renamed.status_code == 200
-    assert renamed.json()["name"] == "uvod" and renamed.json()["etag"] and renamed.json()["errors"] == []
-    assert renamed.json()["changed"] == ["scenarios/uvod.yaml", "scenarios/volani.yaml"]
-    assert client.get("/projects/alfa/files/scenarios/volani.yaml").json()["data"]["steps"][1]["call"]["scenario"] == "uvod"
-    assert client.get("/projects/alfa/scenarios/ukazka").status_code == 404
+    assert renamed.json()["name"] == "intro" and renamed.json()["etag"] and renamed.json()["errors"] == []
+    assert renamed.json()["changed"] == ["scenarios/caller.yaml", "scenarios/intro.yaml"]
+    assert client.get("/projects/alpha/files/scenarios/caller.yaml").json()["data"]["steps"][1]["call"]["scenario"] == "intro"
+    assert client.get("/projects/alpha/scenarios/demo").status_code == 404
 
-    agent = client.get("/projects/alfa/files/agents/pisatel.md").json()
-    renamed_agent = client.post("/projects/alfa/agents/pisatel/rename", json={"etag": agent["etag"], "name": "redaktor"})
-    assert renamed_agent.status_code == 200 and renamed_agent.json()["name"] == "redaktor"
-    assert client.get("/projects/alfa/files/agents/redaktor.md").json()["frontmatter"]["name"] == "redaktor"
-    assert client.post("/projects/alfa/agents/nic/rename", json={"etag": "x", "name": "jine"}).status_code == 404
+    agent = client.get("/projects/alpha/files/agents/writer.md").json()
+    renamed_agent = client.post("/projects/alpha/agents/writer/rename", json={"etag": agent["etag"], "name": "editor"})
+    assert renamed_agent.status_code == 200 and renamed_agent.json()["name"] == "editor"
+    assert client.get("/projects/alpha/files/agents/editor.md").json()["frontmatter"]["name"] == "editor"
+    assert client.post("/projects/alpha/agents/missing/rename", json={"etag": "x", "name": "other"}).status_code == 404

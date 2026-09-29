@@ -1,0 +1,95 @@
+version: 1
+name: tutorial-05-exercise
+description: Comes up with a name, has Jev assess it and writes a slogan based on its tone (tutorial, part 5 — exercise solution, serious branch)
+
+inputs:
+  product:
+    type: string
+    required: true
+    description: The product we are naming
+
+outputs:
+  name:
+    type: string
+  tone:
+    type: string
+    description: Tone of the name according to Jev (playful / serious)
+  slogan:
+    type: string
+  memorability:
+    type: integer
+    description: How memorable the name is, in percent
+
+steps:
+  # 1. One name.
+  - id: propose
+    ask:
+      agent: tutorial-namer
+      prompt: "Come up with one name for this product: {{ inputs.product }}."
+      schema:
+        name: string
+
+  # 2. Jev assesses the name: yes/no (noul), a choice (choice) and a scale (score).
+  - id: check
+    jev:
+      state: "Product: {{ inputs.product }}. Proposed name: {{ steps.propose.name }}"
+      questions:
+        memorable:
+          type: noul
+          instructions: Is the name easy to remember and easy to pronounce?
+        tone:
+          type: choice
+          instructions: What tone does the proposed name have?
+          criteria:
+            playful: Playful, witty, relaxed
+            serious: Serious, elegant, matter-of-fact
+        originality:
+          type: score
+          instructions: How original is the proposed name?
+          criteria:
+            - A common, ordinary name
+            - An interesting name
+            - An exceptionally original name
+
+  # 3. The threshold is always explicit in the scenario.
+  - id: stop
+    when: steps.check.memorable < 0.5
+    fail: "The name {{ steps.propose.name }} is not memorable (memorable = {{ steps.check.memorable }})"
+
+  # 4. A different slogan depending on the tone.
+  - id: by_tone
+    switch:
+      value: steps.check.tone
+      cases:
+        playful:
+          - id: slogan_playful
+            default: { slogan: "" }
+            ask:
+              agent: tutorial-slogan-writer
+              prompt: "Write a playful, witty slogan for the product {{ inputs.product }} named {{ steps.propose.name }}."
+              schema:
+                slogan: string
+        serious:
+          - id: slogan_serious
+            default: { slogan: "" }
+            ask:
+              agent: tutorial-slogan-writer
+              prompt: "Write a serious, elegant slogan for the product {{ inputs.product }} named {{ steps.propose.name }}."
+              schema:
+                slogan: string
+      default:
+        - id: unknown_tone
+          fail: "Unknown tone: {{ steps.check.tone }}"
+
+  # 5. Only one branch ran; the other one has the output from default (empty text).
+  - id: result
+    set:
+      slogan: steps.slogan_playful.slogan + steps.slogan_serious.slogan
+      percent: round(steps.check.memorable * 100)
+
+  - id: out
+    output:
+      name: "{{ steps.propose.name }}"
+      tone: "{{ steps.check.tone }}"
+      slogan: "{{ steps.result.slogan }}"
+      memorability: "{{ steps.result.percent }}"

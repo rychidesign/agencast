@@ -1,662 +1,671 @@
-# Changelog frameworku
+# Framework changelog
 
-Semver podle DESIGN §5.9 bod 5: oprava = patch, přidání = minor, nová
-verze formátu = major. Změny formátů jsou v `docs/spec/CHANGELOG.md`.
+Semver per DESIGN §5.9 item 5: a fix = patch, an addition = minor, a new
+format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
-Do 0.2.5 se balík a příkaz jmenovaly `maw`; starší záznamy tu to jméno nechávají.
+Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
+
+## Unreleased
+
+- English is the primary language for messages, the CLI and documentation. The GUI defaults to English, with an optional Czech translation.
+- Example projects, their files and identifiers now use English names. New projects create the `writer` agent and `demo` scenario, with `write`/`result` steps and the `topic` input.
+- Model aliases are now `smart`/`fast` (and `cheap` where used).
+- Run `status` text is now English; clients should read the machine-readable `state` field. The restart message is now `run interrupted by server restart`; runs interrupted by a restart under agencast ≤ 0.17 show as `failed` instead of `interrupted`.
+- Numbers use a decimal point, dates use ISO `YYYY-MM-DD`, and times use `HH:MM`.
+- Old Czech GUI URLs no longer resolve.
 
 ## 0.17.0 — 2026-09-28
 
-- Distribuce obsahuje text licence a README jako dlouhý popis balíčku; test hlídá shodu licencí.
-- Kontrola specifikace prochází oba projekty v `examples/`; CI kontroluje Python, GUI, E2E a instalovaný wheel.
-- Návody upřesňují `--fake`, MCP/callbacky, podporované prostředí a port GUI; protokoly běhů jsou v archivu.
-- Anglický rychlý start, komunitní pokyny bez závazků a aktuální stav rozhodnutí spec v1.
+- The distribution includes the license text and the README as the package's long description; a test checks that the licenses match.
+- The spec check covers both projects in `examples/`; CI checks Python, the GUI, E2E and the installed wheel.
+- The guides clarify `--fake`, MCP/callbacks, the supported environment and the GUI port; run logs are in the archive.
+- English quick start, community guidelines without commitments and the current state of the spec v1 decisions.
 
-- Balíček obsahuje skilly, český návod, specifikaci, tutoriály a oba příklady.
-- `skills list|path|install` zpřístupní a nainstaluje skilly; `docs [show <cesta>]` vypíše dokumentaci.
-- `new project --example showcase|tutorial` založí hotový projekt s fixturami v `fake/`.
-- Fixtury jsou součástí příkladů; relativní `--fake` hledá také v kořeni projektu.
+- The package includes the skills, the Czech guide, the specification, the tutorials and both examples.
+- `skills list|path|install` exposes and installs the skills; `docs [show <path>]` prints the documentation.
+- `new project --example showcase|tutorial` creates a ready-made project with fixtures in `fake/`.
+- Fixtures are part of the examples; a relative `--fake` also looks in the project root.
 
-## 0.16.4 — 2026-09-28 (příprava veřejného vydání)
+## 0.16.4 — 2026-09-28 (preparing the public release)
 
-- `serve` čte výchozí adresu a port z `AGENCAST_HOST` a `AGENCAST_PORT`; neplatný port končí chybou `config`.
-- Metadata balíčku odstraňují název starého repozitáře a odkazují na veřejný repozitář AgenCast.
-- README frameworku popisuje proměnné prostředí, nasazení přes systemd a bezpečné omezení přístupu ke GUI.
+- `serve` reads the default address and port from `AGENCAST_HOST` and `AGENCAST_PORT`; an invalid port ends with a `config` error.
+- The package metadata drops the old repository name and points to the public AgenCast repository.
+- The framework README describes the environment variables, deployment via systemd and safely restricting access to the GUI.
 
-## 0.16.3 — 2026-09-28 (opravy GUI v editoru)
+## 0.16.3 — 2026-09-28 (GUI fixes in the editor)
 
-- Desktopový panel se posouvá se stránkou bez vlastního scrollu a začíná u vybrané karty; mobilní sheet zůstává.
-- Nabídky ukazují zkratky vpravo a destruktivní položky červeně.
-- Plovoucí nabídky a výběr typu se drží ve viewportu i uvnitř karet a sheetů.
-- Krátké výpadky připojení se tiše zkusí znovu; po probuzení se data a konflikty hned ověří.
-- Konektory kroků mají volné místo kolem tlačítka +, boxy vstupů a aliasů světlejší pozadí, pole zůstávají tmavá a checkboxy i radio mají čitelný vlastní vzhled.
-- Posuvníky sheetů a dlouhých seznamů jsou skryté; bloky kódu mají tenký posuvník při najetí nebo fokusu.
-- Prstenec vybrané HLAVIČKY je celý vidět pod přilepenou hlavičkou stránky.
-- Duplicitní koš vedle karty kroku zmizel; mazání zůstává v nabídce ⋯, panelu a na klávese Delete.
+- The desktop panel scrolls with the page without its own scroll and starts at the selected card; the mobile sheet stays.
+- Menus show shortcuts on the right and destructive items in red.
+- Floating menus and the type picker stay within the viewport, also inside cards and sheets.
+- Short connection drops are retried silently; after wake-up, data and conflicts are checked immediately.
+- Step connectors have free space around the + button, input and alias boxes have a lighter background, fields stay dark and checkboxes and radios have a legible custom look.
+- Scrollbars of sheets and long lists are hidden; code blocks have a thin scrollbar on hover or focus.
+- The selection ring of the selected HEADER is fully visible under the sticky page header.
+- The duplicate trash can next to the step card is gone; deleting stays in the ⋯ menu, the panel and the Delete key.
 
-## 0.16.2 — 2026-09-28 (nabídky, sheety a mobilní navigace)
+## 0.16.2 — 2026-09-28 (menus, sheets and mobile navigation)
 
-- Kontextové nabídky a popovery bez rámečku, se světlejší výplní a měkkým fialovým stínem.
-- Oprava uříznutého menu hlavičky editoru na telefonu: nabídky se drží ve viewportu.
-- Panely do 1279 px a modály na telefonu jako spodní sheety s kulatými horními rohy, stínem a viditelným okrajem stránky.
-- Mobilní a tabletová navigace v nabídce nad plovoucím tlačítkem FAB místo horního ☰ a draweru.
+- Context menus and popovers without a border, with a lighter fill and a soft purple shadow.
+- Fix for the clipped editor header menu on a phone: menus stay within the viewport.
+- Panels up to 1279 px and modals on a phone as bottom sheets with rounded top corners, a shadow and a visible page edge.
+- Mobile and tablet navigation in a menu above the floating FAB button instead of the top ☰ and drawer.
 
-## 0.16.1 — 2026-09-28 (GUI věrně podle návrhu V3)
+## 0.16.1 — 2026-09-28 (GUI faithful to the V3 design)
 
-Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny. Rozměry jsou změřené z `.pen`
-(exporty HTML/PNG), kde se lišily od prvního odhadu v `docs/ui/redesign-fidelity.md`, platí `.pen`.
+GUI only; API, CLI, file formats, routes and keyboard shortcuts unchanged. Dimensions are measured from the `.pen`
+(HTML/PNG exports); where they differed from the first estimate in `docs/ui/redesign-fidelity.md`, the `.pen` rules.
 
-- Věrnost: sdílený gradient pozadí aplikace; H1 stránky 28 px regular, titul editoru mono 27, titul detailu
-  běhu mono 26; tlačítka a ikonová tlačítka 44 px (radius 10), pole 44 px (radius 6), nebezpečné tlačítko
-  plnou barvou; aktivní plocha `surface-active` `#253B50` (sidebar, vybraná karta, položka seznamu).
-- Věrnost: sidebar 232 px (značka 25/22 px, „← Projekty“ s oddělovačem, položky 44 px), útrata dole s pruhem.
-- Věrnost: Projekty — cesta registru pod hlavičkou, ikonové „Načíst znovu“, karta projektu r14 p22 s mezerami
-  20, ⋯ bez výplně v horním řádku (nedostupný projekt tam má čip), čipy počtů mono 11, útrata „dnes 1,20 USD“.
-- Věrnost: Scénáře — karta r14 p24 v. 292, ikony typů 18 px bez koleček a šipek, název 18, meta mono 11,
-  čip běhu a „Otevřít ↗“.
-- Věrnost: Běhy — filtry v kartě r14 s obrysem (hledání, stav, scénář po 210 px), záhlaví mono 10, řádky
-  72 px r8, čip „N běží · M ve frontě“; ceny vždy se čtyřmi desetinnými místy („0,0000 USD“).
-- Věrnost: editor — přepínač Form | YAML jako segmenty 44 px, SaveNote jako stavový čip, karta hlavičky jako
-  obdélník r14 s titulem 21 px, karty kroků p16 (typ mono 11, titul 15, detail mono 12, kolečko 40 v barvě
-  typu), výběr jen plochou, konektor 44 px s (+) 44 px, kontejnery r14 se záhlavím 15 / mono 10, větve r8
-  vedle sebe; sloupec do 676 px, panel 440, mezera 28.
-- Věrnost: panely — hlavička s linkou (ikona, eyebrow mono 10, titul 18, zavřít 44), tělo p20, akordeon se
-  šipkou vlevo; panel spuštění s kartami režimu r8 p14, limity 12 px; panel kroku v běhu 520 px.
-- Věrnost: detail běhu — vstupy jako karta r8 p14, záložky 13 px, karty kroků s „12,4 s · 0,0210 USD“ ve třetím
-  řádku a stavem vpravo; fronta s pořadím a prázdným stavem 380 px; dry-run s plánem v kartě; Soubory se
-  stromem 300 px a náhledem Markdownu (Náhled | Kód).
-- Věrnost: jeden `CodeBlock` pro výstupy, prompty, odpovědi, soubory a bloky v Markdownu (hlavička 18/13 s čipem,
-  řádky 27 px, Kopírovat s obrysem); YAML editor s řádky 27 px; konfliktní lišta s levým pruhem a „Načíst
-  z disku“ jako nebezpečnou akcí; modál s hlavičkou (titul 22, zavřít) a patičkou Zrušit + akce.
-- Věrnost: Agenti a Skilly — seznam 240 px (položky r14 p16, ikona 22), editor v kartě r16 s poli po 18 px,
-  štítky „Popis“ a „Model“, skilly a MCP jako řádky s checkboxy 18 px, u skillu náhled Markdownu.
-- Věrnost: Config v kartě r16, sekce ve dvou sloupcích, aliasy jako vnořené karty r10.
-- Opraveno: čísla řádků v YAML editoru se rozcházela s řádky textu (`text-xs` přebíjel výšku řádku);
-  pulzující text čipu „běží“ padal pod kontrast 4,5:1 (pulzuje jen ikona); skeleton uvnitř karty byl
-  neviditelný; selecty filtru běhů se roztahovaly přes celou šířku.
-- Pole: v klidu bez rámečku, jen výplň `nested` (návrh `V3 / TextInput`); fokus ring 2 `accent` bez odsazení,
-  neplatné ring 2 `error`. Pole s proměnnými je jeden box s `{}` uvnitř (bez výplně); víceřádková šablona
-  a JSON mají toolbar (štítek, „šablona“ / „JSON“, `{}`), editor p16 a patičku se stavem („Platný JSON“,
-  „Neuzavřená proměnná“) a nápovědou „Ctrl + mezerník pro nabídku“ (zkratka nabídku proměnných otevře).
-- Mobil: do 1023 px lišta 56 px (značka, projekt, ☰) s drawerem navigace přes celou výšku (Esc, klik mimo,
-  položky 48 px, útrata dole) místo přetékajících záložek; hlavička H1 24, jen primární akce + ⋯, titul se
-  nikdy neuřízne; obsah p16 (tablet p24), karty v jednom sloupci bez pevné výšky.
-- Mobil: panel kroku, hlavičky, spuštění i kroku v běhu je do 1279 px plnoobrazovkový sheet (`role="dialog"`,
-  fokus past, Esc, po zavření fokus zpět na kartu), nikdy přes sloupec ani hlavičku; karta kroku 80 px bez
-  čísla, konektor 32 px s dotykovou plochou (+) 44 px.
-- Mobil: běhy jako karty o dvou řádcích bez záhlaví sloupců; záložky detailu běhu s vodorovným posuvem;
-  seznam agentů a skillů pod 1100 px jako vodorovné čipy; Config a editor agenta s menším odsazením karty.
-- Opraveno: denní útrata všude se dvěma místy („dnes 0,00 USD“, sidebar i panel spuštění), ceny běhů a kroků se
-  čtyřmi; Esc v menu ⋯ zavře jen menu, ne panel pod ním.
-- Přístupnost: „+ Přidat …“ v panelech má ikonu a přístupné jméno bez „+“ („Přidat otázku“).
+- Fidelity: shared app background gradient; page H1 28 px regular, editor title mono 27, run detail title
+  mono 26; buttons and icon buttons 44 px (radius 10), fields 44 px (radius 6), danger button
+  in a solid color; active surface `surface-active` `#253B50` (sidebar, selected card, list item).
+- Fidelity: sidebar 232 px (brand 25/22 px, “← Projects” with a divider, items 44 px), spend at the bottom with a bar.
+- Fidelity: Projects — registry path under the header, icon “Reload”, project card r14 p22 with gaps
+  20, ⋯ without a fill in the top row (an unavailable project has a chip there), count chips mono 11, spend “today 1.20 USD”.
+- Fidelity: Scenarios — card r14 p24 h 292, type icons 18 px without circles and arrows, name 18, meta mono 11,
+  run chip and “Open ↗”.
+- Fidelity: Runs — filters in an r14 card with an outline (search, status, scenario at 210 px each), header mono 10, rows
+  72 px r8, chip “N running · M queued”; costs always with four decimal places (“0.0000 USD”).
+- Fidelity: editor — Form | YAML switch as 44 px segments, SaveNote as a status chip, header card as a
+  rectangle r14 with a 21 px title, step cards p16 (type mono 11, title 15, detail mono 12, a 40 circle in the
+  type color), selection by surface only, connector 44 px with (+) 44 px, containers r14 with a header 15 / mono 10, r8 branches
+  side by side; column up to 676 px, panel 440, gap 28.
+- Fidelity: panels — header with a line (icon, eyebrow mono 10, title 18, close 44), body p20, accordion with an
+  arrow on the left; run panel with r8 p14 mode cards, limits 12 px; run step panel 520 px.
+- Fidelity: run detail — inputs as an r8 p14 card, tabs 13 px, step cards with “12.4 s · 0.0210 USD” on the third
+  line and the status on the right; queue with order and a 380 px empty state; dry run with the plan in a card; Files with a
+  300 px tree and a Markdown preview (Preview | Code).
+- Fidelity: one `CodeBlock` for outputs, prompts, responses, files and blocks in Markdown (header 18/13 with a chip,
+  27 px rows, Copy with an outline); YAML editor with 27 px rows; conflict bar with a left stripe and “Reload
+  from disk” as a danger action; modal with a header (title 22, close) and a footer Cancel + action.
+- Fidelity: Agents and Skills — 240 px list (items r14 p16, icon 22), editor in an r16 card with 18 px fields,
+  “Description” and “Model” labels, skills and MCP as rows with 18 px checkboxes, a Markdown preview for a skill.
+- Fidelity: Config in an r16 card, sections in two columns, aliases as nested r10 cards.
+- Fixed: line numbers in the YAML editor drifted from the text lines (`text-xs` overrode the line height);
+  the pulsing text of the “running” chip fell below the 4.5:1 contrast (only the icon pulses); a skeleton inside a card was
+  invisible; the run filter selects stretched across the whole width.
+- Fields: at rest without a border, only the `nested` fill (design `V3 / TextInput`); focus ring 2 `accent` without an offset,
+  invalid ring 2 `error`. A field with variables is a single box with `{}` inside (no fill); a multiline template
+  and JSON have a toolbar (label, “template” / “JSON”, `{}`), an editor p16 and a footer with a status (“Valid JSON”,
+  “Unclosed variable”) and the hint “Ctrl + Space for the menu” (the shortcut opens the variables menu).
+- Mobile: up to 1023 px a 56 px bar (brand, project, ☰) with a full-height navigation drawer (Esc, click outside,
+  48 px items, spend at the bottom) instead of overflowing tabs; header H1 24, only primary actions + ⋯, the title is
+  never clipped; content p16 (tablet p24), cards in one column without a fixed height.
+- Mobile: the step, header, run and run step panel is a full-screen sheet up to 1279 px (`role="dialog"`,
+  focus trap, Esc, focus returns to the card after closing), never over the column or the header; step card 80 px without a
+  number, connector 32 px with a 44 px (+) touch target.
+- Mobile: runs as two-line cards without column headers; run detail tabs with horizontal scrolling;
+  the agent and skill list below 1100 px as horizontal chips; Config and the agent editor with smaller card padding.
+- Fixed: the daily spend everywhere with two decimals (“today 0.00 USD”, sidebar and run panel), run and step costs with
+  four; Esc in the ⋯ menu closes only the menu, not the panel below it.
+- Accessibility: “+ Add …” in panels has an icon and an accessible name without the “+” (“Add question”).
 
-## 0.16.0 — 2026-09-28 (GUI podle návrhu V3: sidebar, jednotné hlavičky, tokeny)
+## 0.16.0 — 2026-09-28 (GUI per the V3 design: sidebar, unified headers, tokens)
 
-Jen GUI; API, CLI, formáty souborů, routy a klávesové zkratky beze změny.
+GUI only; API, CLI, file formats, routes and keyboard shortcuts unchanged.
 
-- QA (vlna D): ztlumené karty (nedošlo, přeskočeno, nedostupný projekt) mají čárkovaný obrys
-  místo průhlednosti (kontrast ≥ 4,5:1, axe bez vážných nálezů); menu ⋯ karty leží nad dalšími
-  kartami a menu hlavičky nad panelem; karta scénáře má stav dole a popis na 3 řádky; konfliktní
-  pruh editoru je v přilepené hlavičce; neexistující projekt, scénář a běh bez ovládání navíc;
-  dialog drží fokus i po odmítnutém smazání; ⋯ zavře Tab; výpadek serveru hlásí SaveNote česky;
-  tmavé nativní selecty (`color-scheme: dark`), kurzor ruky na klikacích prvcích, viditelný fokus
-  na (+); „Načíst znovu“ na Projektech v ⋯; duplicitní chyby projektu jen jednou.
-- Tokeny: barvy, písma a rádiusy V3 v `ui/src/index.css`; Inter Variable a
-  JetBrains Mono se bundlují lokálně (bez CDN). V `ui/src` nezůstaly třídy
-  `zinc-*` ani napevno zapsané barvy (výjimka: bílé pozadí iframe reportu).
-  `fg-muted` je `#8497B0`, aby i na `surface-hover` měl kontrast ≥ 4,5:1.
-- Shell: levý sidebar (značka, „← Projekty“, jméno projektu, navigace
-  Scénáře · Agenti · Běhy · Skilly · Config, dole dnešní útrata s pruhem);
-  pod 1024 px horní lišta. Výpadek serveru hlásí dole v sidebaru.
-- Hlavičky: každá stránka má jednu hlavičku (`PageHeader`): titul, popis,
-  nejvýš dvě tlačítka a menu ⋯ s ostatními akcemi (nebezpečné červeně a
-  poslední); přepínač Form | YAML / Markdown a stav uložení jsou v jejím
-  druhém řádku. Sekce projektu v ní nesou „+ Nový scénář“, „+ Nový agent“,
-  „+ Nový skill“ a Uložit; „Načíst znovu“ je v ⋯. Config má cestu projektu
-  jako popis. Neexistující adresa má stejnou hlavičku.
-- Projekty a projekt: karta projektu bez štítku „dostupný“, přidání projektu
-  je tlačítko v hlavičce (čárkovaná karta jen u prázdného seznamu); hlavička
-  projektu neukazuje cestu, limity ani útratu.
-- Karty: kroky, konektory, nabídka typů a karty scénářů v tokenech V3; karta
-  scénáře ukazuje jméno, popis, „N kroků · agenti“ a jediný čas v čipu
-  posledního běhu.
-- Panely: panel kroku, hlavičky, spuštění a kroku v běhu v tokenech V3
-  (eyebrow „KROK n · typ“, typ kroku jako první pole, režim běhu kartou).
-  V editoru scénáře je panel vedle sloupce karet od 1280 px, užší obrazovka
-  ho ukáže jako list dole se zavíracím křížkem.
-- Běhy: seznam bez sloupce run_id a bez řádku útraty, stav se v poznámce
-  neopakuje; detail běhu s „← Běhy“, vstupy na jeden řádek a „Běh skončil“
-  jen pro čtečku.
-- Formuláře: editor agenta a skillu i Config mají jedno Uložit; sekce bez
-  karet a technických štítků; alias modelu má meta „používá …“ /
-  „nepoužívá se“ a na úzké obrazovce se zalomí. Prvky (tlačítka, pole,
-  menu, modály, editory) v tokenech V3.
+- QA (wave D): muted cards (not reached, skipped, unavailable project) have a dashed outline
+  instead of transparency (contrast ≥ 4.5:1, axe without serious findings); the card's ⋯ menu lies above other
+  cards and the header menu above the panel; the scenario card has the status at the bottom and a 3-line description; the editor's
+  conflict bar is in the sticky header; a nonexistent project, scenario and run without extra controls;
+  the dialog keeps focus even after a rejected delete; Tab closes ⋯; a server outage is reported by SaveNote in Czech;
+  dark native selects (`color-scheme: dark`), a hand cursor on clickable elements, visible focus
+  on (+); “Reload” on Projects in ⋯; duplicate project errors only once.
+- Tokens: V3 colors, fonts and radii in `ui/src/index.css`; Inter Variable and
+  JetBrains Mono are bundled locally (no CDN). No `zinc-*` classes or hard-coded
+  colors remain in `ui/src` (exception: the white background of the report iframe).
+  `fg-muted` is `#8497B0` so that it has a contrast ≥ 4.5:1 even on `surface-hover`.
+- Shell: left sidebar (brand, “← Projects”, project name, navigation
+  Scenarios · Agents · Runs · Skills · Config, today's spend with a bar at the bottom);
+  below 1024 px a top bar. A server outage is reported at the bottom of the sidebar.
+- Headers: every page has one header (`PageHeader`): title, description,
+  at most two buttons and a ⋯ menu with the other actions (dangerous ones in red and
+  last); the Form | YAML / Markdown switch and the save state are in its
+  second row. Project sections carry “+ New scenario”, “+ New agent”,
+  “+ New skill” and Save in it; “Reload” is in ⋯. Config has the project path
+  as its description. A nonexistent address has the same header.
+- Projects and project: the project card without the “available” label, adding a project
+  is a button in the header (a dashed card only for an empty list); the project
+  header shows no path, limits or spend.
+- Cards: steps, connectors, the type menu and scenario cards in V3 tokens; the scenario
+  card shows the name, description, “N steps · agents” and a single time in the last
+  run chip.
+- Panels: the step, header, run and run step panels in V3 tokens
+  (eyebrow “STEP n · type”, step type as the first field, run mode as a card).
+  In the scenario editor the panel sits next to the card column from 1280 px, a narrower screen
+  shows it as a sheet at the bottom with a close cross.
+- Runs: a list without the run_id column and without the spend row, the status is not
+  repeated in the note; run detail with “← Runs”, inputs on one line and “Run finished”
+  for the screen reader only.
+- Forms: the agent and skill editor and Config have a single Save; sections without
+  cards and technical labels; a model alias has the meta “used by …” /
+  “not used” and wraps on a narrow screen. Elements (buttons, fields,
+  menus, modals, editors) in V3 tokens.
 
-## 0.15.1 — 2026-09-27 (registr snese nedostupný kořen; validate bez zápisu do registru)
+## 0.15.1 — 2026-09-27 (the registry tolerates an unavailable root; validate without writing to the registry)
 
-- `GET /projects` už nespadne (500), když některý zapsaný kořen nemá
-  `workflows/`; položka je jen `available: false` s důvodem, jako když
-  chybí `config.yaml`. GUI ji nabídne k odebrání.
-- `agencast validate` už projekt do registru nepřidává, dělá to jen úspěšný
-  `run`. Validace z kopií projektu (testy, worktree workerů) tak
-  nezanechávají v registru cizí položky.
+- `GET /projects` no longer crashes (500) when a registered root has no
+  `workflows/`; the entry is just `available: false` with a reason, as when
+  `config.yaml` is missing. The GUI offers to remove it.
+- `agencast validate` no longer adds the project to the registry, only a successful
+  `run` does. Validation from project copies (tests, workers' worktrees) thus
+  leaves no foreign entries in the registry.
 
-## 0.15.0 — 2026-09-27 (přejmenování scénáře a agenta)
+## 0.15.0 — 2026-09-27 (renaming a scenario and an agent)
 
-- Veřejné API, HTTP API, CLI i GUI umí přejmenovat scénář nebo agenta a
-  přepsat jejich odkazy. Běhy zůstávají se jménem platným v době spuštění.
+- The public API, the HTTP API, the CLI and the GUI can rename a scenario or an agent and
+  rewrite their references. Runs keep the name valid at the time they started.
 
-## 0.14.0 — 2026-09-27 (parametry obrázku jako šablony)
+## 0.14.0 — 2026-09-27 (image parameters as templates)
 
-- `image`: šablony poměru stran, kvality a rozlišení, kontrola dosazených
-  hodnot a výchozích vstupů; kvalita kroku přebíjí alias.
-- GUI nabízí proměnné pro všechny tři parametry; chat API ignorované
-  parametry zaznamená jako varování. Volatelný příklad `obrazek.yaml`.
+- `image`: templates for aspect ratio, quality and resolution, checking the substituted
+  values and default inputs; the step's quality overrides the alias.
+- The GUI offers variables for all three parameters; the chat API records ignored
+  parameters as a warning. Callable example `image.yaml`.
 
-## 0.12.0 — 2026-09-27 (krok image přes Images API OpenRouteru)
+## 0.12.0 — 2026-09-27 (the image step via the OpenRouter Images API)
 
-- Aliasy modelů volí `chat` (výchozí) nebo dedikované Images API; podpora
-  kvality, validace modelů a `--fake` pro nové endpointy.
+- Model aliases choose `chat` (default) or the dedicated Images API; support for
+  quality, model validation and `--fake` for the new endpoints.
 
-## 0.11.0 — 2026-09-27 (nabídka proměnných v editoru)
+## 0.11.0 — 2026-09-27 (variables menu in the editor)
 
-- GUI: do polí výrazů a šablon přibyla nabídka dostupných proměnných, která
-  je vkládá na pozici kurzoru; dosavadní našeptávač při psaní zůstává.
+- GUI: expression and template fields gained a menu of available variables that
+  inserts them at the cursor position; the existing suggestions while typing stay.
 
-## 0.10.3 — 2026-09-26 (alias modelu z GUI)
+## 0.10.3 — 2026-09-26 (model alias from the GUI)
 
-- GUI: alias modelu v Configu jde přejmenovat i s pomlčkou (`gpt-image`,
-  jako jméno agenta). Pole bralo jen jména výrazů bez pomlčky, takže se
-  přejmenování při opuštění pole tiše vracelo na `model-1`. Neplatné jméno
-  má teď pravidlo v nápovědě pole a pod seznamem aliasů.
-- Editace: nová mapa vedle map v řádkovém stylu `{ … }` (aliasy v
-  `config.yaml`) se zapíše stejným stylem, ne blokem; soubor tak po úpravě
-  z GUI vypadá jednotně.
+- GUI: a model alias in Config can be renamed even with a hyphen (`gpt-image`,
+  like an agent name). The field accepted only expression names without a hyphen, so the
+  rename silently reverted to `model-1` when leaving the field. An invalid name
+  now has the rule in the field's hint and below the alias list.
+- Editing: a new map next to maps in the inline `{ … }` style (aliases in
+  `config.yaml`) is written in the same style, not as a block; the file thus
+  looks uniform after an edit from the GUI.
 
-## 0.10.2 — 2026-09-26 (opravy souběhu a odchodu z editoru)
+## 0.10.2 — 2026-09-26 (fixes for concurrency and leaving the editor)
 
-- Editace znovu ověří SHA-256 souboru po validaci a těsně před zápisem; změna
-  během validace vrátí 409 a zůstane zachována.
-- Zápisy do registru projektů zamykají čtení, úpravu i zápis přes
-  `projects.yaml.lock`, takže souběžná přidání neztratí záznam.
-- Neuložený editor potvrzuje odchod i při změně hashe či tlačítku Zpět;
-  odmítnutí vrátí původní hash.
+- Editing re-checks the file's SHA-256 after validation and right before writing; a change
+  during validation returns 409 and is preserved.
+- Writes to the project registry lock reading, modifying and writing via
+  `projects.yaml.lock`, so concurrent additions do not lose an entry.
+- An unsaved editor confirms leaving even on a hash change or the Back button;
+  declining restores the original hash.
 
-## 0.10.1 — 2026-09-26 (úklid podle ponytail auditu, bez změny chování)
+## 0.10.1 — 2026-09-26 (cleanup per the ponytail audit, no behavior change)
 
-Patch: úklid podle ponytail auditu, bez změny chování; formáty v1, záznam
-běhu a HTTP smlouvy se nemění. Audit: `docs/audit-ponytail-2026-09-26.md`.
+Patch: cleanup per the ponytail audit, no behavior change; the v1 formats, the run
+record and the HTTP contracts do not change. Audit: `docs/audit-ponytail-2026-09-26.md`.
 
-- Zdvojené pomocné funkce na jednom místě: `validate.require_config`
-  (config nebo `ConfigErrors`, dřív 4 kopie v api, cli, projects, server),
-  `projects.text_tree` (strom kroků z textu, dřív 3 kopie v edit a
-  projects), `record._events` i při obnově fronty v `server`,
-  `mcp_client._leaves` i v `engine`, `projects.NAME` i v `server`.
-- `api` re-exportuje funkce registru z `projects` místo obalů, které jen
-  předávaly argumenty (`projects`, `new_project`, `projects_root`,
+- Duplicated helper functions in one place: `validate.require_config`
+  (config or `ConfigErrors`, formerly 4 copies in api, cli, projects, server),
+  `projects.text_tree` (step tree from text, formerly 3 copies in edit and
+  projects), `record._events` also when restoring the queue in `server`,
+  `mcp_client._leaves` also in `engine`, `projects.NAME` also in `server`.
+- `api` re-exports the registry functions from `projects` instead of wrappers that only
+  passed arguments (`projects`, `new_project`, `projects_root`,
   `normalize_project_root`, `registry_writable`, `remove_project`).
-- Výrazy počítají aritmetiku a `< <= > >=` přes `operator`; `validate`
-  volá kontroly kroků jedním `getattr`; kratší `schema_errors`.
-- Testy: společný `registry_server`, `serve`, `TOKEN` a `SECRET`
-  v `conftest.py` (bez křížových importů a `noqa`), smazán nepoužitý
-  `fake_for`.
+- Expressions compute arithmetic and `< <= > >=` via `operator`; `validate`
+  calls the step checks with a single `getattr`; shorter `schema_errors`.
+- Tests: shared `registry_server`, `serve`, `TOKEN` and `SECRET`
+  in `conftest.py` (no cross imports and `noqa`), the unused
+  `fake_for` deleted.
 
-## 0.10.0 — 2026-09-26 (doplňky API podle nálezů GUI 21–28)
+## 0.10.0 — 2026-09-26 (API additions per GUI findings 21–28)
 
-Minor: pouze aditivní HTTP API a oprava obnovy běhů; formáty v1, smlouva
-`POST /runs` a callback se nemění. ISSUES 48.
+Minor: additive HTTP API only and a run recovery fix; the v1 formats, the
+`POST /runs` contract and the callback do not change. ISSUES 48.
 
-- Restart `serve` zachová původní `run_started`, doplní chybu `internal`
-  s posledním začatým krokem a API vrací `state: interrupted`; nedokončený
-  krok má `status: interrupted`.
-- Chyby schématu `config.yaml` vrací YAML řádek. `GET /projects` vrací
-  počty scénářů/agentů a dnešní útratu; seznam běhů podporuje `before` a
-  `next_before`, `last_run` přidává `started_at`.
-- `render` přijímá text scénáře; `validate` přidává strom textového
-  scénáře. Chyby dávky obsahují `step` a dostupné `field`.
-- Callback tajemství je nutné jen při odesílání callbacku; token projektu
-  se čte jen v jednoprojektovém režimu.
+- A `serve` restart keeps the original `run_started`, adds an `internal` error
+  with the last started step and the API returns `state: interrupted`; an unfinished
+  step has `status: interrupted`.
+- `config.yaml` schema errors return the YAML line. `GET /projects` returns
+  the scenario/agent counts and today's spend; the run list supports `before` and
+  `next_before`, `last_run` adds `started_at`.
+- `render` accepts scenario text; `validate` adds the tree of a text
+  scenario. Batch errors contain `step` and the available `field`.
+- The callback secret is required only when sending a callback; the project token
+  is read only in single-project mode.
 
-## 0.9.0 — 2026-09-26 (projekty z GUI)
+## 0.9.0 — 2026-09-26 (projects from the GUI)
 
-Minor: aditivní API pro založení, registraci a odebrání projektu; formáty
-v1 se nemění. ISSUES 47.
+Minor: additive API for creating, registering and removing a project; the v1
+formats do not change. ISSUES 47.
 
-- **Projekty přes HTTP:** `POST /projects/new` založí projekt ze stejných
-  šablon jako `api.new_project`, `POST /projects` zaregistruje existující
-  projekt s `workflows/config.yaml`, `DELETE /projects/<p>` odebere jen
-  položku registru. Zápis v jednoprojektovém režimu vrací 405.
-- **Kořen projektů:** volitelný `projects_root` v registru (výchozí
-  `~/workspace`); `GET /projects` vrací `projects_root` a `writable`.
-- `agencast projects add|rm` a `new project` nadále používají veřejné
-  funkce `agencast.api`, stejně jako nové HTTP zápisy.
+- **Projects over HTTP:** `POST /projects/new` creates a project from the same
+  templates as `api.new_project`, `POST /projects` registers an existing
+  project with `workflows/config.yaml`, `DELETE /projects/<p>` removes only the
+  registry entry. A write in single-project mode returns 405.
+- **Projects root:** optional `projects_root` in the registry (default
+  `~/workspace`); `GET /projects` returns `projects_root` and `writable`.
+- `agencast projects add|rm` and `new project` keep using the public
+  functions of `agencast.api`, just like the new HTTP writes.
 
-## 0.8.0 — 2026-09-26 (API podle nálezů z GUI, část 2)
+## 0.8.0 — 2026-09-26 (API per GUI findings, part 2)
 
-Minor: nové endpointy a pole, formáty v1 i záznam běhu beze změny.
-Zadání `docs/ui/nalezy-api.md` body 10–20, ISSUES 46.
+Minor: new endpoints and fields, v1 formats and the run record unchanged.
+Assignment `docs/ui/api-findings.md` items 10–20, ISSUES 46.
 
-- **Dávka:** `POST …/scenarios/<s>/batch` `{etag, ops}` — operace
+- **Batch:** `POST …/scenarios/<s>/batch` `{etag, ops}` — the operations
   `set_header`, `add_step`, `update_step`, `replace_step`, `move_step`,
-  `delete_step`, `rename_step` (s `rename_refs`), `add_branch` po sobě
-  nad jednou kopií, jedna validace, jeden zápis; chyba operace = 422
-  s `op` (`api.batch`, `api.OpError`).
-- **Náhled:** `POST …/scenarios/<s>/render` → `{text, tree, errors}` bez
-  zápisu (`api.render`).
-- **Celý krok:** `PUT …/steps/<adresa>` (`api.replace_step`), umí `null`.
-- **Stav čerstvého běhu:** složka ze záznamu fronty `serve` bez zámku je
-  `queued`, ne `interrupted`/`dry_run`; `dry_run` jen bez `run.lock`.
-- **Soubory:** `HEAD …/files/<cesta>` (hlavička `ETag`),
-  `?etag_only=1` (`api.file_etag`); `errors` v `GET …/files/<cesta>` =
-  chyby `validate` souboru jako v `GET /projects/<p>`.
-- **Nové soubory:** `description` v `POST …/scenarios` a `…/agents`,
-  u agenta `model` (`api.new_scenario(…, description)`,
+  `delete_step`, `rename_step` (with `rename_refs`), `add_branch` one after another
+  over a single copy, one validation, one write; an operation error = 422
+  with `op` (`api.batch`, `api.OpError`).
+- **Preview:** `POST …/scenarios/<s>/render` → `{text, tree, errors}` without
+  writing (`api.render`).
+- **Whole step:** `PUT …/steps/<address>` (`api.replace_step`), accepts `null`.
+- **State of a fresh run:** a folder from a `serve` queue record without a lock is
+  `queued`, not `interrupted`/`dry_run`; `dry_run` only without `run.lock`.
+- **Files:** `HEAD …/files/<path>` (`ETag` header),
+  `?etag_only=1` (`api.file_etag`); `errors` in `GET …/files/<path>` =
+  the file's `validate` errors as in `GET /projects/<p>`.
+- **New files:** `description` in `POST …/scenarios` and `…/agents`,
+  for an agent `model` (`api.new_scenario(…, description)`,
   `api.new_agent(…, description, model)`).
-- **Projekt:** `links.scenario_model`, `models_used`.
-- **Config:** `PUT …/config` povoluje `runs_dir` a `openrouter.jev_model`.
-- CORS: preflight povoluje `HEAD`, odpovědi `Access-Control-Expose-Headers: ETag`.
+- **Project:** `links.scenario_model`, `models_used`.
+- **Config:** `PUT …/config` allows `runs_dir` and `openrouter.jev_model`.
+- CORS: preflight allows `HEAD`, responses carry `Access-Control-Expose-Headers: ETag`.
 
-## 0.7.0 — 2026-09-26 (API podle nálezů z GUI)
+## 0.7.0 — 2026-09-26 (API per GUI findings)
 
-Minor: nová pole a endpoint, formáty v1 beze změny, v záznamu běhu nové
-soubory a pole (aditivně). Zadání `docs/ui/nalezy-api.md`, ISSUES 45.
+Minor: new fields and an endpoint, v1 formats unchanged, new files and
+fields in the run record (additive). Assignment `docs/ui/api-findings.md`, ISSUES 45.
 
-- **Běží × přerušen:** běh drží `flock` na `<run>/run.lock`
-  (`task.hold_run_lock`, `task.run_locked`); `runs list` a API mají
-  strojové `state` (`queued|running|interrupted|succeeded|failed|
-  cancelled|dry_run`) a text `běží` / `přerušen` místo „běží nebo
-  přerušen“ (i v CLI `runs list`).
-- **Podrobnosti kroků:** `steps` v `GET …/runs/<id>` mají `nn`, `dir`,
-  `error`, `continued`, `default_used`, `calls`, u `task` `turns`
-  a `tool_calls`, u `jev` `answers`; nový `GET …/runs/<id>/steps/<cesta>`
-  (události, `output`, soubory kroku). `step_started` nese `nn` a `dir`,
-  `step_skipped` `nn`, `step_finished` s `continued` `default_used`.
-- **Snímek scénáře:** `<run>/scenario/<jméno>.yaml` (spouštěný i volané
-  přes `call`); detail běhu vrací `tree`, `callees`, `tree_source`.
-- **Seznam běhů:** `fake`, `queue_position`, `current_nn`, `steps_done`,
-  u dry-runu `scenario` a `started_at` z `run_id`; `?scenario=&limit=`
-  (`api.runs_list(root, scenario, limit)`); `api.last_run` a `last_run`
-  ve `scenarios` a v `GET /projects`.
-- **Projekt:** `types` ve `scenarios`, `links.scenario_step_agent`
-  (trojice), v `GET /projects` `reason` u nedostupného a `registry`.
-- **Rozbitý config:** `files/config.yaml` a `mcp.yaml` hlásí i chyby
-  schématu a proměnných; 422 z `GET /projects/<p>` má i `errors`
-  objekty; čtení běhů a `spend` potřebují jen `runs_dir` (jinak
+- **Running × interrupted:** a run holds a `flock` on `<run>/run.lock`
+  (`task.hold_run_lock`, `task.run_locked`); `runs list` and the API have a
+  machine-readable `state` (`queued|running|interrupted|succeeded|failed|
+  cancelled|dry_run`) and the text `running` / `interrupted` instead of “running or
+  interrupted” (also in the CLI `runs list`).
+- **Step details:** `steps` in `GET …/runs/<id>` have `nn`, `dir`,
+  `error`, `continued`, `default_used`, `calls`, for `task` `turns`
+  and `tool_calls`, for `jev` `answers`; a new `GET …/runs/<id>/steps/<path>`
+  (events, `output`, step files). `step_started` carries `nn` and `dir`,
+  `step_skipped` `nn`, `step_finished` with `continued` `default_used`.
+- **Scenario snapshot:** `<run>/scenario/<name>.yaml` (the started one and those called
+  via `call`); the run detail returns `tree`, `callees`, `tree_source`.
+- **Run list:** `fake`, `queue_position`, `current_nn`, `steps_done`,
+  for a dry run `scenario` and `started_at` from `run_id`; `?scenario=&limit=`
+  (`api.runs_list(root, scenario, limit)`); `api.last_run` and `last_run`
+  in `scenarios` and in `GET /projects`.
+- **Project:** `types` in `scenarios`, `links.scenario_step_agent`
+  (triples), in `GET /projects` `reason` for an unavailable one and `registry`.
+- **Broken config:** `files/config.yaml` and `mcp.yaml` also report schema
+  and variable errors; the 422 from `GET /projects/<p>` also has `errors`
+  objects; reading runs and `spend` need only `runs_dir` (otherwise
   `./runs`).
-- **Oprava:** duplicitní klíč ve frontmatteru `.md` — „poprvé na řádku
-  N“ teď ukazuje řádek v souboru (chyběl posun o řádek `---`).
+- **Fix:** a duplicate key in `.md` frontmatter — “first on line
+  N” now points to the line in the file (the shift by the `---` line was missing).
 
-## 0.6.0 — 2026-09-26 (doplňky API pro GUI)
+## 0.6.0 — 2026-09-26 (API additions for the GUI)
 
-Minor: nové endpointy a pole, formáty v1 beze změny (R8), v záznamu běhu
-dvě nová pole. **Jediná změna tvaru:** `errors` v HTTP API jsou objekty
-(GUI je jediný klient). ISSUES 44.
+Minor: new endpoints and fields, v1 formats unchanged (R8), two new fields in
+the run record. **The only shape change:** `errors` in the HTTP API are objects
+(the GUI is the only client). ISSUES 44.
 
-- **Chyby jako objekty** `{message, file?, step?, field?, line?}` ve všech
-  `errors` HTTP API (`GET /projects/<p>`, `…/scenarios/<s>`, `…/files/`,
-  odpovědi editačních operací, `validate`); `message` = dřívější text.
-  CLI a Python API beze změny (`projects.error_fields`).
-- **`POST /projects/<p>/validate`** bez zápisu: prázdné tělo = projekt na
-  disku, `{path, text}` = s jedním souborem nahrazeným (`edit.validate_text`,
-  re-export v `agencast.api`; stejná kopie `workflows/` jako editace).
-- **`env`** v `GET /projects/<p>`: `{JMÉNO: true|false}` pro všechny
-  proměnné z `config.yaml` (`*_env`) a `mcp.yaml` (`env`,
-  `bearer_token_env`); nikdy hodnota.
-- **Běhy pro GUI:** `runs list` / `GET …/runs[/<id>]` mají `scenario`,
+- **Errors as objects** `{message, file?, step?, field?, line?}` in all
+  `errors` of the HTTP API (`GET /projects/<p>`, `…/scenarios/<s>`, `…/files/`,
+  responses of editing operations, `validate`); `message` = the former text.
+  CLI and Python API unchanged (`projects.error_fields`).
+- **`POST /projects/<p>/validate`** without writing: an empty body = the project on
+  disk, `{path, text}` = with one file replaced (`edit.validate_text`,
+  re-exported in `agencast.api`; the same copy of `workflows/` as editing).
+- **`env`** in `GET /projects/<p>`: `{NAME: true|false}` for all
+  variables from `config.yaml` (`*_env`) and `mcp.yaml` (`env`,
+  `bearer_token_env`); never the value.
+- **Runs for the GUI:** `runs list` / `GET …/runs[/<id>]` have `scenario`,
   `started_at`, `finished_at`, `current_step`, `steps_total`;
-  `run_started` nese `steps_total` a `callback_url` (bez query, `null`
-  = bez callbacku). `run_status` snese rozepsaný poslední řádek.
-- **Spuštění z GUI:** v `POST /projects/<p>/runs` je `callback_url`
-  volitelná a `dry_run: true` vrátí hned `{run_id, dry_run: true}` (jen
-  `plan.md` a `inputs.json`). `POST /runs` beze změny.
-- **GUI v `serve`:** statické soubory z `agencast/ui/` (`GET /`,
-  `/assets/…`, bez tokenu, cesta bez přípony → `index.html`; bez
-  sestaveného GUI 404 s návodem). `--cors <origin>` pro `vite dev`.
-  `pyproject.toml`: `[tool.hatch.build.targets.wheel] artifacts` pro
-  `agencast/ui/**` (složka je v `.gitignore`).
+  `run_started` carries `steps_total` and `callback_url` (without the query, `null`
+  = no callback). `run_status` tolerates a multi-line last line.
+- **Starting from the GUI:** in `POST /projects/<p>/runs`, `callback_url` is
+  optional and `dry_run: true` immediately returns `{run_id, dry_run: true}` (only
+  `plan.md` and `inputs.json`). `POST /runs` unchanged.
+- **GUI in `serve`:** static files from `agencast/ui/` (`GET /`,
+  `/assets/…`, no token, a path without an extension → `index.html`; without a
+  built GUI 404 with instructions). `--cors <origin>` for `vite dev`.
+  `pyproject.toml`: `[tool.hatch.build.targets.wheel] artifacts` for
+  `agencast/ui/**` (the folder is in `.gitignore`).
 
-## 0.5.0 — 2026-09-26 (editační operace pro GUI)
+## 0.5.0 — 2026-09-26 (editing operations for the GUI)
 
-Minor: nové operace a endpointy, formáty v1 beze změny (R8). ISSUES 43.
+Minor: new operations and endpoints, v1 formats unchanged (R8). ISSUES 43.
 
-- **Editační operace v jádru** (`agencast/edit.py`, re-export v
+- **Editing operations in the core** (`agencast/edit.py`, re-exported in
   `agencast.api`): `set_header`, `add_step`, `update_step`, `move_step`,
   `delete_step`, `delete_scenario`, `set_agent`, `delete_agent`,
   `set_skill`, `delete_skill`, `set_config`, `read_file`, `write_file`.
-  Každá ověří otisk (sha256 obsahu → `Conflict`), validuje kopii
-  `workflows/` se změnou (nová chyba → `ConfigErrors`, nic se nezapíše)
-  a zapíše atomicky. Mazání použitého agenta/skillu/volaného scénáře
-  odmítne.
-- **Round-trip YAML** přes `ruamel.yaml` (nová závislost, DESIGN D4):
-  komentáře, pořadí klíčů, prázdné řádky a uvozovky zůstávají, nezměněné
-  řádky doslova. Každý scénář a agent z `workflows/` projde no-op úpravou
-  bajtově beze změny (test).
-- **Adresa kroku** `["steps", 2, "parallel", "a", 0]` v poli `address`
-  odpovědi `GET …/scenarios/<s>`; `etag` u scénářů, agentů a skillů.
-- **HTTP v `serve`** (docs/spec/api.md „Editace“): `PUT/DELETE
+  Each verifies the fingerprint (sha256 of the content → `Conflict`), validates a copy of
+  `workflows/` with the change (a new error → `ConfigErrors`, nothing is written)
+  and writes atomically. Deleting a used agent/skill/called scenario
+  is refused.
+- **YAML round-trip** via `ruamel.yaml` (new dependency, DESIGN D4):
+  comments, key order, blank lines and quotes are preserved, unchanged
+  lines verbatim. Every scenario and agent from `workflows/` passes a no-op edit
+  byte for byte unchanged (test).
+- **Step address** `["steps", 2, "parallel", "a", 0]` in the `address` field of
+  the `GET …/scenarios/<s>` response; `etag` for scenarios, agents and skills.
+- **HTTP in `serve`** (docs/spec/api.md “Editing”): `PUT/DELETE
   …/scenarios/<s>`, `POST …/scenarios/<s>/steps`, `PATCH/DELETE
-  …/steps/<adresa>`, `POST …/steps/<adresa>/move`, `PUT/DELETE
+  …/steps/<address>`, `POST …/steps/<address>/move`, `PUT/DELETE
   …/agents/<a>`, `PUT …/config`, `PUT/DELETE …/skills/<n>`, `GET/PUT
-  …/files/<cesta>`, `POST …/scenarios` a `…/agents` (= `new`). 409 při
-  neshodě otisku, 422 s `errors`, 404 mimo povolené soubory; stejný token
-  jako čtení.
+  …/files/<path>`, `POST …/scenarios` and `…/agents` (= `new`). 409 on a
+  fingerprint mismatch, 422 with `errors`, 404 outside the allowed files; the same token
+  as reading.
 
-## 0.4.0 — 2026-09-26 (agencast new, registr projektů, čtecí API serve)
+## 0.4.0 — 2026-09-26 (agencast new, project registry, read API of serve)
 
-Minor: nové příkazy a endpointy, formáty v1 beze změny (R8).
+Minor: new commands and endpoints, v1 formats unchanged (R8).
 
-- **`agencast new project <cesta> [--name N]`** — kostra projektu:
-  `workflows/config.yaml` (OpenRouter, aliasy `chytry`/`rychly`/
-  `gemini-image`, `storage.type: local`), agent `pisatel`, scénář `ukazka`
-  (projdou `validate --offline` i `--fake`), `.env.example`, `.gitignore`.
-  **`new agent|scenario <jméno>`** přidá minimální soubor. Nic nepřepisuje.
-  API `new_project`, `new_agent`, `new_scenario` (vrací vytvořené cesty).
-- **Registr projektů** `~/.config/agencast/projects.yaml`
-  (`AGENCAST_CONFIG_DIR`): `agencast projects list|add|rm`; plní ho
-  `new project` a úspěšný `validate`/`run` (hláška jednou na stderr).
-  API `projects()` (s `available`), `add_project`, `remove_project`.
-- **`serve` mimo projekt = režim registru** s tokenem `AGENCAST_TOKEN`,
-  tajemství z prostředí serveru; v projektu nebo s `--project` beze změny.
-- **Čtecí API** (docs/spec/api.md): `GET /projects`, `/projects/<p>`
-  (scénáře, agenti, skilly, MCP servery bez tajemství, aliasy, limity,
-  vazby), `/scenarios/<s>` (strom kroků pro karty s `refs`), `/runs`,
-  `/runs/<id>` (kroky se stavem, cenou a časem), `/runs/<id>/files/<cesta>`
-  (jen uvnitř složky běhu), `/spend?day=`; `POST /projects/<p>/runs`.
+- **`agencast new project <path> [--name N]`** — a project skeleton:
+  `workflows/config.yaml` (OpenRouter, aliases `smart`/`fast`/
+  `gemini-image`, `storage.type: local`), agent `writer`, scenario `demo`
+  (they pass `validate --offline` and `--fake`), `.env.example`, `.gitignore`.
+  **`new agent|scenario <name>`** adds a minimal file. It never overwrites anything.
+  API `new_project`, `new_agent`, `new_scenario` (return the created paths).
+- **Project registry** `~/.config/agencast/projects.yaml`
+  (`AGENCAST_CONFIG_DIR`): `agencast projects list|add|rm`; filled by
+  `new project` and a successful `validate`/`run` (a message once on stderr).
+  API `projects()` (with `available`), `add_project`, `remove_project`.
+- **`serve` outside a project = registry mode** with the token `AGENCAST_TOKEN`,
+  secrets from the server's environment; in a project or with `--project` unchanged.
+- **Read API** (docs/spec/api.md): `GET /projects`, `/projects/<p>`
+  (scenarios, agents, skills, MCP servers without secrets, aliases, limits,
+  links), `/scenarios/<s>` (step tree for cards with `refs`), `/runs`,
+  `/runs/<id>` (steps with status, cost and time), `/runs/<id>/files/<path>`
+  (only inside the run folder), `/spend?day=`; `POST /projects/<p>/runs`.
   API `describe_project`, `describe_scenario`, `run_detail`, `run_file`,
   `spend`; `Ledger.rows`.
 
-## 0.3.1 — 2026-09-26 (strop souběžných běhů, denní limit útraty)
+## 0.3.1 — 2026-09-26 (cap on concurrent runs, daily spend limit)
 
-Patch: dva volitelné klíče, bez nich se chování nemění (R8).
-Formát: spec v1, zpětně kompatibilní doplnění (ISSUES 40).
+Patch: two optional keys, behavior unchanged without them (R8).
+Format: spec v1, a backward-compatible addition (ISSUES 40).
 
-- **`limits.max_parallel_runs: N`** — nejvýš N běhů naráz nad jedním
-  `runs/`, napříč procesy (CLI, n8n, cron, `serve --workers`): `flock` na
-  `<runs>/_slots/<n>.lock`, slot se bere před složkou běhu a uvolní se
-  vždy. Plno → stderr „čekám na volný slot (max_parallel_runs=N)“,
-  polling po 0,5 s nejdéle `run_timeout`, pak `timeout`. Čekání je
-  v záznamu jako událost `run_waiting` (`waited_s`). Falešné běhy se
-  slotů účastní.
-- **`limits.daily_budget_usd: X`** — denní kniha útraty
-  `<runs>/_ledger/<RRRR-MM-DD>.jsonl` (UTC, řádek `{run_id, cost_usd,
-  finished_at}` na každý dokončený běh; `--fake` do `_ledger-fake/`).
-  Součet dneška ≥ X → nový běh skončí `budget` ještě před prvním
-  voláním. Kontrola jen na startu; kniha se píše vždy, od 0.3.1.
-- Běh, který kvůli slotu nebo dennímu limitu nezačal, má záznam jako běh
-  nespuštěný webhookem (`run_scenario(error=…)`): `run_finished` s `error`,
-  `callback.json`, `summary.md`, bez `plan.md`/`inputs.json`.
-- `SlotStore` a `Ledger` v `task.py` vedle `DedupeStore` (místo pro Modal).
-- `agencast run`: chyba bez kroku se vypíše `<třída>: <hláška>` (dřív
-  „… v kroku None: …“).
+- **`limits.max_parallel_runs: N`** — at most N runs at once over one
+  `runs/`, across processes (CLI, n8n, cron, `serve --workers`): a `flock` on
+  `<runs>/_slots/<n>.lock`, the slot is taken before the run folder and always
+  released. Full → stderr “waiting for a free slot (max_parallel_runs=N)”,
+  polling every 0.5 s for at most `run_timeout`, then `timeout`. The wait is
+  in the record as a `run_waiting` event (`waited_s`). Fake runs take part in
+  the slots.
+- **`limits.daily_budget_usd: X`** — a daily spend ledger
+  `<runs>/_ledger/<YYYY-MM-DD>.jsonl` (UTC, a line `{run_id, cost_usd,
+  finished_at}` for every finished run; `--fake` goes to `_ledger-fake/`).
+  Today's total ≥ X → a new run ends with `budget` before the first
+  call. Checked only at start; the ledger is always written, since 0.3.1.
+- A run that did not start because of a slot or the daily limit has a record like a run
+  not started by a webhook (`run_scenario(error=…)`): `run_finished` with `error`,
+  `callback.json`, `summary.md`, without `plan.md`/`inputs.json`.
+- `SlotStore` and `Ledger` in `task.py` next to `DedupeStore` (a place for Modal).
+- `agencast run`: an error without a step is printed as `<class>: <message>` (formerly
+  “… in step None: …”).
 
-## 0.3.0 — 2026-09-26 (AgenCast, souběžné běhy, API pro obálky)
+## 0.3.0 — 2026-09-26 (AgenCast, concurrent runs, API for the shells)
 
-Minor: přejmenování a nové funkce, vše zpětně kompatibilní. Formát: spec
-v1 beze změny (jen doplněné `--workers` ve webhook.md).
+Minor: a rename and new features, all backward compatible. Format: spec
+v1 unchanged (only `--workers` added in webhook.md).
 
-- **Přejmenování:** framework se jmenuje AgenCast — balík `agencast`
-  (dřív `maw`), příkaz `agencast` (dřív `maw`), výjimka `AgencastError`
-  (dřív `MawError`). Žádný formát (záznam běhu, callback, hlavičky
-  webhooku, fake skripty) jméno neobsahoval, takže staré záznamy i skripty
-  platí beze změny. Alias z tutoriálu:
+- **Rename:** the framework is called AgenCast — package `agencast`
+  (formerly `maw`), command `agencast` (formerly `maw`), exception `AgencastError`
+  (formerly `MawError`). No format (run record, callback, webhook
+  headers, fake scripts) contained the name, so old records and scripts
+  stay valid unchanged. Alias from the tutorial:
   `alias agencast="uv run --project framework agencast"`.
-- **`agencast serve --workers N`** (výchozí 1): N pracovních vláken nad
-  jednou frontou; obnova fronty a `request_key` pod zámkem, pořadí
-  dokončení s N > 1 není zaručené (ISSUES 39).
-- **Kolize `run_id`** (ISSUES 35): nový suffix, nejvýš 5×, pak `internal`;
-  webhook při přijetí přeskočí id s existujícím záznamem fronty.
-- **Cache `/models`** se zapisuje atomicky (dočasný soubor + `os.replace`),
-  poškozená cache = cache není.
-- **`DedupeStore`** (`task.py`): `dedupe_key` za rozhraním `get` / `claim` /
-  `finish`, lokálně beze změny souborů `<runs>/_dedupe/` a `_dedupe-fake/`;
-  `Run.dedupe` je místo, kam Modal dosadí vlastní úložiště.
+- **`agencast serve --workers N`** (default 1): N worker threads over
+  one queue; queue recovery and `request_key` under a lock, the completion
+  order with N > 1 is not guaranteed (ISSUES 39).
+- **`run_id` collisions** (ISSUES 35): a new suffix, at most 5×, then `internal`;
+  on receipt the webhook skips an id with an existing queue record.
+- **The `/models` cache** is written atomically (temporary file + `os.replace`),
+  a corrupted cache = no cache.
+- **`DedupeStore`** (`task.py`): `dedupe_key` behind a `get` / `claim` /
+  `finish` interface, locally the `<runs>/_dedupe/` and `_dedupe-fake/` files unchanged;
+  `Run.dedupe` is the place where Modal plugs in its own storage.
 - **`agencast.api`**: `load`, `run`, `dry_run`, `runs_list`, `run_status`
-  (+ `find_root`) — tenké funkce nad validate, engine a record; `cli.py`
-  i `server.py` volají přes ně (DESIGN „Obálky“).
+  (+ `find_root`) — thin functions over validate, engine and record; `cli.py`
+  and `server.py` call through them (DESIGN “Shells”).
 
-## 0.2.5 — 2026-09-25 (čas v řádku Celkem)
+## 0.2.5 — 2026-09-25 (time in the Total row)
 
-Formát: spec v1, jen zpřesnění (ISSUES 38):
+Format: spec v1, only a clarification (ISSUES 38):
 
-- **Řádek Celkem** v `summary.md` i `report.html` má ve sloupci Čas čas
-  celého běhu (`duration_s` z `run_finished`, stejné číslo jako
-  v hlavičce), ne součet kroků — větve `parallel` běží současně a vnořené
-  kroky jsou už v čase nadřazeného `parallel`/`switch`/`call`.
+- **The Total row** in `summary.md` and `report.html` has the time of the
+  whole run in the Time column (`duration_s` from `run_finished`, the same number as
+  in the header), not the sum of the steps — `parallel` branches run concurrently and nested
+  steps are already in the time of the parent `parallel`/`switch`/`call`.
 
-## 0.2.4 — 2026-09-25 (celá cena, řádek Celkem)
+## 0.2.4 — 2026-09-25 (full cost, Total row)
 
-Formát: spec v1, jen zpřesnění (ISSUES 38):
+Format: spec v1, only a clarification (ISSUES 38):
 
-- **Cena bez zaokrouhlení:** cena volání jde do `events.jsonl`,
-  `calls/*.json`, `step_finished`, `run_finished` i `callback.json`
-  přesně tak, jak ji vrátil OpenRouter. Součty (krok, běh, obrázky,
-  `budget_exceeded_usd`) se zaokrouhlují na 10 desetinných míst (dřív 8,
-  takže callback ukázal 4.48e-06 místo 4.482e-06).
-- **Zobrazení:** `summary.md`, `report.html`, závěrečný řádek `maw run`,
-  `maw runs list/show` a hlášky rozpočtu ukazují cenu desetinně
-  (`0,000004482`, dřív `0,0000`), aspoň na 4 místa; krok bez volání
-  modelu má cenu `0`. Hlášky rozpočtu mají nově desetinnou čárku.
-- **Řádek Celkem** na konci tabulky kroků v `summary.md` i `report.html`
-  (i u neúspěšného běhu): cena běhu, u obrázků „z toho obrázky …".
+- **Cost without rounding:** a call's cost goes into `events.jsonl`,
+  `calls/*.json`, `step_finished`, `run_finished` and `callback.json`
+  exactly as OpenRouter returned it. Totals (step, run, images,
+  `budget_exceeded_usd`) are rounded to 10 decimal places (formerly 8,
+  so the callback showed 4.48e-06 instead of 4.482e-06).
+- **Display:** `summary.md`, `report.html`, the final line of `maw run`,
+  `maw runs list/show` and the budget messages show the cost in decimal
+  (`0.000004482`, formerly `0.0000`), to at least 4 places; a step without a model
+  call has a cost of `0`. Budget messages now use a decimal comma.
+- **A Total row** at the end of the step table in `summary.md` and `report.html`
+  (also for a failed run): the run cost, for images “of which images …”.
 
-## 0.2.3 — 2026-09-25 (podsložky se ignorují)
+## 0.2.3 — 2026-09-25 (subfolders are ignored)
 
-Formát: spec v1, jen zpětně kompatibilní uvolnění (ISSUES 37):
+Format: spec v1, only a backward-compatible relaxation (ISSUES 37):
 
-- **Podsložky v `workflows/agents/` a `workflows/scenarios/`** (třeba
-  `archiv/`) už nezastaví validate ani běh chybou `config` — tiše se
-  ignorují. Agenti, cíle `call`, webhook i `maw runs`/`serve` čtou dál
-  jen soubory přímo ve složce.
-- Když agent nebo cíl `call` neexistuje, ale stejnojmenný soubor leží
-  v podsložce, hláška dodá „(soubor je v podsložce agents/archiv/,
-  podsložky se nečtou)".
-- Srozumitelnější hláška, když se spouští scénář mimo
-  `workflows/scenarios/` (třeba z `archiv/`).
+- **Subfolders in `workflows/agents/` and `workflows/scenarios/`** (e.g.
+  `archive/`) no longer stop validate or a run with a `config` error — they are silently
+  ignored. Agents, `call` targets, the webhook and `maw runs`/`serve` still read
+  only files directly in the folder.
+- When an agent or a `call` target does not exist but a file of the same name lies
+  in a subfolder, the message adds “(file is in subfolder agents/archive/,
+  subfolders are not read)”.
+- A clearer message when a scenario is started from outside
+  `workflows/scenarios/` (e.g. from `archive/`).
 
-## 0.2.2 — 2026-09-25 (opravy z tutoriálů 6 a 7)
+## 0.2.2 — 2026-09-25 (fixes from tutorials 6 and 7)
 
-Formát: spec v1, jen zpětně kompatibilní doplňky. Opravy z
-`docs/tutorials/BUGS.md` (sekce maw 0.2.1):
+Format: spec v1, only backward-compatible additions. Fixes from
+`docs/tutorials/BUGS.md` (section maw 0.2.1):
 
-- **Dedupe a `--fake` (BUGS 8, vysoká):** falešný běh zapisuje dedupe do
-  `<runs>/_dedupe-fake/` (stejná struktura), ostrý do `<runs>/_dedupe/`;
-  nikdy se nečtou křížem. Dřív ostrý běh po zkoušce s `--fake` krok
-  přeskočil a vrátil vymyšlený výstup. `run_started` má nové pole
-  `fake` (run-record.md), `summary.md` a `report.html` falešný běh
-  označí. Záznamy v `_dedupe/` z falešných běhů 0.2.1 oprava nepozná
-  a nesmaže — po zkouškách s `--fake` je najdi (`grep -l <scénář>
-  runs/_dedupe/*.json`) a smaž ručně jen ty, o kterých víš, že patří
-  zkouškám.
-- **`task` se `schema` vždy od `tool_wrapper` (BUGS 7, ISSUES 36):**
-  strukturovaný výstup se v kroku `task` vynucuje nástrojem
-  `_submit_output` bez ohledu na `models.<alias>.structured_output`;
-  `response_format` se v tazích neposílá (Haiku s ním končilo smyčku
-  bez volání nástrojů). Kaskáda dál na `prompt`. Nastavení aliasu platí
-  jen pro `ask`. Úroveň je v `model_call.structured_output`, v poznámce
-  kroku a v `plan.md` („kaskáda od tool_wrapper"). Falešný poskytovatel
-  na úrovni `tool_wrapper` respektuje `text` ze skriptu (model nezavolal
+- **Dedupe and `--fake` (BUGS 8, high):** a fake run writes dedupe to
+  `<runs>/_dedupe-fake/` (the same structure), a live one to `<runs>/_dedupe/`;
+  they are never read across. Previously a live run after a `--fake` trial
+  skipped the step and returned an invented output. `run_started` has a new
+  field `fake` (run-record.md), `summary.md` and `report.html` mark
+  a fake run. The fix does not recognize and does not delete the records in `_dedupe/` from fake runs of 0.2.1
+  — after `--fake` trials, find them (`grep -l <scenario>
+  runs/_dedupe/*.json`) and delete manually only those you know belong to
+  the trials.
+- **`task` with `schema` always via `tool_wrapper` (BUGS 7, ISSUES 36):**
+  structured output in a `task` step is enforced with the tool
+  `_submit_output` regardless of `models.<alias>.structured_output`;
+  `response_format` is not sent in turns (Haiku ended the loop with it
+  without calling tools). The cascade continues to `prompt`. The alias setting applies
+  only to `ask`. The level is in `model_call.structured_output`, in the step
+  note and in `plan.md` (“cascade from tool_wrapper”). The fake provider
+  at the `tool_wrapper` level respects `text` from the script (the model did not call
   `_submit_output`).
-- Agent s `mcp` bez `tools`: hláška jmenuje servery, ukáže tvar
-  `tools: { server: [nástroj, …] }` a radí `maw run … --dry-run` (BUGS 9).
-- `POST /runs`: 422 vrací chyby těla (neznámé pole, …) spolu s chybami
-  scénáře a vstupů, ne až na druhý pokus (BUGS 9).
-- Tutoriály: díl 5 `report_url` (od 0.2.0 adresa `report.html`, ne
-  `null`), díl 6 poznámka k `schema` u `task`, díl 7 `_dedupe-fake/`.
+- An agent with `mcp` without `tools`: the message names the servers, shows the shape
+  `tools: { server: [tool, …] }` and advises `maw run … --dry-run` (BUGS 9).
+- `POST /runs`: the 422 returns the body's errors (unknown field, …) together with the errors of the
+  scenario and inputs, not only on the second attempt (BUGS 9).
+- Tutorials: part 5 `report_url` (since 0.2.0 the address of `report.html`, not
+  `null`), part 6 a note on `schema` in `task`, part 7 `_dedupe-fake/`.
 
-## 0.2.1 — 2026-09-25 (opravy z tutoriálů)
+## 0.2.1 — 2026-09-25 (fixes from the tutorials)
 
-Formát: spec v1 beze změny. Opravy chyb z `docs/tutorials/BUGS.md`:
+Format: spec v1 unchanged. Bug fixes from `docs/tutorials/BUGS.md`:
 
-- Varování „poskytovatel nevrátil cenu" jen u úspěšné odpovědi bez
-  `usage.cost`; chybová odpověď (HTTP 429, 400, `error` v těle) nic
-  nestojí a varování nedá (BUGS 1).
-- `{{ }}` ve výrazu (`set`, `when`, `switch.value`): jen hláška „šablona
-  tu není povolená", nově se stříškou; druhá hláška o AST uzlu `Set`
-  zmizela (BUGS 2).
-- Konkrétní id modelu v agentovi (`model: anthropic/claude-haiku-4.5`):
-  hláška „model '…' není alias v config.yaml (aliasy: …)" místo regexu
-  ze schématu; schéma beze změny (BUGS 3).
-- Chyba syntaxe YAML: česká věta s radou (hodnota s `{`, `[`, `: ` nebo
-  ` #` do uvozovek, scenario.md §5 „Pozor na YAML") a řádkem, původní
-  hláška parseru jako druhý řádek. Duplicitní klíč beze změny (BUGS 4).
-- Skloňování počtů: `validate` „(1 krok / 2 kroky / 9 kroků)", `serve`
-  „ve frontě 2 běhy", poznámka kroku `call` v `summary.md` (BUGS 5).
-- Testy: testovací config přebírá aliasy ze skutečného
-  `workflows/config.yaml` (klíče, limity a úložiště zůstávají testovací),
-  falešné `GET /models` zná jejich id — nový alias vlastníka nerozbije
-  zlaté testy (BUGS 6).
-- Čtecí timeout HTTP volání poskytovatele (ISSUES 34): u každého volání
-  min(zbývající čas kroku, 120 s chat/obrázek/tah `task`, 30 s Jev);
-  vypršení = `transient`, opakuje se podle `retry`. `model_call`
-  a `jev_call` mají nové pole `timeout_s` (run-record.md, zpětně
-  kompatibilně). Dřív zaseknuté spojení čekalo až na timeout kroku.
-- Nestabilní test `test_webhook.py::test_202_and_signed_callback`
-  (pod zátěží 1 selhání z 8 běhů): test četl `events.jsonl`, jakmile
-  přijímač dostal callback, ale `callback_sent` framework zapíše až po
-  odpovědi přijímače. Webhook testy teď čekají na konec běhu (smazání
-  záznamu fronty) a pořadí ve frontě drží závorou místo `sleep` —
-  totéž se týkalo restartu v `test_request_key_is_idempotent_across_restart`.
-  Marker `live` (síť, skutečný npx server) registrovaný v pyproject,
-  běžný `uv run pytest` ho přeskočí; žádný test ho zatím nepotřebuje —
-  celá sada prošla i bez sítě. Testy: +9 (369 celkem).
+- The warning “provider returned no cost” only for a successful response without
+  `usage.cost`; an error response (HTTP 429, 400, `error` in the body) costs
+  nothing and gives no warning (BUGS 1).
+- `{{ }}` in an expression (`set`, `when`, `switch.value`): only the message “template
+  is not allowed here”, now with a caret; the second message about the AST node `Set`
+  is gone (BUGS 2).
+- A concrete model id in an agent (`model: anthropic/claude-haiku-4.5`):
+  the message “model '…' is not an alias in config.yaml (aliases: …)” instead of a regex
+  from the schema; the schema unchanged (BUGS 3).
+- YAML syntax error: a sentence with advice (a value with `{`, `[`, `: ` or
+  ` #` into quotes, scenario.md §5 “YAML pitfalls”) and the line, the original
+  parser message as the second line. A duplicate key unchanged (BUGS 4).
+- Pluralization of counts: `validate` “(1 step / 2 steps / 9 steps)”, `serve`
+  “queued 2 runs”, the note of a `call` step in `summary.md` (BUGS 5).
+- Tests: the test config takes the aliases from the real
+  `workflows/config.yaml` (keys, limits and storage stay test ones),
+  the fake `GET /models` knows their ids — a new owner alias does not break the
+  golden tests (BUGS 6).
+- Read timeout of the provider's HTTP calls (ISSUES 34): for every call
+  min(remaining step time, 120 s chat/image/`task` turn, 30 s Jev);
+  expiry = `transient`, retried per `retry`. `model_call`
+  and `jev_call` have a new field `timeout_s` (run-record.md, backward
+  compatible). Previously a stuck connection waited until the step timeout.
+- The unstable test `test_webhook.py::test_202_and_signed_callback`
+  (under load 1 failure in 8 runs): the test read `events.jsonl` as soon as the
+  receiver got the callback, but the framework writes `callback_sent` only after the
+  receiver's response. Webhook tests now wait for the end of the run (deletion of the
+  queue record) and keep the queue order with a barrier instead of `sleep` —
+  the same applied to the restart in `test_request_key_is_idempotent_across_restart`.
+  The `live` marker (network, a real npx server) is registered in pyproject,
+  an ordinary `uv run pytest` skips it; no test needs it yet —
+  the whole suite passed even without a network. Tests: +9 (369 in total).
 
-## 0.2.0 — 2026-09-25 (Fáze 3)
+## 0.2.0 — 2026-09-25 (Phase 3)
 
-Formát: spec v1 beze změny.
+Format: spec v1 unchanged.
 
 ### 3b — call, webhook server, report.html, CLI
 
-- Krok `call` (scenario.md call, DESIGN §5.3): vnořený scénář ve stejném
-  běhu — stejný `events.jsonl`, rozpočet i časový limit, kroky mají cestu
-  `navrh/copy`, záznam ve `steps/<nn>-<id>/steps/…` (+ `inputs.json`
-  volání). `validate`: `callable: true`, vstupy (povinné, žádné navíc,
-  typy; `file` jen ze souboru), čtou se jen deklarované `outputs`, cykly
-  a `limits.max_call_depth`; chyby volaného scénáře s jeho jménem souboru.
-  Za běhu: typ vstupu, který nešel ověřit předem → `expression`; chyba
-  uvnitř = chyba kroku `call` (`step` je cesta); `on_error: continue`
-  kroku `call` ji pokryje, včetně jeho vlastního `budget_usd`/`timeout`.
-  Soubory z volaného scénáře se nenahrávají.
+- The `call` step (scenario.md call, DESIGN §5.3): a nested scenario in the same
+  run — the same `events.jsonl`, budget and time limit, steps have a path
+  `propose/copy`, the record in `steps/<nn>-<id>/steps/…` (+ the call's `inputs.json`).
+  `validate`: `callable: true`, inputs (required, none extra,
+  types; `file` only from a file), only the declared `outputs` are read, cycles
+  and `limits.max_call_depth`; errors of the called scenario with its file name.
+  At run time: an input type that could not be verified in advance → `expression`; an error
+  inside = an error of the `call` step (`step` is a path); `on_error: continue`
+  of the `call` step covers it, including its own `budget_usd`/`timeout`.
+  Files from the called scenario are not uploaded.
 - Webhook server `maw serve --host --port [--fake]` (webhook.md):
-  `POST /runs` (Bearer token, 401/422 synchronně bez `run_id`, 202,
-  200 pro opakovaný `request_key`), `GET /runs/<run_id>`, fronta jeden
-  běh po druhém, trvalá fronta a `request_key` v `<runs>/_queue/`,
-  callback vždy od přidělení `run_id` (i když `validate` selže až po
-  vyzvednutí z fronty → `config`; přerušený běh po restartu → `internal`).
-  Stdlib `http.server.ThreadingHTTPServer` — žádná nová závislost.
-- `report.html` u každého běhu: jeden soubor bez externích zdrojů,
-  hlavička, chyba, varování, vstupy, tabulka kroků (i vnořených), prompty
-  a odpovědi v `<details>` (zkrácené na 4000 znaků), výstupy; maskování
-  tajných hodnot, bez base64. Nahraje se do úložiště, `report_url`
-  v callbacku (dřív `null`, ISSUES 5).
-- CLI: scénář jménem nebo cestou; kořen projektu podle `workflows/` od
-  cwd nahoru nebo `--project` (u všech příkazů; nahrazuje `runs
-  --workflows`); `runs list` ukazuje i požadavky ve frontě; `maw migrate
-  <soubor>` (kostra: v1 → „nic k převodu", neznámá verze → `config`).
-  Vlastní hlášky česky; hlášky samotného `argparse` (usage, chybějící
-  argument) zůstávají anglicky.
-- `callback_url` smí být i `http://127.0.0.1` (testy, lokální přijímač) —
+  `POST /runs` (Bearer token, 401/422 synchronously without `run_id`, 202,
+  200 for a repeated `request_key`), `GET /runs/<run_id>`, a queue with one
+  run at a time, a persistent queue and `request_key` in `<runs>/_queue/`,
+  a callback always from the moment `run_id` is assigned (even if `validate` fails only after
+  being taken from the queue → `config`; a run interrupted after a restart → `internal`).
+  Stdlib `http.server.ThreadingHTTPServer` — no new dependency.
+- `report.html` for every run: a single file without external resources,
+  header, error, warnings, inputs, a table of steps (also nested), prompts
+  and responses in `<details>` (truncated to 4000 characters), outputs; masking of
+  secret values, no base64. It is uploaded to storage, `report_url`
+  in the callback (formerly `null`, ISSUES 5).
+- CLI: a scenario by name or path; the project root by `workflows/` from
+  cwd upwards or `--project` (on all commands; replaces `runs
+  --workflows`); `runs list` also shows queued requests; `maw migrate
+  <file>` (skeleton: v1 → “nothing to convert”, an unknown version → `config`).
+  Own messages in Czech; the messages of `argparse` itself (usage, a missing
+  argument) stay in English.
+- `callback_url` may also be `http://127.0.0.1` (tests, a local receiver) —
   ISSUES 14.
-- Testy: +44 (call, webhook s lokálním přijímačem callbacku, report, CLI);
-  zlaté scénáře `kontrola-tonu` (`callable: true`) a `ukazka-call`.
+- Tests: +44 (call, webhook with a local callback receiver, report, CLI);
+  golden scenarios `tone-check` (`callable: true`) and `demo-call`.
 
-### 3a — krok task, MCP servery, skilly, dedupe_key
+### 3a — the task step, MCP servers, skills, dedupe_key
 
-- **Krok `task`** (`task.py`): smyčka model ↔ nástroje přes OpenRouter
-  chat; nástroje jen z efektivní sady krok ⊆ agent ⊆ `mcp.yaml`;
-  `max_turns` (opakování po `transient`/`schema` se nepočítá; vyčerpání =
-  `budget`), `budget_usd`, `timeout`; `isError` a chyby validace
-  argumentů jdou modelu jako výsledek nástroje; obrázky z nástrojů jako
-  soubor `steps/<nn>-<id>/tool-<NN>-<k>.png` + následná user zpráva;
-  `reasoning_details` zpět; kaskáda výstupu (`native_schema` →
-  `tool_wrapper` s `_submit_output`, který nikdy nejde na server →
-  `prompt`); události `tool_call`, `calls/NN.tool.json`.
-- **MCP klient** (`mcp_client.py`) nad oficiálním SDK `mcp==2.2.*`: stdio,
-  Streamable HTTP, SSE; `mode="legacy"`; timeouty handshaku i volání +
-  vnější pojistka; rozbalení `ExceptionGroup` do tříd `timeout` /
-  `config` / `transient`; stderr serveru do `mcp/<server>.stderr.log`
-  (maskovaný); server startuje při prvním `task` v běhu, sdílí ho větve
-  `parallel`, na konci běhu se ukončí (test: 0 zbylých procesů);
-  události `mcp_server`.
-- **Normalizace schémat nástrojů:** `server__tool` (`[a-zA-Z0-9_-]`, max
-  64), vložení `$ref`, `allOf`/`oneOf`, `const` → `enum`, ne-řetězcový
-  `enum` do `description`; argumenty se validují proti původnímu schématu
-  (`invalid_args`). Kolize jmen po normalizaci = `config`.
-- **`mcp.yaml`:** načtení a validace proti `mcp.schema.json`, jen
-  `{run_dir}`; oprávnění vlastníka ve `validate` (`agents`, `scenarios`,
-  `tools` serveru; krok nesmí rozšířit server, nástroj ani `max_turns`);
-  proměnné serverů se maskují a nesmí být stejné jako `*_env` z
-  `config.yaml`; chybějící proměnná = `config` před během.
-- **Skilly:** u `task` oddíl `## Skilly` se seznamem `- jméno: description`
-  a nástroj `load_skill` (`enum` jmen, chyba se seznamem, tah, server
-  `_skills`); u `ask` beze změny celá těla.
-- **`dedupe_key`:** atomické soubory `<runs>/_dedupe/<sha256>.json`;
-  `started` před prvním voláním MCP nástroje, `succeeded` s výstupem;
-  další běh krok přeskočí (`step_skipped`, `dedupe`), `started` bez
-  `succeeded` = `config` „ověř ručně a smaž <soubor>".
-- `validate`: alias agenta v `task` musí mít `tools` v `GET /models`.
-- Falešný poskytovatel: `tool_calls` ve skriptu. Testy (+30, z toho 2 po
-  sloučení s 3b: `--dry-run` s nástroji serverů, `task` s `dedupe_key`
-  uvnitř `call`): falešný MCP server
-  `tests/fake_mcp_server.py`, `test_task.py`, zlatý scénář
-  `workflows/scenarios/ukazka-task.yaml` (agent `knihovnik`, skill
-  `katalog`, nový `workflows/mcp.yaml`).
+- **The `task` step** (`task.py`): a model ↔ tools loop via the OpenRouter
+  chat; tools only from the effective set step ⊆ agent ⊆ `mcp.yaml`;
+  `max_turns` (a repeat after `transient`/`schema` is not counted; exhaustion =
+  `budget`), `budget_usd`, `timeout`; `isError` and argument validation errors
+  go to the model as a tool result; images from tools as a
+  file `steps/<nn>-<id>/tool-<NN>-<k>.png` + a following user message;
+  `reasoning_details` back; output cascade (`native_schema` →
+  `tool_wrapper` with `_submit_output`, which never goes to the server →
+  `prompt`); events `tool_call`, `calls/NN.tool.json`.
+- **MCP client** (`mcp_client.py`) over the official SDK `mcp==2.2.*`: stdio,
+  Streamable HTTP, SSE; `mode="legacy"`; handshake and call timeouts +
+  an outer safeguard; unwrapping `ExceptionGroup` into the classes `timeout` /
+  `config` / `transient`; server stderr to `mcp/<server>.stderr.log`
+  (masked); a server starts at the first `task` in a run, is shared by the `parallel`
+  branches and is terminated at the end of the run (test: 0 leftover processes);
+  events `mcp_server`.
+- **Tool schema normalization:** `server__tool` (`[a-zA-Z0-9_-]`, max
+  64), inlining `$ref`, `allOf`/`oneOf`, `const` → `enum`, a non-string
+  `enum` into `description`; arguments are validated against the original schema
+  (`invalid_args`). A name collision after normalization = `config`.
+- **`mcp.yaml`:** loading and validation against `mcp.schema.json`, only
+  `{run_dir}`; owner permissions in `validate` (`agents`, `scenarios`,
+  `tools` of a server; a step must not widen a server, a tool or `max_turns`);
+  server variables are masked and must not be the same as `*_env` from
+  `config.yaml`; a missing variable = `config` before the run.
+- **Skills:** for `task` a `## Skills` section with a list `- name: description`
+  and the tool `load_skill` (`enum` of names, an error with a list, a turn, server
+  `_skills`); for `ask` unchanged, the whole body.
+- **`dedupe_key`:** atomic files `<runs>/_dedupe/<sha256>.json`;
+  `started` before the first MCP tool call, `succeeded` with the output;
+  the next run skips the step (`step_skipped`, `dedupe`), `started` without
+  `succeeded` = `config` “check manually and delete <file>”.
+- `validate`: an agent's alias in `task` must have `tools` in `GET /models`.
+- Fake provider: `tool_calls` in a script. Tests (+30, of which 2 after
+  merging with 3b: `--dry-run` with server tools, `task` with `dedupe_key`
+  inside `call`): a fake MCP server
+  `tests/fake_mcp_server.py`, `test_task.py`, the golden scenario
+  `workflows/scenarios/demo-task.yaml` (agent `librarian`, skill
+  `catalog`, a new `workflows/mcp.yaml`).
 
-Závislosti: přibylo jen `mcp==2.2.*` (zamčeno v `uv.lock`).
+Dependencies: only `mcp==2.2.*` was added (locked in `uv.lock`).
 
-- `--dry-run`: `plan.md` u kroku `task` ukazuje agenta, výslednou sadu
-  nástrojů, skilly, `max_turns` a `dedupe_key`; servery, které běh může
-  spustit, se kvůli `tools/list` spustí v dočasné složce a plán vypíše,
-  co nabízejí (nebo proč se nespustily) — scenario.md §7.
+- `--dry-run`: `plan.md` for a `task` step shows the agent, the resulting set of
+  tools, skills, `max_turns` and `dedupe_key`; servers the run may
+  start are started in a temporary folder for `tools/list` and the plan lists
+  what they offer (or why they did not start) — scenario.md §7.
 
-Není v 0.2.0: opakování handshaku MCP (ISSUES 26), čtecí timeout HTTP
-volání poskytovatele (ISSUES 34, otevřeno).
+Not in 0.2.0: repeating the MCP handshake (ISSUES 26), the read timeout of the provider's HTTP
+calls (ISSUES 34, open).
 
-## 0.1.0 — 2026-09-25 (Fáze 2: jádro)
+## 0.1.0 — 2026-09-25 (Phase 2: the core)
 
-Formát: spec v1 (`version: 1` scénáře, agenta, configu).
+Format: spec v1 (`version: 1` of a scenario, agent, config).
 
-- CLI `maw`: `validate`, `run` (`-i`, `--dry-run`, `--fake [SKRIPT]`,
+- CLI `maw`: `validate`, `run` (`-i`, `--dry-run`, `--fake [SCRIPT]`,
   `--callback-url`, `--request-key`), `runs list|show`.
-- Loader: YAML 1.2 core (jen `true`/`false`, `4:5` a `yes` jsou text,
-  duplicitní klíč = `config` s řádkem), frontmatter, `.env` s CRLF.
-  JSON Schema se čtou z `docs/spec/schema/` (jediný zdroj pravdy);
-  kroky se ověřují každý proti schématu svého typu → české hlášky
-  bez vypsání hodnot `*_env`.
-- Validate (scenario.md §7): verze, schéma, jméno = soubor, podsložky,
-  unikátní `id`, odkazy jen nahoru a ne do jiné větve `parallel`, krok,
-  který nemusí proběhnout, bez `default`, úplný `default`, agent / skill /
-  alias existuje, limity kroku ⊆ agent, šablony jen v povolených polích,
-  výrazy (syntaxe, zakázané konstrukce, typy známé předem), `output`
-  poslední a sedí na `outputs`, nedosažitelné kroky za `fail`, `cases`
-  ⊆ `criteria`, aliasy proti `GET /models` (cache 24 h, výstup obrázku,
+- Loader: YAML 1.2 core (only `true`/`false`, `4:5` and `yes` are text,
+  a duplicate key = `config` with a line), frontmatter, `.env` with CRLF.
+  JSON Schemas are read from `docs/spec/schema/` (the single source of truth);
+  steps are each verified against the schema of their type → Czech messages
+  without printing the values of `*_env`.
+- Validate (scenario.md §7): version, schema, name = file, subfolders,
+  unique `id`, references only upwards and not into another `parallel` branch, a step
+  that may not run, without `default`, a complete `default`, agent / skill /
+  alias exists, step limits ⊆ agent, templates only in allowed fields,
+  expressions (syntax, forbidden constructs, types known in advance), `output`
+  last and matching `outputs`, unreachable steps after `fail`, `cases`
+  ⊆ `criteria`, aliases against `GET /models` (24 h cache, image output,
   structured_outputs/tools).
-- Výrazy a šablony (§5, D1c): vlastní evaluátor nad `ast`, tečka = klíč,
-  přísné typy, `and/or/not` jen bool, `round` půlku od nuly, limity
-  2000 znaků / hloubka 100 / výsledek 100 000, hlášky česky se stříškou.
-- Engine: pořadí kroků, `when`, `parallel` (TaskGroup, zrušení ostatních
-  větví → `cancelled`), `switch` s `default`, `set`, `fail`, `output`;
-  `retry` (2 s, 4 s, 8 s nebo `Retry-After`), `timeout` (krok, parallel,
-  běh), `budget_usd` (krok, agent, parallel, běh, obrázky), `on_error:
-  continue`; třídy chyb §6; HTTP 200 není úspěch.
-- Poskytovatelé: OpenRouter chat (kaskáda `native_schema` → `tool_wrapper`
-  → `prompt`, zpětná vazba modelu, `reasoning_details` zpět), Jev
-  (`/systemone`), obrázek (chat completions s `modalities`, base64 →
-  soubor, kontrola `aspect_ratio` ±2 %), normalizace `usage`. Falešný
-  poskytovatel = `httpx.MockTransport` (stejná cesta kódu jako ostrá).
-- Záznam běhu (run-record.md): složka, `events.jsonl`, `steps/<nn>-<id>/`,
-  `summary.md`, `plan.md`, `callback.json`, maskování tajných hodnot,
-  bez base64 a `reasoning_details`; callback POST (https, HMAC-SHA256,
-  3 pokusy).
-- Konformační sada `uv run pytest` (výrazy ze spiku (c), loader, validate,
-  engine, zlaté scénáře z `workflows/` a ukázky z `docs/spec/`).
+- Expressions and templates (§5, D1c): a custom evaluator over `ast`, dot = key,
+  strict types, `and/or/not` only bool, `round` half away from zero, limits
+  2000 characters / depth 100 / result 100 000, messages in Czech with a caret.
+- Engine: step order, `when`, `parallel` (TaskGroup, cancelling the other
+  branches → `cancelled`), `switch` with `default`, `set`, `fail`, `output`;
+  `retry` (2 s, 4 s, 8 s or `Retry-After`), `timeout` (step, parallel,
+  run), `budget_usd` (step, agent, parallel, run, images), `on_error:
+  continue`; error classes §6; HTTP 200 is not success.
+- Providers: OpenRouter chat (cascade `native_schema` → `tool_wrapper`
+  → `prompt`, feedback to the model, `reasoning_details` back), Jev
+  (`/systemone`), image (chat completions with `modalities`, base64 →
+  file, `aspect_ratio` check ±2 %), `usage` normalization. The fake
+  provider = `httpx.MockTransport` (the same code path as the live one).
+- Run record (run-record.md): a folder, `events.jsonl`, `steps/<nn>-<id>/`,
+  `summary.md`, `plan.md`, `callback.json`, masking of secret values,
+  without base64 and `reasoning_details`; callback POST (https, HMAC-SHA256,
+  3 attempts).
+- Conformance suite `uv run pytest` (expressions from spike (c), loader, validate,
+  engine, golden scenarios from `workflows/` and examples from `docs/spec/`).
 
-Závislosti: `pyyaml`, `jsonschema`, `httpx`; vývoj `pytest`. Oproti
-výchozí sadě D4 **bez** `pydantic` (formáty jsou JSON Schema ze spec, ty
-ověřuje `jsonschema` přímo — druhý popis v pydantic by byl duplicita) a
-**bez** `typer` (stačí `argparse` ze stdlib). `hatchling` je jen build
-backend pro instalaci příkazu `maw` (za běhu se nepoužívá). `mcp` a `modal`
-přijdou s krokem `task` a nasazením.
+Dependencies: `pyyaml`, `jsonschema`, `httpx`; development `pytest`. Compared to the
+D4 default set **without** `pydantic` (the formats are JSON Schemas from the spec, verified
+by `jsonschema` directly — a second description in pydantic would be a duplicate) and
+**without** `typer` (stdlib `argparse` is enough). `hatchling` is only a build
+backend for installing the `maw` command (not used at run time). `mcp` and `modal`
+will come with the `task` step and deployment.
 
-Není v 0.1.0 (místa v kódu připravená): `task` (MCP, skilly přes
-`load_skill`, `dedupe_key`), `call`, webhook server, Modal, `report.html`,
-úložiště R2 — `validate` je odmítne srozumitelnou chybou `config`.
+Not in 0.1.0 (places in the code prepared): `task` (MCP, skills via
+`load_skill`, `dedupe_key`), `call`, the webhook server, Modal, `report.html`,
+R2 storage — `validate` rejects them with a clear `config` error.

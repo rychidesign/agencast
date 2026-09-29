@@ -1,5 +1,5 @@
-// Průzkumné QA: interaktivní stavy (klávesnice, fokus, konflikt, výpadek, draft, překryvy).
-// Předpoklad: qa-setup.sh. Spuštění: `node ui/e2e/tools/qa-flows.ts [filtr]`; snímky do /tmp/agencast-qa/flows/.
+// Exploratory QA: interactive states (keyboard, focus, conflict, outage, draft, overlaps).
+// Requires qa-setup.sh. Run: `node ui/e2e/tools/qa-flows.ts [filter]`; screenshots go to /tmp/agencast-qa/flows/.
 import { chromium, type Page } from "@playwright/test";
 import fs from "node:fs";
 
@@ -16,7 +16,7 @@ const WF = `${created.root}/workflows`;
 
 const browser = await chromium.launch();
 async function open(width = 1440, height = 900, extra = {}) {
-  const ctx = await browser.newContext({ viewport: { width, height }, locale: "cs-CZ", ...extra });
+  const ctx = await browser.newContext({ viewport: { width, height }, locale: "en-US", ...extra });
   await ctx.addInitScript(() => localStorage.getItem("agencast.token") || localStorage.setItem("agencast.token", "test-token"));
   const page = await ctx.newPage();
   page.setDefaultTimeout(5000);
@@ -31,75 +31,75 @@ const focused = (page: Page) => page.evaluate(() => {
   const name = el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 40) ?? "";
   const cs = getComputedStyle(el);
   const ring = cs.boxShadow !== "none" || cs.outlineStyle !== "none";
-  return `${el.tagName.toLowerCase()}${el.getAttribute("role") ? `[${el.getAttribute("role")}]` : ""} "${name}"${ring ? "" : " (BEZ VIDITELNÉHO FOKUSU)"}`;
+  return `${el.tagName.toLowerCase()}${el.getAttribute("role") ? `[${el.getAttribute("role")}]` : ""} "${name}"${ring ? "" : " (NO VISIBLE FOCUS)"}`;
 });
 
 const api = async (method: string, path: string, body?: unknown) =>
   (await fetch(URL + path, { method, headers: H, body: body === undefined ? undefined : JSON.stringify(body) })).json();
 
 const flows: Record<string, () => Promise<void>> = {
-  async zive() {
-    // živý běh: pulz, tikající čas, sledovat běh, konec, polling se zastaví; seznam běhů se obnovuje
-    fs.writeFileSync(`${WF}/scenarios/dlouhy.yaml`, fs.readFileSync(`${import.meta.dirname}/qa-fixtures/dlouhy.yaml`, "utf8"));
-    const { run_id } = await api("POST", `/projects/${P}/runs`, { scenario: "dlouhy", inputs: {} });
+  async live() {
+    // live run: pulse, ticking time, follow run, end, polling stops; the run list refreshes
+    fs.writeFileSync(`${WF}/scenarios/slow.yaml`, fs.readFileSync(`${import.meta.dirname}/qa-fixtures/slow.yaml`, "utf8"));
+    const { run_id } = await api("POST", `/projects/${P}/runs`, { scenario: "slow", inputs: {} });
     const page = await open();
     const runs = await open();
-    await runs.goto(`${URL}/#/p/${P}/behy`);
-    await page.goto(`${URL}/#/p/${P}/behy/${run_id}`);
+    await runs.goto(`${URL}/#/p/${P}/runs`);
+    await page.goto(`${URL}/#/p/${P}/runs/${run_id}`);
     await page.waitForTimeout(1200);
-    await shot(page, "zive-bezi");
-    await shot(runs, "zive-seznam");
-    note(`živý: stav ${await page.getByTestId("run-state").textContent()}, sledovat: ${await page.getByText("sledovat běh").count()}`);
+    await shot(page, "live-running");
+    await shot(runs, "live-list");
+    note(`live: status ${await page.getByTestId("run-state").textContent()}, follow: ${await page.getByText("follow run").count()}`);
     await page.waitForTimeout(5000);
-    await shot(page, "zive-konec");
-    note(`po konci: stav ${await page.getByTestId("run-state").textContent()}, sledovat: ${await page.getByText("sledovat běh").count()}, status: ${await page.getByRole("status").allTextContents()}`);
+    await shot(page, "live-end");
+    note(`after the end: status ${await page.getByTestId("run-state").textContent()}, follow: ${await page.getByText("follow run").count()}, status: ${await page.getByRole("status").allTextContents()}`);
     let n = 0;
     page.on("request", (r) => r.url().includes(run_id) && n++);
     let m = 0;
     runs.on("request", (r) => r.url().includes("/runs?") && m++);
     await page.waitForTimeout(7000);
-    note(`GET běhu po konci za 7 s: ${n}; GET seznamu za 7 s: ${m}`);
-    await shot(runs, "zive-seznam-konec");
+    note(`GET run after the end in 7 s: ${n}; GET list in 7 s: ${m}`);
+    await shot(runs, "live-list-end");
     await page.context().close();
     await runs.context().close();
   },
-  async dialogy() {
+  async dialogs() {
     const page = await open();
-    await page.goto(`${URL}/#/p/${P}/agenti/pisatel`);
-    await page.getByRole("button", { name: "Akce pro pisatel" }).click();
-    await page.getByRole("menuitem", { name: "Smazat" }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Smazat" }).click();
+    await page.goto(`${URL}/#/p/${P}/agents/writer`);
+    await page.getByRole("button", { name: "Actions for writer" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
     await page.waitForTimeout(600);
-    await shot(page, "dialog-smazat-odmitnuto");
+    await shot(page, "dialog-delete-rejected");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /Nový agent/ }).click();
-    await page.keyboard.type("Spatne");
-    await shot(page, "dialog-novy-agent-chyba");
+    await page.getByRole("button", { name: /New agent/ }).click();
+    await page.keyboard.type("Wrong");
+    await shot(page, "dialog-new-agent-error");
     await page.keyboard.press("Escape");
-    await page.goto(`${URL}/#/p/${P}/scenare/ukazka?krok=napis`);
-    await page.getByRole("combobox", { name: "Typ kroku" }).selectOption("jev");
+    await page.goto(`${URL}/#/p/${P}/scenarios/demo?step=write`);
+    await page.getByRole("combobox", { name: "Step type" }).selectOption("jev");
     await page.waitForTimeout(300);
-    await shot(page, "dialog-zmena-typu");
+    await shot(page, "dialog-change-type");
     await page.keyboard.press("Escape");
-    await page.locator('[data-step-card="napis"]').focus();
+    await page.locator('[data-step-card="write"]').focus();
     await page.keyboard.press("Delete");
     await page.waitForTimeout(300);
-    await shot(page, "dialog-smazat-krok");
-    note(`fokus v dialogu smazání kroku: ${await focused(page)}`);
+    await shot(page, "dialog-delete-step");
+    note(`focus in the delete-step dialog: ${await focused(page)}`);
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Další akce" }).click();
-    await page.getByRole("menuitem", { name: "Přejmenovat" }).click();
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Rename" }).click();
     await page.keyboard.press("Control+a");
-    await page.keyboard.type("ukazka");
-    await shot(page, "dialog-prejmenovat");
+    await page.keyboard.type("demo");
+    await shot(page, "dialog-rename");
     await page.keyboard.press("Escape");
-    // rozbitý config (422)
+    // broken config (422)
     const cfg = `${WF}/config.yaml`;
     const good = fs.readFileSync(cfg, "utf8");
-    fs.writeFileSync(cfg, `${good}\nruns_dir: ./jinde\n`);
+    fs.writeFileSync(cfg, `${good}\nruns_dir: ./elsewhere\n`);
     await page.goto(`${URL}/#/p/${P}`);
     await page.waitForTimeout(800);
-    await shot(page, "config-422-scenare");
+    await shot(page, "config-422-scenarios");
     await page.goto(`${URL}/#/p/${P}/config`);
     await page.waitForTimeout(1000);
     await shot(page, "config-422-config");
@@ -107,9 +107,9 @@ const flows: Record<string, () => Promise<void>> = {
     await page.context().close();
   },
   async tab() {
-    // pořadí Tab a viditelný fokus na editoru
+    // Tab order and visible focus in the editor
     const page = await open();
-    await page.goto(`${URL}/#/p/${P}/scenare/ukazka`);
+    await page.goto(`${URL}/#/p/${P}/scenarios/demo`);
     await page.waitForTimeout(800);
     const seen: string[] = [];
     for (let i = 0; i < 28; i++) {
@@ -117,16 +117,16 @@ const flows: Record<string, () => Promise<void>> = {
       seen.push(await focused(page));
     }
     note("TAB editor:\n  " + seen.join("\n  "));
-    await page.locator('[data-step-card="napis"]').focus();
+    await page.locator('[data-step-card="write"]').focus();
     await page.keyboard.press("Tab");
-    await shot(page, "fokus-karta-menu");
+    await shot(page, "focus-card-menu");
     await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
-    await shot(page, "fokus-plus");
+    await shot(page, "focus-plus");
     await page.keyboard.press("Enter");
-    await shot(page, "fokus-typepicker");
+    await shot(page, "focus-typepicker");
     await page.keyboard.press("Escape");
-    note(`po Esc z pickeru fokus: ${await focused(page)}`);
+    note(`focus after Esc from the picker: ${await focused(page)}`);
     await page.goto(`${URL}/#/p/${P}`);
     await page.waitForTimeout(600);
     const seen2: string[] = [];
@@ -134,103 +134,103 @@ const flows: Record<string, () => Promise<void>> = {
       await page.keyboard.press("Tab");
       seen2.push(await focused(page));
     }
-    note("TAB scénáře:\n  " + seen2.join("\n  "));
+    note("TAB scenarios:\n  " + seen2.join("\n  "));
     await page.context().close();
   },
-  async klavesy() {
+  async keyboard() {
     const page = await open();
-    await page.goto(`${URL}/#/p/${P}/scenare/ukazka`);
-    const card = page.locator('[data-step-card="napis"]');
+    await page.goto(`${URL}/#/p/${P}/scenarios/demo`);
+    const card = page.locator('[data-step-card="write"]');
     await card.click();
     await page.waitForTimeout(300);
-    note(`po kliku na kartu fokus: ${await focused(page)}`);
+    note(`focus after clicking the card: ${await focused(page)}`);
     await page.keyboard.press("Escape");
-    note(`po Esc fokus: ${await focused(page)}; url ${page.url().split("#")[1]}`);
+    note(`focus after Esc: ${await focused(page)}; url ${page.url().split("#")[1]}`);
     await card.focus();
     await page.keyboard.press("Enter");
     await page.waitForTimeout(300);
-    note(`Enter na kartě → fokus: ${await focused(page)}`);
+    note(`Enter on the card → focus: ${await focused(page)}`);
     await page.keyboard.press("Escape");
     await card.focus();
     await page.keyboard.press("ArrowDown");
-    note(`↓ z napis: ${await focused(page)}`);
+    note(`↓ from write: ${await focused(page)}`);
     await page.keyboard.press("ArrowUp");
     await page.keyboard.press("ArrowUp");
     note(`↑↑: ${await focused(page)}`);
-    // Ctrl+X a vložení
+    // Ctrl+X and paste
     await card.focus();
     await page.keyboard.press("Control+x");
     await page.waitForTimeout(200);
-    await shot(page, "vyjmuto");
-    note(`po Ctrl+X announce: ${await page.getByTestId("announce").textContent()}`);
+    await shot(page, "cut");
+    note(`announce after Ctrl+X: ${await page.getByTestId("announce").textContent()}`);
     await page.keyboard.press("Control+z");
     await page.waitForTimeout(200);
-    // menu Esc a klik mimo
-    await page.getByRole("button", { name: "Další akce" }).click();
-    note(`menu otevřené: ${await page.getByRole("menu").count()} , fokus ${await focused(page)}`);
+    // menu: Esc and a click outside
+    await page.getByRole("button", { name: "More actions" }).click();
+    note(`menu open: ${await page.getByRole("menu").count()}, focus ${await focused(page)}`);
     await page.keyboard.press("Escape");
-    note(`menu po Esc: ${await page.getByRole("menu").count()} , fokus ${await focused(page)}`);
-    await page.getByRole("button", { name: "Další akce" }).click();
+    note(`menu after Esc: ${await page.getByRole("menu").count()}, focus ${await focused(page)}`);
+    await page.getByRole("button", { name: "More actions" }).click();
     await page.mouse.click(700, 700);
-    note(`menu po kliku mimo: ${await page.getByRole("menu").count()}`);
-    await page.getByRole("button", { name: "Další akce" }).click();
+    note(`menu after a click outside: ${await page.getByRole("menu").count()}`);
+    await page.getByRole("button", { name: "More actions" }).click();
     await page.keyboard.press("Tab");
-    note(`menu po Tab: ${await page.getByRole("menu").count()} , fokus ${await focused(page)}`);
+    note(`menu after Tab: ${await page.getByRole("menu").count()}, focus ${await focused(page)}`);
     await page.context().close();
   },
   async prompt() {
-    // psaní do promptu: undo v poli, SaveNote, draft po reloadu, beforeunload
+    // typing into the prompt: undo in the field, SaveNote, draft after reload, beforeunload
     const page = await open();
-    await page.goto(`${URL}/#/p/${P}/scenare/ukazka?krok=napis`);
+    await page.goto(`${URL}/#/p/${P}/scenarios/demo?step=write`);
     const prompt = page.getByRole("combobox", { name: "Prompt" });
     await prompt.click();
     await page.keyboard.press("End");
     const t0 = Date.now();
-    await page.keyboard.type(" a ještě něco navíc pro test rychlosti psaní", { delay: 0 });
-    note(`psaní 44 znaků: ${Date.now() - t0} ms`);
+    await page.keyboard.type(" and something extra to test typing speed", { delay: 0 });
+    note(`typing 41 characters: ${Date.now() - t0} ms`);
     note(`SaveNote: ${await page.getByTestId("save-status").textContent()}`);
-    await shot(page, "neulozeno");
+    await shot(page, "unsaved");
     page.on("dialog", (d) => (note(`dialog ${d.type()}`), d.accept()));
     await page.reload();
     await page.waitForTimeout(1000);
-    note(`po reloadu SaveNote: ${await page.getByTestId("save-status").textContent()}; prompt obsahuje: ${(await page.getByRole("combobox", { name: "Prompt" }).inputValue()).slice(-20)}`);
-    // konflikt: změna na disku
-    fs.appendFileSync(`${WF}/scenarios/ukazka.yaml`, "# ručně\n");
+    note(`SaveNote after reload: ${await page.getByTestId("save-status").textContent()}; prompt ends with: ${(await page.getByRole("combobox", { name: "Prompt" }).inputValue()).slice(-20)}`);
+    // conflict: a change on disk
+    fs.appendFileSync(`${WF}/scenarios/demo.yaml`, "# by hand\n");
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await page.waitForTimeout(1500);
-    await shot(page, "konflikt");
+    await shot(page, "conflict");
     await page.evaluate(() => scrollTo(0, 400));
-    await shot(page, "konflikt-scroll");
-    await page.getByRole("button", { name: "Zobrazit rozdíl" }).click();
+    await shot(page, "conflict-scroll");
+    await page.getByRole("button", { name: "Show diff" }).click();
     await page.waitForTimeout(300);
-    await shot(page, "konflikt-rozdil");
+    await shot(page, "conflict-diff");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Ponechat moje" }).click();
-    await page.getByRole("button", { name: "Uložit" }).first().click();
+    await page.getByRole("button", { name: "Keep mine" }).click();
+    await page.getByRole("button", { name: "Save" }).first().click();
     await page.waitForTimeout(300);
-    await shot(page, "konflikt-prepsat");
-    await page.getByRole("button", { name: "Přepsat verzi na disku" }).click();
+    await shot(page, "conflict-overwrite");
+    await page.getByRole("button", { name: "Overwrite the version on disk" }).click();
     await page.waitForTimeout(800);
-    note(`po přepsání: ${await page.getByTestId("save-status").textContent()}`);
+    note(`after overwriting: ${await page.getByTestId("save-status").textContent()}`);
     await page.context().close();
   },
   async offline() {
     const page = await open();
-    await page.goto(`${URL}/#/p/${P}/scenare/ukazka?krok=napis`);
+    await page.goto(`${URL}/#/p/${P}/scenarios/demo?step=write`);
     await page.waitForTimeout(500);
     await page.route("**/projects/**", (r) => r.abort());
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await page.getByRole("combobox", { name: "Prompt" }).fill("offline změna");
-    await page.getByRole("button", { name: "Uložit" }).first().click();
+    await page.getByRole("combobox", { name: "Prompt" }).fill("offline change");
+    await page.getByRole("button", { name: "Save" }).first().click();
     await page.waitForTimeout(1500);
     await shot(page, "offline-editor");
     note(`offline SaveNote: ${await page.getByTestId("save-status").textContent()}; server-bar: ${await page.getByTestId("server-bar").count()}`);
     await page.unroute("**/projects/**");
     await page.waitForTimeout(6000);
-    note(`po obnovení server-bar: ${await page.getByTestId("server-bar").count()}`);
-    await page.getByRole("button", { name: "Uložit" }).first().click();
+    note(`server-bar after recovery: ${await page.getByTestId("server-bar").count()}`);
+    await page.getByRole("button", { name: "Save" }).first().click();
     await page.waitForTimeout(800);
-    note(`po obnovení SaveNote: ${await page.getByTestId("save-status").textContent()}`);
+    note(`SaveNote after recovery: ${await page.getByTestId("save-status").textContent()}`);
     const p2 = await open(768, 1024);
     await p2.route("**/projects*", (r) => r.abort());
     await p2.goto(`${URL}/#/p/${P}`);
@@ -239,17 +239,17 @@ const flows: Record<string, () => Promise<void>> = {
     await page.context().close();
     await p2.context().close();
   },
-  async validace() {
+  async validation() {
     const page = await open();
-    await page.goto(`${URL}/#/p/${P}/scenare/ukazka?krok=napis`);
-    await page.getByRole("combobox", { name: "Prompt" }).fill("Téma: {{ steps.nic.text }}");
-    await page.getByRole("button", { name: "Uložit" }).first().click();
+    await page.goto(`${URL}/#/p/${P}/scenarios/demo?step=write`);
+    await page.getByRole("combobox", { name: "Prompt" }).fill("Topic: {{ steps.missing.text }}");
+    await page.getByRole("button", { name: "Save" }).first().click();
     await page.waitForTimeout(1200);
-    await shot(page, "validace-chyba");
+    await shot(page, "validation-error");
     await page.getByRole("radio", { name: "YAML" }).click();
     await page.waitForTimeout(800);
-    await shot(page, "validace-yaml");
-    const area = page.getByRole("textbox", { name: "scenarios/ukazka.yaml" });
+    await shot(page, "validation-yaml");
+    const area = page.getByRole("textbox", { name: "scenarios/demo.yaml" });
     await area.click();
     await page.keyboard.press("Control+Home");
     await page.keyboard.type("  ");
@@ -260,34 +260,34 @@ const flows: Record<string, () => Promise<void>> = {
     await shot(page, "yaml-form-disabled-hover");
     await page.context().close();
   },
-  async pravyokraj() {
-    // TypePicker a menu karty u pravého okraje (768, 1024)
+  async rightEdge() {
+    // TypePicker and the card menu near the right edge (768, 1024)
     for (const w of [768, 1024]) {
       const page = await open(w, 900);
-      await page.goto(`${URL}/#/p/${P}/scenare/ukazka`);
-      const card = page.locator('[data-step-card="napis"]');
+      await page.goto(`${URL}/#/p/${P}/scenarios/demo`);
+      const card = page.locator('[data-step-card="write"]');
       await card.hover();
-      await page.getByRole("button", { name: "Akce pro napis" }).click();
-      await shot(page, `kartamenu-${w}`);
-      await page.getByRole("menuitem", { name: "Vložit krok pod" }).click();
+      await page.getByRole("button", { name: "Actions for write" }).click();
+      await shot(page, `card-menu-${w}`);
+      await page.getByRole("menuitem", { name: "Insert step below" }).click();
       await page.waitForTimeout(300);
       const box = await page.getByRole("listbox").boundingBox();
-      note(`[${w}] picker z menu karty: x=${box?.x} right=${box && box.x + box.width} (viewport ${w})`);
+      note(`[${w}] picker from the card menu: x=${box?.x} right=${box && box.x + box.width} (viewport ${w})`);
       await shot(page, `picker-z-menu-${w}`);
       await page.context().close();
     }
   },
-  async dotyk() {
+  async touch() {
     const page = await open(768, 1024, { hasTouch: true, isMobile: true });
-    await page.goto(`${URL}/#/p/${P}/scenare/ukazka`);
+    await page.goto(`${URL}/#/p/${P}/scenarios/demo`);
     await page.waitForTimeout(600);
     const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button, a, select, input, [role=radio]")]
       .filter((el) => el.offsetParent && getComputedStyle(el).visibility !== "hidden")
       .map((el) => ({ n: el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 30), r: el.getBoundingClientRect() }))
       .filter((x) => x.r.width > 0 && (x.r.height < 44 || x.r.width < 24))
       .map((x) => `${x.n} ${Math.round(x.r.width)}×${Math.round(x.r.height)}`));
-    note(`dotyk <44 px (editor):\n  ${small.join("\n  ")}`);
-    await shot(page, "dotyk-editor", true);
+    note(`touch <44 px (editor):\n  ${small.join("\n  ")}`);
+    await shot(page, "touch-editor", true);
     await page.context().close();
   },
 };
@@ -296,7 +296,7 @@ const only = process.argv[2];
 for (const [name, fn] of Object.entries(flows)) {
   if (only && !name.includes(only)) continue;
   note(`=== ${name}`);
-  try { await fn(); } catch (e) { note(`!! ${name} selhal: ${(e as Error).message.split("\n").slice(0, 4).join(" / ")}`); }
+  try { await fn(); } catch (e) { note(`!! ${name} failed: ${(e as Error).message.split("\n").slice(0, 4).join(" / ")}`); }
 }
 await browser.close();
 fs.writeFileSync(`${OUT}/log.txt`, log.join("\n") + "\n");

@@ -1,3 +1,3 @@
-# Skriptované odpovědi pro tutorial-07-slogan, když běží samostatně (CLI, webhook).
-napis:
-  - json: { slogan: "Ovena. Zmrzlina, co roste na poli." }
+# Scripted responses for tutorial-07-slogan when it runs on its own (CLI, webhook).
+write:
+  - json: { slogan: "Ovena. Ice cream that grows in the field." }

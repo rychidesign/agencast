@@ -1,143 +1,143 @@
-# Věrnost návrhu V3 — rozdíly mezi nasazeným GUI (0.16.0) a `.pen` a co se má změnit
+# V3 design fidelity — differences between the deployed GUI (0.16.0) and the `.pen`, and what should change
 
-Koordinátor porovnal screenshoty nasazeného GUI (1440 px) s rámečky návrhu
-`docs/ui/design/agencast-design.pen` (exporty v `docs/ui/design/ref/png/`, přesné hodnoty
-komponent v `docs/ui/design/ref/component-specs.md`, HTML s Tailwind třídami v `ref/html/`).
-Struktura (sidebar, karty, sloupec kroků, panel) sedí, ale **měřítko, tvary a hustota ne**:
-GUI je o třídu menší, plošší a tmavší než návrh. Tento dokument je závazné zadání pro vlnu E.
+The coordinator compared screenshots of the deployed GUI (1440 px) with the frames of the design
+`docs/ui/design/agencast-design.pen` (a local pen.dev working file, not tracked in git; exports in `docs/ui/design/ref/png/`, exact component values
+in `docs/ui/design/ref/component-specs.md`, HTML with Tailwind classes in `ref/html/`).
+The structure (sidebar, cards, column of steps, panel) matches, but **the scale, shapes and density do not**:
+the GUI is a class smaller, flatter and darker than the design. This document is the binding brief for wave E.
 
-**Vlna F (2026-09-28):** hodnoty níže jsou srovnané s `.pen` (HTML export a PNG rámečky 1440 px). Kde se
-první odhad lišil, je u hodnoty „změřeno z .pen“; rozhodl koordinátor: vyhrává `.pen`, nad ním jen §11 a
+**Wave F (2026-09-28):** the values below were reconciled with the `.pen` (HTML export and 1440 px PNG frames). Where the
+first estimate differed, the value says “measured from the .pen”; the coordinator decided: the `.pen` wins, above it only §11 and
 `redesign-plan.md` §2.
 
-Pravidla zjednodušení z `redesign-plan.md` §2 platí dál (jedna hlavička, jedno Uložit, ⋯ menu,
-žádné duplicity, bez štítků „dostupný“ / `skills[]` apod.). Kde návrh ukazuje něco, co §2 ruší,
-zůstává §2. Všechno ostatní má vypadat **jako v návrhu**, včetně velikostí v px.
+The simplification rules from `redesign-plan.md` §2 still apply (one header, one Save, ⋯ menu,
+no duplicates, no “available” / `skills[]` labels etc.). Where the design shows something that §2 removes,
+§2 stays. Everything else should look **like the design**, including the sizes in px.
 
-## 0. Tokeny — doplnit do `ui/src/index.css` (vlastní E2, ostatní používají)
+## 0. Tokens — add to `ui/src/index.css` (owned by E2, the others use them)
 
-| token | hodnota | použití v návrhu |
+| token | value | use in the design |
 |---|---|---|
-| `--color-control` | `#31455F` | výplň sekundárního tlačítka a ikonového tlačítka (`V3 / Button / secondary`, `V3 / IconButton`) |
-| `--color-control-hover` | `#3B5170` | hover sekundárního tlačítka |
-| `--color-surface-active` | `#253B50` (změřeno z .pen; odhad byl `#1B2A3D`) | aktivní položka sidebaru a seznamu, vybraná karta kroku |
-| `--color-group` | `#132032` (mezi kartou `surface` a polem `nested`) | box sdružující pole; samotná pole zůstávají `nested` |
-| `--color-track` | `#25374A` | dráha progress baru |
-| `--radius-button` | `10px` | tlačítka |
-| `--radius-tile` | `14px` (změřeno z .pen) | karta projektu, scénáře, položka seznamu, kontejner kroků, filtry běhů, modál |
-| `--color-danger` / `-hover` | `#492937` / `#5A3142` (změřeno z .pen) | výplň nebezpečného tlačítka |
-| gradient `bg-app` | `linear-gradient(-112.6deg, #1A2833 11%, #0C1A26 48%, #132430 89%)` (změřeno z .pen) | pozadí aplikace a přilepené hlavičky |
+| `--color-control` | `#31455F` | fill of the secondary button and the icon button (`V3 / Button / secondary`, `V3 / IconButton`) |
+| `--color-control-hover` | `#3B5170` | secondary button hover |
+| `--color-surface-active` | `#253B50` (measured from the .pen; the estimate was `#1B2A3D`) | active sidebar and list item, selected step card |
+| `--color-group` | `#132032` (between the `surface` card and the `nested` field) | a box grouping fields; the fields themselves stay `nested` |
+| `--color-track` | `#25374A` | progress bar track |
+| `--radius-button` | `10px` | buttons |
+| `--radius-tile` | `14px` (measured from the .pen) | project card, scenario card, list item, step container, run filters, modal |
+| `--color-danger` / `-hover` | `#492937` / `#5A3142` (measured from the .pen) | fill of the dangerous button |
+| gradient `bg-app` | `linear-gradient(-112.6deg, #1A2833 11%, #0C1A26 48%, #132430 89%)` (measured from the .pen) | app background and sticky headers |
 
-## 1. Měřítko a typografie (všude)
+## 1. Scale and typography (everywhere)
 
-- **H1 stránky 28/42 px regular** (změřeno z .pen; odhad byl 32 semibold), pod ním popis 14/21 `fg-secondary` (mezera 12). Meta řádek (cesta registru) mono 12 je samostatný řádek pod hlavičkou; run_id v detailu běhu mono 13 je 8 px pod titulem. Blok hlavičky má horní odsazení 32 px a mezeru 24 px pod sebou.
-- Titul editoru scénáře **mono 27/41 regular**, titul detailu běhu **mono 26/39 regular** (změřeno z .pen). Titul panelu 18/26 semibold; eyebrow panelu 10 px mono verzálky `letter-spacing 0.08em` `fg-muted` (změřeno z .pen).
-- Nadpis sekce ve formuláři 16 px semibold `fg`; štítek pole 13 px **medium** `fg-secondary` (ne bold); nápověda 12 px `fg-muted`.
-- Meta údaje (počty, časy, ceny, id) jsou **mono 12 px** `fg-muted` (návrh používá JetBrains Mono na všechna čísla a technické texty). Dnes je meta v Interu 13 px.
-- Obsah stránky: padding 32 px, max. šířka 1176 px (1440 − 232 − 2×16), mezera mřížky karet 20 px.
+- **Page H1 28/42 px regular** (measured from the .pen; the estimate was 32 semibold), below it a 14/21 `fg-secondary` description (gap 12). The meta row (registry path) mono 12 is a separate row below the header; the run_id in the run detail mono 13 is 8 px below the title. The header block has 32 px top padding and a 24 px gap below it.
+- The scenario editor title **mono 27/41 regular**, the run detail title **mono 26/39 regular** (measured from the .pen). Panel title 18/26 semibold; the panel eyebrow 10 px mono uppercase `letter-spacing 0.08em` `fg-muted` (measured from the .pen).
+- Section heading in a form 16 px semibold `fg`; field label 13 px **medium** `fg-secondary` (not bold); help 12 px `fg-muted`.
+- Meta data (counts, times, costs, ids) is **mono 12 px** `fg-muted` (the design uses JetBrains Mono for all numbers and technical text). Today the meta is in Inter 13 px.
+- Page content: padding 32 px, max. width 1176 px (1440 − 232 − 2×16), card grid gap 20 px.
 
-## 2. Tlačítka a ovládací prvky (`ui.tsx`, `form.tsx`)
+## 2. Buttons and controls (`ui.tsx`, `form.tsx`)
 
-- Primární: výška **44 px** (změřeno z .pen: všechna tlačítka na obrazovkách 44; komponenta v knihovně 40), padding 0 18, radius **10**, `bg-accent text-ink` 14 px semibold, ikona 16 px. Sekundární: totéž s `bg-control text-fg`. Nebezpečná: výplň `#492937` (`bg-danger`) s `text-error` (změřeno z .pen). Ghost (jen text) jen v menu.
-- Ikonové tlačítko: **44 × 44** i v hlavičce (změřeno z .pen), radius 10, `bg-control`, ikona 18–20 px `fg`. ⋯ na kartách (projekt, scénář, krok) je **bez výplně** (klikací plocha 44, ikona 18), plocha `control` až při hoveru a otevření (změřeno z .pen).
-- Pole: výška **44 px**, radius **6** (změřeno z .pen), `bg-nested`, **v klidu bez rámečku** (stroke v `.pen` průhledný; vlna G), text 14 px, placeholder `fg-muted`; fokus ring 2 `accent` bez odsazení, neplatné ring 2 `error`; mono varianta 13 px. Textarea padding 12. Select má chevron `fg-muted` vpravo. Tlačítko `{}` v poli s proměnnými je uvnitř boxu, bez výplně, 44 × 44, `text-variable`. Víceřádková šablona a JSON (`V3 / CodeInput`): box `nested` r8, toolbar (štítek 13 + „šablona“/„JSON“ mono 11 `text-type` + `{}`) s linkou, editor p16, patička se stavem a „Ctrl + mezerník pro nabídku“.
-- Segmentový přepínač (Form | YAML): obal `bg-nested` radius 9 padding 4 gap 4, **segment 44 px radius 7**, 13 px (změřeno z .pen), aktivní `bg-accent text-ink`, neaktivní `fg-muted`.
-- Záložky detailu běhu: výška 47, padding 12 18, mezera 28, text 13 medium (změřeno z .pen), aktivní `fg` s podtržením 2 px `accent`, neaktivní `fg-secondary`. Záložky v panelu kroku 13 regular, mezera 24.
-- Stavový čip: pilulka `bg-nested`, padding 7 10, mezera 8, ikona 14 px, **text mono 12 medium v barvě stavu** (změřeno z .pen). Pulzuje jen ikona „běží“ (pulzující text by neměl kontrast).
-- Menu ⋯: `bg-menu` radius 12, padding 8, gap 4, bez rámečku se stínem `shadow-pop`; položky 40 px, radius 7, padding 10 12, 14 px; nebezpečná červeně.
-- Akordeon (Podmínka / Spolehlivost / Podrobnosti): řádek 52 px (padding 16), **šipka 16 vlevo**, titul 14 medium, hodnota mono 11 `fg-muted` vpravo (změřeno z .pen).
-- Blok kódu („CodeViewer“): `bg-surface` radius **16**, hlavička padding 14 18 s linkou (ikona 18 + název mono 13 + čip radius 6 s obrysem, mono 11), tělo `bg-nested` padding 18 0 s řádky 27 px (číslo mono 12 `fg-muted` šířka 26, mezera 14), patička padding 14 s popisem mono 11 vlevo a „Kopírovat“ s obrysem vpravo (změřeno z .pen). Jedna komponenta `CodeBlock` v `ui.tsx` pro Výstup/Prompt/Odpověď, soubory i bloky v Markdownu; YAML editor má stejnou hlavičku a řádek 27 px.
-- Modál („ModalShell“): radius 14, hlavička padding 24 s linkou (titul 22 semibold + zavřít 44), obsah padding 24 mezera 18, patička padding 18 24 s linkou, tlačítka vpravo **Zrušit, pak akce** (změřeno z .pen).
-- Prázdný stav: `bg-surface` radius 12 padding 28 mezera 14, ikona 28, titul 18 semibold, popis 13 (změřeno z .pen).
+- Primary: height **44 px** (measured from the .pen: all buttons on the screens are 44; the library component 40), padding 0 18, radius **10**, `bg-accent text-ink` 14 px semibold, icon 16 px. Secondary: the same with `bg-control text-fg`. Dangerous: fill `#492937` (`bg-danger`) with `text-error` (measured from the .pen). Ghost (text only) only in menus.
+- Icon button: **44 × 44** also in the header (measured from the .pen), radius 10, `bg-control`, icon 18–20 px `fg`. The ⋯ on cards (project, scenario, step) is **without a fill** (click area 44, icon 18), the `control` surface only on hover and when open (measured from the .pen).
+- Field: height **44 px**, radius **6** (measured from the .pen), `bg-nested`, **without a border at rest** (the stroke in the `.pen` is transparent; wave G), text 14 px, placeholder `fg-muted`; focus ring 2 `accent` without an offset, invalid ring 2 `error`; mono variant 13 px. Textarea padding 12. A select has a `fg-muted` chevron on the right. The `{}` button in a field with variables is inside the box, without a fill, 44 × 44, `text-variable`. Multi-line template and JSON (`V3 / CodeInput`): a `nested` r8 box, a toolbar (label 13 + “template”/“JSON” mono 11 `text-type` + `{}`) with a line, editor p16, a footer with the status and “Ctrl + Space for the menu”.
+- Segmented toggle (Form | YAML): wrapper `bg-nested` radius 9 padding 4 gap 4, **segment 44 px radius 7**, 13 px (measured from the .pen), active `bg-accent text-ink`, inactive `fg-muted`.
+- Run detail tabs: height 47, padding 12 18, gap 28, text 13 medium (measured from the .pen), active `fg` with a 2 px `accent` underline, inactive `fg-secondary`. Tabs in the step panel 13 regular, gap 24.
+- Status chip: a `bg-nested` pill, padding 7 10, gap 8, icon 14 px, **text mono 12 medium in the status colour** (measured from the .pen). Only the “running” icon pulses (pulsing text would lack contrast).
+- ⋯ menu: `bg-menu` radius 12, padding 8, gap 4, without a border with a `shadow-pop` shadow; items 40 px, radius 7, padding 10 12, 14 px; dangerous in red.
+- Accordion (Condition / Reliability / Step details): row 52 px (padding 16), **arrow 16 on the left**, title 14 medium, value mono 11 `fg-muted` on the right (measured from the .pen).
+- Code block (“CodeViewer”): `bg-surface` radius **16**, header padding 14 18 with a line (icon 18 + name mono 13 + a radius 6 chip with an outline, mono 11), `nested` body padding 18 0 with 27 px rows (number mono 12 `fg-muted` width 26, gap 14), footer padding 14 with a caption mono 11 on the left and an outlined “Copy” on the right (measured from the .pen). A single `CodeBlock` component in `ui.tsx` for Output/Prompt/Response, files and blocks in Markdown; the YAML editor has the same header and 27 px row.
+- Modal (“ModalShell”): radius 14, header padding 24 with a line (title 22 semibold + close 44), content padding 24 gap 18, footer padding 18 24 with a line, buttons on the right **Cancel, then the action** (measured from the .pen).
+- Empty state: `bg-surface` radius 12 padding 28 gap 14, icon 28, title 18 semibold, description 13 (measured from the .pen).
 
 ## 3. Sidebar (`Shell.tsx`)
 
-- Šířka 232, padding 28 20, `bg-sidebar`, pravý hairline. Aktivní položka `#253B50` (změřeno z .pen). Značka: ikona `Layers2` 25 px v `text-type` + „agencast“ 22 px semibold `letter-spacing -0.7`. Mezera pod značkou 22.
-- „← Projekty“ jako řádek 44 px (ikona 16 + text 14 medium `fg-secondary`), pak oddělovač 1 px `line`, pak jméno projektu (14 semibold) a navigace: položky **44 px**, radius 8, gap 6, padding 0 14, ikona 16 `fg-muted`, text 14 medium `fg-secondary`; aktivní `bg-surface-active text-fg` a ikona `fg`.
-- Dole: „Dnes utraceno“ 12 `fg-muted`, částka mono 12 medium `fg` (`1,20 / 5,00 USD`), progress 3 px, dráha `track`, výplň `success` (přes limit `error`). Hlášku výpadku serveru zachovat.
+- Width 232, padding 28 20, `bg-sidebar`, right hairline. Active item `#253B50` (measured from the .pen). Logo: a `Layers2` icon 25 px in `text-type` + “agencast” 22 px semibold `letter-spacing -0.7`. Gap below the logo 22.
+- “← Projects” as a 44 px row (icon 16 + text 14 medium `fg-secondary`), then a 1 px `line` divider, then the project name (14 semibold) and navigation: items **44 px**, radius 8, gap 6, padding 0 14, icon 16 `fg-muted`, text 14 medium `fg-secondary`; active `bg-surface-active text-fg` and icon `fg`.
+- At the bottom: “Spent today” 12 `fg-muted`, the amount mono 12 medium `fg` (`1.20 / 5.00 USD`), progress 3 px, track `track`, fill `success` (over the limit `error`). Keep the server outage message.
 
-## 4. Projekty (`Projects.tsx`)
+## 4. Projects (`Projects.tsx`)
 
-- Hlavička: H1 „Projekty“ 28, popis „Spravuj projekty, scénáře a běhy agentů na jednom místě.“ 14 `fg-secondary`, pod hlavičkou cesta registru mono 12. Vpravo ikonové tlačítko Načíst znovu 44 × 44 `bg-control` a „+ Přidat projekt“ primární 44 px.
-- Karta projektu: `bg-surface`, radius **14**, padding **22**, mezery 20, min. výška 260 (změřeno z .pen). Obsah: horní řádek s ⋯ bez výplně vpravo (bez štítku „dostupný“, §2 G6; nedostupný má v tomto řádku čip „nedostupný“ a dole důvod), název **20/29 semibold**, cesta mono 12 `fg-muted`, **čipy počtů** (radius 6, padding 5 9, mono 11 `fg-secondary`), oddělovač 1 px `line` s odsazením 14, spodní řádek: stavový čip posledního běhu + útrata mono 12 („dnes 1,20 USD“).
+- Header: H1 “Projects” 28, description “Manage projects, scenarios and agent runs in one place.” 14 `fg-secondary`, below the header the registry path mono 12. On the right an icon button Reload 44 × 44 `bg-control` and a primary “+ Add project” 44 px.
+- Project card: `bg-surface`, radius **14**, padding **22**, gaps 20, min height 260 (measured from the .pen). Content: a top row with ⋯ without a fill on the right (without the “available” label, §2 G6; an unavailable one has an “unavailable” chip in this row and the reason at the bottom), name **20/29 semibold**, path mono 12 `fg-muted`, **count chips** (radius 6, padding 5 9, mono 11 `fg-secondary`), a 1 px `line` divider with a 14 offset, bottom row: the status chip of the last run + spend mono 12 (“today 1.20 USD”).
 
-## 5. Přehled scénářů (`Scenarios.tsx`, `TypeIcon.tsx`)
+## 5. Scenario overview (`Scenarios.tsx`, `TypeIcon.tsx`)
 
-- Toolbar nad mřížkou je v `PageHeader` (už je): „+ Nový scénář“ primární 40 px.
-- Karta scénáře: `bg-surface`, radius **14**, padding 24, výška **292**, mezera 18 (změřeno z .pen). Nahoře řádek 32 px: **řetěz ikon typů jako prosté ikony 18 px v `text-type`, gap 10, bez koleček a bez šipek** (max. 5, pak „+N“ mono 12), vpravo ⋯ bez výplně. Název **18/26 semibold** (jméno scénáře), popis 14 `fg-secondary` (2 řádky, výpustka), meta **mono 11 `fg-secondary`**: „7 kroků · 3 agenti“ + čip „volatelný“. Spodní řádek: stavový čip posledního běhu (nebo čip chyb) vlevo, vpravo „Otevřít ↗“ 13 `fg` (změřeno z .pen).
-- Dnes se řetěz ikon s šipkami zalamuje na dva řádky a tlačí čip stavu; to zmizí.
+- The toolbar above the grid is in `PageHeader` (already is): “+ New scenario” primary 40 px.
+- Scenario card: `bg-surface`, radius **14**, padding 24, height **292**, gap 18 (measured from the .pen). At the top a 32 px row: **the chain of type icons as plain 18 px icons in `text-type`, gap 10, without circles and without arrows** (max. 5, then “+N” mono 12), on the right ⋯ without a fill. Name **18/26 semibold** (the scenario name), description 14 `fg-secondary` (2 lines, ellipsis), meta **mono 11 `fg-secondary`**: “7 steps · 3 agents” + a “callable” chip. Bottom row: the status chip of the last run (or an error chip) on the left, on the right “Open ↗” 13 `fg` (measured from the .pen).
+- Today the chain of icons with arrows wraps onto two rows and pushes the status chip; that disappears.
 
-## 6. Editor scénáře (`Scenario.tsx`, `StepCards.tsx`, `TypePicker.tsx`)
+## 6. Scenario editor (`Scenario.tsx`, `StepCards.tsx`, `TypePicker.tsx`)
 
-- Hlavička: „← Scénáře“ (12 `fg-secondary`), titul **mono 27/41 regular**, popis 13/20 `fg-secondary` (změřeno z .pen); vpravo **„Spustit“ primární** (ikona Play) a **„Uložit“ sekundární** (ikona Save; disabled = 50 % opacity), pak ⋯ 44 × 44 `bg-control`. Druhý řádek: segmentový přepínač + SaveNote jako stavový čip („Uloženo ✓ 14:02“ `success`, „Neuloženo“ `warning`).
-- Sloupec kroků do **676**, panel **440**, mezera **28** (změřeno z .pen: 1144 − 440 − 28). Konektor: výška **44**, šipka 16 px `fg-muted`; (+) kolečko **44 px** `bg-surface`, na hover `control`.
-- **Karta kroku** (pilulka, radius 999, `bg-surface`, výška **96**, padding **16**, gap **14**; změřeno z .pen): vlevo pořadové číslo mono 11 `fg-muted` (jen v editoru), pak **kolečko 40 px s plochou `type/7` a ikonou typu 16 px `text-type`**, pak texty (mezera 4): řádek typu **mono 11 `text-type` malými** „ask · navrh“, titul **15/22 semibold** `fg`, třetí řádek **mono 12 `fg-secondary`** (u `ask`/`task` agent + úryvek promptu, u `image` model · poměr, podmínka „když …“); vpravo ⋯ bez výplně. V běhu je ve třetím řádku „12,4 s · 0,0210 USD“ a vpravo stav 11 px.
-- Vybraná karta: jen plocha `bg-surface-active` (bez rámečku, změřeno z .pen). Hover `bg-surface-hover`.
-- Hlavičková karta: **obdélník** `bg-surface` radius 14 padding 22 mezera 16, ikona `AlignJustify` 24 px `text-type`, titul „HLAVIČKA“ 21 semibold, pod ním vstupy po řádcích (`nested` r8 p 8 12 mezera 6, ikona `Variable` 16 `variable`, jméno mono 13 `fg`, vpravo „POVINNÝ“ mono 11 `fg-muted` a typ mono 11 `type`, popis vstupu v tooltipu; bez vstupů „bez vstupů“) a pod nimi výstupy mono 13 `fg-secondary`; vybraná má navíc vnitřní prstenec 1 px `accent`, aby ho nepřekryla přilepená hlavička stránky.
-- Kontejnery (parallel/switch/call): obal `bg-surface` radius **14** padding 16; záhlaví = ikona 20 bez kolečka, titul 15/22, mono 10 `fg-muted` „3 · parallel · varianty“, šipka sbalit 16 vpravo; větve `bg-nested` radius **8** padding 12 se štítkem mono 11 `text-variable`, paralelní větve vedle sebe; karty ve větvi padding 10, kolečko 30, titul 13 (změřeno z .pen).
-- Tlačítka pod sloupcem: „+ Přidat krok“ a „+ output“ sekundární 44 px vedle sebe na střed.
-- TypePicker: `bg-surface` radius 12, položky 40 px: klíčové slovo mono 13 `fg` + popis 13 `fg-muted` (u aktivní `fg-secondary` kvůli kontrastu na `surface-active`).
+- Header: “← Scenarios” (12 `fg-secondary`), title **mono 27/41 regular**, description 13/20 `fg-secondary` (measured from the .pen); on the right **“Run” primary** (Play icon) and **“Save” secondary** (Save icon; disabled = 50 % opacity), then ⋯ 44 × 44 `bg-control`. Second row: the segmented toggle + SaveNote as a status chip (“Saved ✓ 2:02 PM” `success`, “Unsaved” `warning`).
+- Column of steps up to **676**, panel **440**, gap **28** (measured from the .pen: 1144 − 440 − 28). Connector: height **44**, arrow 16 px `fg-muted`; the (+) circle **44 px** `bg-surface`, `control` on hover.
+- **Step card** (a pill, radius 999, `bg-surface`, height **96**, padding **16**, gap **14**; measured from the .pen): on the left the sequence number mono 11 `fg-muted` (editor only), then a **40 px circle with a `type/7` fill and a 16 px type icon `text-type`**, then the texts (gap 4): the type row **mono 11 `text-type` lowercase** “ask · propose”, title **15/22 semibold** `fg`, third row **mono 12 `fg-secondary`** (for `ask`/`task` the agent + a prompt excerpt, for `image` model · aspect ratio, the condition “when …”); on the right ⋯ without a fill. In a run the third row shows “12.4 s · 0.0210 USD” and on the right an 11 px status.
+- Selected card: only the `bg-surface-active` fill (without a border, measured from the .pen). Hover `bg-surface-hover`.
+- Header card: a **rectangle** `bg-surface` radius 14 padding 22 gap 16, an `AlignJustify` icon 24 px `text-type`, the title “HEADER” 21 semibold, below it the inputs row by row (`nested` r8 p 8 12 gap 6, a `Variable` icon 16 `variable`, name mono 13 `fg`, on the right “REQUIRED” mono 11 `fg-muted` and the type mono 11 `type`, the input description in a tooltip; without inputs “no inputs”) and below them the outputs mono 13 `fg-secondary`; the selected one additionally has an inner 1 px `accent` ring, so the sticky page header does not cover it.
+- Containers (parallel/switch/call): a `bg-surface` wrapper radius **14** padding 16; header = a 20 icon without a circle, title 15/22, mono 10 `fg-muted` “3 · parallel · variants”, a collapse arrow 16 on the right; branches `bg-nested` radius **8** padding 12 with a label mono 11 `text-variable`, parallel branches side by side; cards in a branch padding 10, circle 30, title 13 (measured from the .pen).
+- Buttons below the column: “+ Add step” and “+ output” secondary 44 px side by side, centred.
+- TypePicker: `bg-surface` radius 12, items 40 px: keyword mono 13 `fg` + description 13 `fg-muted` (for the active one `fg-secondary` because of contrast on `surface-active`).
 
 ## 7. Panel (`StepPanel.tsx`, `RunPanel.tsx`, `RunStepPanel.tsx`)
 
-- `bg-surface` radius 16; **hlavička** padding 20 s linkou dole: ikona panelu 16, eyebrow mono 10 `fg-muted` verzálky, titul 18/26 semibold, zavřít ghost 44; **tělo** padding 20, mezera polí 18 (změřeno z .pen). Šířka 440 (panel kroku v běhu **520**).
-- Na desktopu je panel v toku stránky, horní hranou u vybrané karty (panel hlavičky a spuštění u začátku sloupce), bez omezení výšky a vlastního scrollu. Stránka se prodlouží podle panelu. Sheet do 1279 px a dlouhé nabídky mají skrytý posuvník; bloky kódu mají na desktopu tenký posuvník při hoveru nebo fokusu.
-- Pole podle §2 (výška 44, štítky 13 medium). Select „Typ kroku“ ukazuje „ask · jedno volání agenta“ (mono klíč + popis). Vstupy a výstupy v panelu hlavičky jsou karty `group` r8 p14 s poli `nested`, „+ Přidat …“ je sekundární tlačítko.
-- Panel spuštění: eyebrow „SPUSTIT BĚH“, mezery 20; štítek „REŽIM BĚHU“ 11 px verzálky; karty režimu `bg-nested` radius 8 padding 14 (řádek s radiem 20 px 44 px, popis 12), vybraná ring 1 `accent`; „Limity“ jako řádky 32 px s oddělovači (štítek 12 `fg-secondary`, hodnota mono 12 `fg`); varování `warning/10` r8 p12 text 12; vpravo „Zrušit“ + „Spustit dry-run“ (změřeno z .pen).
-- Panel kroku v běhu: řádek stavu = čip stavu + mono 11 „12,4 s · 0,0210 USD“; záložky 13 px; obsah = blok kódu (viz §2) a řádek souboru `bg-nested` r8 p12 výška 52 (cesta mono 12 + ↗).
+- `bg-surface` radius 16; **header** padding 20 with a line at the bottom: panel icon 16, eyebrow mono 10 `fg-muted` uppercase, title 18/26 semibold, close ghost 44; **body** padding 20, field gap 18 (measured from the .pen). Width 440 (the step panel in a run **520**).
+- On desktop the panel is in the page flow, its top edge at the selected card (the header and run panels at the start of the column), without a height limit and its own scroll. The page grows with the panel. Sheets up to 1279 px and long menus have a hidden scrollbar; code blocks on desktop have a thin scrollbar on hover or focus.
+- Fields per §2 (height 44, labels 13 medium). The “Step type” select shows “ask · single agent call” (mono key + description). Inputs and outputs in the header panel are `group` r8 p14 cards with `nested` fields, “+ Add …” is a secondary button.
+- Run panel: eyebrow “START RUN”, gaps 20; the label “RUN MODE” 11 px uppercase; mode cards `bg-nested` radius 8 padding 14 (a row with a 20 px radio 44 px, description 12), the selected one ring 1 `accent`; “Run limits” as 32 px rows with separators (label 12 `fg-secondary`, value mono 12 `fg`); a `warning/10` warning r8 p12 text 12; on the right “Cancel” + “Start dry run” (measured from the .pen).
+- Step panel in a run: status row = status chip + mono 11 “12.4 s · 0.0210 USD”; tabs 13 px; content = a code block (see §2) and a file row `bg-nested` r8 p12 height 52 (path mono 12 + ↗).
 
-## 8. Běhy (`Runs.tsx`, `format.ts`) a detail běhu (`Run.tsx`)
+## 8. Runs (`Runs.tsx`, `format.ts`) and the run detail (`Run.tsx`)
 
-- Hlavička „Běhy“ H1 32 + vedle čip „2 běží · 1 ve frontě“ (mono 12 `running`).
-- **Filtrační lišta** jako karta `bg-surface` radius **14** padding 12, obrys `line`, mezera 10, selecty 210 px (změřeno z .pen): pole hledání (ikona lupy, placeholder „Hledat scénář nebo ID běhu…“, filtruje klientsky podle jména scénáře a run_id), select „Všechny stavy“, select „Všechny scénáře“. (Filtr období z návrhu neimplementovat.)
-- **Záhlaví sloupců** mono **10** verzálky `fg-muted` (změřeno z .pen): SCÉNÁŘ / RUN_ID, STAV, KDY, TRVÁNÍ, CENA.
-- **Řádek běhu jako karta**: `bg-surface` radius **8**, výška **72** (padding 16 20), mezera 8 (změřeno z .pen); vlevo ikona stavu 20 px v kolečku, pak jméno scénáře 15 semibold `fg` a pod ním run_id mono 12 `fg-muted`; sloupec stav = text v barvě stavu 14 („běží“ modře, „úspěch“ zeleně, „chyba: timeout“ růžově, „jen plán (dry-run)“ neutrálně); KDY mono 12 („krok 3/7 · navrh“, „ve frontě (2.)“, „před 12 min“, „dnes 14:02“); TRVÁNÍ mono 12 („32,4 s“, „00:42“ u běžících); CENA mono 12 „0,0812 USD“; vpravo chevron 16 px. Hover `bg-surface-hover`, celý řádek odkaz.
-- `formatCost`: **vždy čtyři desetinná místa** a jednotka tam, kde návrh ukazuje USD („0,0000 USD“, „0,0812 USD“), nikdy „0“ ani „0,000013128“. Na kartě projektu „dnes 1,20 USD“ (dvě místa u částek ≥ 0,01, jinak čtyři).
-- „Načíst další“ sekundární 40 px s ikonou chevron-down.
-- Detail běhu: titul **mono 26/39** + ikona ↗ (odkaz na scénář), 8 px pod ním run_id mono 13 `fg-muted`; vpravo čip stavu, mono 13 „32,4 s · 0,0812 USD“ a sekundární tlačítko „Otevřít scénář“. Vstupy jako `bg-nested` karta radius 8 padding 14: štítek „VSTUPY“ 10 px + hodnoty mono 12 `fg-secondary` (změřeno z .pen). Fronta: řádek „ve frontě (2.)“ mono 12 `neutral` a prázdný stav 380 px s ikonou hodin; dry-run: řádek stavu 12 `neutral` a plán v kartě `surface` r12 p24 s eyebrow „PLÁN BĚHU“. Soubory: strom 300 px (`surface` r10 p12, položky mono 12 s ikonou), prohlížeč `surface` r12 p24, u Markdownu přepínač Náhled | Kód. Záložky podtržené + „sledovat běh“ checkbox vpravo. Karty kroků v běhu jako v editoru (kolečko se stavovou ikonou, vpravo mono „12,4 s · 0,0210 USD“ a text stavu 12 `fg-muted`).
+- Header “Runs” H1 32 + next to it a chip “2 running · 1 queued” (mono 12 `running`).
+- **Filter bar** as a `bg-surface` card radius **14** padding 12, `line` outline, gap 10, selects 210 px (measured from the .pen): a search field (magnifier icon, placeholder “Search scenario or run ID…”, filters client-side by scenario name and run_id), a select “All statuses”, a select “All scenarios”. (Do not implement the period filter from the design.)
+- **Column headers** mono **10** uppercase `fg-muted` (measured from the .pen): SCENARIO / RUN_ID, STATUS, WHEN, DURATION, COST.
+- **A run row as a card**: `bg-surface` radius **8**, height **72** (padding 16 20), gap 8 (measured from the .pen); on the left a 20 px status icon in a circle, then the scenario name 15 semibold `fg` and below it the run_id mono 12 `fg-muted`; the status column = text in the status colour 14 (“running” in blue, “succeeded” in green, “error: timeout” in pink, “plan only (dry run)” neutral); WHEN mono 12 (“step 3/7 · propose”, “queued (#2)”, “12 min ago”, “today 2:02 PM”); DURATION mono 12 (“32.4 s”, “00:42” for running ones); COST mono 12 “0.0812 USD”; on the right a 16 px chevron. Hover `bg-surface-hover`, the whole row a link.
+- `formatCost`: **always four decimal places** and the unit where the design shows USD (“0.0000 USD”, “0.0812 USD”), never “0” or “0.000013128”. On the project card “today 1.20 USD” (two places for amounts ≥ 0.01, otherwise four).
+- “Load more” secondary 40 px with a chevron-down icon.
+- Run detail: title **mono 26/39** + a ↗ icon (a link to the scenario), 8 px below it the run_id mono 13 `fg-muted`; on the right a status chip, mono 13 “32.4 s · 0.0812 USD” and a secondary button “Open scenario”. Inputs as a `bg-nested` card radius 8 padding 14: the label “INPUTS” 10 px + values mono 12 `fg-secondary` (measured from the .pen). Queue: a row “queued (#2)” mono 12 `neutral` and a 380 px empty state with a clock icon; dry run: a status row 12 `neutral` and the plan in a `surface` r12 p24 card with the eyebrow “RUN PLAN”. Files: a 300 px tree (`surface` r10 p12, mono 12 items with an icon), a `surface` r12 p24 viewer, for Markdown a Preview | Code toggle. Underlined tabs + a “follow run” checkbox on the right. Step cards in a run as in the editor (a circle with a status icon, on the right mono “12.4 s · 0.0210 USD” and a status text 12 `fg-muted`).
 
-## 9. Agenti a skilly (`Agents.tsx`)
+## 9. Agents and skills (`Agents.tsx`)
 
-- Levý seznam šířka **240**: položky jako karty radius **14** padding **16** mezera 14 `bg-surface`, mono 14 semibold, ikona typu (Bot/BookOpen) **22 `text-type`**, aktivní jen `bg-surface-active`, chyby jako druhý řádek mono 11 `error` + ikona (změřeno z .pen); „+ Nový agent“ sekundární 40 px nad seznamem (nebo v hlavičce, §2 G8).
-- Editor vpravo **v kartě** `bg-surface` radius 16 padding 24 (dnes je formulář „nahý“ na pozadí). Uvnitř žádný duplicitní název (§2 G1); první řádek karty = segmentový přepínač Form | Markdown + SaveNote vlevo, Uložit v hlavičce stránky zůstává jediné.
-- Pole po 18 px, nadpisy sekcí 16 semibold s odsazením 10 nad (změřeno z .pen): štítky „Popis“, „Model“ 13 px; **Skilly jako seznam checkboxů** v `bg-nested` kartě radius 10 padding 14 (řádky 40 px, checkbox 18, název 13, vpravo mono 11 „SKILL.md“; změřeno z .pen) — ne čipy + select; MCP servery stejným stylem (checkbox serveru, pod ním odsazené nástroje, poznámka „vlastník nepovolil“ jako `fg-muted`); Limity ve **třech sloupcích**; Instrukce = textarea mono 13 min. 12 řádků v `bg-nested` radius 12 s patičkou „Podporuje Markdown“ 12 `fg-muted`; Používá = řádky `bg-nested` 44 px s odkazem a ikonou ↗.
+- Left list width **240**: items as `bg-surface` cards radius **14** padding **16** gap 14, mono 14 semibold, a type icon (Bot/BookOpen) **22 `text-type`**, the active one only `bg-surface-active`, errors as a second row mono 11 `error` + icon (measured from the .pen); “+ New agent” secondary 40 px above the list (or in the header, §2 G8).
+- The editor on the right **in a card** `bg-surface` radius 16 padding 24 (today the form is “naked” on the background). No duplicate name inside (§2 G1); the first row of the card = the segmented toggle Form | Markdown + SaveNote on the left, the Save in the page header remains the only one.
+- Fields 18 px apart, section headings 16 semibold with a 10 offset above (measured from the .pen): labels “description”, “model” 13 px; **skills as a list of checkboxes** in a `bg-nested` card radius 10 padding 14 (rows 40 px, checkbox 18, name 13, on the right mono 11 “SKILL.md”; measured from the .pen) — not chips + a select; MCP servers in the same style (the server checkbox, indented tools below it, the note “not allowed by the owner” as `fg-muted`); Limits in **three columns**; Instructions = a mono 13 textarea min. 12 rows in a `bg-nested` radius 12 box with the footer “Supports Markdown” 12 `fg-muted`; Used by = `bg-nested` 44 px rows with a link and a ↗ icon.
 
 ## 10. Config (`Config.tsx`)
 
-- Celý formulář **v kartě** `bg-surface` radius 16 padding 24; první řádek cesta projektu mono 13 `fg-muted`; přepínač Form | YAML + SaveNote; Uložit jen v hlavičce.
-- Sekce ve **dvou sloupcích** (gap 24): Připojení (api_key_env + stav) | Jev model (jen ke čtení, mono, poznámka); Modely přes celou šířku: každý alias jako **`bg-group` karta** (radius 12, padding 16) s poli `bg-nested` Alias / ID modelu / max_tokens / API + kvalita a pod ním meta „používá pisatel“ mono 12 + vpravo „Smazat alias“ (nebezpečné, disabled s důvodem); „+ Přidat alias“ sekundární vpravo nad seznamem; Úložiště | Webhook a callback (stavy `*_env` jako řádky s ikonou); Limity (dva sloupce polí) | Proměnné (řádky `bg-nested` 40 px: název mono + stav vpravo v barvě); MCP servery jako `bg-nested` karta: název 15 semibold, řádky Transport / Povolení agenti / Nástroje (mono 12), čip „Pouze čtení“.
+- The whole form **in a card** `bg-surface` radius 16 padding 24; the first row the project path mono 13 `fg-muted`; the Form | YAML toggle + SaveNote; Save only in the header.
+- Sections in **two columns** (gap 24): Connection (api_key_env + status) | Jev model (read-only, mono, a note); Models across the full width: each alias as a **`bg-group` card** (radius 12, padding 16) with `bg-nested` fields Alias / Model id / max_tokens / API + quality and below it the meta “used by writer” mono 12 + on the right “Delete alias” (dangerous, disabled with a reason); “+ Add alias” secondary on the right above the list; Storage | Webhook and callback (`*_env` statuses as rows with an icon); Limits (two columns of fields) | Variables (`bg-nested` 40 px rows: name mono + status on the right in colour); MCP servers as a `bg-nested` card: name 15 semibold, rows Transport / Allowed agents / Tools (mono 12), a “Read-only” chip.
 
-## 11. Co zůstává jinak než v návrhu (záměrně)
+## 11. What stays different from the design (deliberately)
 
-Doplněno ve vlně F (záměrná zjednodušení a rozhodnutí z dřívějších vln, `.pen` je nepřebíjí): panel kroku má
-titul = id kroku mono (návrh ukazuje lidský název), bez pole „id“ (přejmenování je v ⋯) a bez patičky
-„Uloženo / Hotovo“ (G2); panel spuštění má šířku 440 jako ostatní (návrh 480) a limity jen u ostrého běhu
-(PN2); karty kroků v běhu nemají ⋯ (žádná akce); mazání kroku je v ⋯ editoru, panelu a na Delete (§2.3 navrh-gui); hláška „Běh
-skončil: …“ jen pro čtečku (G10); drobečky jen „← Scénáře“ / „← Běhy“ (G5); YAML dvoubarevně podle
-navrh-gui §4.5; zvýraznění kroku v YAML jen bliknutím; skill se edituje jako Markdown (bez polí Název / Popis
-/ Soubor a lišty formátování; API ukládá SKILL.md jen celý), pod editorem je náhled; stav fronty neutrálně
-(tokeny §1: `neutral` = čeká); záložky v panelu běhu mají podtržení aktivní (ne jen barvu).
+Added in wave F (deliberate simplifications and decisions from earlier waves, which the `.pen` does not override): the step panel has
+title = the step id in mono (the design shows a human name), without an “id” field (renaming is in ⋯) and without the footer
+“Saved / Done” (G2); the run panel is 440 wide like the others (design 480) and shows limits only for a live run
+(PN2); step cards in a run have no ⋯ (no action); deleting a step is in the editor's ⋯, the panel and on Delete (§2.3 gui-design); the message “Run
+finished: …” only for the screen reader (G10); breadcrumbs only “← Scenarios” / “← Runs” (G5); YAML in two colours per
+gui-design §4.5; the step highlight in YAML only as a flash; a skill is edited as Markdown (without the fields Name / Description
+/ File and a formatting bar; the API stores SKILL.md only as a whole), below the editor a preview; the queue state neutral
+(tokens §1: `neutral` = waiting); tabs in the run panel have the active one underlined (not only by colour).
 
 
-Bez štítků „dostupný“ a `skills[]`/`mcp[]`; bez opakovaných názvů v kartách formulářů; bez druhého Uložit a druhého přepínače; bez sloupce s časem navíc; bez „Přidat projekt“ karty v neprázdném seznamu; bez filtru období v bězích; Přejmenovat / Smazat / Vrátit zpět v menu ⋯; typy kroků jen ask, task, jev, image, parallel, switch, call, set, fail, output.
+Without the “available” and `skills[]`/`mcp[]` labels; without repeated names in form cards; without a second Save and a second toggle; without an extra time column; without an “Add project” card in a non-empty list; without a period filter in runs; Rename / Delete / Undo in the ⋯ menu; step types only ask, task, jev, image, parallel, switch, call, set, fail, output.
 
-## 12. Mobil a tablet (vlna G; návrh mobil nemá)
+## 12. Mobile and tablet (wave G; the design has no mobile)
 
-- Do 1023 px lišta 56 px (`bg-sidebar`, hairline): značka a projekt (truncate). Navigace je v nabídce nad FAB
-  56 px vpravo dole („← Projekty“, položky 48 px, útrata dole; Esc, klik mimo, fokus zpět na FAB). Obsah p16, od 768 px p24.
-- Do 767 px hlavička H1 24, popis 13, jen primární akce + ⋯ (sekundární akce jdou do ⋯, `PageHeader compact`),
-  titul se láme (`overflow-wrap:anywhere`); pod 1024 px se hlavička nepřilepuje.
-- Do 1279 px je panel (krok, hlavička, spuštění, krok v běhu) spodní sheet s kulatými horními rohy a stínem,
-  max. výška `100dvh - 48px` (`role="dialog"`, fokus past, Esc, po zavření fokus zpět na kartu). Do 767 px karta kroku 80 px bez čísla (kolečko 36), konektor 32 px s (+)
-  32 px a dotykovou plochou 44, sloupec přes celou šířku (mazání jen v ⋯ nebo panelu), TypePicker jako list u spodního okraje.
-- Nabídka ⋯ má destruktivní položky `text-error`; klávesové zkratky jsou tlumené vpravo a na dotykových zařízeních se skrývají.
-- Běhy do 767 px bez záhlaví: karta o dvou řádcích (stav + jméno + stav textem; run_id, kdy, trvání · cena),
-  chevron vpravo. Záložky detailu běhu s vodorovným posuvem. Agenti/Skilly pod 1100 px jako karty, editor ve spodním sheetu.
-- Vlna H podle uživatele: nabídky mají stín místo rámečku, panely a mobilní modály jsou spodní sheety,
-  mobilní a tabletová navigace používá FAB místo horního menu.
-- Vlna I: nabídky ⋯, proměnných, našeptávač a výběr typu se vykreslují přes portál do `body`, takže souřadnice
-  `fixed` patří viewportu i v transformovaných kartách a sheetech. Konektor mezi kartami má 48 px, (+) 40 px,
-  tedy 4 px volného místa nahoře i dole, také ve větvích.
-- Vlna K: boxy sdružující pole mají `group` `#132032`, pole zůstávají `nested` `#0D192A` a posuvníky sheetů i nabídek jsou skryté.
-- Vlna I: checkboxy/radia jsou na všech plochách vykreslené jednotně (prázdné `control`, vybrané `accent` s tmavou značkou). Čtení API opakuje jednou po 1,5 s
-  a po obnovení připojení či zviditelnění stránky hned obnovuje data i kontrolu konfliktu.
+- Up to 1023 px a 56 px bar (`bg-sidebar`, hairline): the logo and the project (truncate). The navigation is in a menu above the 56 px FAB
+  at the bottom right (“← Projects”, 48 px items, the spend and the language switch at the bottom; Esc, a click outside, focus back on the FAB). Content p16, from 768 px p24.
+- Up to 767 px the header H1 24, description 13, only the primary action + ⋯ (secondary actions go into ⋯, `PageHeader compact`),
+  the title wraps (`overflow-wrap:anywhere`); below 1024 px the header is not sticky.
+- Up to 1279 px the panel (step, header, run, step in a run) is a bottom sheet with round top corners and a shadow,
+  max height `100dvh - 48px` (`role="dialog"`, focus trap, Esc, after closing focus goes back to the card). Up to 767 px a step card of 80 px without a number (circle 36), a 32 px connector with a (+)
+  of 32 px and a 44 touch area, the column across the full width (deleting only in ⋯ or the panel), TypePicker as a sheet at the bottom edge.
+- The ⋯ menu has destructive items `text-error`; keyboard shortcuts are muted on the right and hidden on touch devices.
+- Runs up to 767 px without a header: a two-row card (status + name + status text; run_id, when, duration · cost),
+  a chevron on the right. Run detail tabs scroll horizontally. Agents/Skills below 1100 px as cards, the editor in a bottom sheet.
+- Wave H per the user: menus have a shadow instead of a border, panels and mobile modals are bottom sheets,
+  mobile and tablet navigation uses a FAB instead of a top menu.
+- Wave I: the ⋯ menus, the variables menu, the autocomplete and the type picker are rendered through a portal into `body`, so `fixed`
+  coordinates belong to the viewport even in transformed cards and sheets. The connector between cards is 48 px, the (+) 40 px,
+  that is 4 px of free space above and below, also in branches.
+- Wave K: boxes grouping fields have `group` `#132032`, fields stay `nested` `#0D192A`, and the scrollbars of sheets and menus are hidden.
+- Wave I: checkboxes/radios are rendered uniformly on all surfaces (empty `control`, selected `accent` with a dark mark). API reads retry once after 1.5 s
+  and after the connection is restored or the page becomes visible again they refresh the data and the conflict check immediately.

@@ -1,344 +1,362 @@
-# Díl 7 — Skládání a provoz: `call` a webhook
+# Part 7 — Composition and operations: `call` and the webhook
 
-Zmínky `maw` označují historický název AgenCast; výstupy a dobová omezení jsou archivní.
+Mentions of `maw` denote the historical name of AgenCast; the outputs and the limitations of the time are archival.
 
-Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+Run the commands from `examples/tutorial` (from the clone root: `cd examples/tutorial`).
 
-**Čas:** asi 35 minut · **Útrata:** 0 USD s `--fake`; volitelný ostrý
-běh přes webhook ~0,001 USD
-**Co budeš umět:** poskládat scénář ze stavebnic (`call`), spustit
-`agencast serve` a volat ho jako n8n (token, `request_key`, callback
-s podpisem), otevřít `report.html` a pojistit krok s vedlejším účinkem
-přes `dedupe_key`.
+**Time:** about 35 minutes · **Spend:** 0 USD with `--fake`; the optional live
+run through the webhook ~0.001 USD
+**You will learn to:** assemble a scenario from building blocks (`call`), start
+`agencast serve` and call it like n8n (token, `request_key`, a callback with a
+signature), open `report.html` and protect a step with a side effect using
+`dedupe_key`.
 
-Předpoklad: díly 1–6 (krok `task` a agent `tutorial-archivar` z dílu 6)
-a `curl`.
+Prerequisite: parts 1–6 (the `task` step and the `tutorial-archivist` agent from
+part 6) and `curl`.
 
-> Výstupy jsou skutečné — z běhů 25. 9. 2026 proti `maw` 0.2.1. Příkazy
-> spouštěj z projektu `examples/tutorial` se zkratkou `agencast` z dílu 1. Tvoje
-> `run_id`, časy a texty budou jiné.
+> The outputs of `validate`, `--fake` and `serve` come from the current CLI (the server is shown
+> on its default port 8080). The live run (step 9) is archival: a real run from 25 Sep 2026
+> against `maw` 0.2.1, with the names adapted to the English example project. Run the commands
+> from the `examples/tutorial` project with the `agencast` shortcut from part 1. Your `run_id`s,
+> times and texts will differ.
 
 ---
 
-## Krok 1 — hotová stavebnice: `kontrola-tonu`
+## Step 1 — a ready-made building block: `tone-check`
 
-Ve `workflows/scenarios/` už jeden scénář-stavebnici máš:
-`kontrola-tonu.yaml` je pro samostatné spuštění tutoriálu převzatý ze showcase.
+You already have one building-block scenario in `workflows/scenarios/`:
+`tone-check.yaml` is taken over from the showcase so that the tutorial can run
+on its own.
 
 ```yaml
 version: 1
-name: kontrola-tonu
-description: Zkontroluje, že text sedí na tón značky Lumen (volá se krokem call z jiných scénářů)
+name: tone-check
+description: Checks that a text matches the Lumen brand tone (called with a call step from other scenarios)
 callable: true
 
 inputs:
   text:
     type: string
     required: true
-    description: Text ke kontrole
-  prah:
+    description: Text to check
+  threshold:
     type: number
     default: 0.7
-    description: Od jaké hodnoty on_brand je text v pořádku
+    description: The on_brand value from which the text passes
 
 outputs:
   on_brand:
     type: number
-    description: Míra shody s tónem značky od 0 do 1
-  v_poradku:
+    description: How well the text matches the brand tone, from 0 to 1
+  passed:
     type: boolean
-    description: on_brand dosáhl prahu
+    description: on_brand reached the threshold
 
 steps:
-  - id: kontrola
-    jev: …
-  - id: vysledek
+  # 1. Jev rates the text; noul = degree of "yes" from 0 to 1.
+  - id: check
+    jev:
+      state: "{{ inputs.text }}"
+      questions:
+        on_brand:
+          type: noul
+          instructions: >-
+            Does the text match the tone of Lumen café — English, short, friendly and
+            matter-of-fact, talks to the reader directly, no emoji and no advertising clichés?
+
+  # 2. Comparison with the threshold; the calling scenario decides what happens next.
+  - id: result
     set:
-      v_poradku: steps.kontrola.on_brand >= inputs.prah
+      passed: steps.check.on_brand >= inputs.threshold
+
+  # 3. Output for the calling scenario (steps.<id>.on_brand, steps.<id>.passed).
   - id: out
     output:
-      on_brand: "{{ steps.kontrola.on_brand }}"
-      v_poradku: "{{ steps.vysledek.v_poradku }}"
+      on_brand: "{{ steps.check.on_brand }}"
+      passed: "{{ steps.result.passed }}"
 ```
 
-Tři věci z něj dělají stavebnici:
+Three things make it a building block:
 
-- **`callable: true`** — jen takový scénář smí jiný scénář zavolat.
-  Bez něj je `call` chyba. Chrání to schvalování: publikační scénář
-  (bez `callable`) nemůže nikdo zavolat zevnitř a obejít tak člověka
-  v n8n.
-- **`inputs`** — co volající **musí** dát (`text`) a co smí (`prah`,
-  jinak 0.7).
-- **`outputs`** — co volající dostane zpátky. Nic jiného z vnitřku
-  (`steps.kontrola.details`…) nevidí.
+- **`callable: true`** — only such a scenario may be called by another scenario.
+  Without it, `call` is an error. This protects approval: a publishing scenario
+  (without `callable`) cannot be called from the inside by anyone, which would
+  bypass the human in n8n.
+- **`inputs`** — what the caller **must** provide (`text`) and what it may
+  (`threshold`, otherwise 0.7).
+- **`outputs`** — what the caller gets back. It sees nothing else from the inside
+  (`steps.check.details`…).
 
-`inputs` + `outputs` jsou **smlouva**. Stavebnice sama o dalším postupu
-nerozhoduje (žádný `fail`) — vrátí `v_poradku` a rozhodne volající.
+`inputs` + `outputs` are the **contract**. The building block itself does not
+decide what happens next (no `fail`) — it returns `passed` and the caller
+decides.
 
 ---
 
-## Krok 2 — vlastní stavebnice
+## Step 2 — your own building block
 
-`workflows/scenarios/tutorial-07-slogan.yaml` — sloganista z dílu 2
-zabalený do scénáře:
+`workflows/scenarios/tutorial-07-slogan.yaml` — the slogan writer from part 2
+wrapped in a scenario:
 
 ```yaml
 version: 1
 name: tutorial-07-slogan
-description: Napíše slogan k hotovému názvu produktu (tutoriál, díl 7 — stavebnice pro call)
+description: Writes a slogan for a finished product name (tutorial, part 7 — building block for call)
 callable: true
 
 inputs:
-  nazev:
+  name:
     type: string
     required: true
-    description: Název produktu
-  ton:
+    description: Product name
+  tone:
     type: string
-    default: hravy
-    description: Tón sloganu (hravy, vazny…)
+    default: playful
+    description: Slogan tone (playful, serious…)
 
 outputs:
   slogan:
     type: string
-    description: Jeden slogan
+    description: One slogan
 
 steps:
-  # 1. Sloganista z dílu 2 dostane název a tón od volajícího scénáře.
-  - id: napis
+  # 1. The slogan writer from part 2 gets the name and the tone from the calling scenario.
+  - id: write
     ask:
-      agent: tutorial-sloganista
+      agent: tutorial-slogan-writer
       prompt: |
-        Název produktu: {{ inputs.nazev }}
-        Tón: {{ inputs.ton }}
-        Napiš k němu jeden slogan.
+        Product name: {{ inputs.name }}
+        Tone: {{ inputs.tone }}
+        Write one slogan for it.
       schema:
         slogan: string
 
-  # 2. Výstup = smlouva s volajícím: čte steps.<id krok call>.slogan.
+  # 2. Output = the contract with the caller: it reads steps.<call step id>.slogan.
   - id: out
     output:
-      slogan: "{{ steps.napis.slogan }}"
+      slogan: "{{ steps.write.slogan }}"
 ```
 
-Stavebnice je normální scénář — jde spustit i sama
-(`agencast run tutorial-07-slogan -i nazev=Ovena`).
+A building block is a normal scenario — it can also be run on its own
+(`agencast run tutorial-07-slogan -i name=Ovena`).
 
 ---
 
-## Krok 3 — skládání krokem `call`
+## Step 3 — composition with the `call` step
 
-`workflows/scenarios/tutorial-07-skladani.yaml`:
+`workflows/scenarios/tutorial-07-composition.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-07-skladani
-description: Vymyslí název, slogan dodá scénář tutorial-07-slogan a tón zkontroluje kontrola-tonu (tutoriál, díl 7)
+name: tutorial-07-composition
+description: Comes up with a name, the tutorial-07-slogan scenario supplies a slogan and tone-check checks the tone (tutorial, part 7)
 
 inputs:
-  produkt:
+  product:
     type: string
     required: true
-    description: Jaký produkt pojmenováváme
+    description: The product we are naming
 
 outputs:
-  nazev:
+  name:
     type: string
-    description: Navržený název
+    description: The proposed name
   slogan:
     type: string
-    description: Slogan ze scénáře tutorial-07-slogan
+    description: Slogan from the tutorial-07-slogan scenario
   on_brand:
     type: number
-    description: Hodnocení tónu ze scénáře kontrola-tonu
+    description: Tone rating from the tone-check scenario
 
 steps:
-  # 1. Obyčejný ask z dílu 2.
-  - id: navrh
+  # 1. A plain ask from part 2.
+  - id: propose
     ask:
-      agent: tutorial-pojmenovavac
-      prompt: "Vymysli jeden název pro tento produkt: {{ inputs.produkt }}."
+      agent: tutorial-namer
+      prompt: "Come up with one name for this product: {{ inputs.product }}."
       schema:
-        nazev: string
+        name: string
 
-  # 2. Vlastní stavebnice: vstup nazev je required, ton má default.
+  # 2. Our own building block: the name input is required, tone has a default.
   - id: slogan
     call:
       scenario: tutorial-07-slogan
       inputs:
-        nazev: "{{ steps.navrh.nazev }}"
+        name: "{{ steps.propose.name }}"
 
-  # 3. Hotová stavebnice z workflows/: prah má default 0.7.
-  - id: ton
+  # 3. A ready-made building block from workflows/: threshold has a default of 0.7.
+  - id: tone
     call:
-      scenario: kontrola-tonu
+      scenario: tone-check
       inputs:
-        text: "{{ steps.navrh.nazev }}. {{ steps.slogan.slogan }}"
+        text: "{{ steps.propose.name }}. {{ steps.slogan.slogan }}"
 
   - id: out
     output:
-      nazev: "{{ steps.navrh.nazev }}"
+      name: "{{ steps.propose.name }}"
       slogan: "{{ steps.slogan.slogan }}"
-      on_brand: "{{ steps.ton.on_brand }}"
+      on_brand: "{{ steps.tone.on_brand }}"
 ```
 
-- `call.scenario` = jméno scénáře, `call.inputs` = jeho vstupy (šablony
-  jako v `prompt`).
-- Výstup kroku `call` jsou `outputs` volaného scénáře:
-  `steps.slogan.slogan`, `steps.ton.on_brand`.
-- Volaný scénář běží **uvnitř stejného běhu**: stejný rozpočet, stejný
-  časový limit, jeden záznam. Není to nový běh ve frontě.
+- `call.scenario` = the name of the scenario, `call.inputs` = its inputs
+  (templates as in `prompt`).
+- The output of a `call` step is the `outputs` of the called scenario:
+  `steps.slogan.slogan`, `steps.tone.on_brand`.
+- The called scenario runs **inside the same run**: the same budget, the same
+  timeout, one record. It is not a new run in the queue.
 
-### Fixtura: cesta ke kroku uvnitř
+### The fixture: the path to a step inside
 
-Kroky volaného scénáře mají ve fixtuře (a v záznamu) **cestu**
-`<id kroku call>/<id kroku uvnitř>`.
-`fake/tutorial-07-skladani.yaml`:
+The steps of a called scenario have a **path**
+`<call step id>/<step id inside>` in the fixture (and in the record).
+`fake/tutorial-07-composition.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-07-skladani. Kroky volaných scénářů
-# mají cestu <id kroku call>/<id kroku ve volaném scénáři>.
-navrh:
-  - json: { nazev: "Ovena" }
-slogan/napis:
-  - json: { slogan: "Ovena. Zmrzlina, co roste na poli." }
-ton/kontrola:
+# Scripted responses for tutorial-07-composition. Steps of called scenarios
+# have the path <call step id>/<step id in the called scenario>.
+propose:
+  - json: { name: "Ovena" }
+slogan/write:
+  - json: { slogan: "Ovena. Ice cream that grows in the field." }
+tone/check:
   - answers: { on_brand: 0.82 }
 ```
 
-(A `fake/tutorial-07-slogan.yaml` s klíčem `napis` pro
-stavebnici samotnou — i ona je zlatý test.)
+(And `fake/tutorial-07-slogan.yaml` with the key `write` for the building block
+on its own — it is a golden test too.)
 
 ```bash
-agencast validate tutorial-07-skladani
-agencast run tutorial-07-skladani -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-07-skladani.yaml
+agencast validate tutorial-07-composition
+agencast run tutorial-07-composition -i product="vegan ice cream made from oat milk" --fake fake/tutorial-07-composition.yaml
 ```
 
 ```
-v pořádku: tutorial-07-skladani (4 kroky)
-běh 20260925-161539-tutorial-07-skladani-ffe2: úspěch · 0,0 s · 0,0003 USD
+valid: tutorial-07-composition (4 steps)
+run 20260929-190129-tutorial-07-composition-e97b: succeeded · 0.0 s · 0.0003 USD
 ```
 
 ```
-| 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
-| 3 | ton | call | ✓ | 0,0 s | 0,0001 | scénář kontrola-tonu (3 kroky) |
-| 4 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 0,0 s | 0,0003 |  |
+| 1 | propose | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | slogan | call | ✓ | 0.0 s | 0.0001 | scenario tutorial-07-slogan (2 steps) |
+| 3 | tone | call | ✓ | 0.0 s | 0.0001 | scenario tone-check (3 steps) |
+| 4 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 0.0 s | 0.0003 |  |
 …
-## Výstup
-- nazev: „Ovena"
-- slogan: „Ovena. Zmrzlina, co roste na poli."
-- on_brand: 0,82
+## Output
+- name: “Ovena”
+- slogan: “Ovena. Ice cream that grows in the field.”
+- on_brand: 0.82
 ```
 
-Záznam volaného scénáře je podsložka kroku `call`:
+The record of a called scenario is a subfolder of the `call` step:
 
 ```
 steps/
-  01-navrh/
+  01-propose/
   02-slogan/
-    inputs.json            co stavebnice dostala (po doplnění default: ton = hravy)
-    output.json            co vrátila
-    steps/01-napis/        prompt.md, calls/…
+    inputs.json            what the building block received (after filling in the default: tone = playful)
+    output.json            what it returned
+    steps/01-write/        prompt.md, calls/…
     steps/02-out/
-  03-ton/
+  03-tone/
     inputs.json
     output.json
-    steps/01-kontrola/ …
+    steps/01-check/ …
   04-out/
 ```
 
-A v `events.jsonl` mají kroky uvnitř cestu: `slogan/napis`,
-`ton/kontrola`, `ton/vysledek`…
+And in `events.jsonl` the steps inside have a path: `slogan/write`,
+`tone/check`, `tone/result`…
 
-### Co řekne `validate`, když smlouva nesedí
+### What `validate` says when the contract does not match
 
-Zkoušej v kopii (`rm -rf /tmp/pokus && mkdir -p /tmp/pokus && cp -r
-workflows /tmp/pokus/`) a spouštěj `agencast validate
-/tmp/pokus/workflows/scenarios/tutorial-07-skladani.yaml`.
+Try it in a copy (`rm -rf /tmp/experiment && mkdir -p /tmp/experiment && cp -r
+workflows /tmp/experiment/`) and run `agencast validate
+/tmp/experiment/workflows/scenarios/tutorial-07-composition.yaml`.
 
-Chybí povinný vstup (místo `nazev` předáš `produkt`):
-
-```
-config: tutorial-07-skladani.yaml: krok "slogan", call.inputs: scénář 'tutorial-07-slogan' nemá vstupy: produkt (má: nazev, ton)
-config: tutorial-07-skladani.yaml: krok "slogan", call.inputs: chybí povinné vstupy scénáře 'tutorial-07-slogan': nazev
-```
-
-Vstup navíc (`delka: kratky`):
+A required input is missing (you pass `product` instead of `name`):
 
 ```
-config: tutorial-07-skladani.yaml: krok "slogan", call.inputs: scénář 'tutorial-07-slogan' nemá vstupy: delka (má: nazev, ton)
+config: tutorial-07-composition.yaml: step "slogan", call.inputs: scenario 'tutorial-07-slogan' has no inputs named: product (has: name, tone)
+config: tutorial-07-composition.yaml: step "slogan", call.inputs: missing required inputs for scenario 'tutorial-07-slogan': name
 ```
 
-Špatný typ (`prah: vysoky` do `kontrola-tonu`):
+An extra input (`length: short`):
 
 ```
-config: tutorial-07-skladani.yaml: krok "ton", call.inputs.prah: vstup má typ number, hodnota je string
+config: tutorial-07-composition.yaml: step "slogan", call.inputs: scenario 'tutorial-07-slogan' has no inputs named: length (has: name, tone)
 ```
 
-Čtení výstupu, který stavebnice nemá (`steps.slogan.text` — jako
-u `ask` bez `schema`):
+The wrong type (`threshold: high` into `tone-check`):
 
 ```
-config: tutorial-07-skladani.yaml: krok "out", output.slogan: 'steps.slogan' nemá klíč 'text' (dostupné: slogan)
+config: tutorial-07-composition.yaml: step "tone", call.inputs.threshold: input has type number, value is string
+```
+
+Reading an output the building block does not have (`steps.slogan.text` — as
+with an `ask` without `schema`):
+
+```
+config: tutorial-07-composition.yaml: step "out", output.slogan: 'steps.slogan' has no key 'text' (available: slogan)
   {{ steps.slogan.text }}
                   ^
 ```
 
-Volání scénáře bez `callable: true` (`scenario: tutorial-02-nazev-a-slogan`):
+Calling a scenario without `callable: true` (`scenario: tutorial-02-name-and-slogan`):
 
 ```
-config: tutorial-07-skladani.yaml: krok "slogan", call.scenario: scénář 'tutorial-02-nazev-a-slogan' nemá callable: true — volat ho nejde (chrání schvalování v n8n, §5.2)
+config: tutorial-07-composition.yaml: step "slogan", call.scenario: scenario 'tutorial-02-name-and-slogan' has no callable: true — it cannot be called (protects approval in n8n, §5.2)
 ```
 
-**Cyklus.** Dej do kopie `tutorial-07-skladani.yaml` `callable: true`
-a do kopie `tutorial-07-slogan.yaml` před `out` krok, který volá
-skládání zpátky:
+**A cycle.** Put `callable: true` into the copy of
+`tutorial-07-composition.yaml`, and into the copy of `tutorial-07-slogan.yaml`,
+before `out`, a step that calls the composition back:
 
 ```yaml
-  - id: znovu
+  - id: again
     call:
-      scenario: tutorial-07-skladani
+      scenario: tutorial-07-composition
       inputs:
-        produkt: "{{ inputs.nazev }}"
+        product: "{{ inputs.name }}"
 ```
 
 ```
-config: tutorial-07-slogan.yaml: krok "znovu", call.scenario: cyklus call: tutorial-07-skladani → tutorial-07-slogan → tutorial-07-skladani
+config: tutorial-07-slogan.yaml: step "again", call.scenario: call cycle: tutorial-07-composition → tutorial-07-slogan → tutorial-07-composition
 ```
 
-Framework by jinak scénáře volal donekonečna (a platil). Kromě cyklů
-hlídá i hloubku vnoření: `limits.max_call_depth` v `config.yaml`, u nás 3.
+The framework would otherwise call the scenarios endlessly (and pay for it).
+Besides cycles it also guards the nesting depth: `limits.max_call_depth` in
+`config.yaml`, 3 in our project.
 
 ---
 
-## Krok 4 — `agencast serve`: framework jako webová služba
+## Step 4 — `agencast serve`: the framework as a web service
 
-V provozu běhy nespouštíš ty z terminálu, ale n8n: pošle `POST` s tím,
-co spustit, hned dostane `run_id` a výsledek mu přijde později na jeho
-adresu (callback). Přesně to dělá `agencast serve`.
+In operation, runs are not started by you from a terminal but by n8n: it sends
+a `POST` saying what to run, immediately gets a `run_id`, and the result
+arrives later at its address (the callback). That is exactly what
+`agencast serve` does.
 
-### Dvě tajné hodnoty do `.env`
+### Two secret values in `.env`
 
-`config.yaml` (vlastník) říká, jak se proměnné jmenují:
+`config.yaml` (the owner) says how the variables are named:
 
-```
+```yaml
 webhook:
   token_env: WEBHOOK_TOKEN
 callback:
   secret_env: CALLBACK_SECRET
 ```
 
-- **`WEBHOOK_TOKEN`** — heslo, které musí poslat každý, kdo chce běh
-  spustit (hlavička `Authorization: Bearer …`). Bez něj by ti kdokoli,
-  kdo zná adresu, pouštěl scénáře za tvoje peníze.
-- **`CALLBACK_SECRET`** — tajemství, kterým framework podepisuje
-  výsledek. Příjemce (n8n) podle podpisu pozná, že zprávu poslal opravdu
-  tvůj framework a nikdo ji cestou nezměnil.
+- **`WEBHOOK_TOKEN`** — the password that everyone who wants to start a run must
+  send (the header `Authorization: Bearer …`). Without it, anyone who knows the
+  address could run scenarios at your expense.
+- **`CALLBACK_SECRET`** — the secret the framework signs the result with. The
+  recipient (n8n) uses the signature to tell that the message was really sent by
+  your framework and that nobody changed it on the way.
 
-Hodnoty vygeneruj a připiš do `.env` **bez vypsání na obrazovku**
-(`.env` je v `.gitignore`, do gitu se nedostane):
+Generate the values and append them to `.env` **without printing them to the
+screen** (`.env` is in `.gitignore`, so it will not get into git):
 
 ```bash
 python3 -c "import secrets; open('.env', 'a').write(f'\nWEBHOOK_TOKEN={secrets.token_urlsafe(32)}\nCALLBACK_SECRET={secrets.token_urlsafe(32)}\n')"
@@ -352,49 +370,59 @@ WEBHOOK_TOKEN
 CALLBACK_SECRET
 ```
 
-`cut` ukáže jen jména. Hodnoty nikam nekopíruj ani nevypisuj — až
-budeš nastavovat n8n, vlož je rovnou do jeho credentials. Když máš
-z dílu 5 v terminálu `export CALLBACK_SECRET=…`, zruš ho
-(`unset CALLBACK_SECRET`): proměnná z prostředí má přednost před `.env`.
+`cut` shows only the names. Do not copy or print the values anywhere — when you
+set up n8n, paste them straight into its credentials. If you have
+`export CALLBACK_SECRET=…` in the terminal from part 5, remove it
+(`unset CALLBACK_SECRET`): a variable from the environment takes precedence
+over `.env`.
 
-Bez nich server nenastartuje:
+Without `WEBHOOK_TOKEN` the server does not start:
 
 ```
-config: chybí proměnná prostředí WEBHOOK_TOKEN (.env nebo prostředí)
-config: chybí proměnná prostředí CALLBACK_SECRET (.env nebo prostředí)
+config: missing environment variable WEBHOOK_TOKEN (.env or environment)
 ```
 
-### Tři terminály
+Without `CALLBACK_SECRET` it starts, but a request with a `callback_url` is
+rejected (422) — the framework will not accept a run whose callback it could
+not sign:
 
-**Terminál 1 — přijímač callbacku.** Místo n8n malý skript,
-[`docs/tutorials/callback-prijemac.py`](callback-prijemac.py) (jen
-stdlib): vypíše, co přišlo, a ověří podpis. Tajemství čte z `.env`.
+```
+{"error": "invalid request", "details": ["missing environment variable CALLBACK_SECRET (callback signature)"]}
+```
+
+### Three terminals
+
+**Terminal 1 — the callback receiver.** Instead of n8n, a small script,
+[`docs/tutorials/callback-receiver.py`](callback-receiver.py) (stdlib only): it
+prints what arrived and verifies the signature. It reads the secret from the
+environment (or from a `.env` in the repository root), so pass it from the
+tutorial's `.env` without printing it:
 
 ```bash
-python3 docs/tutorials/callback-prijemac.py
+CALLBACK_SECRET=$(sed -n 's/^CALLBACK_SECRET=//p' .env) python3 ../../docs/tutorials/callback-receiver.py
 ```
 
 ```
-čekám na callback na http://127.0.0.1:8799/ (Ctrl+C = konec)
+waiting for a callback at http://127.0.0.1:8799/ (Ctrl+C to stop)
 ```
 
-**Terminál 2 — server**, zatím s falešným poskytovatelem a fixturou
-z kroku 3:
+**Terminal 2 — the server**, for now with the fake provider and the fixture
+from step 3:
 
 ```bash
-agencast serve --fake fake/tutorial-07-skladani.yaml
+agencast serve --fake fake/tutorial-07-composition.yaml
 ```
 
 ```
-agencast serve: http://127.0.0.1:8080 — POST /runs, GET /runs/<run_id> · ve frontě 0 běhů · záznamy …/runs · falešný poskytovatel
+agencast serve: http://127.0.0.1:8080 — POST /runs, GET /runs/<run_id>, GET /projects/… · workers 1 · queued 0 runs · run records …/runs · fake provider
 ```
 
-Poslouchá jen na `127.0.0.1` (výchozí `--host`) — z jiného počítače se
-k němu nedostaneš. Tak to nech: server je HTTP bez šifrování a token jde
-v hlavičce; ven patří jen za reverzní proxy s HTTPS.
+It listens only on `127.0.0.1` (the default `--host`) — you cannot reach it from
+another computer. Leave it that way: the server is plain HTTP and the token
+travels in a header; it belongs outside only behind a reverse proxy with HTTPS.
 
-**Terminál 3 — ty jako n8n.** Token si načti do proměnné terminálu
-(nevypíše se):
+**Terminal 3 — you as n8n.** Load the token into a terminal variable (it is not
+printed):
 
 ```bash
 TOKEN=$(sed -n 's/^WEBHOOK_TOKEN=//p' .env)
@@ -402,359 +430,364 @@ TOKEN=$(sed -n 's/^WEBHOOK_TOKEN=//p' .env)
 
 ---
 
-## Krok 5 — `POST /runs`: 401, 422, 202
+## Step 5 — `POST /runs`: 401, 422, 202
 
-Bez tokenu (nebo se špatným):
+Without a token (or with a wrong one):
 
 ```bash
 curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:8080/runs \
   -H 'Content-Type: application/json' \
-  -d '{"scenario": "tutorial-07-skladani", "inputs": {"produkt": "veganská zmrzlina"}, "callback_url": "http://127.0.0.1:8799/cb"}'
+  -d '{"scenario": "tutorial-07-composition", "inputs": {"product": "vegan ice cream"}, "callback_url": "http://127.0.0.1:8799/cb"}'
 ```
 
 ```
-{"error": "chybí nebo nesedí token (hlavička Authorization: Bearer …)"}
+{"error": "missing or invalid token (Authorization: Bearer … header)"}
 HTTP 401
 ```
 
-S tokenem, ale bez povinného vstupu (`"inputs": {}`):
+With a token, but without the required input (`"inputs": {}`):
 
 ```bash
 curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:8080/runs \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"scenario": "tutorial-07-skladani", "inputs": {}, "callback_url": "http://127.0.0.1:8799/cb"}'
+  -d '{"scenario": "tutorial-07-composition", "inputs": {}, "callback_url": "http://127.0.0.1:8799/cb"}'
 ```
 
 ```
-{"error": "scénář 'tutorial-07-skladani' nebo jeho vstupy neprošly kontrolou", "details": ["chybí povinný vstup 'produkt' (string)"]}
+{"error": "scenario 'tutorial-07-composition' or its inputs failed validation", "details": ["missing required input 'product' (string)"]}
 HTTP 422
 ```
 
-Další 422, které stojí za vidění (měníš jen tělo):
+More 422s that are worth seeing (you change only the body):
 
-| Tělo | Odpověď |
+| Body | Response |
 |---|---|
-| `"scenario": "tutorial-07-skladanii"` | `{"error": "neznámý scénář 'tutorial-07-skladanii'", "details": []}` |
-| `"inputs": {"produkt": 42}` | `"details": ["vstup 'produkt' má být string, dostal number"]` |
-| `"callback_url": "http://example.com/cb"` | `"details": ["callback_url: chybí nebo nezačíná https://"]` |
-| navíc `"priorita": "vysoka"` | `"details": ["neznámé pole 'priorita' (povolená: scenario, inputs, callback_url, request_key)"]` |
+| `"scenario": "tutorial-07-compositionn"` | `{"error": "unknown scenario 'tutorial-07-compositionn'", "details": []}` |
+| `"inputs": {"product": 42}` | `"details": ["input 'product' must be string, got number"]` |
+| `"callback_url": "http://example.com/cb"` | `"details": ["callback_url: missing or does not start with https://"]` |
+| additionally `"priority": "high"` | `"details": ["unknown field 'priority' (allowed: scenario, inputs, callback_url, request_key)"]` |
 
-Všechno, co jde poznat bez spuštění — token, tvar těla, vstupy, `validate`
-scénáře —, se odmítne **hned**. Pak nevzniká `run_id` ani callback;
-n8n má chybu v odpovědi a nemusí na nic čekat.
+Everything that can be detected without running — the token, the shape of the
+body, the inputs, the scenario's `validate` — is rejected **immediately**. Then
+no `run_id` and no callback are created; n8n has the error in the response and
+does not have to wait for anything.
 
-`callback_url` smí být jen `https://`. Jediná výjimka je
-`http://127.0.0.1` — pro zkoušky jako tahle.
+`callback_url` may only be `https://`. The one exception is `http://127.0.0.1` —
+for experiments like this one.
 
-Správný požadavek, tentokrát s `request_key`:
+A correct request, this time with a `request_key`:
 
 ```bash
 curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:8080/runs \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"scenario": "tutorial-07-skladani", "inputs": {"produkt": "veganská zmrzlina z ovesného mléka"}, "callback_url": "http://127.0.0.1:8799/cb", "request_key": "tutorial-07-1"}'
+  -d '{"scenario": "tutorial-07-composition", "inputs": {"product": "vegan ice cream made from oat milk"}, "callback_url": "http://127.0.0.1:8799/cb", "request_key": "tutorial-07-1"}'
 ```
 
 ```
-{"run_id": "20260925-161808-tutorial-07-skladani-9db3", "queue_position": 1}
+{"run_id": "20260929-190232-tutorial-07-composition-ad60", "queue_position": 1}
 HTTP 202
 ```
 
-**202 = přijato**, ne hotovo. Běh je ve frontě (`queue_position` 1 =
-je na řadě). Běhy jdou jeden po druhém.
+**202 = accepted**, not finished. The run is in the queue (`queue_position` 1 =
+it is next). Runs go one after another.
 
-### Callback
+### The callback
 
-V terminálu 1 se hned objeví:
+In terminal 1 this appears right away:
 
 ```
-POST /cb  X-Run-Id: 20260925-161808-tutorial-07-skladani-9db3
-podpis: sedí
+POST /cb  X-Run-Id: 20260929-190232-tutorial-07-composition-ad60
+signature: valid
 {
-  "run_id": "20260925-161808-tutorial-07-skladani-9db3",
-  "scenario": "tutorial-07-skladani",
+  "run_id": "20260929-190232-tutorial-07-composition-ad60",
+  "scenario": "tutorial-07-composition",
   "request_key": "tutorial-07-1",
   "status": "succeeded",
   "outputs": {
-    "nazev": "Ovena",
-    "slogan": "Ovena. Zmrzlina, co roste na poli.",
+    "name": "Ovena",
+    "slogan": "Ovena. Ice cream that grows in the field.",
     "on_brand": 0.82
   },
   "error": null,
   "warnings": [],
   "cost_usd": 0.0003,
   "duration_s": 0.004,
-  "report_url": "file:///…/outputs/20260925-161808-tutorial-07-skladani-9db3-d6adb4c4f6710c8bc3612b66c7543c25/report.html",
-  "sent_at": "2026-09-25T16:18:08.704Z"
+  "report_url": "file:///…/outputs/20260929-190232-tutorial-07-composition-ad60-d204c61d8af9461e26c990aba1d00f26/report.html",
+  "sent_at": "2026-09-29T19:02:32.733Z"
 }
 ```
 
-Stejný tvar jako v dílu 5 (pole v tabulce tam). Nové je `report_url`
-(krok 7). Jak přijímač ověřuje podpis, je v jeho kódu v deseti řádcích:
-spočítá HMAC-SHA256 **přesných bajtů těla** s `CALLBACK_SECRET`
-a porovná ho s hlavičkou `X-Signature` funkcí `hmac.compare_digest`
-(porovnání, které neprozradí délkou trvání, kde se liší). Když podpis
-nesedí, vypíše „NESEDÍ" a odpoví 401 — framework to pak zkusí ještě
-dvakrát a zapíše `callback_failed` (díl 5).
+The same shape as in part 5 (the fields are in the table there). New is
+`report_url` (step 7). How the receiver verifies the signature is in its code,
+in ten lines: it computes the HMAC-SHA256 of the **exact bytes of the body**
+with `CALLBACK_SECRET` and compares it with the `X-Signature` header using
+`hmac.compare_digest` (a comparison whose duration does not reveal where they
+differ). When the signature does not match, it prints "INVALID" and answers
+401 — the framework then tries twice more and records `callback_failed`
+(part 5).
 
 ### `GET /runs/<run_id>`
 
-Když callback nepřišel (n8n zrovna nejelo), stav se dá zjistit:
+When the callback did not arrive (n8n was down at that moment), the state can
+be looked up:
 
 ```bash
-curl -s -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/runs/20260925-161808-tutorial-07-skladani-9db3
+curl -s -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/runs/20260929-190232-tutorial-07-composition-ad60
 ```
 
 ```
-{"run_id": "20260925-161808-tutorial-07-skladani-9db3", "scenario": "tutorial-07-skladani", "request_key": "tutorial-07-1", "status": "succeeded", "outputs": {"nazev": "Ovena", "slogan": "Ovena. Zmrzlina, co roste na poli.", "on_brand": 0.82}, "error": null, "warnings": [], "cost_usd": 0.0003, "duration_s": 0.004, "report_url": "file:///…/report.html", "sent_at": "2026-09-25T16:18:08.704Z", "callback_failed": false}
+{"run_id": "20260929-190232-tutorial-07-composition-ad60", "scenario": "tutorial-07-composition", "request_key": "tutorial-07-1", "status": "succeeded", "outputs": {"name": "Ovena", "slogan": "Ovena. Ice cream that grows in the field.", "on_brand": 0.82}, "error": null, "warnings": [], "cost_usd": 0.0003, "duration_s": 0.004, "report_url": "file:///…/report.html", "sent_at": "2026-09-29T19:02:32.733Z", "callback_failed": false}
 HTTP 200
 ```
 
-Hotový běh = tělo callbacku + `callback_failed`. Dokud běh čeká nebo
-běží, vrací `{"status": "queued", "queue_position": …}`, resp.
-`{"status": "running"}`. Neznámé `run_id` → 404. I `GET` chce token.
+A finished run = the callback body + `callback_failed`. While the run waits or
+runs, it returns `{"status": "queued", "queue_position": …}` or
+`{"status": "running"}` respectively. An unknown `run_id` → 404. `GET` needs the
+token too.
 
 ---
 
-## Krok 6 — `request_key`: pošli to dvakrát
+## Step 6 — `request_key`: send it twice
 
-n8n někdy pošle stejný požadavek znovu — vypadne síť dřív, než dostane
-odpověď, a jeho HTTP Request node to zopakuje. Pošli úplně stejný
-`curl` (se stejným `request_key`) podruhé:
+n8n sometimes sends the same request again — the network drops before it
+receives the response, and its HTTP Request node repeats it. Send exactly the
+same `curl` (with the same `request_key`) a second time:
 
 ```
-{"run_id": "20260925-161808-tutorial-07-skladani-9db3", "queue_position": null}
+{"run_id": "20260929-190232-tutorial-07-composition-ad60", "queue_position": null}
 HTTP 200
 ```
 
-**200 místo 202**, původní `run_id`, žádný nový běh, žádný druhý
-callback. Server si klíč pamatuje v `runs/_queue/keys/` (jeden soubor na
-klíč), takže to platí i po restartu serveru.
+**200 instead of 202**, the original `run_id`, no new run, no second callback.
+The server remembers the key in `runs/_queue/keys/` (one file per key), so this
+holds even after a server restart.
 
-Pozor: rozhoduje **jen klíč**. Požadavek se stejným `request_key`, ale
-jinými vstupy dostane taky 200 a původní běh. n8n proto musí dávat klíč,
-který patří k jednomu požadavku (např. id svého běhu), ne k tématu.
+Watch out: **only the key** decides. A request with the same `request_key` but
+different inputs also gets 200 and the original run. That is why n8n must send a
+key that belongs to one request (e.g. the id of its own run), not to a topic.
 
 ---
 
-## Krok 7 — `report.html`
+## Step 7 — `report.html`
 
-Každý běh má kromě `summary.md` i `report.html` — jeden soubor, CSS
-uvnitř, žádné externí zdroje, takže ho jde poslat e-mailem nebo otevřít
-offline. Framework ho zkopíruje do úložiště a jeho adresu dá do
-callbacku (`report_url`). U nás `storage.type: local`, takže je to
-`file://` cesta:
+Besides `summary.md`, every run also has `report.html` — a single file, CSS
+inside, no external resources, so it can be sent by e-mail or opened offline.
+The framework copies it to the storage and puts its address into the callback
+(`report_url`). In our project `storage.type: local`, so it is a `file://`
+path:
 
 ```bash
-xdg-open "$(ls -d outputs/20260925-161808-tutorial-07-skladani-9db3-*)/report.html"   # macOS: open
+xdg-open "$(ls -d outputs/20260929-190232-tutorial-07-composition-ad60-*)/report.html"   # macOS: open
 ```
 
-(Nebo zkopíruj `report_url` do prohlížeče.) Nahoře stejný souhrn jako
-v `summary.md`, pod každým krokem rozbalovací `<details>`:
+(Or copy `report_url` into a browser.) At the top is the same summary as in
+`summary.md`, under each step an expandable `<details>`:
 
 ```
 Prompt
-Volání 1 · chytry → anthropic/claude-haiku-4.5 · stop · 264+15 tokenů · 0,0003 USD · 1,4 s
-Výstup kroku
+Call 1 · smart → anthropic/claude-haiku-4.5 · stop · 264+15 tokens · 0.0003 USD · 1.4 s
+Step output
 ```
 
-(Tenhle řádek je z ostrého běhu v kroku 9.) Kroky volaných scénářů jsou
-v reportu taky, včetně volání Jevu. Base64 obrázků ani tajné hodnoty
-v něm nejsou (stejná pravidla jako záznam, díl 5).
+(This line is from the live run in step 9.) The steps of called scenarios are in
+the report too, including the Jev calls. Base64 images and secret values are not
+in it (the same rules as the run record, part 5).
 
-Proč to v callbacku je: v n8n uvidíš jen `outputs` a `error`. Když
-výsledek vypadá divně, `report_url` je jedno kliknutí ke všemu, co model
-dostal a vrátil. S úložištěm R2 (vlastník, `config.yaml`) z toho bude
-veřejná HTTPS adresa s 32 náhodnými znaky, kterou nikdo neuhodne.
+Why it is in the callback: in n8n you see only `outputs` and `error`. When a
+result looks odd, `report_url` is one click to everything the model received and
+returned. With R2 storage (the owner, `config.yaml`) it becomes a public HTTPS
+address with 32 random characters that nobody can guess.
 
 ---
 
-## Krok 8 — `dedupe_key`: vedlejší účinek nejvýš jednou
+## Step 8 — `dedupe_key`: a side effect at most once
 
-`request_key` chrání před **stejným požadavkem** dvakrát. Nechrání ale
-před **dvěma různými požadavky**, které udělají totéž — typicky když
-n8n spustí workflow znovu (ruční „Retry", nový běh = nový klíč). U kroku,
-který jen něco napíše do `outputs`, to nevadí. U kroku s **vedlejším
-účinkem** — zapíše soubor, publikuje příspěvek, pošle e-mail — ano:
-příspěvek by vyšel dvakrát.
+`request_key` protects against **the same request** twice. But it does not
+protect against **two different requests** that do the same thing — typically
+when n8n starts a workflow again (a manual "Retry", a new run = a new key). For
+a step that only writes something into `outputs`, that does not matter. For a
+step with a **side effect** — it writes a file, publishes a post, sends an
+e-mail — it does: the post would go out twice.
 
-Na to je `dedupe_key` u kroku `task`.
-`workflows/scenarios/tutorial-07-archiv.yaml` (archivář z dílu 6):
+That is what `dedupe_key` on a `task` step is for.
+`workflows/scenarios/tutorial-07-archive.yaml` (the archivist from part 6):
 
 ```yaml
 version: 1
-name: tutorial-07-archiv
-description: Zapíše poznámku dne do archivu nejvýš jednou, i když přijde požadavek znovu (tutoriál, díl 7)
+name: tutorial-07-archive
+description: Writes the day's note to the archive at most once, even when the request comes again (tutorial, part 7)
 
 inputs:
-  den:
+  day:
     type: string
     required: true
-    description: Datum zápisu, např. 2026-09-25
+    description: Date of the entry, e.g. 2026-09-25
   text:
     type: string
     required: true
-    description: Poznámka volným textem
+    description: The note as free text
 
 outputs:
-  zprava:
+  message:
     type: string
-    description: Co archivář zapsal (při opakování odpověď z prvního běhu)
+    description: What the archivist wrote (on a repeat, the reply from the first run)
 
 steps:
-  # 1. Krok s vedlejším účinkem (zápis). dedupe_key: pro stejný den proběhne
-  #    nejvýš jednou — další běh vezme výstup ze <runs>/_dedupe/ a krok přeskočí.
-  - id: zapis
-    dedupe_key: "archiv-{{ inputs.den }}"
+  # 1. A step with a side effect (writing). dedupe_key: for the same day it runs
+  #    at most once — the next run takes the output from <runs>/_dedupe/ and skips the step.
+  - id: write
+    dedupe_key: "archive-{{ inputs.day }}"
     task:
-      agent: tutorial-archivar
+      agent: tutorial-archivist
       prompt: |
-        Den: {{ inputs.den }}
-        Poznámka: {{ inputs.text }}
-        Zapiš poznámku do archivu a zkontroluj ji.
+        Day: {{ inputs.day }}
+        Note: {{ inputs.text }}
+        Write the note to the archive and check it.
       max_turns: 5
 
   - id: out
     output:
-      zprava: "{{ steps.zapis.text }}"
+      message: "{{ steps.write.text }}"
 ```
 
-Fixtura `fake/tutorial-07-archiv.yaml` má stejné tahy
-jako `tutorial-06-archiv`. Restartuj server (terminál 2, Ctrl+C) s ní:
+The fixture `fake/tutorial-07-archive.yaml` has the same turns as
+`tutorial-06-archive`. Restart the server (terminal 2, Ctrl+C) with it:
 
 ```bash
-agencast serve --fake fake/tutorial-07-archiv.yaml
+agencast serve --fake fake/tutorial-07-archive.yaml
 ```
 
-a pošli dva **různé** požadavky (`n8n-5001`, `n8n-5002`) na stejný den:
+and send two **different** requests (`n8n-5001`, `n8n-5002`) for the same day:
 
 ```bash
 for k in n8n-5001 n8n-5002; do
   curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:8080/runs \
     -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-    -d "{\"scenario\": \"tutorial-07-archiv\", \"inputs\": {\"den\": \"2026-09-25\", \"text\": \"Ráno pršelo. Odpoledne jsme dopsali díl 7.\"}, \"callback_url\": \"http://127.0.0.1:8799/cb\", \"request_key\": \"$k\"}"
+    -d "{\"scenario\": \"tutorial-07-archive\", \"inputs\": {\"day\": \"2026-09-25\", \"text\": \"It rained in the morning. In the afternoon we finished part 7.\"}, \"callback_url\": \"http://127.0.0.1:8799/cb\", \"request_key\": \"$k\"}"
   sleep 3
 done
 ```
 
 ```
-{"run_id": "20260925-161842-tutorial-07-archiv-5637", "queue_position": 1}
+{"run_id": "20260929-190253-tutorial-07-archive-4a37", "queue_position": 1}
 HTTP 202
-{"run_id": "20260925-161845-tutorial-07-archiv-0e28", "queue_position": 1}
+{"run_id": "20260929-190256-tutorial-07-archive-42ac", "queue_position": 1}
 HTTP 202
 ```
 
-Dva běhy, dva callbacky, oba `succeeded` se stejnou `zprava`. Rozdíl je
-v ceně (`cost_usd` 0.0004 vs. **0.0**) a v `summary.md` druhého běhu:
+Two runs, two callbacks, both `succeeded` with the same `message`. The
+difference is in the cost (`cost_usd` 0.0004 vs. **0.0**) and in the
+`summary.md` of the second run:
 
 ```
-| 1 | zapis | task | přeskočeno |  |  | dedupe_key 'archiv-2026-09-25': krok už proběhl v běhu 20260925-161842-tutorial-07-archiv-5637 |
-| 2 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 0,0 s | 0 |  |
+| 1 | write | task | skipped |  |  | dedupe_key 'archive-2026-09-25': step already ran in run 20260929-190253-tutorial-07-archive-4a37 |
+| 2 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 0.0 s | 0 |  |
 ```
 
-Druhý běh nemá složku `work/` ani `mcp/` — server se vůbec nespustil.
-Výstup kroku se vzal ze souboru v `runs/_dedupe-fake/` (běhy s `--fake`
-mají od `maw` 0.2.2 vlastní složku, ostré běhy `runs/_dedupe/` — viz
-[níž](#pozor---fake-má-vlastní-runs_dedupe-fake)):
+The second run has no `work/` or `mcp/` folder — the server did not start at
+all. The step output was taken from a file in `runs/_dedupe-fake/` (runs with
+`--fake` have their own folder since `maw` 0.2.2, live runs use
+`runs/_dedupe/` — see [below](#watch-out---fake-has-its-own-runs_dedupe-fake)):
 
 ```bash
 cat runs/_dedupe-fake/*.json
 ```
 
 ```
-{"state": "succeeded", "run_id": "20260925-161842-tutorial-07-archiv-5637", "output": {"text": "Zapsáno: 2026-09-25.md a obsah.md. Zápis má 2 věty."}}
+{"state": "succeeded", "run_id": "20260929-190253-tutorial-07-archive-4a37", "output": {"text": "Written: 2026-09-25.md and index.md. The entry has 2 sentences."}}
 ```
 
-Jméno souboru je SHA-256 ze `scénář/krok/klíč` — stejný den v jiném
-scénáři (třeba `tutorial-06-archiv`) se nesplete.
+The file name is the SHA-256 of `scenario/step/key` — the same day in another
+scenario (say `tutorial-06-archive`) will not clash.
 
-### Když krok spadne uprostřed
+### When a step crashes in the middle
 
-Framework zapíše `"state": "started"` **před prvním voláním nástroje**
-a `succeeded` až po úspěšném konci kroku. Co když krok mezitím spadne?
-Nasimuluj to z CLI — `/tmp/preruseny.yaml` zapíše soubor a pak se točí,
-až dojdou tahy:
+The framework writes `"state": "started"` **before the first tool call** and
+`succeeded` only after the step has ended successfully. What if the step
+crashes in between? Simulate it from the CLI — `/tmp/interrupted.yaml` writes a
+file and then keeps looping until the turns run out:
 
 ```yaml
-# Zapíše soubor a pak už jen volá nástroje, až dojdou tahy (max_turns) — krok selže po vedlejším účinku.
-zapis:
+# Writes a file and then only keeps calling tools until the turns run out (max_turns) — the step fails after the side effect.
+write:
   - tool_calls:
       - name: filesystem__write_file
-        arguments: { path: 2026-09-26.md, content: "# Zápis 2026-09-26\n- Rozepsáno.\n" }
+        arguments: { path: 2026-09-26.md, content: "# Entry 2026-09-26\n- Draft.\n" }
   - tool_calls:
       - { name: filesystem__list_directory, arguments: { path: . } }
 ```
 
 ```bash
-agencast run tutorial-07-archiv -i den=2026-09-26 -i text="Rozepsáno." --fake /tmp/preruseny.yaml
-agencast run tutorial-07-archiv -i den=2026-09-26 -i text="Rozepsáno." --fake /tmp/preruseny.yaml
+agencast run tutorial-07-archive -i day=2026-09-26 -i text="Draft." --fake /tmp/interrupted.yaml
+agencast run tutorial-07-archive -i day=2026-09-26 -i text="Draft." --fake /tmp/interrupted.yaml
 ```
 
 ```
-budget v kroku zapis: max_turns 5 vyčerpán bez finální odpovědi (model dál volá nástroje)
-běh 20260925-161858-tutorial-07-archiv-63f7: chyba · 0,8 s · 0,0005 USD
+budget in step write: max_turns 5 exhausted without a final answer (model keeps calling tools)
+run 20260929-190315-tutorial-07-archive-3cd9: failed · 1.0 s · 0.0005 USD
 …
-config v kroku zapis: krok mohl proběhnout jen částečně (dedupe_key 'archiv-2026-09-26', běh 20260925-161858-tutorial-07-archiv-63f7), ověř ručně a smaž …/runs/_dedupe-fake/bb7e315cde46b31154a770c34ace3ddf790d1dca42166e01502c7b2592e8d3a5.json
-běh 20260925-161859-tutorial-07-archiv-8627: chyba · 0,0 s · 0 USD
+config in step write: step may have run only partially (dedupe_key 'archive-2026-09-26', run 20260929-190315-tutorial-07-archive-3cd9), check manually and delete …/runs/_dedupe-fake/2f3d332e9f17953dc0ebe9557a55653cd0f503dc80ccf668a0470750b1847dff.json
+run 20260929-190317-tutorial-07-archive-d83a: failed · 0.0 s · 0 USD
 ```
 
-Druhý běh krok **nespustil**. Framework neví, jestli první běh stihl
-publikovat (tady stihl zapsat soubor) — a hádat nebude. Podívej se do
-záznamu prvního běhu (`tool_call`, `work/`), a až víš, že je to
-v pořádku, soubor smaž. Nic se tiše neopakuje.
+The second run did **not** start the step. The framework does not know whether
+the first run managed to publish (here it managed to write the file) — and it
+will not guess. Look into the record of the first run (`tool_call`, `work/`),
+and once you know it is fine, delete the file. Nothing is silently repeated.
 
-### Pozor: `--fake` má vlastní `runs/_dedupe-fake/`
+### Watch out: `--fake` has its own `runs/_dedupe-fake/`
 
-Falešné běhy zapisují dedupe do `runs/_dedupe-fake/`, ostré do
-`runs/_dedupe/`, a nikdy si je nečtou navzájem. Zkouška s `--fake` tak
-ostrý vedlejší účinek nepřeskočí: ostrý běh na den, který jsi zkoušel
-s `--fake`, krok `zapis` opravdu provede. Falešný běh poznáš v
-`summary.md` podle řádku pod hlavičkou:
+Fake runs write the dedupe state to `runs/_dedupe-fake/`, live runs to
+`runs/_dedupe/`, and they never read each other's. So a rehearsal with `--fake`
+does not skip a live side effect: a live run for a day you rehearsed with
+`--fake` really performs the `write` step. You recognise a fake run in
+`summary.md` by the line under the header:
 
 ```
-**Falešný běh** (`--fake`) — odpovědi modelů jsou vymyšlené, dedupe v `_dedupe-fake/`.
+**Fake run** (`--fake`) — model responses are fabricated, dedupe in `_dedupe-fake/`.
 ```
 
-a v `events.jsonl` podle `"fake": true` v `run_started`. (V `maw` 0.2.1
-sdílely oba režimy `runs/_dedupe/` a ostrý běh po zkoušce vrátil
-vymyšlený výstup — BUGS.md, bod 8.)
+and in `events.jsonl` by `"fake": true` in `run_started`. (In `maw` 0.2.1 both
+modes shared `runs/_dedupe/`, and a live run after a rehearsal returned a made-up
+output — BUGS.md, item 8.)
 
 ---
 
-## Krok 9 — ostrý běh přes webhook (volitelný)
+## Step 9 — a live run through the webhook (optional)
 
-Zastav server (Ctrl+C) a pusť ho **bez** `--fake`:
+Stop the server (Ctrl+C) and start it **without** `--fake`:
 
 ```bash
 agencast serve
 ```
 
 ```
-agencast serve: http://127.0.0.1:8080 — POST /runs, GET /runs/<run_id> · ve frontě 0 běhů · záznamy …/runs
+agencast serve: http://127.0.0.1:8080 — POST /runs, GET /runs/<run_id>, GET /projects/… · workers 1 · queued 0 runs · run records …/runs
 ```
 
 ```bash
-curl -s -w '\nHTTP %{http_code} za %{time_total} s\n' -X POST http://127.0.0.1:8080/runs \
+curl -s -w '\nHTTP %{http_code} in %{time_total} s\n' -X POST http://127.0.0.1:8080/runs \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"scenario": "tutorial-07-skladani", "inputs": {"produkt": "veganská zmrzlina z ovesného mléka"}, "callback_url": "http://127.0.0.1:8799/cb", "request_key": "tutorial-07-ostry-1"}'
+  -d '{"scenario": "tutorial-07-composition", "inputs": {"product": "vegan ice cream made from oat milk"}, "callback_url": "http://127.0.0.1:8799/cb", "request_key": "tutorial-07-live-1"}'
 ```
 
 ```
-{"run_id": "20260925-161929-tutorial-07-skladani-217a", "queue_position": 1}
-HTTP 202 za 0.032238 s
+{"run_id": "20260925-161929-tutorial-07-composition-217a", "queue_position": 1}
+HTTP 202 in 0.032238 s
 ```
 
-Callback za necelé 4 s:
+The callback in under 4 s:
 
 ```
-POST /cb  X-Run-Id: 20260925-161929-tutorial-07-skladani-217a
-podpis: sedí
+POST /cb  X-Run-Id: 20260925-161929-tutorial-07-composition-217a
+signature: valid
 {
   …
   "status": "succeeded",
   "outputs": {
-    "nazev": "Ovesový krém",
-    "slogan": "Ovesový krém - zdraví v každé lžici!",
+    "name": "Oat Cream",
+    "slogan": "Oat Cream - health in every spoonful!",
     "on_brand": 0.25
   },
   "error": null,
@@ -766,203 +799,205 @@ podpis: sedí
 ```
 
 ```
-| 1 | navrh | ask | ✓ | 1,4 s | 0,0003 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | slogan | call | ✓ | 2,0 s | 0,0004 | scénář tutorial-07-slogan (2 kroky) |
-| 3 | ton | call | ✓ | 0,4 s | 0,00002 | scénář kontrola-tonu (3 kroky) |
+| 1 | propose | ask | ✓ | 1.4 s | 0.0003 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | slogan | call | ✓ | 2.0 s | 0.0004 | scenario tutorial-07-slogan (2 steps) |
+| 3 | tone | call | ✓ | 0.4 s | 0.00002 | scenario tone-check (3 steps) |
 ```
 
-`on_brand` 0,25 — slogan s vykřičníkem a „zdraví v každé lžici" není
-tón Lumen. Běh přesto skončil úspěchem: `kontrola-tonu` jen měří,
-rozhoduje volající, a `tutorial-07-skladani` žádný `fail` nemá. Kdybys
-chtěl nevhodný text zastavit, přidej za `ton` krok jako v
-`ukazka-call.yaml`:
+`on_brand` 0.25 — a slogan with an exclamation mark and "health in every
+spoonful" is not the Lumen tone. The run still ended in success: `tone-check`
+only measures, the caller decides, and `tutorial-07-composition` has no `fail`.
+If you wanted to stop an unsuitable text, add a step after `tone` as in the
+showcase's `demo-call.yaml`:
 
 ```yaml
   - id: stop
-    when: not steps.ton.v_poradku
-    fail: "Slogan neodpovídá značce (on_brand = {{ steps.ton.on_brand }})"
+    when: not steps.tone.passed
+    fail: "The slogan does not match the brand (on_brand = {{ steps.tone.on_brand }})"
 ```
 
-Na konci zastav server i přijímač (Ctrl+C).
+At the end, stop both the server and the receiver (Ctrl+C).
 
 ---
 
-## Krok 10 — co z toho potřebuje n8n
+## Step 10 — what n8n needs from this
 
-n8n tady nenastavujeme, jen co v něm bude. Jde to postavit ze dvou
-workflow (fakta o uzlech z dokumentace n8n, repozitář `n8n-io/n8n-docs`,
-stránky Webhook, Wait a Crypto node, staženo 2026-09-25):
+We do not set up n8n here, only what will be in it. It can be built from two
+workflows (facts about the nodes are from the n8n documentation, repository
+`n8n-io/n8n-docs`, the Webhook, Wait and Crypto node pages, fetched
+2026-09-25):
 
-**Workflow A — spuštění**
+**Workflow A — starting**
 
-1. **Webhook node** (nebo jiný spouštěč — formulář, plán) přijme
-   zadání, např. `produkt`.
-2. **HTTP Request node**: `POST https://<tvůj-agencast>/runs`, hlavička
-   `Authorization: Bearer <WEBHOOK_TOKEN>` (ulož jako credential typu
-   Header Auth, ne do textu uzlu), tělo:
+1. A **Webhook node** (or another trigger — a form, a schedule) receives the
+   input, e.g. `product`.
+2. An **HTTP Request node**: `POST https://<your-agencast>/runs`, the header
+   `Authorization: Bearer <WEBHOOK_TOKEN>` (store it as a Header Auth
+   credential, not in the node text), the body:
 
    ```json
    {
-     "scenario": "tutorial-07-skladani",
-     "inputs": {"produkt": "…z kroku 1…"},
-     "callback_url": "https://<n8n>/webhook/agencast-vysledek",
-     "request_key": "n8n-<id běhu n8n>"
+     "scenario": "tutorial-07-composition",
+     "inputs": {"product": "…from step 1…"},
+     "callback_url": "https://<n8n>/webhook/agencast-result",
+     "request_key": "n8n-<n8n run id>"
    }
    ```
 
-   Odpověď 202 → hotovo, `run_id` si ulož. 401/422 → chyba je hned
-   v odpovědi (`details`), callback nepřijde.
+   A 202 response → done, save the `run_id`. 401/422 → the error is right in the
+   response (`details`), no callback will come.
 
-**Workflow B — výsledek**
+**Workflow B — the result**
 
-3. **Webhook node** na cestě `agencast-vysledek`, metoda `POST`, volba
-   **Raw Body** zapnutá (podpis se počítá z přesných bajtů těla, ne
-   z JSON, který n8n rozebere a znovu složí — díl 5), odpověď
-   *Immediately* (framework čeká jen na 2xx).
-4. **Crypto node**, akce **Hmac**, **Binary File** zapnuté (raw tělo
-   z kroku 3 přijde jako binární data), typ **SHA256**, kódování **HEX**,
-   tajemství `CALLBACK_SECRET` v Crypto credential; výsledek porovnej
-   (IF node) s hlavičkou `x-signature` bez předpony `sha256=`. Nesedí →
-   konec, zprávě nevěř.
-5. **IF / Switch** podle `status` a `error.class`: `succeeded` → dál
-   (schválení, publikace), `fail` → záměrné zastavení scénářem (např.
-   tón), ostatní třídy → porucha, upozornit člověka. `report_url` přilož
-   do upozornění.
+3. A **Webhook node** on the path `agencast-result`, method `POST`, the
+   **Raw Body** option on (the signature is computed from the exact bytes of the
+   body, not from the JSON that n8n parses and reassembles — part 5), the
+   response *Immediately* (the framework only waits for a 2xx).
+4. A **Crypto node**, action **Hmac**, **Binary File** on (the raw body from
+   step 3 arrives as binary data), type **SHA256**, encoding **HEX**, the secret
+   `CALLBACK_SECRET` in a Crypto credential; compare the result (IF node) with
+   the `x-signature` header without the `sha256=` prefix. No match → stop, do
+   not trust the message.
+5. An **IF / Switch** on `status` and `error.class`: `succeeded` → continue
+   (approval, publishing), `fail` → an intentional stop by the scenario (e.g.
+   the tone), other classes → a malfunction, alert a human. Attach `report_url`
+   to the alert.
 
-Místo workflow B jde použít **Wait node** („Resume: On Webhook Call")
-přímo ve workflow A a jako `callback_url` poslat jeho
-`$execution.resumeUrl` — adresu, kterou n8n vyrobí pro každý běh zvlášť
-(to je „resume URL" z dílu 5). Pak nastav **Limit Wait Time**: běh může
-čekat ve frontě, a když callback nedorazí, n8n jinak čeká navždy.
+Instead of workflow B you can use a **Wait node** ("Resume: On Webhook Call")
+right in workflow A and send its `$execution.resumeUrl` as the `callback_url` —
+an address that n8n creates separately for every run (that is the "resume URL"
+from part 5). Then set **Limit Wait Time**: a run can wait in the queue, and if
+the callback never arrives, n8n would otherwise wait forever.
 
-Co n8n **nepotřebuje** vědět: modely, agenty, MCP servery ani jak
-scénář uvnitř vypadá. Smlouva je `scenario` + `inputs` dovnitř,
-`outputs` + `status` + `error` ven.
-
----
-
-## Co sis zapamatoval
-
-- `callable: true` + `inputs` + `outputs` = stavebnice. `call` běží ve
-  stejném běhu; `validate` hlídá chybějící/navíc vstupy, typy, čtené
-  výstupy, `callable` a cykly.
-- Fixtura a záznam: kroky uvnitř mají cestu `<call>/<krok>`.
-- `agencast serve`: `WEBHOOK_TOKEN` a `CALLBACK_SECRET` v `.env`; 401/422
-  hned a bez callbacku, 202 = ve frontě, callback vždy a podepsaný,
-  `GET /runs/<id>` jako záloha.
-- `request_key` = stejný požadavek jen jednou; `dedupe_key` = stejný
-  vedlejší účinek jen jednou, i napříč běhy. `started` bez `succeeded`
-  = ověř ručně.
-- `report_url` = celý záznam jedním odkazem.
+What n8n does **not** need to know: the models, the agents, the MCP servers or
+what a scenario looks like inside. The contract is `scenario` + `inputs` in,
+`outputs` + `status` + `error` out.
 
 ---
 
-## Cvičení
+## What you have learned
 
-Chceš k jednomu názvu dva slogany naráz — hravý a vážný. Napiš
-`workflows/scenarios/tutorial-07-cviceni.yaml`, který zavolá
-`tutorial-07-slogan` **dvakrát paralelně** (díl 4) s různým `ton`,
-a fixturu k němu. Nápověda: jak se budou ve fixtuře jmenovat kroky
-uvnitř?
+- `callable: true` + `inputs` + `outputs` = a building block. `call` runs in the
+  same run; `validate` guards missing/extra inputs, types, outputs that are read,
+  `callable` and cycles.
+- The fixture and the record: steps inside have the path `<call>/<step>`.
+- `agencast serve`: `WEBHOOK_TOKEN` and `CALLBACK_SECRET` in `.env`; 401/422
+  immediately and without a callback, 202 = queued, a callback always and signed,
+  `GET /runs/<id>` as a fallback.
+- `request_key` = the same request only once; `dedupe_key` = the same side
+  effect only once, even across runs. `started` without `succeeded` = check
+  manually.
+- `report_url` = the whole record with one link.
+
+---
+
+## Exercise
+
+You want two slogans for one name at once — a playful one and a serious one.
+Write `workflows/scenarios/tutorial-07-exercise.yaml` that calls
+`tutorial-07-slogan` **twice in parallel** (part 4) with a different `tone`,
+and a fixture for it. Hint: what will the steps inside be called in the
+fixture?
 
 <details>
-<summary>Řešení</summary>
+<summary>Solution</summary>
 
 ```yaml
 version: 1
-name: tutorial-07-cviceni
-description: Dva slogany k jednomu názvu naráz — stavebnice tutorial-07-slogan dvakrát paralelně (tutoriál, díl 7 — řešení cvičení)
+name: tutorial-07-exercise
+description: Two slogans for one name at once — the tutorial-07-slogan building block twice in parallel (tutorial, part 7 — exercise solution)
 
 inputs:
-  nazev:
+  name:
     type: string
     required: true
-    description: Název produktu
+    description: Product name
 
 outputs:
-  hravy:
+  playful:
     type: string
-    description: Hravý slogan
-  vazny:
+    description: Playful slogan
+  serious:
     type: string
-    description: Vážný slogan
+    description: Serious slogan
 
 steps:
-  # Stejný scénář dvakrát, každá větev s jiným tónem. Kroky call mají různá id,
-  # proto mají v záznamu i ve fixtuře různé cesty (hravy_slogan/napis, vazny_slogan/napis).
-  - id: varianty
+  # The same scenario twice, each branch with a different tone. The call steps have different ids,
+  # so they have different paths in the record and in the fixture (playful_slogan/write, serious_slogan/write).
+  - id: variants
     parallel:
-      hrava:
-        - id: hravy_slogan
+      playful:
+        - id: playful_slogan
           call:
             scenario: tutorial-07-slogan
             inputs:
-              nazev: "{{ inputs.nazev }}"
-      vazna:
-        - id: vazny_slogan
+              name: "{{ inputs.name }}"
+      serious:
+        - id: serious_slogan
           call:
             scenario: tutorial-07-slogan
             inputs:
-              nazev: "{{ inputs.nazev }}"
-              ton: vazny
+              name: "{{ inputs.name }}"
+              tone: serious
 
   - id: out
     output:
-      hravy: "{{ steps.hravy_slogan.slogan }}"
-      vazny: "{{ steps.vazny_slogan.slogan }}"
+      playful: "{{ steps.playful_slogan.slogan }}"
+      serious: "{{ steps.serious_slogan.slogan }}"
 ```
 
-`fake/tutorial-07-cviceni.yaml`:
+`fake/tutorial-07-exercise.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-07-cviceni (řešení cvičení z dílu 7).
-# Cesta = <id kroku call>/<id kroku ve volaném scénáři>; větev parallel v cestě není.
-hravy_slogan/napis:
-  - json: { slogan: "Ovena. Lžička, co se směje." }
-vazny_slogan/napis:
-  - json: { slogan: "Ovena. Rostlinná jemnost v každé lžičce." }
+# Scripted responses for tutorial-07-exercise (exercise solution from part 7).
+# Path = <call step id>/<step id in the called scenario>; the parallel branch is not part of the path.
+playful_slogan/write:
+  - json: { slogan: "Ovena. The spoon that smiles." }
+serious_slogan/write:
+  - json: { slogan: "Ovena. Plant-based smoothness in every spoonful." }
 ```
 
-Uvnitř obou volání je krok `napis` — rozliší je až `id` kroku `call`.
-Proto musí mít každé volání vlastní `id` (to by chtěl `validate` stejně).
+Inside both calls there is a `write` step — only the `id` of the `call` step
+tells them apart. That is why every call must have its own `id` (`validate`
+would insist on it anyway).
 
 ```bash
-agencast run tutorial-07-cviceni -i nazev=Ovena --fake fake/tutorial-07-cviceni.yaml
+agencast run tutorial-07-exercise -i name=Ovena --fake fake/tutorial-07-exercise.yaml
 ```
 
 ```
-| 1 | varianty | parallel | ✓ | 0,0 s | 0,0002 |  |
-| 2 | hravy_slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
-| 3 | vazny_slogan | call | ✓ | 0,0 s | 0,0001 | scénář tutorial-07-slogan (2 kroky) |
-| 4 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 0,0 s | 0,0002 |  |
+| 1 | variants | parallel | ✓ | 0.0 s | 0.0002 |  |
+| 2 | playful_slogan | call | ✓ | 0.0 s | 0.0001 | scenario tutorial-07-slogan (2 steps) |
+| 3 | serious_slogan | call | ✓ | 0.0 s | 0.0001 | scenario tutorial-07-slogan (2 steps) |
+| 4 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 0.0 s | 0.0002 |  |
 …
-## Výstup
-- hravy: „Ovena. Lžička, co se směje."
-- vazny: „Ovena. Rostlinná jemnost v každé lžičce."
+## Output
+- playful: “Ovena. The spoon that smiles.”
+- serious: “Ovena. Plant-based smoothness in every spoonful.”
 ```
 
-Že každá větev dostala svůj tón, ověříš v promptech:
+You can verify that every branch got its own tone in the prompts:
 
 ```bash
-grep Tón runs/20260925-161627-tutorial-07-cviceni-1e5a/steps/*/steps/01-napis/prompt.md
+grep Tone runs/20260929-190326-tutorial-07-exercise-f544/steps/*/steps/01-write/prompt.md
 ```
 
 ```
-runs/…/steps/02-hravy_slogan/steps/01-napis/prompt.md:Tón: hravy
-runs/…/steps/03-vazny_slogan/steps/01-napis/prompt.md:Tón: vazny
+runs/…/steps/02-playful_slogan/steps/01-write/prompt.md:Tone: playful
+runs/…/steps/03-serious_slogan/steps/01-write/prompt.md:Tone: serious
 ```
 
-`hravy` přišel z `default` stavebnice, `vazny` z volání.
+`playful` came from the building block's `default`, `serious` from the call.
 
 ```bash
 cd ../../framework && uv run pytest -k tutorial-07 -v; cd ../examples/tutorial
 ```
 
 ```
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-archiv] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-cviceni] PASSED
-tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-skladani] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-archive] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-composition] PASSED
+tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-exercise] PASSED
 tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-slogan] PASSED
 ```
 
@@ -970,9 +1005,9 @@ tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-slogan] 
 
 ---
 
-## Co přijde dál
+## What comes next
 
-Tímhle končí série. Co `maw` 0.2.1 ještě neumí a přijde s Fází 3c
-frameworku: běh na Modal.com a úložiště R2, se kterým bude `report_url`
-i soubory z `output` veřejná HTTPS adresa. Přehled všech dílů je
-v [README.md](README.md).
+This is where the series ends. What `maw` 0.2.1 cannot do yet and what comes with
+Phase 3c of the framework: running on Modal.com and R2 storage, with which
+`report_url` and the files from `output` will be a public HTTPS address. An
+overview of all the parts is in [README.md](README.md).

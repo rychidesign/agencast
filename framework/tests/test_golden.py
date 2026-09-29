@@ -1,9 +1,9 @@
-"""Konformační sada (DESIGN §5.6, §5.9 bod 3): každý scénář, agent a skill ve
-examples/ a každá ukázka v docs/spec/ musí projít validate a scénáře doběhnout
-s falešným poskytovatelem. Přidání scénáře do examples/*/workflows/ = přidání testu.
+"""Conformance suite (DESIGN §5.6, §5.9 item 3): every scenario, agent and skill in
+examples/ and every example in docs/spec/ must pass validate, and scenarios must complete
+with a fake provider. Adding a scenario to examples/*/workflows/ = adding a test.
 
-Skriptované odpovědi pro zlatý scénář: examples/<projekt>/fake/<jméno>.yaml (volitelné;
-bez nich musí běh skončit úspěchem nebo záměrným `fail`).
+Scripted responses for a golden scenario: examples/<project>/fake/<name>.yaml (optional;
+without them the run must succeed or end with an intentional `fail`).
 """
 import re
 import shutil
@@ -46,22 +46,22 @@ def test_workflow_agent_valid(wf, path):
 
 
 def test_owner_alias_reaches_golden_tests(wf, tmp_path):
-    """BUGS.md #6: alias, který vlastník přidá do config.yaml, znají i zlaté testy (dočasný alias jen v testu)."""
+    """BUGS.md #6: golden tests also recognize aliases the owner adds to config.yaml (temporary alias only in this test)."""
     owner = yaml.safe_load((WORKFLOWS / "config.yaml").read_text())
-    owner["models"]["levny"] = {"id": "test/levny-1"}
+    owner["models"]["cheap"] = {"id": "test/cheap-1"}
     (tmp_path / "config.yaml").write_text(yaml.safe_dump(owner))
     (wf / "config.yaml").write_text(golden_config(tmp_path / "config.yaml"))
-    agent = wf / "agents" / "tutorial-pojmenovavac.md"
-    agent.write_text(agent.read_text().replace("model: chytry", "model: levny"))
+    agent = wf / "agents" / "tutorial-namer.md"
+    agent.write_text(agent.read_text().replace("model: smart", "model: cheap"))
     test_workflow_agent_valid(wf, agent)
-    test_workflow_scenario_runs_with_fake(wf, TUTORIAL / "scenarios" / "tutorial-01-nazvy.yaml")
+    test_workflow_scenario_runs_with_fake(wf, TUTORIAL / "scenarios" / "tutorial-01-names.yaml")
 
 
 def test_archive_subfolders_ignored(wf):
-    """ISSUES 37: podsložky (archiv/) v agents/ a scenarios/ se ignorují — validate i běh projdou."""
+    """ISSUES 37: subdirectories (archive/) in agents/ and scenarios/ are ignored — validation and execution pass."""
     for source in (WORKFLOWS, TUTORIAL):
         for d in ("agents", "scenarios"):
-            shutil.copytree(source / d, wf / d / "archiv", dirs_exist_ok=True)
+            shutil.copytree(source / d, wf / d / "archive", dirs_exist_ok=True)
     for path in example_files("scenarios/*.yaml"):
         test_workflow_scenario_runs_with_fake(wf, path)
 
@@ -75,7 +75,7 @@ def test_workflow_skill_valid(path):
 @pytest.mark.parametrize("name", ["config.yaml", "config.example.yaml"])
 def test_workflow_configs_valid(tmp_path, name):
     if not (WORKFLOWS / name).is_file():
-        pytest.skip(f"{name} neexistuje")
+        pytest.skip(f"{name} does not exist")
     shutil.copy(WORKFLOWS / name, tmp_path / "config.yaml")
     errs = []
     assert load_config(tmp_path, errs) and not errs, errs
@@ -83,17 +83,17 @@ def test_workflow_configs_valid(tmp_path, name):
 
 def test_workflow_mcp_and_commands_examples():
     assert read_yaml(TUTORIAL / "config.yaml")["models"] == read_yaml(WORKFLOWS / "config.yaml")["models"]
-    assert (TUTORIAL / "scenarios/kontrola-tonu.yaml").read_bytes() == (WORKFLOWS / "scenarios/kontrola-tonu.yaml").read_bytes()
+    assert (TUTORIAL / "scenarios/tone-check.yaml").read_bytes() == (WORKFLOWS / "scenarios/tone-check.yaml").read_bytes()
     mcp = read_yaml(WORKFLOWS / "mcp.example.yaml")
     assert version_error(mcp, "mcp") is None and schema_errors("mcp", mcp, "mcp") == []
-    if (WORKFLOWS / "mcp.yaml").is_file():  # soubor vlastníka
+    if (WORKFLOWS / "mcp.yaml").is_file():  # owner's file
         errs = []
         assert load_mcp(WORKFLOWS, errs) and not errs, errs
-    # commands.yaml zatím bez JSON Schema (krok run není ve v1) — jen YAML 1.2 a verze
+    # commands.yaml has no JSON Schema yet (run step is not in v1) — only YAML 1.2 and version
     assert version_error(read_yaml(WORKFLOWS / "commands.example.yaml"), "commands") is None
 
 
-# --- ukázky ze specifikace --------------------------------------------------------------------
+# --- examples from the specification --------------------------------------------------------------------
 
 def _blocks(lang):
     for md in sorted(SPEC.glob("*.md")):
@@ -102,7 +102,7 @@ def _blocks(lang):
 
 
 def _check_expressions(steps):
-    """Fragment kroků: každý výraz a šablona musí jít přečíst (syntaxe, zakázané konstrukce)."""
+    """Step fragment: every expression and template must parse (syntax, forbidden constructs)."""
     for st in steps:
         for key in ("when",):
             if key in st:
@@ -124,13 +124,13 @@ def _check_expressions(steps):
 def test_spec_yaml_examples(wf, md, block):
     data = load_yaml(block, md)
     if md == "scenario.md" and isinstance(data, dict) and "version" in data:
-        # celý scénář: validate + běh s falešným poskytovatelem v kopii workflows/
+        # whole scenario: validate + run with a fake provider in a copy of workflows/
         (wf / "scenarios" / f"{data['name']}.yaml").write_text(block)
         r, _ = run(wf / "scenarios" / f"{data['name']}.yaml", _sample_inputs(data))
         assert r.status == "succeeded", r.error
     elif md == "scenario.md":
         head = {"version": 1, "name": "x", "description": "x"}
-        if isinstance(data, dict) and "id" not in data:  # úryvek hlavičky (inputs, outputs)
+        if isinstance(data, dict) and "id" not in data:  # header fragment (inputs, outputs)
             assert scenario_schema_errors({**head, **data, "steps": [{"id": "a", "fail": "x"}]}, md) == []
             return
         steps = data if isinstance(data, list) else [data]

@@ -1,4 +1,4 @@
-// Zvýraznění YAML (§4.5) pro `YamlEditor`, `DiffModal`, `CodeBlock` a pole výrazů; řádky kroku v textu scénáře.
+// YAML highlighting (§4.5) for `YamlEditor`, `DiffModal`, `CodeBlock` and expression fields; step lines in the scenario text.
 
 const tokens = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|((?<![\w.])(?:inputs|steps|params)\.[A-Za-z_]\w*(?:\.[A-Za-z_]\w*|\[(?:-?\d+|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')\])*)|(\b(?:not\s+in|and|or|not|in)\b|==|!=|<=|>=|[+\-*/%<>])/g;
 
@@ -53,7 +53,7 @@ function colorValue(text: string, expression: boolean, comments = true) {
   return parts;
 }
 
-/** Klíče, komentáře, proměnné a operátory mají vlastní barvu (§4.5). */
+/** Keys, comments, variables and operators each have their own color (§4.5). */
 export function Line({ text, expression = false, block = false }: { text: string; expression?: boolean; block?: boolean }) {
   if (block) return <span className="text-fg-secondary">{colorValue(text, false, false)}</span>;
   if (/^\s*#/.test(text)) return <span className="text-fg-muted">{text}</span>;
@@ -68,7 +68,7 @@ export function Line({ text, expression = false, block = false }: { text: string
   );
 }
 
-/** Kontext výrazů a víceřádkových hodnot podle odsazení YAML. */
+/** Context of expressions and multi-line values by YAML indentation. */
 export function lineContexts(lines: string[]) {
   const parents: { indent: number; key: string }[] = [];
   let blockIndent = -1;
@@ -88,7 +88,7 @@ export function lineContexts(lines: string[]) {
   });
 }
 
-/** Zvýrazněné řádky (§4.5); v Markdownu (`agents/*.md`, `SKILL.md`) jen YAML frontmatter mezi řádky `---`. */
+/** Highlighted lines (§4.5); in Markdown (`agents/*.md`, `SKILL.md`) only the YAML frontmatter between `---` lines. */
 export function highlight(lines: string[], markdown = false) {
   let from = 0, to = lines.length;
   if (markdown) {
@@ -101,12 +101,12 @@ export function highlight(lines: string[], markdown = false) {
     : <span className="text-fg-secondary">{l || " "}</span>);
 }
 
-/** Hodnota pole výrazu (`when`, `set`, `switch.value`) nebo šablony ve formuláři kroku. */
+/** Value of an expression field (`when`, `set`, `switch.value`) or a template in the step form. */
 export function Expression({ text, template = false }: { text: string; template?: boolean }) {
   return <>{template ? colorValue(text, false, false) : colorExpression(text)}</>;
 }
 
-/** Řádky kroku `id` v textu scénáře: od `- id: <id>` po další položku se stejným nebo menším odsazením. */
+/** Lines of step `id` in the scenario text: from `- id: <id>` to the next item with the same or smaller indentation. */
 export function stepLines(text: string, id: string): [number, number] | undefined {
   const lines = text.split("\n");
   const start = lines.findIndex((l) => new RegExp(`^\\s*-\\s+id:\\s*["']?${id}["']?\\s*(#.*)?$`).test(l));

@@ -1,0 +1,4 @@
+# Scripted fake-provider responses for tutorial-01-names.
+# Key = step id, below it a list of responses (each call takes the next one).
+propose:
+  - text: "Oatsy\nFrost Oat\nFrozen Field"

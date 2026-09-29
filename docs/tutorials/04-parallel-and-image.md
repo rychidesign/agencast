@@ -1,148 +1,151 @@
-# Díl 4 — Paralelně a s obrázkem
+# Part 4 — Parallel steps and an image
 
-Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+Run the commands from `examples/tutorial` (from the clone root: `cd examples/tutorial`).
 
-**Čas:** asi 20 minut · **Útrata:** jeden ostrý běh s obrázkem za ~0,07 USD
-**Co budeš umět:** pustit dvě větve souběžně (`parallel`), vygenerovat
-obrázek (`image`), hlídat peníze (`budget_usd`) a čas (`timeout`),
-nastavit opakování (`retry`), přežít selhání kroku (`on_error`) a číst
-třídy chyb v `summary.md`.
+**Time:** about 20 minutes · **Spend:** one live run with an image for ~0.07 USD
+**You will learn to:** run two branches concurrently (`parallel`), generate
+an image (`image`), guard money (`budget_usd`) and time (`timeout`),
+set up retries (`retry`), survive a step failure (`on_error`) and read the
+error classes in `summary.md`.
 
-Předpoklad: díly 1–3.
+Prerequisite: parts 1–3.
 
 ---
 
-## Krok 1 — agent s jiným modelem
+## Step 1 — an agent with a different model
 
-Popis fotky pro generátor obrázků napíše levnější a rychlejší model.
-`workflows/agents/tutorial-ilustrator.md`:
+The photo description for the image generator is written by a cheaper and
+faster model. `workflows/agents/tutorial-illustrator.md`:
 
 ```markdown
 ---
 version: 1
-name: tutorial-ilustrator
-description: Píše anglický popis produktové fotky pro generátor obrázků (tutoriál, díl 4)
-model: rychly
+name: tutorial-illustrator
+description: Writes an English product photo description for the image generator (tutorial, part 4)
+model: fast
 limits:
   budget_usd: 0.01
 ---
-Jsi produktový fotograf. Z popisu produktu napíšeš popis fotky pro
-generátor obrázků:
+You are a product photographer. From a product description you write a photo
+description for the image generator:
 
-- anglicky, 30 až 60 slov,
-- produkt na čistém pozadí, měkké světlo, pohled zepředu,
-- bez textu, nápisů a log v obraze, bez lidí.
+- in English, 30 to 60 words,
+- the product on a clean background, soft light, front view,
+- no text, lettering or logos in the image, no people.
 ```
 
-Jediná změna proti dosavadním agentům: `model: rychly` (Gemini Flash-Lite).
+The only change compared to the agents so far: `model: fast` (Gemini
+Flash-Lite).
 
 ---
 
-## Krok 2 — scénář s `parallel` a `image`
+## Step 2 — a scenario with `parallel` and `image`
 
-`workflows/scenarios/tutorial-04-paralelne.yaml`:
+`workflows/scenarios/tutorial-04-parallel.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-04-paralelne
-description: Souběžně vymyslí název se sloganem a vyfotí produkt (tutoriál, díl 4)
+name: tutorial-04-parallel
+description: Concurrently comes up with a name and a slogan and photographs the product (tutorial, part 4)
 
 inputs:
-  produkt:
+  product:
     type: string
     required: true
-    description: Jaký produkt pojmenováváme a fotíme
+    description: The product we are naming and photographing
 
 outputs:
-  nazev:
+  name:
     type: string
   slogan:
     type: string
-  foto:
+  photo:
     type: file
-    description: Produktová fotka 1:1
+    description: Product photo 1:1
 
 steps:
-  # 1. Dvě větve běží souběžně. budget_usd u parallel = součet všeho uvnitř.
-  - id: soucasne
+  # 1. Two branches run concurrently. budget_usd on parallel = the sum of everything inside.
+  - id: concurrent
     budget_usd: 0.15
     parallel:
-      texty:
-        - id: navrh
+      texts:
+        - id: propose
           ask:
-            agent: tutorial-pojmenovavac
-            prompt: "Vymysli 3 názvy pro tento produkt: {{ inputs.produkt }}."
+            agent: tutorial-namer
+            prompt: "Come up with 3 names for this product: {{ inputs.product }}."
             schema:
-              nazvy: [string]
+              names: [string]
         - id: slogan
           ask:
-            agent: tutorial-sloganista
-            prompt: "Napiš slogan pro produkt {{ inputs.produkt }} s názvem {{ steps.navrh.nazvy[0] }}."
+            agent: tutorial-slogan-writer
+            prompt: "Write a slogan for the product {{ inputs.product }} named {{ steps.propose.names[0] }}."
             schema:
               slogan: string
-      vizual:
-        - id: popis
+      visual:
+        - id: describe
           ask:
-            agent: tutorial-ilustrator
-            prompt: "Produkt: {{ inputs.produkt }}"
+            agent: tutorial-illustrator
+            prompt: "Product: {{ inputs.product }}"
             schema:
-              popis: string
-        - id: fotka
+              description: string
+        - id: photo
           budget_usd: 0.10
           timeout: 2m
           retry: 1
           image:
             model: gemini-image
-            prompt: "{{ steps.popis.popis }}"
+            prompt: "{{ steps.describe.description }}"
             aspect_ratio: "1:1"
 
-  # 2. Až doběhnou obě větve.
+  # 2. Once both branches have finished.
   - id: out
     output:
-      nazev: "{{ steps.navrh.nazvy[0] }}"
+      name: "{{ steps.propose.names[0] }}"
       slogan: "{{ steps.slogan.slogan }}"
-      foto: "{{ steps.fotka.file }}"
+      photo: "{{ steps.photo.file }}"
 ```
 
 ### `parallel`
 
-- Pod `parallel` jsou **pojmenované větve** (`texty`, `vizual`). Každá je
-  seznam kroků, které v ní běží jeden po druhém.
-- Větve běží **souběžně**. Krok za `parallel` (`out`) začne, až doběhnou
-  všechny.
-- **Výstupy** kroků ve větvích čteš normálně přes jejich `id`
-  (`steps.navrh…`, `steps.fotka…`). Jméno větve je jen pro čitelnost
-  a záznam; `parallel` sám žádný výstup nemá.
-- Krok ve větvi smí číst kroky **nad `parallel`** a kroky nad sebou **ve
-  stejné větvi** (`slogan` čte `navrh`). Do jiné větve číst nesmí —
-  nevíš, co doběhne dřív.
+- Under `parallel` there are **named branches** (`texts`, `visual`). Each is
+  a list of steps that run one after another inside it.
+- The branches run **concurrently**. The step after `parallel` (`out`) starts
+  only when all of them have finished.
+- You read the **outputs** of steps in branches normally, through their `id`
+  (`steps.propose…`, `steps.photo…`). The branch name is only for readability
+  and the run record; `parallel` itself has no output.
+- A step in a branch may read steps **above the `parallel`** and steps above it
+  **in the same branch** (`slogan` reads `propose`). It must not read into
+  another branch — you don't know which one finishes first.
 
 ### `image`
 
-- `model` — alias **obrazového** modelu z `config.yaml` (`gemini-image`).
-- `prompt` — popis obrázku (šablona).
-- `aspect_ratio` — poměr stran jako **text v uvozovkách** (`"1:1"`,
-  `"4:5"`). Framework po uložení poměr zkontroluje; odchylka přes 2 % je
-  chyba, nic se tiše neořízne.
-- Výstup: `steps.fotka.file` — typ `file`. Ten vzniká **jen** z kroku
-  `image`; napsat do `output` cestu jako text nejde.
-- Výběr API a kvality: [config.md](../spec/config.md#models--aliasy-55).
+- `model` — an alias of an **image** model from `config.yaml` (`gemini-image`).
+- `prompt` — the image description (a template).
+- `aspect_ratio` — the aspect ratio as **text in quotes** (`"1:1"`,
+  `"4:5"`). After saving, the framework checks the ratio; a deviation over
+  2 % is an error, nothing is silently cropped.
+- Output: `steps.photo.file` — type `file`. It comes **only** from an `image`
+  step; you cannot write a path into `output` as text.
+- Choosing the API and quality: [config.md](../spec/config.md#models--aliases-55).
 
-Od 0.14.0 lze poměr předat jako `aspect_ratio: "{{ inputs.pomer }}"`;
-stejně fungují `quality` (`auto|low|medium|high`) a `resolution`
-(`"512"|"1K"|"2K"|"4K"`). Kvalita kroku přebíjí alias; chat API kvalitu
-a rozlišení ignoruje s varováním. Volatelný příklad je
-[`obrazek.yaml`](../../examples/showcase/workflows/scenarios/obrazek.yaml).
+Since 0.14.0 the ratio can be passed as `aspect_ratio: "{{ inputs.aspect_ratio }}"`;
+`quality` (`auto|low|medium|high`) and `resolution`
+(`"512"|"1K"|"2K"|"4K"`) work the same way. The step's quality overrides the
+alias; the chat API ignores quality and resolution with a warning. A callable
+example is
+[`image.yaml`](../../examples/showcase/workflows/scenarios/image.yaml).
 
-### Nové vlastnosti kroků
+### New step properties
 
-| Vlastnost | Tady | Co dělá |
+| Property | Here | What it does |
 |---|---|---|
-| `budget_usd` | `0.15` u `parallel`, `0.10` u `fotka` | kolik smí krok stát; u `parallel` součet všeho uvnitř |
-| `timeout` | `2m` | nejdelší doba kroku (`s`, `m`, `h`) |
-| `retry` | `1` | kolikrát se **jedno volání** zopakuje po chybě `transient` nebo `schema` (výchozí 2) |
+| `budget_usd` | `0.15` on `parallel`, `0.10` on `photo` | how much the step may cost; on `parallel` the sum of everything inside |
+| `timeout` | `2m` | the longest time of a step (`s`, `m`, `h`) |
+| `retry` | `1` | how many times **a single call** is repeated after a `transient` or `schema` error (default 2) |
 
-Vedle toho platí limity celého běhu z `config.yaml` (mění je vlastník):
+Besides that, the limits of the whole run from `config.yaml` apply (the owner
+changes them):
 
 ```bash
 grep -A5 "^limits:" workflows/config.yaml
@@ -156,444 +159,453 @@ limits:
   max_call_depth: 3
 ```
 
-`run_image_budget_usd` hlídá obrázky zvlášť — jsou o dva řády dražší než
-text. Výsledný limit kroku je vždy **nejmenší** z: limit kroku, limit
-agenta, zbytek limitu běhu.
+`run_image_budget_usd` guards images separately — they are two orders of
+magnitude more expensive than text. The resulting limit of a step is always the
+**smallest** of: the step limit, the agent limit, what is left of the run limit.
 
 ---
 
-## Krok 3 — plán a falešný běh
+## Step 3 — the plan and a fake run
 
 ```bash
-agencast validate workflows/scenarios/tutorial-04-paralelne.yaml
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka" --dry-run
+agencast validate workflows/scenarios/tutorial-04-parallel.yaml
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="vegan ice cream made from oat milk" --dry-run
 ```
 
 ```
-v pořádku: tutorial-04-paralelne (6 kroků)
-# Plán: tutorial-04-paralelne
+valid: tutorial-04-parallel (6 steps)
+# Plan: tutorial-04-parallel
 
-Souběžně vymyslí název se sloganem a vyfotí produkt (tutoriál, díl 4)
+Concurrently comes up with a name and a slogan and photographs the product (tutorial, part 4)
 
-Limity běhu: rozpočet 1.0 USD (z toho obrázky 0.3 USD), čas 1h. Jev: jev-1.13.
+Run limits: budget 1.0 USD (of which images 0.3 USD), time 1h. Jev: jev-1.13.
 
-| # | Krok | Typ | Podmínka | Co udělá | Limity |
+| # | Step | Type | Condition | Action | Limits |
 |---|---|---|---|---|---|
-| 1 | soucasne | parallel |  | větve: texty, vizual | 0.15 USD |
-| 2 | ↳ navrh | ask |  | agent tutorial-pojmenovavac → chytry (anthropic/claude-haiku-4.5); schema: nazvy (kaskáda od native_schema) | 0.01 USD, 2m |
-| 3 | ↳ slogan | ask |  | agent tutorial-sloganista → chytry (anthropic/claude-haiku-4.5); schema: slogan (kaskáda od native_schema) | 0.01 USD, 2m |
-| 4 | ↳ popis | ask |  | agent tutorial-ilustrator → rychly (google/gemini-3.5-flash-lite); schema: popis (kaskáda od tool_wrapper) | 0.01 USD, 2m |
-| 5 | ↳ fotka | image |  | gemini-image (google/gemini-3.1-flash-image), poměr 1:1 | 0.1 USD, 2m, retry 1 |
-| 6 | out | output |  | nazev, slogan, foto |  |
+| 1 | concurrent | parallel |  | branches: texts, visual | 0.15 USD |
+| 2 | ↳ propose | ask |  | agent tutorial-namer → smart (anthropic/claude-haiku-4.5); schema: names (cascade from native_schema) | 0.01 USD, 2m |
+| 3 | ↳ slogan | ask |  | agent tutorial-slogan-writer → smart (anthropic/claude-haiku-4.5); schema: slogan (cascade from native_schema) | 0.01 USD, 2m |
+| 4 | ↳ describe | ask |  | agent tutorial-illustrator → fast (google/gemini-3.5-flash-lite); schema: description (cascade from tool_wrapper) | 0.01 USD, 2m |
+| 5 | ↳ photo | image |  | gemini-image (google/gemini-3.1-flash-image), ratio 1:1 | 0.1 USD, 2m, retry 1 |
+| 6 | out | output |  | name, slogan, photo |  |
 ```
 
-Fixtura `fake/tutorial-04-paralelne.yaml`:
+(The CLI also prints the path to `plan.md` after the plan, and after a run the
+path to `summary.md` and the `report:` address. I leave those lines out of the
+outputs below.)
+
+The fixture `fake/tutorial-04-parallel.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-04-paralelne.
-# Krok image nepotřebuje nic: falešný poskytovatel vyrobí šedé PNG v poměru aspect_ratio.
-navrh:
+# Scripted responses for tutorial-04-parallel.
+# The image step needs nothing: the fake provider produces a grey PNG in the aspect_ratio.
+propose:
   - json:
-      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+      names: ["Oatsy", "Frost Oat", "Frozen Field"]
 slogan:
   - json:
-      slogan: "Zmrzlina, která roste na poli"
-popis:
+      slogan: "Ice cream that grows in the field"
+describe:
   - json:
-      popis: "A pint of oat milk ice cream on a clean white background, soft light, front view, no text."
+      description: "A pint of oat milk ice cream on a clean white background, soft light, front view, no text."
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-04-paralelne.yaml
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="vegan ice cream made from oat milk" --fake fake/tutorial-04-parallel.yaml
 ```
 
 ```
-běh 20260925-151749-tutorial-04-paralelne-85a6: úspěch · 0,0 s · 0,0403 USD
+run 20260925-151749-tutorial-04-parallel-85a6: succeeded · 0.0 s · 0.0403 USD
 ```
 
-Falešný obrázek „stojí" 0,04 USD, aby šlo zkoušet rozpočty (krok 6).
-Placené to není.
+The fake image “costs” 0.04 USD so that you can try out budgets (step 6).
+It isn't paid for.
 
 ---
 
-## Krok 4 — ostrý běh s obrázkem
+## Step 4 — a live run with an image
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="veganská zmrzlina z ovesného mléka"
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="vegan ice cream made from oat milk"
 ```
 
 ```
-běh 20260925-151755-tutorial-04-paralelne-8c76: úspěch · 10,5 s · 0,0683 USD
-záznam: runs/20260925-151755-tutorial-04-paralelne-8c76/summary.md
+run 20260925-151755-tutorial-04-parallel-8c76: succeeded · 10.5 s · 0.0683 USD
+run record: …/examples/tutorial/runs/20260925-151755-tutorial-04-parallel-8c76/summary.md
+report: file:///…/outputs/20260925-151755-tutorial-04-parallel-8c76-6f88f7d39aeab16913150e899dfe8070/report.html
 ```
 
 ```
-# tutorial-04-paralelne — úspěch
+# tutorial-04-parallel — success
 
-Souběžně vymyslí název se sloganem a vyfotí produkt (tutoriál, díl 4)
-Běh `20260925-151755-tutorial-04-paralelne-8c76` · 25. 9. 2026 15:17:55 UTC · 10,5 s · 0,0683 USD (z toho obrázky 0,0672 USD)
+Concurrently comes up with a name and a slogan and photographs the product (tutorial, part 4)
+Run `20260925-151755-tutorial-04-parallel-8c76` · 2026-09-25 15:17 UTC · 10.5 s · 0.0683 USD (of which images 0.0672 USD)
 
-## Vstupy
-- produkt: veganská zmrzlina z ovesného mléka
+## Inputs
+- product: vegan ice cream made from oat milk
 
-## Kroky
-| # | Krok | Typ | Stav | Čas | Cena | Poznámka |
+## Steps
+| # | Step | Type | Status | Time | Cost | Note |
 |---|---|---|---|---|---|---|
-| 1 | soucasne | parallel | ✓ | 10,5 s | 0,0683 |  |
-| 2 | navrh | ask | ✓ | 2,1 s | 0,0005 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 3 | slogan | ask | ✓ | 1,6 s | 0,0004 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 4 | popis | ask | ✓ | 1,2 s | 0,0002 | rychly → google/gemini-3.5-flash-lite (tool_wrapper) |
-| 5 | fotka | image | ✓ | 9,2 s | 0,0672 | image.png, 1024×1024 |
-| 6 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 10,5 s | 0,0683 | z toho obrázky 0,0672 |
+| 1 | concurrent | parallel | ✓ | 10.5 s | 0.0683 |  |
+| 2 | propose | ask | ✓ | 2.1 s | 0.0005 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 3 | slogan | ask | ✓ | 1.6 s | 0.0004 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 4 | describe | ask | ✓ | 1.2 s | 0.0002 | fast → google/gemini-3.5-flash-lite (tool_wrapper) |
+| 5 | photo | image | ✓ | 9.2 s | 0.0672 | image.png, 1024×1024 |
+| 6 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 10.5 s | 0.0683 | of which images 0.0672 |
 
-## Varování
-žádná
+## Warnings
+none
 
-## Výstup
-- nazev: „Ovesový Raj"
-- slogan: „Ovesový Raj - čistá vegan sladkost bez viny"
-- foto: outputs/20260925-151755-tutorial-04-paralelne-8c76-6f88f7d39aeab16913150e899dfe8070/foto.png
+## Output
+- name: “Oat Paradise”
+- slogan: “Oat Paradise - pure vegan sweetness without guilt”
+- photo: file:///…/outputs/20260925-151755-tutorial-04-parallel-8c76-6f88f7d39aeab16913150e899dfe8070/photo.png
 ```
 
-Co z toho vyčteš:
+What you can read from it:
 
-- **Souběh funguje:** kroky ve větvích dohromady trvaly 2,1 + 1,6 + 1,2 +
-  9,2 = 14,1 s, celý `parallel` jen 10,5 s. Větev `texty` doběhla, zatímco
-  se fotka ještě generovala.
-- **Obrázek je 98 % ceny** (0,0672 z 0,0683 USD). Proto má vlastní limit.
-- **1024×1024** — poměr 1:1 sedí.
-- **`foto`** je `file://` cesta, protože `config.yaml` má
-  `storage.type: local` — soubor se zkopíroval do `outputs/`. Obrázek
-  samotný je i ve složce běhu: `steps/05-fotka/image.png` (u nás: bílá
-  miska se kopečkem zmrzliny na světle šedém pozadí).
+- **Concurrency works:** the steps in the branches took 2.1 + 1.6 + 1.2 +
+  9.2 = 14.1 s in total, the whole `parallel` only 10.5 s. The `texts` branch
+  finished while the photo was still being generated.
+- **The image is 98 % of the cost** (0.0672 of 0.0683 USD). That is why it has
+  its own limit.
+- **1024×1024** — the 1:1 ratio checks out.
+- **`photo`** is a `file://` path, because `config.yaml` has
+  `storage.type: local` — the file was copied to `outputs/`. The image
+  itself is also in the run folder: `steps/05-photo/image.png` (ours: a white
+  bowl with a scoop of ice cream on a light grey background).
 
-Souběh je vidět i v `events.jsonl` (čas, událost, krok, větev):
+Concurrency is visible in `events.jsonl` too (time, event, step, branch):
 
 ```
-15:17:55.402 step_started soucasne
-15:17:55.402 step_started navrh texty
-15:17:55.416 step_started popis vizual
-15:17:56.655 step_finished popis
-15:17:56.656 step_started fotka vizual
-15:17:57.514 step_finished navrh
-15:17:57.514 step_started slogan texty
+15:17:55.402 step_started concurrent
+15:17:55.402 step_started propose texts
+15:17:55.416 step_started describe visual
+15:17:56.655 step_finished describe
+15:17:56.656 step_started photo visual
+15:17:57.514 step_finished propose
+15:17:57.514 step_started slogan texts
 15:17:59.097 step_finished slogan
-15:18:05.886 step_finished fotka
-15:18:05.886 step_finished soucasne
+15:18:05.886 step_finished photo
+15:18:05.886 step_finished concurrent
 ```
 
-(Tenhle výpis jsem z `events.jsonl` vytáhl krátkým skriptem v Pythonu;
-formátu `events.jsonl` se věnuje díl 5.)
+(I pulled this listing out of `events.jsonl` with a short Python script;
+the `events.jsonl` format is covered in part 5.)
 
 ---
 
-## Krok 5 — třídy chyb
+## Step 5 — error classes
 
-Každá chyba má **třídu**. Podle ní framework ví, jestli má smysl to
-zkoušet znovu, a ty (nebo n8n) víš, co dělat:
+Every error has a **class**. It tells the framework whether retrying makes
+sense, and it tells you (or n8n) what to do:
 
-| Třída | Co se stalo | Opakuje se? |
+| Class | What happened | Retried? |
 |---|---|---|
-| `transient` | přetížení (HTTP 429), výpadek, 5xx, prázdná odpověď | ano (`retry`) |
-| `schema` | JSON od modelu nesedí na `schema` (díl 2) | ano (`retry`) |
-| `content` | model odmítl obsah | ne |
-| `budget` | došly peníze kroku, agenta nebo běhu | ne |
-| `timeout` | došel čas kroku nebo běhu | ne |
-| `config` | chyba v souborech, nebo HTTP 400/401/404 | ne |
-| `expression` | výraz selhal za běhu (díl 2, 3) | ne |
-| `fail` | tvůj krok `fail` (díl 3) | ne |
+| `transient` | overload (HTTP 429), an outage, 5xx, an empty response | yes (`retry`) |
+| `schema` | the model's JSON does not match the `schema` (part 2) | yes (`retry`) |
+| `content` | the model refused the content | no |
+| `budget` | the money of the step, the agent or the run ran out | no |
+| `timeout` | the time of the step or the run ran out | no |
+| `config` | an error in the files, or HTTP 400/401/404 | no |
+| `expression` | an expression failed at run time (parts 2, 3) | no |
+| `fail` | your `fail` step (part 3) | no |
 
-Všechny následující ukázky jsou falešné běhy s fixturou uloženou
-v `/tmp/` — nic nestojí.
+All the following examples are fake runs with a fixture saved in `/tmp/` —
+they cost nothing.
 
-### `transient` → opakování
+### `transient` → retry
 
-`/tmp/pretizeni.yaml`:
+`/tmp/overload.yaml`:
 
 ```yaml
-navrh:
+propose:
   - status: 429
     error: "Rate limit exceeded"
   - json:
-      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+      names: ["Oatsy", "Frost Oat", "Frozen Field"]
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/pretizeni.yaml
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="ice cream" --fake /tmp/overload.yaml
 ```
 
 ```
-běh 20260925-151818-tutorial-04-paralelne-42d6: úspěch · 0,0 s · 0,0403 USD
+run 20260925-151818-tutorial-04-parallel-42d6: succeeded · 0.0 s · 0.0403 USD
 ```
 
-Běh prošel — první pokus dostal HTTP 429, druhý uspěl. V `events.jsonl`:
+The run went through — the first attempt got HTTP 429, the second succeeded.
+In `events.jsonl`:
 
 ```
-{"ts":"2026-09-25T15:18:18.099Z","type":"error","step":"navrh","class":"transient","message":"HTTP 429: Rate limit exceeded","attempt":1,"will_retry":true,"http_status":429}
+{"ts":"2026-09-25T15:18:18.099Z","type":"error","step":"propose","class":"transient","message":"HTTP 429: Rate limit exceeded","attempt":1,"will_retry":true,"http_status":429}
 ```
 
-V `summary.md` je u varování `žádná` — odmítnuté volání nic nestojí,
-opakování po `transient` je normální provoz.
+In `summary.md` the warnings section says `none` — a rejected call costs
+nothing, and a retry after `transient` is normal operation.
 
-### `content` → konec
+### `content` → the end
 
-`/tmp/odmitnuti.yaml`:
+`/tmp/refusal.yaml`:
 
 ```yaml
-fotka:
+photo:
   - refusal: "I can't generate this image."
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/odmitnuti.yaml
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="ice cream" --fake /tmp/refusal.yaml
 ```
 
 ```
-content v kroku fotka: model odmítl: I can't generate this image.
-běh 20260925-151818-tutorial-04-paralelne-b318: chyba · 0,0 s · 0,0403 USD
+content in step photo: model refused: I can't generate this image.
+run 20260925-151818-tutorial-04-parallel-b318: failed · 0.0 s · 0.0403 USD
 ```
 
 ~~~
-## Chyba
-- třída: `content`
-- krok: `fotka`
-- zpráva:
+## Error
+- class: `content`
+- step: `photo`
+- message:
 
 ```
-model odmítl: I can't generate this image.
+model refused: I can't generate this image.
 ```
 
-Běh skončil v kroku fotka.
+Run ended at step photo.
 …
-| 1 | soucasne | parallel | chyba | 0,0 s | 0,0403 | viz Chyba |
-| 2 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 3 | slogan | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 4 | popis | ask | ✓ | 0,0 s | 0,0001 | rychly → google/gemini-3.5-flash-lite (tool_wrapper) |
-| 5 | fotka | image | chyba | 0,0 s | 0,0400 | viz Chyba |
+| 1 | concurrent | parallel | failed | 0.0 s | 0.0403 | see Error |
+| 2 | propose | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 3 | slogan | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 4 | describe | ask | ✓ | 0.0 s | 0.0001 | fast → google/gemini-3.5-flash-lite (tool_wrapper) |
+| 5 | photo | image | failed | 0.0 s | 0.0400 | see Error |
 ~~~
 
-Odmítnutí se neopakuje, i když má krok `retry: 1` — stejný prompt by
-dopadl stejně. Pozor: generátor obrázků sám skoro nic neodmítá (ani
-skutečné osoby). Pravidla obsahu proto hlídá scénář — Jevem nad popisem
-fotky, jako to dělá `workflows/scenarios/ig-post.yaml`.
+A refusal is not retried, even though the step has `retry: 1` — the same
+prompt would end the same way. Note that the image generator itself hardly
+refuses anything (not even real people). Content rules are therefore guarded by
+the scenario — by Jev over the photo description, as
+`workflows/scenarios/ig-post.yaml` does.
 
-### Když selže jedna větev
+### When one branch fails
 
-`/tmp/zruseni.yaml` — `navrh` dostane HTTP 400 (chyba `config`, neopakuje
-se), fotka zatím „generuje" (`sleep: 1`):
+`/tmp/cancel.yaml` — `propose` gets HTTP 400 (a `config` error, not retried),
+and the photo is still “generating” (`sleep: 1`):
 
 ```yaml
-navrh:
+propose:
   - status: 400
     error: "Invalid request"
-fotka:
+photo:
   - sleep: 1
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/zruseni.yaml
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="ice cream" --fake /tmp/cancel.yaml
 ```
 
 ```
-config v kroku navrh: HTTP 400: Invalid request
-běh 20260925-151846-tutorial-04-paralelne-9332: chyba · 0,0 s · 0,0001 USD
+config in step propose: HTTP 400: Invalid request
+run 20260925-151846-tutorial-04-parallel-9332: failed · 0.0 s · 0.0001 USD
 ```
 
 ```
-| 1 | soucasne | parallel | chyba | 0,0 s | 0,0001 | viz Chyba |
-| 2 | navrh | ask | chyba | 0,0 s | 0 | viz Chyba |
-| 4 | popis | ask | ✓ | 0,0 s | 0,0001 | rychly → google/gemini-3.5-flash-lite (tool_wrapper) |
-| 5 | fotka | image | zrušeno | 0,0 s | 0 |  |
-| | Celkem | | | 0,0 s | 0,0001 |  |
+| 1 | concurrent | parallel | failed | 0.0 s | 0.0001 | see Error |
+| 2 | propose | ask | failed | 0.0 s | 0 | see Error |
+| 4 | describe | ask | ✓ | 0.0 s | 0.0001 | fast → google/gemini-3.5-flash-lite (tool_wrapper) |
+| 5 | photo | image | cancelled | 0.0 s | 0 |  |
+| | Total | | | 0.0 s | 0.0001 |  |
 ```
 
-Chyba v jedné větvi **zruší ostatní** (`zrušeno`) a běh končí. Krok 3
-(`slogan`) v tabulce chybí — na něj běh nedošel, a takové kroky se
-nezapisují.
+An error in one branch **cancels the others** (`cancelled`) and the run ends.
+Step 3 (`slogan`) is missing from the table — the run never got to it, and such
+steps are not recorded.
 
 ---
 
-## Krok 6 — `budget_usd` a `timeout` v akci
+## Step 6 — `budget_usd` and `timeout` in action
 
-Zkusíme to s přísnějšími limity. **Dočasně** změň u kroku `fotka`
-`budget_usd: 0.10` na `budget_usd: 0.03` (falešný obrázek stojí 0,04):
+Let's try stricter limits. **Temporarily** change `budget_usd: 0.10` to
+`budget_usd: 0.03` on the `photo` step (the fake image costs 0.04):
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake fake/tutorial-04-paralelne.yaml
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="ice cream" --fake fake/tutorial-04-parallel.yaml
 ```
 
 ```
-běh 20260925-151828-tutorial-04-paralelne-3d22: úspěch · 0,0 s · 0,0403 USD
+run 20260925-151828-tutorial-04-parallel-3d22: succeeded · 0.0 s · 0.0403 USD
 ```
 
 ```
-## Varování
-- rozpočet kroku 'fotka' překročen o 0.0100 USD (krok fotka)
+## Warnings
+- budget for step 'photo' exceeded by 0.0100 USD (step photo)
 ```
 
-Běh prošel! Pravidlo: **rozpočet se kontroluje před každým voláním.**
-Volání, které začalo pod limitem, se dokončí a platí (peníze jsou stejně
-utracené) — a zapíše se varování. Další volání už ale nezačne. To uvidíš,
-když první pokus selže a `retry` by chtěl zkusit druhý —
-`/tmp/bez-obrazku.yaml`:
+The run went through! The rule: **the budget is checked before each call.**
+A call that started under the limit is finished and paid (the money is spent
+anyway) — and a warning is recorded. But the next call won't start. You'll see
+that when the first attempt fails and `retry` would like to try a second one —
+`/tmp/no-image.yaml`:
 
 ```yaml
-fotka:
+photo:
   - finish_reason: error
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/bez-obrazku.yaml
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="ice cream" --fake /tmp/no-image.yaml
 ```
 
 ```
-budget v kroku fotka: rozpočet kroku 'fotka' vyčerpán (0.0400 z 0.03 USD)
-běh 20260925-151828-tutorial-04-paralelne-13cb: chyba · 2,0 s · 0,0403 USD
+budget in step photo: budget for step 'photo' exhausted (0.0400 of 0.03 USD)
+run 20260925-151828-tutorial-04-parallel-13cb: failed · 2.0 s · 0.0403 USD
 ```
 
-V `events.jsonl` je celý příběh: první pokus skončil `transient`
-(`will_retry: true`), po 2 s čekání se měl zkusit znovu, ale rozpočet
-kroku už byl pryč → `budget`:
+The whole story is in `events.jsonl`: the first attempt ended as `transient`
+(`will_retry: true`), after waiting 2 s it was supposed to try again, but the
+step budget was already gone → `budget`:
 
 ```
-{"ts":"2026-09-25T15:18:28.324Z","type":"error","step":"fotka","class":"transient","message":"poskytovatel vrátil HTTP 200 s finish_reason: error","attempt":1,"will_retry":true,"http_status":null}
-{"ts":"2026-09-25T15:18:30.326Z","type":"error","step":"fotka","class":"budget","message":"rozpočet kroku 'fotka' vyčerpán (0.0400 z 0.03 USD)","attempt":null,"will_retry":false,"http_status":null}
+{"ts":"2026-09-25T15:18:28.324Z","type":"error","step":"photo","class":"transient","message":"provider returned HTTP 200 with finish_reason: error","attempt":1,"will_retry":true,"http_status":null}
+{"ts":"2026-09-25T15:18:30.326Z","type":"error","step":"photo","class":"budget","message":"budget for step 'photo' exhausted (0.0400 of 0.03 USD)","attempt":null,"will_retry":false,"http_status":null}
 ```
 
-Vrať `budget_usd: 0.10`. Teď **dočasně** změň `timeout: 2m` na
-`timeout: 2s` a nech falešný obrázek „generovat" 5 sekund —
-`/tmp/pomaly.yaml`:
+Restore `budget_usd: 0.10`. Now **temporarily** change `timeout: 2m` to
+`timeout: 2s` and let the fake image “generate” for 5 seconds —
+`/tmp/slow.yaml`:
 
 ```yaml
-fotka:
+photo:
   - sleep: 5
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-04-paralelne.yaml -i produkt="zmrzlina" --fake /tmp/pomaly.yaml
+agencast run workflows/scenarios/tutorial-04-parallel.yaml -i product="ice cream" --fake /tmp/slow.yaml
 ```
 
 ```
-timeout v kroku fotka: překročen časový limit kroku (2s)
-běh 20260925-151839-tutorial-04-paralelne-a82b: chyba · 2,0 s · 0,0003 USD
+timeout in step photo: timeout exceeded for step (2s)
+run 20260925-151839-tutorial-04-parallel-a82b: failed · 2.0 s · 0.0003 USD
 ```
 
-Vrať `timeout: 2m`. Skutečné generování trvalo 9,2 s, 2 minuty jsou
-bezpečná rezerva.
+Restore `timeout: 2m`. The real generation took 9.2 s, so 2 minutes is a safe
+margin.
 
 ---
 
-## Co sis zapamatoval
+## What you remember
 
-- `parallel`: pojmenované větve běží souběžně; výstupy čteš přes `id`
-  kroků; do jiné větve nečteš; chyba jedné větve zruší ostatní.
-- `image`: alias obrazového modelu, `aspect_ratio` v uvozovkách, výstup
-  `steps.<id>.file`. Obrázek ≈ 0,07 USD.
-- `budget_usd` se kontroluje **před** voláním; `timeout` utne krok;
-  `retry` opakuje jen `transient` a `schema`.
-- Třída chyby v `summary.md` ti řekne, co dělat: `transient` zkus
-  později, `content` změň prompt, `budget`/`timeout` uprav limit,
-  `config` oprav soubor.
+- `parallel`: named branches run concurrently; you read outputs through the
+  step `id`s; you don't read into another branch; an error in one branch
+  cancels the others.
+- `image`: an image model alias, `aspect_ratio` in quotes, output
+  `steps.<id>.file`. An image ≈ 0.07 USD.
+- `budget_usd` is checked **before** a call; `timeout` cuts a step off;
+  `retry` repeats only `transient` and `schema`.
+- The error class in `summary.md` tells you what to do: for `transient` try
+  again later, for `content` change the prompt, for `budget`/`timeout` adjust
+  the limit, for `config` fix the file.
 
 ---
 
-## Cvičení
+## Exercise
 
-Obrázek je „bonus": když se nepovede (třeba ho model odmítne), chceš
-aspoň název a slogan a běh má skončit **úspěchem** s varováním. Uprav
-scénář tak, aby `foto` v takovém případě bylo `null`. Ulož jako
-`workflows/scenarios/tutorial-04-cviceni.yaml` s fixturou a ověř falešným
-během s odmítnutým obrázkem.
+The image is a “bonus”: when it fails (say the model refuses it), you still
+want at least the name and the slogan, and the run should end in **success**
+with a warning. Modify the scenario so that `photo` is `null` in that case.
+Save it as `workflows/scenarios/tutorial-04-exercise.yaml` with a fixture and
+verify it with a fake run with a refused image.
 
-Nápověda: `on_error` a `default` ze [scenario.md §3](../spec/scenario.md#3-společné-vlastnosti-kroků).
+Hint: `on_error` and `default` from [scenario.md §3](../spec/scenario.md#3-common-step-properties).
 
 <details>
-<summary>Řešení</summary>
+<summary>Solution</summary>
 
 ```bash
-diff workflows/scenarios/tutorial-04-paralelne.yaml workflows/scenarios/tutorial-04-cviceni.yaml
+diff workflows/scenarios/tutorial-04-parallel.yaml workflows/scenarios/tutorial-04-exercise.yaml
 ```
 
 ```
 2,3c2,3
-< name: tutorial-04-paralelne
-< description: Souběžně vymyslí název se sloganem a vyfotí produkt (tutoriál, díl 4)
+< name: tutorial-04-parallel
+< description: Concurrently comes up with a name and a slogan and photographs the product (tutorial, part 4)
 ---
-> name: tutorial-04-cviceni
-> description: Souběžně vymyslí název se sloganem a vyfotí produkt (tutoriál, díl 4 — řešení cvičení)
+> name: tutorial-04-exercise
+> description: Concurrently comes up with a name and a slogan and photographs the product (tutorial, part 4 — exercise solution)
 18c18
-<     description: Produktová fotka 1:1
+<     description: Product photo 1:1
 ---
->     description: Produktová fotka 1:1 (null, když se nepovedla)
+>     description: Product photo 1:1 (null if it failed)
 48a49,50
 >           on_error: continue
 >           default: { file: null }
 ```
 
-- `on_error: continue` — chyba kroku neukončí běh.
-- `default: { file: null }` — výstup kroku, když selže. Musí obsahovat
-  všechna pole výstupu (`image` má jen `file`). `null` z výslovného
-  `default` se do výstupu vložit smí — zvolil jsi ho vědomě.
+- `on_error: continue` — an error in the step does not end the run.
+- `default: { file: null }` — the output of the step when it fails. It must
+  contain all the output fields (`image` has only `file`). A `null` from an
+  explicit `default` may be put into the output — you chose it knowingly.
 
-Fixtura `fake/tutorial-04-cviceni.yaml` je stejná jako
-u hlavního scénáře (zlatý test ověřuje úspěšnou cestu):
+The fixture `fake/tutorial-04-exercise.yaml` is the same as for the main
+scenario (the golden test verifies the success path):
 
 ```yaml
-# Skriptované odpovědi pro tutorial-04-cviceni (řešení cvičení z dílu 4).
-# Krok image nepotřebuje nic: falešný poskytovatel vyrobí šedé PNG v poměru aspect_ratio.
-navrh:
+# Scripted responses for tutorial-04-exercise (exercise solution from part 4).
+# The image step needs nothing: the fake provider produces a grey PNG in the aspect_ratio.
+propose:
   - json:
-      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+      names: ["Oatsy", "Frost Oat", "Frozen Field"]
 slogan:
   - json:
-      slogan: "Zmrzlina, která roste na poli"
-popis:
+      slogan: "Ice cream that grows in the field"
+describe:
   - json:
-      popis: "A pint of oat milk ice cream on a clean white background, soft light, front view, no text."
+      description: "A pint of oat milk ice cream on a clean white background, soft light, front view, no text."
 ```
 
-Odmítnutý obrázek, `/tmp/odmitnuti-cviceni.yaml`:
+A refused image, `/tmp/refusal-exercise.yaml`:
 
 ```yaml
-navrh:
+propose:
   - json:
-      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+      names: ["Oatsy", "Frost Oat", "Frozen Field"]
 slogan:
   - json:
-      slogan: "Zmrzlina, která roste na poli"
-fotka:
+      slogan: "Ice cream that grows in the field"
+photo:
   - refusal: "I can't generate this image."
 ```
 
 ```bash
-agencast validate workflows/scenarios/tutorial-04-cviceni.yaml
-agencast run workflows/scenarios/tutorial-04-cviceni.yaml -i produkt="zmrzlina" --fake /tmp/odmitnuti-cviceni.yaml
+agencast validate workflows/scenarios/tutorial-04-exercise.yaml
+agencast run workflows/scenarios/tutorial-04-exercise.yaml -i product="ice cream" --fake /tmp/refusal-exercise.yaml
 ```
 
 ```
-v pořádku: tutorial-04-cviceni (6 kroků)
-běh 20260925-151900-tutorial-04-cviceni-77d9: úspěch · 0,0 s · 0,0403 USD
+valid: tutorial-04-exercise (6 steps)
+run 20260925-151900-tutorial-04-exercise-77d9: succeeded · 0.0 s · 0.0403 USD
 ```
 
 ```
-| 5 | fotka | image | chyba, pokračuje | 0,0 s | 0,0400 | selhal, použit default |
-| 6 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 0,0 s | 0,0403 | z toho obrázky 0,0400 |
+| 5 | photo | image | failed, continuing | 0.0 s | 0.0400 | failed, default used |
+| 6 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 0.0 s | 0.0403 | of which images 0.0400 |
 
-## Varování
-- krok fotka selhal (content: model odmítl: I can't generate this image.) — běh pokračuje s default (on_error: continue)
+## Warnings
+- step photo failed (content: model refused: I can't generate this image.) — run continues with default (on_error: continue)
 
-## Výstup
-- nazev: „Ovesňák"
-- slogan: „Zmrzlina, která roste na poli"
-- foto: null
+## Output
+- name: “Oatsy”
+- slogan: “Ice cream that grows in the field”
+- photo: null
 ```
 
-A v `callback.json`: `"status": "succeeded"`, `"foto": null` a varování
-v `"warnings"` — n8n tak pozná, že má příspěvek poslat bez obrázku nebo
-ho vrátit k ruční práci.
+And in `callback.json`: `"status": "succeeded"`, `"photo": null` and the warning
+in `"warnings"` — that way n8n knows to send the post without an image or hand
+it back for manual work.
 
 </details>
 
-**Další díl:** [Od hraní k provozu](05-od-hrani-k-provozu.md).
+**Next part:** [From playground to production](05-from-playground-to-production.md).

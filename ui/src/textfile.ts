@@ -1,15 +1,15 @@
-// Soubor jako text (YAML/Markdown režim, §4.5–4.6): rozpracovaný text v localStorage, průběžná
-// validace přes `POST …/validate`, uložení s otiskem, hlídání změn na disku (`HEAD`, fokus okna + 5 s).
+// A file as text (YAML/Markdown mode, §4.5–4.6): work in progress in localStorage, live
+// validation via `POST …/validate`, saving with an ETag, watching for changes on disk (`HEAD`, window focus + 5 s).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, enc, getJson, headEtag, send, type Saved } from "./api";
 import { deepEqual } from "./edit";
-import { t } from "./i18n";
+import { locale, t } from "./i18n";
 import type { ErrorItem, FileDoc } from "./types";
 
 export const POLL_MS = 5000;
 export const VALIDATE_MS = 500;
 
-/** Rozpracovaný stav v localStorage (klíč soubor, uvnitř otisk verze, ke které patří). */
+/** Work in progress in localStorage (keyed by file; stores the ETag of the version it belongs to). */
 export const draftKey = (project: string, path: string, kind = "text") => `agencast.draft.${kind}:${project}/${path}`;
 export function readDraft<T>(key: string): (T & { etag: string }) | null {
   try {
@@ -21,9 +21,9 @@ export function readDraft<T>(key: string): (T & { etag: string }) | null {
 export const writeDraft = (key: string, value: object | null) =>
   value ? localStorage.setItem(key, JSON.stringify(value)) : localStorage.removeItem(key);
 
-export const clock = () => new Date().toLocaleTimeString("cs", { hour: "numeric", minute: "2-digit" });
+export const clock = () => new Date().toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 
-/** Stav uložení pro hlavičku a `aria-live`. */
+/** Save state for the header and `aria-live`. */
 export type SaveState =
   | { kind: "idle" }
   | { kind: "saving" }
@@ -31,13 +31,13 @@ export type SaveState =
   | { kind: "reloaded"; at: string }
   | { kind: "failed"; message: string };
 
-/** Konflikt: `etag` = otisk na disku; `stale` = rozpracovaný text patří ke starší verzi (po obnovení stránky). */
+/** Conflict: `etag` = ETag on disk; `stale` = the work in progress belongs to an older version (after a page reload). */
 export interface Conflict {
   etag: string | null;
   stale?: boolean;
 }
 
-/** Hlídá otisk souboru: při fokusu okna a každých 5 s zavolá `check`. */
+/** Watches the file's ETag: calls `check` on window focus and every 5 s. */
 export function useWatch(check: () => void, active: boolean) {
   const ref = useRef(check);
   ref.current = check;
@@ -57,8 +57,8 @@ export function useWatch(check: () => void, active: boolean) {
   }, [active]);
 }
 
-/** Varování před odchodem s neuloženými změnami: obnovení/zavření stránky i odkaz na jinou stránku GUI
- *  (`#/…` s jinou cestou; změna jen `?krok=` se neptá). Rozpracovaný stav přesto zůstává v localStorage. */
+/** Warning before leaving with unsaved changes: page reload/close and links to another GUI page
+ *  (`#/…` with a different path; changing only `?step=` does not ask). The work in progress stays in localStorage anyway. */
 export function useLeaveGuard(dirty: boolean) {
   const lastHash = useRef(location.hash);
   useEffect(() => {
@@ -93,7 +93,7 @@ export function useLeaveGuard(dirty: boolean) {
   }, [dirty]);
 }
 
-/** Syntaktická chyba = chyba loaderu s číslem řádku (api.md: `line` jen u syntaxe a duplicitního klíče). */
+/** Syntax error = a loader error with a line number (api.md: `line` only for syntax errors and duplicate keys). */
 export const syntaxError = (errors: ErrorItem[]) => errors.find((e) => e.line != null);
 
 export interface FileDraft<T> {
@@ -102,12 +102,12 @@ export interface FileDraft<T> {
   value: T;
   setValue: (v: T) => void;
   dirty: boolean;
-  /** Chyby tohoto souboru (průběžná validace textu, nebo z poslední operace). */
+  /** Errors of this file (live text validation, or from the last operation). */
   errors: ErrorItem[];
   validating: boolean;
   state: SaveState;
   conflict?: Conflict;
-  /** Po „Ponechat moje“ uloží přes verzi na disku (vyžaduje potvrzení). */
+  /** After “Keep mine”, saving overwrites the version on disk (requires confirmation). */
   overwrite: boolean;
   save: () => Promise<boolean>;
   reloadFromDisk: () => void;
@@ -117,17 +117,17 @@ export interface FileDraft<T> {
 }
 
 export interface FileDraftOptions<T> {
-  /** Hodnota formuláře z načteného souboru (u textu `doc.text`). */
+  /** Form value from the loaded file (`doc.text` for text). */
   fromDoc: (doc: FileDoc) => T;
-  /** Zápis: metoda, cesta a tělo bez `etag`; null = není co poslat. */
+  /** Write request: method, path and body without `etag`; null = nothing to send. */
   request: (doc: FileDoc, value: T) => { method: string; url: string; body: Record<string, unknown> } | null;
-  /** Text k průběžné validaci (`POST …/validate`), jen v textovém režimu. */
+  /** Text for live validation (`POST …/validate`), text mode only. */
   validateText?: (value: T) => string;
 }
 
 /**
- * Soubor `path` ve `workflows/` (api.md `files/`) jako rozpracovaná hodnota: draft v localStorage,
- * hlídání disku, uložení s otiskem (409 → konflikt, 422 → chyby). `path: null` = neaktivní.
+ * File `path` in `workflows/` (api.md `files/`) as a value being edited: draft in localStorage,
+ * disk watching, saving with an ETag (409 → conflict, 422 → errors). `path: null` = inactive.
  */
 export function useFileDraft<T>(project: string, path: string | null, opts: FileDraftOptions<T>, kind = "text"): FileDraft<T> {
   const base = `/projects/${enc(project)}`;
@@ -180,7 +180,7 @@ export function useFileDraft<T>(project: string, path: string | null, opts: File
     if (doc) writeDraft(key, deepEqual(v, o.current.fromDoc(doc)) ? null : { etag: doc.etag, value: v });
   };
 
-  // průběžná validace textu (500 ms po posledním úhozu); text jako na disku má chyby už z GET files/ (0.8.0)
+  // live text validation (500 ms after the last keystroke); text equal to the disk already has errors from GET files/ (0.8.0)
   const text = doc && opts.validateText ? opts.validateText(value) : undefined;
   useEffect(() => {
     if (!doc || !path || text === undefined) return;
@@ -220,7 +220,7 @@ export function useFileDraft<T>(project: string, path: string | null, opts: File
         setState({ kind: "reloaded", at: clock() });
       } else if (!conflict) setConflict({ etag });
     } catch {
-      /* ServerBar ukáže nedostupný server */
+      /* ServerBar shows the unreachable server */
     }
   }, !!doc);
 
@@ -269,8 +269,8 @@ export function useFileDraft<T>(project: string, path: string | null, opts: File
   };
 }
 
-/** Soubor jako text (YAML / Markdown režim) s průběžnou validací; `saveUrl` = jiný zápis se stejným tělem
- *  `{etag, text}` (skilly: `PUT …/skills/<n>`). */
+/** A file as text (YAML / Markdown mode) with live validation; `saveUrl` = a different write endpoint with the same body
+ *  `{etag, text}` (skills: `PUT …/skills/<n>`). */
 export function useTextFile(project: string, path: string | null, saveUrl?: string) {
   const f = useFileDraft<string>(project, path, {
     fromDoc: (d) => d.text,
@@ -280,13 +280,13 @@ export function useTextFile(project: string, path: string | null, saveUrl?: stri
   return { ...f, text: f.value ?? "", setText: f.setValue };
 }
 
-/** Řádkový rozdíl (LCS) pro „Zobrazit rozdíl“ (§4.6); soubory scénářů mají stovky řádků. */
+/** Line diff (LCS) for “Show diff” (§4.6); scenario files have hundreds of lines. */
 export function lineDiff(a: string, b: string): { op: " " | "-" | "+"; text: string }[] {
   const x = a.replace(/\n$/, "").split("\n");
   const y = b.replace(/\n$/, "").split("\n");
   const n = x.length;
   const m = y.length;
-  // ponytail: O(n·m) paměť; pro soubory nad ~5000 řádků by chtělo Myers
+  // ponytail: O(n·m) memory; files over ~5000 lines would need Myers
   const lcs = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
   for (let i = n - 1; i >= 0; i--)
     for (let j = m - 1; j >= 0; j--) lcs[i][j] = x[i] === y[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);

@@ -1,11 +1,11 @@
-// Tenký fetch nad HTTP API `agencast serve`: token, stav spojení, chyby jako typy.
+// Thin fetch over the `agencast serve` HTTP API: token, connection state, typed errors.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { t } from "./i18n";
 import type { ErrorItem } from "./types";
 
 const TOKEN_KEY = "agencast.token";
 
-/** Při `npm run dev` běží GUI na jiném originu než `serve` (proto `serve --cors`). */
+/** With `npm run dev` the GUI runs on a different origin than `serve` (hence `serve --cors`). */
 export const API_BASE: string = import.meta.env.DEV
   ? (import.meta.env.VITE_AGENCAST_URL as string | undefined) ?? "http://127.0.0.1:8787"
   : "";
@@ -16,17 +16,17 @@ export class ApiError extends Error {
     message: string,
     readonly errors: ErrorItem[] = [],
     readonly details: string[] = [],
-    /** Celé tělo chyby (409 nese aktuální `etag`). */
+    /** Full error body (409 carries the current `etag`). */
     readonly body: Record<string, unknown> = {},
   ) {
     super(message);
   }
 }
 
-// --- stav spojení (ServerBar, obrazovka tokenu) -------------------------------------------
+// --- connection state (ServerBar, token screen) -------------------------------------------
 
 export interface Connection {
-  /** `missing` = token není uložený, `bad` = server vrátil 401. */
+  /** `missing` = no token saved, `bad` = the server returned 401. */
   auth: "ok" | "missing" | "bad";
   offline: boolean;
 }
@@ -54,13 +54,13 @@ export function saveToken(token: string) {
   setConn({ auth: "ok" });
 }
 
-// --- požadavky ---------------------------------------------------------------------------
+// --- requests ----------------------------------------------------------------------------
 
 async function request(path: string, init: RequestInit = {}): Promise<Response> {
   const token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
     setConn({ auth: "missing" });
-    throw new ApiError(401, "chybí token");
+    throw new ApiError(401, t("token.missing"));
   }
   const reading = !init.method || init.method === "GET" || init.method === "HEAD";
   const version = connectionVersion;
@@ -78,7 +78,7 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
     }
   } catch {
     if (reading && version === connectionVersion) setConn({ offline: true });
-    // hláška prohlížeče („Failed to fetch“) je anglicky a nic neříká; ukazuje ji SaveNote
+    // the browser's message (“Failed to fetch”) says nothing useful; SaveNote shows this one
     throw new ApiError(0, t("server.unreachable"));
   }
   connectionVersion++;
@@ -101,15 +101,15 @@ export const getJson = async <T>(path: string): Promise<T> => (await request(pat
 export const getText = async (path: string): Promise<string> => (await request(path)).text();
 export const getBlob = async (path: string): Promise<Blob> => (await request(path)).blob();
 
-/** Otisk souboru bez stahování (`HEAD …/files/<cesta>`, hlavička `ETag` v uvozovkách). */
+/** File ETag without downloading it (`HEAD …/files/<path>`, quoted `ETag` header). */
 export const headEtag = async (path: string): Promise<string | null> =>
   (await request(path, { method: "HEAD" })).headers.get("ETag")?.replace(/^(W\/)?"|"$/g, "") ?? null;
 
-/** Zápis (editační operace, spuštění běhu): JSON tělo, odpověď JSON; chyba → ApiError. */
+/** Write (edit operation, starting a run): JSON body, JSON response; error → ApiError. */
 export const send = async <T>(method: string, path: string, body?: unknown): Promise<T> =>
   (await request(path, { method, body: body === undefined ? undefined : JSON.stringify(body) })).json();
 
-/** Odpověď editační operace (api.md „Editace“). */
+/** Response of an edit operation (api.md “Editing”). */
 export interface Saved {
   etag: string | null;
   errors: ErrorItem[];
@@ -117,7 +117,7 @@ export interface Saved {
 
 export const enc = encodeURIComponent;
 
-// --- hook pro čtení ----------------------------------------------------------------------
+// --- read hook ---------------------------------------------------------------------------
 
 export interface Loaded<T> {
   data: T | undefined;
@@ -126,8 +126,8 @@ export interface Loaded<T> {
   reload: () => void;
 }
 
-/** Načte `path` (null = nic); `poll(data)` vrací za kolik ms načíst znovu (null = nečekat).
- *  Nedostupný server se zkouší znovu po 5 s (ServerBar „zkouším znovu…“). */
+/** Loads `path` (null = nothing); `poll(data)` returns in how many ms to load again (null = don't).
+ *  An unreachable server is retried after 5 s (ServerBar “retrying…”). */
 export function useApi<T>(
   path: string | null,
   poll?: (data: T) => number | null,

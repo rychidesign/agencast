@@ -8,7 +8,7 @@ export const RUN_STATUS: Record<RunState, Status> = {
   cancelled: "cancelled", dry_run: "dry-run",
 };
 
-/** Stavový čip posledního běhu z `last_run`: „✓ před 12 min“, „✗ chyba“, „◌ běží“, „bez běhů“ (§2.2). */
+/** Status chip of the last run from `last_run`: "✓ 12 min ago", "✗ error", "◌ running", "no runs" (§2.2). */
 export function LastRun({ run }: { run: LastRunRef | null | undefined }) {
   if (!run) return <StatusChip status="none">{t("runs.none")}</StatusChip>;
   const { state } = run;

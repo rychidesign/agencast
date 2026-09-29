@@ -1,30 +1,30 @@
-# config.yaml pro Fázi 2 (vytvořeno podle config.example.yaml, aliasy na levné modely).
-# Mění jen vlastník. Žádné tajné hodnoty: pole *_env obsahují JMÉNO
-# proměnné prostředí, hodnota je v .env (server) nebo v modal.Secret.
-# Specifikace: docs/spec/config.md
+# config.yaml for Phase 2 (created from config.example.yaml, aliases point to cheap models).
+# Changed by the owner only. No secret values: the *_env fields contain the NAME
+# of an environment variable; the value is in .env (server) or in modal.Secret.
+# Specification: docs/spec/config.md
 version: 1
 
 openrouter:
   api_key_env: OPENROUTER_API_KEY
   jev_model: jev-1.13
 
-# Aliasy modelů. Agenti a scénáře znají jen levou stranu.
+# Model aliases. Agents and scenarios know only the left-hand side.
 models:
-  chytry:       { id: anthropic/claude-haiku-4.5 }
-  rychly:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
+  smart:       { id: anthropic/claude-haiku-4.5 }
+  fast:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
   gemini-image: { id: google/gemini-3.1-flash-image }
 
-# Složka se záznamy běhů (na Modalu cesta k Volume).
+# Folder with run records (on Modal, a path to the Volume).
 runs_dir: ./runs
 
-# Kam se nahrají soubory z kroku output. R2 zatím framework neumí (Fáze 3),
-# proto místní složka; callback pak nese file:// cestu (pro Instagram nepoužitelné).
+# Where files from the output step are uploaded. The framework does not support R2 yet (Phase 3),
+# hence a local folder; the callback then carries a file:// path (unusable for Instagram).
 storage:
   type: local
   local:
     path: ./outputs
 
-# Pojistky jednoho běhu.
+# Safety limits for a single run.
 limits:
   run_budget_usd: 1.00
   run_image_budget_usd: 0.30

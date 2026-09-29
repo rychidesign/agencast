@@ -1,11 +1,11 @@
-"""Krok `task` (scenario.md task, agent.md, DESIGN §5.8), `dedupe_key` (scenario.md §3) a sdílený
-stav běhů za rozhraním (DedupeStore, SlotStore, Ledger — DESIGN „Obálky“).
+"""The `task` step (scenario.md task, agent.md, DESIGN §5.8), `dedupe_key` (scenario.md §3) and shared
+run state behind an interface (DedupeStore, SlotStore, Ledger — DESIGN “Wrappers”).
 
-Smyčka model ↔ nástroje: každý tah je jedno `Run.call_api` (opakování po
-`transient`/`schema` jde uvnitř a do `max_turns` se nepočítá). Model vidí jen
-efektivní sadu nástrojů (krok ⊆ agent ⊆ mcp.yaml), `load_skill` a na úrovni
-kaskády `tool_wrapper` `_submit_output`, který smyčku ukončí a nikdy nejde
-na MCP server.
+Model ↔ tools loop: each turn is one `Run.call_api` (retries after
+`transient`/`schema` happen internally and do not count toward `max_turns`). The model sees only
+the effective tool set (step ⊆ agent ⊆ mcp.yaml), `load_skill` and, at the
+`tool_wrapper` cascade level, `_submit_output`, which ends the loop and never goes
+to an MCP server.
 """
 import base64
 import fcntl
@@ -28,18 +28,18 @@ IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "ima
 
 
 def system_prompt_task(agent) -> str:
-    """Tělo agenta + oddíl `## Skilly` se seznamem `- jméno: description` (agent.md, u `task`)."""
+    """Agent body + `## Skills` section listing `- name: description` (agent.md, for `task`)."""
     parts = [agent.body.strip()]
     if agent.skills:
-        parts.append("## Skilly\n\n" + "\n".join(f"- {n}: {d}" for n, d, _ in agent.skills))
+        parts.append("## Skills\n\n" + "\n".join(f"- {n}: {d}" for n, d, _ in agent.skills))
     return "\n\n".join(parts)
 
 
 def skill_tool(agent) -> dict:
     return {"type": "function", "function": {
         "name": SKILL_TOOL,
-        "description": "Načte celé instrukce skillu ze seznamu Skilly. Když je skill pro úkol relevantní, "
-                       "načti ho dřív, než začneš.",
+        "description": "Load the full instructions for a skill from the Skills list. When a skill is relevant to the task, "
+                       "load it before starting.",
         "parameters": {"type": "object", "properties": {"name": {"type": "string", "enum": [n for n, _, _ in agent.skills]}},
                        "required": ["name"], "additionalProperties": False}}}
 
@@ -47,8 +47,8 @@ def skill_tool(agent) -> dict:
 # --- dedupe_key -----------------------------------------------------------------------
 
 class DedupeStore:
-    """Úložiště `dedupe_key` (DESIGN „Obálky“): lokálně `<složka>/<sha256>.json`. Na Modalu sem
-    obálka dosadí vlastní úložiště (Dict apod.) se stejnými třemi metodami."""
+    """`dedupe_key` store (DESIGN “Wrappers”): local `<directory>/<sha256>.json`. On Modal,
+    the wrapper supplies its own store (Dict etc.) with the same three methods."""
 
     def __init__(self, directory):
         self.dir = directory
@@ -61,18 +61,18 @@ class DedupeStore:
         return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
 
     def claim(self, key: str, run_id: str):
-        """Výhradně a atomicky zapíše `started`; když už záznam je, `config`."""
+        """Exclusively and atomically write `started`; if a record exists, raise `config`."""
         path = self.dir / f"{key}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
         except FileExistsError:
-            raise AgencastError("config", f"krok mezitím spustil jiný běh, ověř ručně a smaž {path}") from None
+            raise AgencastError("config", f"another run has started the step in the meantime, check manually and delete {path}") from None
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(json.dumps({"state": "started", "run_id": run_id, "output": None}, ensure_ascii=False))
 
     def finish(self, key: str, data: dict):
-        """Atomicky (přejmenováním) přepíše záznam na `data` (`state: succeeded`)."""
+        """Atomically (by renaming) replace the record with `data` (`state: succeeded`)."""
         path = self.dir / f"{key}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
@@ -81,23 +81,23 @@ class DedupeStore:
 
 
 def local_dedupe(runs_dir, fake: bool) -> DedupeStore:
-    """`<runs>/_dedupe/`; falešný běh (`--fake`) má vlastní `_dedupe-fake/`, aby jeho vymyšlený
-    výstup nepřeskočil ostrý krok (BUGS 8)."""
+    """`<runs>/_dedupe/`; a fake run (`--fake`) has its own `_dedupe-fake/` so its fabricated
+    output cannot cause a real step to be skipped (BUGS 8)."""
     return DedupeStore(runs_dir / ("_dedupe-fake" if fake else "_dedupe"))
 
 
-# --- limits.max_parallel_runs a daily_budget_usd (ISSUES 40) ----------------------------
+# --- limits.max_parallel_runs and daily_budget_usd (ISSUES 40) ----------------------------
 
 class SlotStore:
-    """Sloty `max_parallel_runs` napříč procesy (DESIGN „Obálky“): lokálně `flock` na
-    `<složka>/<n>.lock`, n = 1..N; zámek pustí i pád procesu. Na Modalu sem obálka dosadí
-    vlastní semafor se stejnými dvěma metodami."""
+    """Cross-process `max_parallel_runs` slots (DESIGN “Wrappers”): local `flock` on
+    `<directory>/<n>.lock`, n = 1..N; a process crash also releases the lock. On Modal, the wrapper supplies
+    its own semaphore with the same two methods."""
 
     def __init__(self, directory, size: int):
         self.dir, self.size = directory, size
 
     def acquire(self) -> int | None:
-        """Volný slot (držený deskriptor), jinak None — nečeká."""
+        """Free slot (held descriptor), otherwise None — nonblocking."""
         self.dir.mkdir(parents=True, exist_ok=True)
         for n in range(1, self.size + 1):
             fd = os.open(self.dir / f"{n}.lock", os.O_RDWR | os.O_CREAT, 0o644)
@@ -109,13 +109,13 @@ class SlotStore:
         return None
 
     def release(self, fd: int):
-        os.close(fd)  # zavřením deskriptoru flock zanikne
+        os.close(fd)  # closing the descriptor releases flock
 
 
 class Ledger:
-    """Denní kniha útraty (DESIGN „Obálky“): lokálně `<složka>/<YYYY-MM-DD>.jsonl` (UTC), řádek
-    `{run_id, cost_usd, finished_at}` na dokončený běh, append pod `flock`. Na Modalu sem obálka
-    dosadí vlastní úložiště se stejnými metodami (`rows` čte GET /projects/<p>/spend)."""
+    """Daily spend ledger (DESIGN “Wrappers”): local `<directory>/<YYYY-MM-DD>.jsonl` (UTC), one
+    `{run_id, cost_usd, finished_at}` row per completed run, appended under `flock`. On Modal, the wrapper
+    supplies its own store with the same methods (`rows` is read by GET /projects/<p>/spend)."""
 
     def __init__(self, directory):
         self.dir = directory
@@ -139,16 +139,16 @@ class Ledger:
 
 
 def hold_run_lock(run_dir) -> int:
-    """Zámek živého běhu (nalezy-api 1): `flock` na `<run>/run.lock` po dobu života procesu; pustí ho
-    `os.close` i pád procesu. Čeká (blokující), protože čtenář `run_locked` drží sdílený zámek jen chvilku.
-    Na Modalu obálka dosadí vlastní (jako `SlotStore`)."""
+    """Live run lock (api-findings 1): `flock` on `<run>/run.lock` for the process lifetime; released by
+    `os.close` or a process crash. Blocks because the `run_locked` reader holds a shared lock only briefly.
+    On Modal, the wrapper supplies its own (like `SlotStore`)."""
     fd = os.open(run_dir / "run.lock", os.O_RDWR | os.O_CREAT, 0o644)
     fcntl.flock(fd, fcntl.LOCK_EX)
     return fd
 
 
 def run_locked(run_dir) -> bool:
-    """True = zámek běhu drží živý proces (i tentýž — flock patří otevřenému souboru, ne procesu)."""
+    """True = run lock held by a live process (even this one — flock belongs to the open file, not the process)."""
     try:
         fd = os.open(run_dir / "run.lock", os.O_RDONLY)
     except FileNotFoundError:
@@ -163,31 +163,31 @@ def run_locked(run_dir) -> bool:
 
 
 def local_slots(runs_dir, size: int) -> SlotStore:
-    """`<runs>/_slots/`; falešné běhy sdílí sloty s ostrými (jde o souběh, ne o data)."""
+    """`<runs>/_slots/`; fake runs share slots with real runs (concurrency, not data)."""
     return SlotStore(runs_dir / "_slots", size)
 
 
 def local_ledger(runs_dir, fake: bool) -> Ledger:
-    """`<runs>/_ledger/`; falešný běh má `_ledger-fake/` (symetrie s `_dedupe-fake/`)."""
+    """`<runs>/_ledger/`; fake runs use `_ledger-fake/` (symmetrical with `_dedupe-fake/`)."""
     return Ledger(runs_dir / ("_ledger-fake" if fake else "_ledger"))
 
 
 def dedupe_key(run, info: StepInfo) -> tuple[str, str]:
-    """(sha256(scénář/krok/klíč), klíč) — klíč vázaný na scénář a krok."""
+    """(sha256(scenario/step/key), key) — key scoped to the scenario and step."""
     key = run.text(info.data["dedupe_key"], "dedupe_key")
     return hashlib.sha256(f"{run.p.scenario['name']}/{info.key}/{key}".encode()).hexdigest(), key
 
 
 def dedupe_skip(run, info: StepInfo) -> bool:
-    """Krok už v jiném běhu proběhl → přeskočit s jeho výstupem; `started` bez `succeeded` → `config`."""
+    """Step already ran in another run → skip with its output; `started` without `succeeded` → `config`."""
     h, key = dedupe_key(run, info)
     rec = run.dedupe.get(h)
     if rec is None:
         return False
     if rec.get("state") != "succeeded":
-        raise AgencastError("config", f"krok mohl proběhnout jen částečně (dedupe_key {key!r}, běh {rec.get('run_id')}), "
-                                 f"ověř ručně a smaž {run.dedupe.where(h)}")
-    reason = f"dedupe_key {key!r}: krok už proběhl v běhu {rec['run_id']}"
+        raise AgencastError("config", f"step may have run only partially (dedupe_key {key!r}, run {rec.get('run_id')}), "
+                                 f"check manually and delete {run.dedupe.where(h)}")
+    reason = f"dedupe_key {key!r}: step already ran in run {rec['run_id']}"
     run.rec.event("step_skipped", step=info.id, kind=info.kind, nn=info.nn, reason_code="dedupe", reason=reason,
                   default_used=False)
     run.rows[info.id] = {"nn": info.nn, "id": info.id, "kind": info.kind, "status": "skipped",
@@ -196,7 +196,7 @@ def dedupe_skip(run, info: StepInfo) -> bool:
     return True
 
 
-# --- smyčka -----------------------------------------------------------------------------
+# --- loop -----------------------------------------------------------------------------
 
 async def run_task(run, info: StepInfo, ctx):
     t = info.data["task"]
@@ -216,9 +216,9 @@ class _Loop:
         self.m = run.p.config["models"][self.alias]
         self.schema = json_schema(self.t["schema"]) if "schema" in self.t else None
         self.dedupe = dedupe_key(run, info)[0] if "dedupe_key" in info.data else None
-        self.started = False     # dedupe `started` už zapsán
-        self.routes: dict = {}   # jméno pro API → (Server, mcp Tool)
-        self.notes: dict = {}    # data URL obrázku → text do záznamu
+        self.started = False     # dedupe `started` already written
+        self.routes: dict = {}   # API name → (Server, mcp Tool)
+        self.notes: dict = {}    # image data URL → record text
         self.tool_calls = 0
 
     async def tools(self) -> list:
@@ -228,11 +228,11 @@ class _Loop:
             for n in names:
                 tool = srv.tools.get(n)
                 if tool is None:
-                    raise AgencastError("config", f"MCP server '{s}' nemá nástroj '{n}' (nabízí: {', '.join(srv.tools)})")
+                    raise AgencastError("config", f"MCP server '{s}' has no tool '{n}' (offers: {', '.join(srv.tools)})")
                 try:
                     params = provider_schema(tool.input_schema)
                 except ValueError as e:
-                    raise AgencastError("config", f"schéma nástroje {s}.{n}: {e}") from None
+                    raise AgencastError("config", f"tool schema {s}.{n}: {e}") from None
                 self.routes[api_name(s, n)] = (srv, tool)
                 out.append({"type": "function", "function": {"name": api_name(s, n),
                                                              "description": tool.description or "",
@@ -240,7 +240,7 @@ class _Loop:
         return out + ([skill_tool(self.agent)] if self.agent.skills else [])
 
     def redact(self, body):
-        """Obrázky z nástrojů jako `<soubor: …>`, zbytek jako u ostatních kroků (run-record.md)."""
+        """Tool images as `<file: …>`, the rest as in other steps (run-record.md)."""
         def walk(o):
             if isinstance(o, dict):
                 return {k: walk(v) for k, v in o.items()}
@@ -256,19 +256,19 @@ class _Loop:
         prompt = run.text(self.t["prompt"], "task.prompt")
         max_turns = self.t.get("max_turns", self.agent.data["limits"]["max_turns"])
         messages = [{"role": "user", "content": prompt}]
-        # vždy od tool_wrapper, bez ohledu na alias: nativní schéma v každém tahu svádí model (Haiku)
-        # odpovědět JSONem bez volání nástrojů (BUGS 7, ISSUES 36); alias platí jen pro ask
+        # always start with tool_wrapper regardless of alias: native schema on each turn tempts the model (Haiku)
+        # to answer with JSON without calling tools (BUGS 7, ISSUES 36); alias applies only to ask
         st = {"level": "tool_wrapper" if self.schema else None, "feedback": [], "prev": None, "turn": 0}
-        run.rec.write(f"{info.folder}/prompt.md", "# System prompt\n\n" + system + "\n\n# Zpráva\n\n" + prompt)
+        run.rec.write(f"{info.folder}/prompt.md", "# System prompt\n\n" + system + "\n\n# Message\n\n" + prompt)
 
         def build(attempt, last):
-            if last and last.cls == "schema":  # kaskáda o úroveň níž + zpětná vazba (jako u ask)
+            if last and last.cls == "schema":  # cascade one level down + feedback (as with ask)
                 if st["level"] != "prompt":
                     st["level"] = LEVELS[LEVELS.index(st["level"]) + 1]
                 prev = st["prev"]
                 st["feedback"] = ([assistant_message(prev)] if prev and prev.get("content") and not prev.get("tool_calls")
-                                  else []) + [{"role": "user", "content": f"Předchozí odpověď byla neplatná: "
-                                               f"{last.message}\nOdpověz znovu, přesně v požadovaném tvaru."}]
+                                  else []) + [{"role": "user", "content": f"The previous response was invalid: "
+                                               f"{last.message}\nRespond again, exactly in the required format."}]
             sysp = system + (prompt_level_suffix(self.schema) if st["level"] == "prompt" else "")
             return task_body(self.m["id"], sysp, messages + st["feedback"], tools, st["level"], self.schema,
                              self.m.get("max_tokens")), \
@@ -290,26 +290,26 @@ class _Loop:
                 out = value["final"] if self.schema else {"text": value["final"]}
                 calls = [c for c in st["prev"].get("tool_calls") or [] if c["function"]["name"] != SUBMIT_TOOL]
                 if calls:
-                    run.warnings.append(f"krok {info.id}: model spolu s {SUBMIT_TOOL} volal i jiné nástroje "
-                                        f"({', '.join(c['function']['name'] for c in calls)}) — nespustily se")
+                    run.warnings.append(f"step {info.id}: model called other tools together with {SUBMIT_TOOL} "
+                                        f"({', '.join(c['function']['name'] for c in calls)}) — they were not executed")
                 if self.dedupe:
                     run.dedupe.finish(self.dedupe, {"state": "succeeded", "run_id": run.run_id, "output": out})
-                run.rows[info.id]["note"] = (f"{self.alias} → {self.m['id']}, tahů {turn}, nástrojů {self.tool_calls}"
+                run.rows[info.id]["note"] = (f"{self.alias} → {self.m['id']}, turns {turn}, tools {self.tool_calls}"
                                              + (f" ({st['level']})" if self.schema else ""))
                 return out
-            if turn == max_turns:  # poslední tah chce další nástroje — nespouštět, model by výsledek neviděl
+            if turn == max_turns:  # last turn requests more tools — do not execute, the model would not see the result
                 break
             messages.append(assistant_message(st["prev"]))
             images = []
             for c in value["calls"]:
                 messages.append(await self.dispatch(c, turn, images))
-            if images:  # obrázky až v user zprávě za tool zprávami (Gemini je v tool zprávě odmítne, §5.8)
-                messages.append({"role": "user", "content": [{"type": "text", "text": "Obrázky z výsledků nástrojů:"},
+            if images:  # images in a user message after tool messages (Gemini rejects them in tool messages, §5.8)
+                messages.append({"role": "user", "content": [{"type": "text", "text": "Images from tool results:"},
                                                              *images]})
-        raise AgencastError("budget", f"max_turns {max_turns} vyčerpán bez finální odpovědi (model dál volá nástroje)")
+        raise AgencastError("budget", f"max_turns {max_turns} exhausted without a final answer (model keeps calling tools)")
 
     async def dispatch(self, call: dict, turn: int, images: list) -> dict:
-        """Jedno volání nástroje → tool zpráva. Nepovolené jméno ani špatné argumenty na server nejdou."""
+        """One tool call → tool message. Disallowed names and invalid arguments are not sent to the server."""
         run, info = self.run, self.info
         fn = call.get("function") or {}
         name, raw = fn.get("name") or "", fn.get("arguments") or "{}"
@@ -327,34 +327,34 @@ class _Loop:
         try:
             args = json.loads(raw)
         except ValueError as e:
-            args, errs = raw, [f"argumenty nejsou JSON: {e}"]
+            args, errs = raw, [f"arguments are not JSON: {e}"]
         else:
-            errs = [] if isinstance(args, dict) else ["argumenty musí být objekt"]
+            errs = [] if isinstance(args, dict) else ["arguments must be an object"]
         if not flags["allowed"]:
-            text = f"Chyba: nástroj {name} není povolen. Povolené: {', '.join(self.routes) or '—'}" + \
+            text = f"Error: tool {name} is not allowed. Allowed: {', '.join(self.routes) or '—'}" + \
                    (f", {SKILL_TOOL}" if self.agent.skills else "")
         elif errs or (errs := arg_errors(route[1].input_schema if route else skill_tool(self.agent)["function"]["parameters"],
                                          args)):
             flags["invalid_args"] = True
-            text = "Chyba: argumenty neprošly schématem nástroje: " + "; ".join(errs[:5])
+            text = "Error: arguments did not match the tool schema: " + "; ".join(errs[:5])
         elif server == SKILLS_SERVER:
             text = next(b for s, _, b in self.agent.skills if s == args["name"])
         else:
-            if self.dedupe and not self.started:  # started před prvním voláním nástroje (§5.2)
+            if self.dedupe and not self.started:  # started before the first tool call (§5.2)
                 run.dedupe.claim(self.dedupe, run.run_id)
                 self.started = True
             res = await Pool.call(route[0], tool, args)
             flags["is_error"] = res.is_error
-            text = ("Chyba nástroje: " if res.is_error else "") + res.text
+            text = ("Tool error: " if res.is_error else "") + res.text
             for k, (data, media) in enumerate(res.images, 1):
                 rel = run.rec.write_bytes(f"{info.folder}/tool-{n:02d}-{k}.{IMAGE_EXT.get(media, 'bin')}", data)
                 w, h = image_size(data)
                 run.rec.event("image_saved", step=info.id, path=rel, media_type=media, bytes=len(data), width=w, height=h)
                 url = f"data:{media};base64,{base64.b64encode(data).decode()}"
-                self.notes[url] = f"<soubor: {rel}, {len(data)} B>"
+                self.notes[url] = f"<file: {rel}, {len(data)} B>"
                 images.append({"type": "image_url", "image_url": {"url": url}})
                 files.append(rel)
-                text += f"\nobrázek v další zprávě: {rel.rsplit('/', 1)[1]}"
+                text += f"\nimage in the next message: {rel.rsplit('/', 1)[1]}"
         call_file = run.rec.write(f"{info.folder}/calls/{n:02d}.tool.json", {
             "turn": turn, "name": name, "server": server, "tool": tool, "arguments": args, **flags,
             "result": text, "files": files})

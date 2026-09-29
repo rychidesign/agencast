@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/rychidesign/agencast/main/docs/spec/schema/skill.schema.json",
-  "title": "Skill — YAML frontmatter SKILL.md, formát v1",
-  "description": "Viz docs/spec/skill.md. name = jméno složky (kontroluje validate); tělo musí být neprázdné.",
+  "title": "Skill — YAML frontmatter of SKILL.md, format v1",
+  "description": "See docs/spec/skill.md. name = directory name (checked by validate); the body must not be empty.",
   "type": "object",
   "additionalProperties": false,
   "required": [

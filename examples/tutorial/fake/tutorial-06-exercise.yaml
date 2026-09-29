@@ -1,0 +1,19 @@
+# Scripted responses for tutorial-06-exercise (exercise solution from part 6).
+# Two task steps, each with its own list of turns. The check step reads the files
+# written by the write step — the MCP server (fake in tests) runs once per run.
+write:
+  - tool_calls:
+      - { name: filesystem__list_allowed_directories, arguments: {} }
+      - { name: load_skill, arguments: { name: tutorial-entry } }
+  - tool_calls:
+      - name: filesystem__write_file
+        arguments: { path: 2026-09-25.md, content: "# Entry 2026-09-25\n- It rained in the morning.\n- In the afternoon we finished part 6.\n" }
+      - name: filesystem__write_file
+        arguments: { path: index.md, content: "# Index\n- 2026-09-25: It rained in the morning.\n" }
+  - text: "Written: 2026-09-25.md and index.md."
+check:
+  - tool_calls:
+      - { name: load_skill, arguments: { name: tutorial-entry } }
+      - { name: filesystem__read_text_file, arguments: { path: 2026-09-25.md } }
+      - { name: filesystem__read_text_file, arguments: { path: index.md } }
+  - text: "The entry has 2 sentences, both files match the skill."

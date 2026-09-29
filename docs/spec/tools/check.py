@@ -2,14 +2,14 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml", "jsonschema"]
 # ///
-"""Ověří ukázky a úryvky specifikace proti JSON Schema.
+"""Validate examples and specification snippets against JSON Schema.
 
-Soubory čte stejně, jak je bude číst framework (DESIGN §5.2, spec REVIEW B6):
-YAML 1.2 core — booleany jen true/false, `4:5` a `yes` jsou text,
-duplicitní klíč je chyba s číslem řádku.
+Read files the same way as the framework (DESIGN §5.2, spec REVIEW B6):
+YAML 1.2 core — only true/false are booleans, `4:5` and `yes` are strings,
+a duplicate key is an error with a line number.
 
-Spuštění z kořene repozitáře:  uv run --project framework python docs/spec/tools/check.py
-Součást specifikace, ne frameworku.
+Run from the repository root:  uv run --project framework python docs/spec/tools/check.py
+Part of the specification, not the framework.
 """
 import json
 import re
@@ -24,7 +24,7 @@ SPEC = ROOT / "docs/spec"
 
 
 class Yaml12Loader(yaml.SafeLoader):
-    """SafeLoader bez resolverů YAML 1.1 (yes/no/on/off, 4:5 → 245, datum)."""
+    """SafeLoader without YAML 1.1 resolvers (yes/no/on/off, 4:5 → 245, dates)."""
 
     def construct_mapping(self, node, deep=False):
         seen = {}
@@ -32,7 +32,7 @@ class Yaml12Loader(yaml.SafeLoader):
             key = self.construct_object(key_node, deep=deep)
             if key in seen:
                 raise yaml.constructor.ConstructorError(
-                    None, None, f"duplicitní klíč {key!r} (poprvé na řádku {seen[key]})",
+                    None, None, f"duplicate key {key!r} (first seen on line {seen[key]})",
                     key_node.start_mark)
             seen[key] = key_node.start_mark.line + 1
         return super().construct_mapping(node, deep)
@@ -67,7 +67,7 @@ def load(text):
 def split_frontmatter(text):
     m = re.match(r"---\n(.*?)\n---\n(.*)", text, re.S)
     if not m:
-        raise ValueError("chybí frontmatter mezi řádky ---")
+        raise ValueError("missing frontmatter between --- lines")
     return load(m.group(1)), m.group(2)
 
 
@@ -78,9 +78,9 @@ def self_test():
     try:
         load("a: 1\nb: 2\na: 3")
     except yaml.YAMLError as e:
-        assert "duplicitní klíč 'a'" in str(e) and "line 3" in str(e)
+        assert "duplicate key 'a'" in str(e) and "line 3" in str(e)
     else:
-        raise AssertionError("duplicitní klíč prošel")
+        raise AssertionError("duplicate key was accepted")
 
 
 def main():
@@ -89,7 +89,7 @@ def main():
                for n in ("agent", "scenario", "config", "mcp", "skill")}
     for v in schemas.values():
         v.check_schema(v.schema)
-    items = []  # (popis, schéma, data)
+    items = []  # (description, schema, data)
     errors = []
 
     def add(label, kind, getter):
@@ -100,7 +100,7 @@ def main():
 
     def body_check(label, body):
         if not body.strip():
-            errors.append(f"{label}: prázdné tělo")
+            errors.append(f"{label}: empty body")
 
     for project in ("showcase", "tutorial"):
         wf = ROOT / "examples" / project / "workflows"
@@ -109,7 +109,7 @@ def main():
                 fm, body = split_frontmatter(f.read_text())
                 body_check(f.name, body)
                 if fm.get("name") != f.stem:
-                    errors.append(f"{f.name}: name ≠ jméno souboru")
+                    errors.append(f"{f.name}: name ≠ filename")
                 return fm
             add(str(f.relative_to(ROOT)), "agent", g)
         for f in sorted((wf / "skills").glob("*/SKILL.md")):
@@ -117,14 +117,14 @@ def main():
                 fm, body = split_frontmatter(f.read_text())
                 body_check(str(f), body)
                 if fm.get("name") != f.parent.name:
-                    errors.append(f"{f}: name ≠ jméno složky")
+                    errors.append(f"{f}: name ≠ directory name")
                 return fm
             add(str(f.relative_to(ROOT)), "skill", g)
         for f in sorted((wf / "scenarios").glob("*.yaml")):
             def g(f=f):
                 d = load(f.read_text())
                 if d.get("name") != f.stem:
-                    errors.append(f"{f.name}: name ≠ jméno souboru")
+                    errors.append(f"{f.name}: name ≠ filename")
                 return d
             add(str(f.relative_to(ROOT)), "scenario", g)
     wf = ROOT / "examples/showcase/workflows"
@@ -132,7 +132,7 @@ def main():
         f = wf / f"{name}.example.yaml"
         add(str(f.relative_to(ROOT)), kind, lambda f=f: load(f.read_text()))
 
-    # Úryvky ze specifikace.
+    # Specification snippets.
     for md in sorted(SPEC.glob("*.md")):
         text = md.read_text()
         for i, block in enumerate(re.findall(r"```yaml\n(.*?)```", text, re.S), 1):
@@ -162,13 +162,13 @@ def main():
             continue
         counts[kind] = counts.get(kind, 0) + 1
         for e in schemas[kind].iter_errors(data):
-            path = "/".join(str(p) for p in e.absolute_path) or "(kořen)"
+            path = "/".join(str(p) for p in e.absolute_path) or "(root)"
             errors.append(f"{label} [{kind}] {path}: {e.message}")
 
     for e in errors:
-        print("CHYBA", e)
-    print("ověřeno:", ", ".join(f"{k} {v}×" for k, v in sorted(counts.items())),
-          "| chyb:", len(errors))
+        print("ERROR", e)
+    print("validated:", ", ".join(f"{k} {v}×" for k, v in sorted(counts.items())),
+          "| errors:", len(errors))
     return 1 if errors else 0
 
 

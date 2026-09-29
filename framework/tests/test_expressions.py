@@ -1,7 +1,7 @@
-"""Výrazy a šablony (scenario.md §5). Základ = 58 případů ze spiku (c)
-(report spiku expressions/cases.py (vyřazen ze stromu; v historii repozitáře do commitu fe90e05)), upravených podle schválené spec:
-`item` ve v1 neexistuje (případy s ním čtou `inputs.item`), `//` a `is`
-v jazyce nejsou, literály jsou true/false/null, `round` půlku od nuly.
+"""Expressions and templates (scenario.md §5). Based on 58 cases from spike (c)
+(spike report expressions/cases.py (removed from the tree; in repository history through commit fe90e05)), adapted to the approved spec:
+`item` does not exist in v1 (its cases read `inputs.item`), `//` and `is`
+are not in the language, literals are true/false/null, `round` rounds halves away from zero.
 """
 import pytest
 
@@ -9,61 +9,61 @@ from agencast.expressions import (MAX_LEN, ExprError, FileRef, evaluate, infer, 
                              render, template_type)
 
 CTX = {
-    "inputs": {"jazyk": "cs", "tema": "léto", "limit": 3, "poznamka": None,
-               "item": {"nazev": "tričko", "cena": 590, "tagy": ["a", "b"]}},
+    "inputs": {"language": "en", "topic": "summer", "limit": 3, "note": None,
+               "item": {"name": "T-shirt", "price": 590, "tags": ["a", "b"]}},
     "steps": {
-        "kontrola": {"on_brand": 0.4, "duvod": "moc formální", "skore": [0.4, 0.9, 0.7]},
-        "copy": {"caption": "Léto je tady", "hashtags": ["#leto", "#lumen", "#drop"]},  # koliduje s dict.copy
+        "check": {"on_brand": 0.4, "reason": "too formal", "scores": [0.4, 0.9, 0.7]},
+        "copy": {"caption": "Summer is here", "hashtags": ["#summer", "#lumen", "#drop"]},  # collides with dict.copy
     },
 }
 
-VALID = [  # (id, výraz, výsledek)
-    ("V01", 'steps.kontrola.on_brand < 0.7 and inputs.jazyk == "cs"', True),
-    ("V02", "not (steps.kontrola.on_brand >= 0.7)", True),
-    ("V03", "steps.kontrola.on_brand < 0.7 or inputs.limit > 10", True),
+VALID = [  # (id, expression, result)
+    ("V01", 'steps.check.on_brand < 0.7 and inputs.language == "en"', True),
+    ("V02", "not (steps.check.on_brand >= 0.7)", True),
+    ("V03", "steps.check.on_brand < 0.7 or inputs.limit > 10", True),
     ("V04", "inputs.limit * 2 + 1", 7),
-    ("V05", "inputs.item.cena / 4", 147.5),
-    ("V06", "int(inputs.item.cena / 100) % 3", 2),            # spike: `//` — ve spec není
-    ("V07", "steps.copy.hashtags[0]", "#leto"),
+    ("V05", "inputs.item.price / 4", 147.5),
+    ("V06", "int(inputs.item.price / 100) % 3", 2),            # spike: `//` — not in the spec
+    ("V07", "steps.copy.hashtags[0]", "#summer"),
     ("V08", "steps.copy.hashtags[-1]", "#drop"),
-    ("V09", 'steps["kontrola"]["on_brand"]', 0.4),
+    ("V09", 'steps["check"]["on_brand"]', 0.4),
     ("V10", "len(steps.copy.hashtags)", 3),
-    ("V11", "min(steps.kontrola.skore)", 0.4),
+    ("V11", "min(steps.check.scores)", 0.4),
     ("V12", "max(1, inputs.limit)", 3),
-    ("V13", "round(steps.kontrola.on_brand * 100)", 40),
-    ("V14", 'str(inputs.item.cena) + " Kč"', "590 Kč"),
+    ("V13", "round(steps.check.on_brand * 100)", 40),
+    ("V14", 'str(inputs.item.price) + " USD"', "590 USD"),
     ("V15", 'int("42") + float("0.5")', 42.5),
-    ("V16", 'join(steps.copy.hashtags, " ")', "#leto #lumen #drop"),
-    ("V17", 'steps.copy.caption == "Léto je tady"', True),
-    ("V18", "inputs.poznamka == null", True),                 # spike: `== None`
-    ("V19", "inputs.poznamka != null", False),                # spike: `is None` — ve spec není
+    ("V16", 'join(steps.copy.hashtags, " ")', "#summer #lumen #drop"),
+    ("V17", 'steps.copy.caption == "Summer is here"', True),
+    ("V18", "inputs.note == null", True),                 # spike: `== None`
+    ("V19", "inputs.note != null", False),                # spike: `is None` — not in the spec
     ("V20", '"#lumen" in steps.copy.hashtags', True),
-    ("V21", 'inputs.jazyk in ["cs", "sk"]', True),
+    ("V21", 'inputs.language in ["en", "fr"]', True),
     ("V22", 'steps.copy.caption != "" and len(steps.copy.caption) <= 280', True),
-    ("V23", "-inputs.item.cena + 600", 10),
-    ("V24", "round(2.5)", 3),                                 # spike: bankéřské 2; spec: od nuly
+    ("V23", "-inputs.item.price + 600", 10),
+    ("V24", "round(2.5)", 3),                                 # spike: banker's rounding gives 2; spec: away from zero
 ]
 
-ERRORS = [  # (id, výraz, co musí být v hlášce)
-    ("E01", "steps.neexistuje.x", "'steps' nemá klíč 'neexistuje' (dostupné: kontrola, copy)"),
-    ("E02", "steps.kontrola.chybi > 1", "nemá klíč 'chybi'"),
-    ("E03", "steps.copy.hashtags[10]", "index 10 mimo rozsah"),
-    ("E04", 'steps.kontrola.on_brand < "0.7"', "porovnání number s string"),
-    ("E05", 'inputs.limit == "3"', "porovnání number s string"),
-    ("E06", "true + 1", "nelze boolean + number"),
-    ("E07", "inputs.item.cena / 0", "dělení nulou"),
-    ("E08", "steps.kontrola.on_brand <", "neočekávaný konec výrazu"),
-    ("E09", 'inputs.jazyk = "cs"', "chyba syntaxe"),
+ERRORS = [  # (id, expression, required message substring)
+    ("E01", "steps.nonexistent.x", "'steps' has no key 'nonexistent' (available: check, copy)"),
+    ("E02", "steps.check.missing > 1", "has no key 'missing'"),
+    ("E03", "steps.copy.hashtags[10]", "index 10 out of range"),
+    ("E04", 'steps.check.on_brand < "0.7"', "comparing number with string"),
+    ("E05", 'inputs.limit == "3"', "comparing number with string"),
+    ("E06", "true + 1", "cannot add boolean + number"),
+    ("E07", "inputs.item.price / 0", "division by zero"),
+    ("E08", "steps.check.on_brand <", "unexpected end of expression"),
+    ("E09", 'inputs.language = "en"', "syntax error"),
     ("E10", 'int("abc")', '"abc"'),
-    ("E11", "len(inputs.item.cena)", "nepřijímá number"),
-    ("E12", "neznama_promenna", "neznámé jméno 'neznama_promenna'"),
-    ("E13", "inputs.poznamka + 1", "nelze null + number"),
-    ("E14", 'steps.copy.hashtags and inputs.jazyk == "cs"', "'and' chce true/false, dostal list"),
+    ("E11", "len(inputs.item.price)", "does not accept number"),
+    ("E12", "unknown_variable", "unknown name 'unknown_variable'"),
+    ("E13", "inputs.note + 1", "cannot add null + number"),
+    ("E14", 'steps.copy.hashtags and inputs.language == "en"', "'and' requires true/false, got list"),
 ]
 
-HARMFUL = [  # (id, výraz) — vždy chyba, nikdy výsledek
+HARMFUL = [  # (id, expression) — always an error, never a result
     ("H01", "__import__('os').getcwd()"), ("H02", "().__class__.__bases__[0].__subclasses__()"),
-    ("H03", "open('/etc/passwd').read()"), ("H04", "getattr(inputs, 'jazyk')"), ("H05", "(lambda: 1)()"),
+    ("H03", "open('/etc/passwd').read()"), ("H04", "getattr(inputs, 'language')"), ("H05", "(lambda: 1)()"),
     ("H06", "[x for x in steps.copy.hashtags]"), ("H07", "inputs.item.__class__.__init__.__globals__"),
     ("H08", '"{0.__class__}".format(1)'), ("H09", "steps.copy.caption.upper()"), ("H10", "inputs.keys()"),
     ("H11", "inputs.__class__"), ("H12", "type(inputs)"), ("H13", 'print("x")'), ("H14", "(x := 1)"),
@@ -91,14 +91,14 @@ def test_harmful(cid, expr):
         evaluate(expr, CTX)
 
 
-# --- pravidla spec nad rámec spiku ------------------------------------------------
+# --- spec rules beyond the spike ------------------------------------------------
 
 @pytest.mark.parametrize("expr,want", [
     ("7 / 2", 3.5), ("4 / 2", 2.0), ("7 % 3", 1), ("round(-2.5)", -3), ("round(0.125, 2)", 0.13),
     ("round(2.4)", 2), ("int(2.7)", 2), ('int("3")', 3), ('float("0.7")', 0.7), ("str(null)", "null"),
     ("str(true)", "true"), ("str(0.62)", "0.62"), ("str(0.1 + 0.2)", "0.30000000000000004"), ("str(4 / 2)", "2.0"),
-    ('"a" + "b"', "ab"), ("[1] + [2]", [1, 2]), ('"léto" in inputs.tema', True), ('"jazyk" in inputs', True),
-    ("steps.copy.hashtags[-3]", "#leto"), ("min(3, 1, 2)", 1), ("max([1, 5])", 5), ("true and false or true", True),
+    ('"a" + "b"', "ab"), ("[1] + [2]", [1, 2]), ('"summer" in inputs.topic', True), ('"language" in inputs', True),
+    ("steps.copy.hashtags[-3]", "#summer"), ("min(3, 1, 2)", 1), ("max([1, 5])", 5), ("true and false or true", True),
     ("steps.copy.hashtags == null", False), ("1 < 2 < 3", True), ('steps.copy.hashtags[1.0]', "#lumen"),
 ])
 def test_spec_rules(expr, want):
@@ -107,19 +107,19 @@ def test_spec_rules(expr, want):
 
 
 @pytest.mark.parametrize("expr,msg", [
-    ("True", "neznámé jméno 'True'"), ("None", "neznámé jméno 'None'"), ("item.x", "vyhrazené pro budoucí foreach"),
-    ("steps.copy.hashtags[1:3]", "řezy"), ("2 ** 3", "mocnina"), ("x if y else z", "podmínka"),
-    ("inputs.poznamka is None", "'is' není povolené"), ("10 // 3", "//"), ('{"a": 1}', "objektový literál"),
-    ('f"{inputs.jazyk}"', "f-řetězce"), ("(1, 2)", "n-tice"), ("~1", "operátor"),
-    ('3 in ["3"]', "'in': prvek [0] je string"), ('"a" * 3', "'*' chce čísla, dostal string"),
-    ('"on_brand = " + 0.9', "str(x)"), ("not 1", "'not' chce true/false"), ('int("2.7")', "není celé číslo"),
-    ('float("nan")', "není číslo"), ("1e308 * 10", "není konečné číslo"), ("join(steps.copy.hashtags)", "join() chce 2"),
-    ('join([1, 2], ",")', "prvek [0] je number"), ("len(1, 2)", "len() chce 1"), ("min([])", "prázdného"),
-    ("steps.copy.caption.x", "je string, ne object"), ('steps.copy["x"]', "nemá klíč 'x'"),
-    ("steps.copy.hashtags[0.5]", "celé číslo"), ('steps.copy.caption[0]', "indexovat jde jen list nebo object"),
-    ("inputs.__dict__", "dunder"), ("1e999", "mimo rozsah"), ("-(true)", "znaménko chce number"),
-    ("round(1.5, 0.5)", "celé číslo"), ('"a" < 1', "porovnání string s number"), ("[1] < [2]", "umí jen čísla nebo texty"),
-    ('str(inputs.item.tagy) + "x" * 1', "'*' chce čísla"),
+    ("True", "unknown name 'True'"), ("None", "unknown name 'None'"), ("item.x", "reserved for future foreach"),
+    ("steps.copy.hashtags[1:3]", "slices"), ("2 ** 3", "exponentiation"), ("x if y else z", "conditional"),
+    ("inputs.note is None", "'is' is not allowed"), ("10 // 3", "//"), ('{"a": 1}', "object literal"),
+    ('f"{inputs.language}"', "f-strings"), ("(1, 2)", "tuples"), ("~1", "operator"),
+    ('3 in ["3"]', "'in': item [0] is string"), ('"a" * 3', "'*' requires numbers, got string"),
+    ('"on_brand = " + 0.9', "str(x)"), ("not 1", "'not' requires true/false"), ('int("2.7")', "is not an integer"),
+    ('float("nan")', "is not a number"), ("1e308 * 10", "is not a finite number"), ("join(steps.copy.hashtags)", "join() requires 2"),
+    ('join([1, 2], ",")', "item [0] is number"), ("len(1, 2)", "len() requires 1"), ("min([])", "empty"),
+    ("steps.copy.caption.x", "is string, not object"), ('steps.copy["x"]', "has no key 'x'"),
+    ("steps.copy.hashtags[0.5]", "an integer"), ('steps.copy.caption[0]', "only list or object can be indexed"),
+    ("inputs.__dict__", "dunder"), ("1e999", "out of range"), ("-(true)", "unary sign requires number"),
+    ("round(1.5, 0.5)", "an integer"), ('"a" < 1', "comparing string with number"), ("[1] < [2]", "only supports numbers or strings"),
+    ('str(inputs.item.tags) + "x" * 1', "'*' requires numbers"),
 ])
 def test_spec_errors(expr, msg):
     with pytest.raises(ExprError) as e:
@@ -128,34 +128,34 @@ def test_spec_errors(expr, msg):
 
 
 def test_limits_before_parser():
-    with pytest.raises(ExprError, match="nejvýš 2000"):
-        parse("1+" * 1000 + "1")                     # 2001 znaků: délka se kontroluje před parserem
-    parse('"' + "x" * (MAX_LEN - 2) + '"')           # přesně 2000 znaků projde
-    with pytest.raises(ExprError, match="vnoření hlubší než 100"):
+    with pytest.raises(ExprError, match="maximum 2000"):
+        parse("1+" * 1000 + "1")                     # 2001 characters: length checked before parsing
+    parse('"' + "x" * (MAX_LEN - 2) + '"')           # exactly 2000 characters passes
+    with pytest.raises(ExprError, match="nesting deeper than 100"):
         parse("-" * 150 + "1")
 
 
 def test_result_size_limit():
     ctx = {"inputs": {"s": "x" * 60000}, "steps": {}}
-    with pytest.raises(ExprError, match="nejvýš 100000"):
+    with pytest.raises(ExprError, match="maximum 100000"):
         evaluate("inputs.s + inputs.s", ctx)
 
 
 def test_caret_points_to_error():
     with pytest.raises(ExprError) as e:
-        evaluate("steps.kontrol.on_brand", CTX)
+        evaluate("steps.chec.on_brand", CTX)
     lines = str(e.value).splitlines()
-    assert lines[1] == "  steps.kontrol.on_brand" and lines[2] == "        ^"
+    assert lines[1] == "  steps.chec.on_brand" and lines[2] == "        ^"
     with pytest.raises(ExprError) as e:
-        evaluate('steps.kontrola.on_brand < "0.7"', CTX)
-    assert str(e.value).splitlines()[2].index("^") == 2 + len("steps.kontrola.on_brand < ")
+        evaluate('steps.check.on_brand < "0.7"', CTX)
+    assert str(e.value).splitlines()[2].index("^") == 2 + len("steps.check.on_brand < ")
 
 
 def test_caret_counts_characters_not_bytes():
-    ctx = {"inputs": {"téma": "x"}, "steps": {}}
+    ctx = {"inputs": {"café": "x"}, "steps": {}}
     with pytest.raises(ExprError) as e:
-        evaluate('inputs.téma == 1', ctx)
-    assert str(e.value).splitlines()[2].index("^") == 2 + len("inputs.téma == ")
+        evaluate('inputs.café == 1', ctx)
+    assert str(e.value).splitlines()[2].index("^") == 2 + len("inputs.café == ")
 
 
 def test_dot_reads_keys_not_attributes():
@@ -163,76 +163,76 @@ def test_dot_reads_keys_not_attributes():
     assert evaluate("steps.items.keys + steps.items.copy + steps.items.get", ctx) == 6
 
 
-# --- šablony ------------------------------------------------------------------------
+# --- templates ------------------------------------------------------------------------
 
 def test_template_whole_value_keeps_type():
-    assert render("{{ steps.copy.hashtags }}", CTX) == ["#leto", "#lumen", "#drop"]
-    assert render("{{ steps.kontrola.on_brand }}", CTX) == 0.4
-    ref = FileRef("steps/07-foto/image.png")
-    assert render("{{ steps.foto.file }}", {"inputs": {}, "steps": {"foto": {"file": ref}}}) is ref
+    assert render("{{ steps.copy.hashtags }}", CTX) == ["#summer", "#lumen", "#drop"]
+    assert render("{{ steps.check.on_brand }}", CTX) == 0.4
+    ref = FileRef("steps/07-photo/image.png")
+    assert render("{{ steps.photo.file }}", {"inputs": {}, "steps": {"photo": {"file": ref}}}) is ref
 
 
 def test_template_in_text():
-    got = render("T: {{ inputs.tema }} {{ inputs.limit }} {{ steps.kontrola.on_brand }} {{ steps.copy.hashtags }}", CTX)
-    assert got == 'T: léto 3 0.4 ["#leto","#lumen","#drop"]' or got == 'T: léto 3 0.4 ["#leto", "#lumen", "#drop"]'
+    got = render("T: {{ inputs.topic }} {{ inputs.limit }} {{ steps.check.on_brand }} {{ steps.copy.hashtags }}", CTX)
+    assert got == 'T: summer 3 0.4 ["#summer","#lumen","#drop"]' or got == 'T: summer 3 0.4 ["#summer", "#lumen", "#drop"]'
 
 
 def test_template_null_is_error_except_default():
     with pytest.raises(ExprError, match="null"):
-        render("x {{ inputs.poznamka }}", CTX)
-    ctx = {"inputs": {}, "steps": {"foto": {"file": None}}}
-    assert render("{{ steps.foto.file }}", ctx, null_ok=lambda t: path_step(t) == "foto") is None
-    assert render("a {{ steps.foto.file }}", ctx, null_ok=lambda t: path_step(t) == "foto") == "a null"
+        render("x {{ inputs.note }}", CTX)
+    ctx = {"inputs": {}, "steps": {"photo": {"file": None}}}
+    assert render("{{ steps.photo.file }}", ctx, null_ok=lambda t: path_step(t) == "photo") is None
+    assert render("a {{ steps.photo.file }}", ctx, null_ok=lambda t: path_step(t) == "photo") == "a null"
 
 
 def test_template_only_paths():
-    for bad in ("{{ inputs.limit + 1 }}", "{{ len(inputs.tema) }}", "{{ 1 }}", "{{ steps.copy.hashtags[inputs.limit] }}"):
-        with pytest.raises(ExprError, match="jen cesta"):
+    for bad in ("{{ inputs.limit + 1 }}", "{{ len(inputs.topic) }}", "{{ 1 }}", "{{ steps.copy.hashtags[inputs.limit] }}"):
+        with pytest.raises(ExprError, match="only contain a path"):
             render(bad, CTX)
     parse_path("steps.copy.hashtags[-1]")
-    parse_path('steps.kontrola["on_brand"]')
+    parse_path('steps.check["on_brand"]')
 
 
 def test_template_never_reevaluated():
-    ctx = {"inputs": {"x": "{{ inputs.y }}", "y": "tajné"}, "steps": {}}
+    ctx = {"inputs": {"x": "{{ inputs.y }}", "y": "secret"}, "steps": {}}
     assert render("A {{ inputs.x }}", ctx) == "A {{ inputs.y }}"
 
 
 def test_template_unclosed():
-    with pytest.raises(ExprError, match="neuzavřená"):
-        render("Ahoj {{ inputs.tema", CTX)
+    with pytest.raises(ExprError, match="unclosed"):
+        render("Hello {{ inputs.topic", CTX)
 
 
-# --- statická kontrola (typy známé předem) ---------------------------------------------
+# --- static checking (types known in advance) ---------------------------------------------
 
 def _res(types):
     def resolve(key):
         if key not in types:
-            raise ExprError(f"krok '{key}' neexistuje")
+            raise ExprError(f"step '{key}' does not exist")
         return types[key]
     return resolve
 
 
-STEP_TYPES = {"kontrola": {"on_brand": "number", "details": {"on_brand": "object"}},
+STEP_TYPES = {"check": {"on_brand": "number", "details": {"on_brand": "object"}},
               "copy": {"caption": "string", "hashtags": ["string"]}}
-INPUTS = {"jazyk": "string", "limit": "number"}
+INPUTS = {"language": "string", "limit": "number"}
 
 
 @pytest.mark.parametrize("expr,want", [
-    ("steps.kontrola.on_brand < 0.7", "boolean"), ("len(steps.copy.hashtags)", "number"),
+    ("steps.check.on_brand < 0.7", "boolean"), ("len(steps.copy.hashtags)", "number"),
     ('join(steps.copy.hashtags, " ")', "string"), ("steps.copy.hashtags[0]", "string"),
-    ("steps.kontrola.details.on_brand.confidence", None), ('steps.kontrola.details["on_brand"]', "object"),
+    ("steps.check.details.on_brand.confidence", None), ('steps.check.details["on_brand"]', "object"),
 ])
 def test_infer_ok(expr, want):
     assert infer(expr, INPUTS, _res(STEP_TYPES)) == want
 
 
 @pytest.mark.parametrize("expr,msg", [
-    ('steps.kontrola.on_brand < "0.7"', "porovnání number s string"), ('inputs.limit == "3"', "porovnání number s string"),
-    ("steps.copy.hashtags and true", "'and' chce true/false, dostal list"), ("steps.copy.chybi", "nemá klíč 'chybi'"),
-    ("steps.nic.x", "krok 'nic' neexistuje"), ('join([1], ",")', "join() chce seznam string"),
-    ("inputs.limit + inputs.jazyk", "nelze number + string"), ('3 in steps.copy.hashtags', "prvky seznamu jsou string"),
-    ("steps.copy.caption.x", "je string, ne object"), ("len(inputs.limit)", "nepřijímá number"),
+    ('steps.check.on_brand < "0.7"', "comparing number with string"), ('inputs.limit == "3"', "comparing number with string"),
+    ("steps.copy.hashtags and true", "'and' requires true/false, got list"), ("steps.copy.missing", "has no key 'missing'"),
+    ("steps.missing.x", "step 'missing' does not exist"), ('join([1], ",")', "join() requires a list of string"),
+    ("inputs.limit + inputs.language", "cannot add number + string"), ('3 in steps.copy.hashtags', "list items are string"),
+    ("steps.copy.caption.x", "is string, not object"), ("len(inputs.limit)", "does not accept number"),
 ])
 def test_infer_errors(expr, msg):
     with pytest.raises(ExprError) as e:
@@ -243,5 +243,5 @@ def test_infer_errors(expr, msg):
 def test_template_type():
     assert template_type("{{ steps.copy.hashtags }}", INPUTS, _res(STEP_TYPES)) == ["string"]
     assert template_type("x {{ steps.copy.hashtags }}", INPUTS, _res(STEP_TYPES)) == "string"
-    with pytest.raises(ExprError, match="vždy null"):
+    with pytest.raises(ExprError, match="always null"):
         template_type("{{ steps.s.x }}", INPUTS, _res({"s": {"x": "null"}}))

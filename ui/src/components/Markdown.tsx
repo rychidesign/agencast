@@ -1,5 +1,5 @@
-// Malý renderer Markdownu pro summary.md: nadpisy, tabulky, odrážky, odstavce, **tučně**, `kód`.
-// Vrací React prvky (žádné innerHTML), takže obsah běhu nemůže vložit HTML.
+// Small Markdown renderer for summary.md: headings, tables, bullets, paragraphs, **bold**, `code`.
+// Returns React elements (no innerHTML), so run content cannot inject HTML.
 import type { ReactNode } from "react";
 import { CodeBlock } from "./ui";
 

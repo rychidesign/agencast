@@ -1,41 +1,46 @@
-# Tutoriály `agencast`
+# `agencast` tutorials
 
-Sedm dílů od prvního agenta po provoz přes webhook. Každý díl staví na
-předchozích, má skutečné výstupy z běhů a končí cvičením s řešením.
-Příkazy v dílech spouštějte z `examples/tutorial` (`cd examples/tutorial` z kořene klonu).
+Seven parts, from the first agent to running behind a webhook. Each part builds
+on the previous ones, has real outputs from runs and ends with an exercise with
+a solution. Run the commands in the parts from `examples/tutorial` (`cd examples/tutorial` from the clone root).
 
-Z instalovaného balíčku (bez klonu) začněte takto:
+From an installed package (without a clone), start like this:
 
 ```bash
 agencast new project ~/agencast-tutorial --example tutorial
 cd ~/agencast-tutorial
-agencast docs show tutorials/01-prvni-agent-a-scenar.md
+agencast docs show tutorials/01-first-agent-and-scenario.md
 ```
 
-Příkazy pak spouštějte z této složky; fixtury jsou v `fake/`.
-Testy frameworku přes `uv run pytest` vyžadují klon, jednotlivé falešné běhy nikoli.
+Then run the commands from that folder; the fixtures are in `fake/`.
+The framework tests via `uv run pytest` require a clone; individual fake runs do not.
 
-Řešení jsou soubory `tutorial-0N-*` v `examples/tutorial/workflows/` a fixtury
-v `examples/tutorial/fake/` — jsou to zároveň zlaté testy
+The solutions are the `tutorial-0N-*` files in `examples/tutorial/workflows/` and
+the fixtures in `examples/tutorial/fake/` — they are also golden tests
 (`cd framework && uv run pytest`).
 
-| Díl | Čas | Útrata | Co se naučíš |
+| Part | Time | Spend | What you will learn |
 |---|---|---|---|
-| [1 — První agent a první scénář](01-prvni-agent-a-scenar.md) | 15 min | ~0,0002 USD | agent, scénář s jedním krokem, `validate`, `--dry-run`, `--fake`, složka běhu, první ostrý běh |
-| [2 — Navazování kroků](02-navazovani-kroku.md) | 15 min | ~0,0008 USD | `{{ steps.… }}`, `schema`, `set`, `output`, co když model pokazí JSON, hlášky `validate` |
-| [3 — Rozhodování](03-rozhodovani.md) | 20 min | ~0,0007 USD | Jev, `when` + `fail`, `switch`, `default`, pravidla výrazů |
-| [4 — Paralelně a s obrázkem](04-paralelne-a-obrazek.md) | 20 min | ~0,07 USD | `parallel`, krok `image`, třídy chyb, `budget_usd` a `timeout` |
-| [5 — Od hraní k provozu](05-od-hrani-k-provozu.md) | 20 min | 0 USD | výměna modelu v `config.yaml`, zlaté testy, záznam do hloubky, `--callback-url` a podpis |
-| [6 — Agent s nástroji](06-agent-s-nastroji.md) | 30 min | ~0,014 USD | krok `task`, tahy a `max_turns`, `mcp.yaml` (vlastník) × agent (autor), skilly a `load_skill`, záznam `tool_call` |
-| [7 — Skládání a provoz](07-skladani-a-provoz.md) | 35 min | 0 USD (+ volitelně ~0,001) | `call` a stavebnice, `agencast serve`, 401/422/202, `request_key`, callback, `report.html`, `dedupe_key`, co potřebuje n8n |
+| [1 — First agent and first scenario](01-first-agent-and-scenario.md) | 15 min | ~0.0002 USD | agent, one-step scenario, `validate`, `--dry-run`, `--fake`, the run folder, first live run |
+| [2 — Chaining steps](02-chaining-steps.md) | 15 min | ~0.0008 USD | `{{ steps.… }}`, `schema`, `set`, `output`, what if the model breaks the JSON, `validate` messages |
+| [3 — Decisions](03-decisions.md) | 20 min | ~0.0007 USD | Jev, `when` + `fail`, `switch`, `default`, expression rules |
+| [4 — Parallel steps and an image](04-parallel-and-image.md) | 20 min | ~0.07 USD | `parallel`, the `image` step, error classes, `budget_usd` and `timeout` |
+| [5 — From playground to production](05-from-playground-to-production.md) | 20 min | 0 USD | swapping a model in `config.yaml`, golden tests, the record in depth, `--callback-url` and the signature |
+| [6 — An agent with tools](06-agent-with-tools.md) | 30 min | ~0.014 USD | the `task` step, turns and `max_turns`, `mcp.yaml` (owner) × agent (author), skills and `load_skill`, the `tool_call` record |
+| [7 — Composition and operations](07-composition-and-operations.md) | 35 min | 0 USD (+ optionally ~0.001) | `call` and building blocks, `agencast serve`, 401/422/202, `request_key`, callback, `report.html`, `dedupe_key`, what n8n needs |
 
-Díly 1–5 vznikly s `maw` 0.1.0 (výstupy v nich tomu odpovídají), díly 6
-a 7 s `maw` 0.2.1 (do 0.2.5 se balík a příkaz jmenovaly `maw`, od 0.3.0
-`agencast`; příkazy v textu už používají nové jméno). Časy jsou odhad pro první průchod; útrata je za
-ostré běhy v dílu (ceny OpenRouteru z 25. 9. 2026).
+Parts 1–5 were written with `maw` 0.1.0, parts 6 and 7 with `maw` 0.2.1 (up to
+0.2.5 the package and the command were called `maw`, from 0.3.0 `agencast`; the
+commands in the text already use the new name). The outputs of the commands were
+later checked against the current CLI (`validate --offline`, `--dry-run` and
+`--fake` re-run in a scratch copy of `examples/tutorial`) and rewritten in its
+current format: English status texts, decimal points, ISO dates and the model
+aliases `smart` and `fast`. The `run_id`s and timestamps come from the original
+runs of 25 Sep 2026. The times are an estimate for a first pass;
+the spend is for the live runs in the part (OpenRouter prices from 25 Sep 2026).
 
-Další soubory:
+More files:
 
-- [`callback-prijemac.py`](callback-prijemac.py) — místní přijímač
-  callbacku s ověřením podpisu (díl 7).
-- [`BUGS.md`](BUGS.md) — chyby frameworku nalezené při psaní tutoriálů.
+- [`callback-receiver.py`](callback-receiver.py) — a local callback receiver
+  with signature verification (part 7).
+- [`BUGS.md`](BUGS.md) — framework bugs found while writing the tutorials.

@@ -1,4 +1,4 @@
-// Drobné sdílené komponenty (§3 inventář): stavy, skeleton, kopírování, menu ⋯, záložky, hodnoty.
+// Small shared components (§3 inventory): states, skeleton, copy, ⋯ menu, tabs, values.
 import {
   Ban, Braces, Check, ChevronRight, CircleCheck, CircleSlash, CircleDashed, CircleDot, CircleX, Copy, Ellipsis, FileText, Inbox,
   TriangleAlert, type LucideIcon, Circle,
@@ -9,20 +9,20 @@ import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { highlight } from "./yaml";
 
-// Rozměry změřené z .pen (obrazovky 1440): tlačítko 44 px, padding 0 18, radius 10; ikonové 44 × 44.
+// Dimensions measured from .pen (1440 screens): button 44 px, padding 0 18, radius 10; icon buttons 44 × 44.
 export const btn = {
   primary: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-accent px-[18px] text-sm font-semibold whitespace-nowrap text-ink hover:bg-fg disabled:opacity-50",
   secondary: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-control px-[18px] text-sm font-semibold whitespace-nowrap text-fg hover:bg-control-hover disabled:opacity-50",
   danger: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-danger px-[18px] text-sm font-semibold whitespace-nowrap text-error hover:bg-danger-hover disabled:opacity-50",
   ghost: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] px-[18px] text-sm font-semibold whitespace-nowrap text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50",
   icon: "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] bg-control text-fg hover:bg-control-hover disabled:opacity-50",
-  /** ⋯ na kartách (návrh: bez výplně, plocha až při hoveru / otevření). */
+  /** ⋯ on cards (design: no fill, a surface only on hover / when open). */
   iconGhost: "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg hover:bg-control aria-expanded:bg-control disabled:opacity-50 [&>svg]:size-[18px]",
 };
 
-// --- rozložení a dialogy ----------------------------------------------------------------------
+// --- layout and dialogs -----------------------------------------------------------------------
 
-/** Media query jako stav; bez `matchMedia` (jsdom) platí `fallback`. */
+/** Media query as state; without `matchMedia` (jsdom) `fallback` applies. */
 export function useMedia(query: string, fallback = false) {
   const subscribe = useCallback((cb: () => void) => {
     const m = window.matchMedia?.(query);
@@ -32,10 +32,10 @@ export function useMedia(query: string, fallback = false) {
   return useSyncExternalStore(subscribe, () => window.matchMedia?.(query).matches ?? fallback);
 }
 
-/** Panel jako spodní sheet do 1279 px. Nastavuje `PanelSlot`, čte `PanelShell`. */
+/** Panel as a bottom sheet up to 1279 px. Set by `PanelSlot`, read by `PanelShell`. */
 export const SheetContext = createContext(false);
 
-/** Umístí plovoucí nabídku do viewportu i u jeho okraje. */
+/** Places a floating menu within the viewport, also at its edge. */
 export function placePopover(panel: HTMLElement, anchor: HTMLElement, align: "left" | "right" = "right", matchWidth = false) {
   const a = anchor.getBoundingClientRect();
   panel.style.maxHeight = `${window.innerHeight - 24}px`;
@@ -59,7 +59,7 @@ export function usePopoverPosition(open: boolean, panel: RefObject<HTMLElement |
   }, [open, panel, anchor, align, matchWidth, sizeKey]);
 }
 
-/** Tab a Shift+Tab zůstávají uvnitř `root`. */
+/** Tab and Shift+Tab stay inside `root`. */
 export function trapTab(root: HTMLElement | null, e: React.KeyboardEvent) {
   const all = [...(root?.querySelectorAll<HTMLElement>(":is(button, input, textarea, select):not(:disabled), a[href], [tabindex='0']") ?? [])]
     .filter((el) => el.offsetParent !== null || el === document.activeElement);
@@ -69,14 +69,14 @@ export function trapTab(root: HTMLElement | null, e: React.KeyboardEvent) {
   all[e.shiftKey ? (i <= 0 ? all.length - 1 : i - 1) : (i + 1) % all.length]?.focus();
 }
 
-/** Dialog přes obrazovku (drawer, sheet panelu): fokus dovnitř, Tab uvnitř, Esc zavře, po zavření fokus zpět. */
+/** Full-screen dialog (drawer, panel sheet): focus moves in, Tab stays inside, Esc closes, focus returns after closing. */
 export function useDialog<T extends HTMLElement>(onClose: () => void, active = true) {
   const ref = useRef<T>(null);
   useEffect(() => {
     if (!active) return;
     const prev = document.activeElement as HTMLElement | null;
     if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
-    // stránka pod dialogem přes celou obrazovku se nescrolluje
+    // the page under a full-screen dialog does not scroll
     const root = document.documentElement, overflow = root.style.overflow;
     root.style.overflow = "hidden";
     return () => {
@@ -95,12 +95,12 @@ export function useDialog<T extends HTMLElement>(onClose: () => void, active = t
   return { ref, onKeyDown };
 }
 
-// --- stav ---------------------------------------------------------------------------------
+// --- status -------------------------------------------------------------------------------
 
 export type Status =
   | "succeeded" | "failed" | "skipped" | "running" | "queued" | "warning" | "cancelled" | "interrupted" | "dry-run" | "none";
 
-// Pulzuje jen ikona běžícího stavu — pulzující text by v půlce animace neměl kontrast 4,5:1.
+// Only the icon of the running state pulses — pulsing text would lack 4.5:1 contrast mid-animation.
 const pulse = (s: Status) => (s === "running" ? " motion-safe:animate-pulse" : "");
 
 const STATUS: Record<Status, { icon: LucideIcon; color: string }> = {
@@ -116,7 +116,7 @@ const STATUS: Record<Status, { icon: LucideIcon; color: string }> = {
   none: { icon: Circle, color: "text-neutral" },
 };
 
-/** Stav je vždy ikona + text (u samotné ikony `sr-only`), nikdy jen barva. */
+/** A status is always an icon + text (`sr-only` for a lone icon), never just color. */
 export function StatusIcon({ status, label, className = "size-4" }: { status: Status; label: string; className?: string }) {
   const { icon: Icon, color } = STATUS[status];
   return (
@@ -137,7 +137,7 @@ export function StatusBadge({ status, children }: { status: Status; children: Re
   );
 }
 
-/** Stavový čip na kartě: ikona i text používají barvu stavu. */
+/** Status chip on a card: both the icon and the text use the status color. */
 export function StatusChip({ status, children }: { status: Status; children: ReactNode }) {
   const { icon: Icon, color } = STATUS[status];
   return (
@@ -147,10 +147,10 @@ export function StatusChip({ status, children }: { status: Status; children: Rea
   );
 }
 
-// --- načítání a prázdné stavy ---------------------------------------------------------------
+// --- loading and empty states ---------------------------------------------------------------
 
 export function Skeleton({ className = "h-5 w-full" }: { className?: string }) {
-  // `surface-hover`: viditelné na pozadí stránky i uvnitř karty (`surface`)
+  // `surface-hover`: visible on the page background and inside a card (`surface`)
   return <div className={`rounded-[var(--radius-control)] bg-surface-hover motion-safe:animate-pulse ${className}`} aria-hidden />;
 }
 
@@ -164,9 +164,9 @@ export function Loading({ rows = 3, pill = false }: { rows?: number; pill?: bool
   );
 }
 
-/** Prázdný stav (návrh 15, změřeno z .pen): `surface` r12 p28 gap 14, ikona 28, titul 18 semibold, popis 13. */
+/** Empty state (design 15, measured from .pen): `surface` r12 p28 gap 14, icon 28, title 18 semibold, description 13. */
 export function EmptyState({ text, hint, cli, tall = false, icon: Icon = Inbox }: {
-  text: string; hint?: string; cli?: string; /** 380 px jako v návrhu (fronta). */ tall?: boolean; icon?: LucideIcon;
+  text: string; hint?: string; cli?: string; /** 380 px as in the design (queue). */ tall?: boolean; icon?: LucideIcon;
 }) {
   return (
     <div className={`flex flex-col items-center justify-center gap-3.5 rounded-[var(--radius-card)] bg-surface p-7 text-center ${tall ? "min-h-[380px]" : ""}`}>
@@ -187,7 +187,7 @@ export function ErrorText({ error }: { error: { message: string } }) {
   );
 }
 
-/** Chyby validace (objekty z API): hláška mono, protože obsahuje stříšku `^`. */
+/** Validation errors (objects from the API): mono message, because it contains the caret `^`. */
 export function ErrorList({ errors, hrefFor }: { errors: ErrorItem[]; hrefFor?: (e: ErrorItem) => string | undefined }) {
   if (!errors.length) return null;
   return (
@@ -206,7 +206,7 @@ export function ErrorList({ errors, hrefFor }: { errors: ErrorItem[]; hrefFor?: 
   );
 }
 
-// --- kopírování -----------------------------------------------------------------------------
+// --- copying --------------------------------------------------------------------------------
 
 export function CopyButton({ text, label = t("common.copy") }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
@@ -232,10 +232,10 @@ export function CliLine({ cmd, className = "" }: { cmd: string; className?: stri
   );
 }
 
-/** Kopírovat v patičce bloku kódu: průhledné s obrysem (návrh 12 „Code actions“). */
+/** Copy in the code block footer: transparent with an outline (design 12 "Code actions"). */
 export const copyBtn = "inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--radius-button)] px-3.5 text-sm font-semibold text-fg ring-1 ring-fg-muted/70 hover:bg-control";
 
-/** Hlavička bloku kódu: ikona 18 + název mono 13 + čip (r6, obrys), p 14 18 s linkou (návrh 12, změřeno z .pen). */
+/** Code block header: icon 18 + mono 13 name + chip (r6, outline), p 14 18 with a line (design 12, measured from .pen). */
 export function CodeHead({ icon: Icon = Braces, name, chip }: { icon?: LucideIcon; name: string; chip: ReactNode }) {
   return (
     <div className="flex items-center gap-2.5 border-b border-line px-[18px] py-3.5">
@@ -246,10 +246,10 @@ export function CodeHead({ icon: Icon = Braces, name, chip }: { icon?: LucideIco
   );
 }
 
-/** Blok kódu („CodeViewer“, návrh 12): `surface` r16, hlavička, tělo `nested` s čísly řádků (řádek 27 px), patička
- *  s popisem vlevo a Kopírovat vpravo. Dlouhé řádky se zalamují (výstupy modelu jsou próza); `yaml` zvýrazní syntaxi. */
+/** Code block ("CodeViewer", design 12): `surface` r16, header, `nested` body with line numbers (27 px row), footer
+ *  with a description on the left and Copy on the right. Long lines wrap (model outputs are prose); `yaml` highlights syntax. */
 export function CodeBlock({ text: source, title, file, language, foot, yaml = false }: {
-  text: string; title?: string; file?: string; /** Text čipu v hlavičce (výchozí „Pouze čtení“). */ language?: string; foot?: string;
+  text: string; title?: string; file?: string; /** Chip text in the header (default "Read only"). */ language?: string; foot?: string;
   yaml?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
@@ -286,7 +286,7 @@ export interface MenuItem {
   disabled?: string;
 }
 
-/** ⋯ menu; `ghost` = bez výplně (karty). */
+/** ⋯ menu; `ghost` = without fill (cards). */
 export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label: string; ghost?: boolean }) {
   const [open, setOpen] = useState(false);
   const mac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
@@ -311,12 +311,12 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
     const all = [...(popup.current?.querySelectorAll<HTMLElement>("[role=menuitem]:not([aria-disabled=true])") ?? [])];
     const i = all.indexOf(document.activeElement as HTMLElement);
     if (e.key === "Escape" && open) {
-      e.preventDefault(); // Esc zavře jen menu, ne panel nebo sheet pod ním
+      e.preventDefault(); // Esc closes only the menu, not the panel or sheet below it
       e.stopPropagation();
       setOpen(false);
       root.current?.querySelector<HTMLElement>("button")?.focus();
     } else if (e.key === "Tab" && open) {
-      // Tab menu zavře a pokračuje od tlačítka ⋯ (vzor menu podle WAI-ARIA), položky v pořadí Tab nejsou
+      // Tab closes the menu and continues from the ⋯ button (menu pattern per WAI-ARIA), items are not in the Tab order
       e.stopPropagation();
       setOpen(false);
       root.current?.querySelector<HTMLElement>("button")?.focus();
@@ -352,7 +352,7 @@ export function Menu({ items, label, ghost = false }: { items: MenuItem[]; label
   );
 }
 
-// --- záložky a přepínač ---------------------------------------------------------------------
+// --- tabs and toggle ------------------------------------------------------------------------
 
 export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: string; href: string }[]; active: string; label: string }) {
   return (
@@ -369,9 +369,9 @@ export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: 
   );
 }
 
-/** Segmentový přepínač Form / `<>` YAML (§3 `FormYamlToggle`; návrh 05, změřeno z .pen: obal r9 p4, segment 44 px r7, 13 px). */
+/** Segmented Form / `<>` YAML toggle (§3 `FormYamlToggle`; design 05, measured from .pen: r9 p4 wrapper, 44 px r7 segment, 13 px). */
 export function Toggle<K extends string>({ value, options, onChange, label }: {
-  value: K; options: { key: K; label: ReactNode; /** Důvod, proč přepnout nejde (tooltip i text pro čtečku). */ disabled?: string }[];
+  value: K; options: { key: K; label: ReactNode; /** Reason why switching is not possible (tooltip and screen reader text). */ disabled?: string }[];
   onChange: (k: K) => void; label: string;
 }) {
   return (
@@ -389,7 +389,7 @@ export function Toggle<K extends string>({ value, options, onChange, label }: {
   );
 }
 
-// --- sbalený řádek (akordeon panelu) --------------------------------------------------------
+// --- collapsed row (panel accordion) --------------------------------------------------------
 
 export function Collapsible({ title, value, children }: { title: string; value: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -409,7 +409,7 @@ export function Collapsible({ title, value, children }: { title: string; value: 
   );
 }
 
-// --- hodnota libovolného tvaru, jen ke čtení --------------------------------------------------
+// --- value of any shape, read-only ------------------------------------------------------------
 
 export function ValueView({ value }: { value: unknown }) {
   if (value === null || value === undefined) return <span className="text-fg-muted">–</span>;

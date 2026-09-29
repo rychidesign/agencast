@@ -1,351 +1,362 @@
-# Díl 3 — Rozhodování
+# Part 3 — Decisions
 
-Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+Run the commands from `examples/tutorial` (from the clone root: `cd examples/tutorial`).
 
-**Čas:** asi 20 minut · **Útrata:** jeden ostrý běh za ~0,0007 USD
-**Co budeš umět:** nechat Jev posoudit text (`noul`, `choice`, `score`),
-podle výsledku krok přeskočit (`when`), běh záměrně ukončit (`fail`),
-větvit (`switch`) a psát výrazy tak, aby jim framework rozuměl.
+**Time:** about 20 minutes · **Spend:** one live run for ~0.0007 USD
+**You will learn to:** have Jev assess a text (`noul`, `choice`, `score`),
+skip a step based on the result (`when`), end a run on purpose (`fail`),
+branch (`switch`) and write expressions the framework understands.
 
-Předpoklad: díly 1 a 2 (agenti `tutorial-pojmenovavac`,
-`tutorial-sloganista`, zkratka `agencast`).
+Prerequisite: parts 1 and 2 (the agents `tutorial-namer`,
+`tutorial-slogan-writer`, the `agencast` shortcut).
 
 ---
 
-## Krok 1 — co je Jev
+## Step 1 — what Jev is
 
-Jev je levný a rychlý „rozhodčí" (~0,00002 USD, ~0,5 s za volání).
-Dostane text (`state`) a otázky a na každou vrátí hodnotu. Typy otázek:
+Jev is a cheap and fast "referee" (~0.00002 USD, ~0.5 s per call).
+It receives a text (`state`) and questions and returns a value for each. The
+question types:
 
-| Typ | Vrací | Příklad hodnoty | Kdy |
+| Type | Returns | Example value | When |
 |---|---|---|---|
-| `noul` | číslo 0–1 = „jak moc ano" | `0.85` | ano/ne otázka |
-| `choice` | klíč jedné z možností v `criteria` | `"hravy"` | výběr z pojmenovaných možností |
-| `score` | číslo na stupnici 0…n (může být i mezi) | `0.64` | stupnice; `criteria` = popisy stupňů od 0 |
+| `noul` | a number 0–1 = "how much yes" | `0.85` | a yes/no question |
+| `choice` | the key of one of the options in `criteria` | `"playful"` | a choice among named options |
+| `score` | a number on a scale 0…n (may be in between) | `0.64` | a scale; `criteria` = descriptions of the levels starting from 0 |
 
-**Jev nikdy sám nerozhodne „ano" nebo „ne".** Vrátí číslo a práh (`< 0.5`)
-píšeš ty, vždy výslovně ve scénáři. Žádný výchozí práh neexistuje.
+**Jev never decides "yes" or "no" by itself.** It returns a number and you write
+the threshold (`< 0.5`), always explicitly in the scenario. There is no default
+threshold.
 
 ---
 
-## Krok 2 — scénář
+## Step 2 — the scenario
 
-Vytvoř `workflows/scenarios/tutorial-03-rozhodovani.yaml`:
+Create `workflows/scenarios/tutorial-03-decisions.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-03-rozhodovani
-description: Vymyslí název, nechá ho posoudit Jevem a podle tónu napíše slogan (tutoriál, díl 3)
+name: tutorial-03-decisions
+description: Comes up with a name, has Jev assess it and writes a slogan based on its tone (tutorial, part 3)
 
 inputs:
-  produkt:
+  product:
     type: string
     required: true
-    description: Jaký produkt pojmenováváme
+    description: The product we are naming
 
 outputs:
-  nazev:
+  name:
     type: string
-  ton:
+  tone:
     type: string
-    description: Tón názvu podle Jevu (hravy / vazny)
+    description: Tone of the name according to Jev (playful / serious)
   slogan:
     type: string
-  zapamatovatelnost:
+  memorability:
     type: integer
-    description: Jak moc je název zapamatovatelný, v procentech
+    description: How memorable the name is, in percent
 
 steps:
-  # 1. Jeden název.
-  - id: navrh
+  # 1. One name.
+  - id: propose
     ask:
-      agent: tutorial-pojmenovavac
-      prompt: "Vymysli jeden název pro tento produkt: {{ inputs.produkt }}."
+      agent: tutorial-namer
+      prompt: "Come up with one name for this product: {{ inputs.product }}."
       schema:
-        nazev: string
+        name: string
 
-  # 2. Jev název posoudí: ano/ne (noul), výběr (choice) a stupnici (score).
-  - id: kontrola
+  # 2. Jev assesses the name: yes/no (noul), a choice (choice) and a scale (score).
+  - id: check
     jev:
-      state: "Produkt: {{ inputs.produkt }}. Navržený název: {{ steps.navrh.nazev }}"
+      state: "Product: {{ inputs.product }}. Proposed name: {{ steps.propose.name }}"
       questions:
-        zapamatovatelny:
+        memorable:
           type: noul
-          instructions: Je název snadno zapamatovatelný a dá se snadno vyslovit?
-        ton:
+          instructions: Is the name easy to remember and easy to pronounce?
+        tone:
           type: choice
-          instructions: Jaký tón má navržený název?
+          instructions: What tone does the proposed name have?
           criteria:
-            hravy: Hravý, vtipný, uvolněný
-            vazny: Vážný, elegantní, věcný
-        originalita:
+            playful: Playful, witty, relaxed
+            serious: Serious, elegant, matter-of-fact
+        originality:
           type: score
-          instructions: Jak originální je navržený název?
+          instructions: How original is the proposed name?
           criteria:
-            - Běžný, obyčejný název
-            - Zajímavý název
-            - Výjimečně originální název
+            - A common, ordinary name
+            - An interesting name
+            - An exceptionally original name
 
-  # 3. Práh je vždy výslovně ve scénáři.
+  # 3. The threshold is always explicit in the scenario.
   - id: stop
-    when: steps.kontrola.zapamatovatelny < 0.5
-    fail: "Název {{ steps.navrh.nazev }} není zapamatovatelný (zapamatovatelny = {{ steps.kontrola.zapamatovatelny }})"
+    when: steps.check.memorable < 0.5
+    fail: "The name {{ steps.propose.name }} is not memorable (memorable = {{ steps.check.memorable }})"
 
-  # 4. Podle tónu jiný slogan.
-  - id: podle_tonu
+  # 4. A different slogan depending on the tone.
+  - id: by_tone
     switch:
-      value: steps.kontrola.ton
+      value: steps.check.tone
       cases:
-        hravy:
-          - id: slogan_hravy
+        playful:
+          - id: slogan_playful
             default: { slogan: "" }
             ask:
-              agent: tutorial-sloganista
-              prompt: "Napiš hravý, vtipný slogan pro produkt {{ inputs.produkt }} s názvem {{ steps.navrh.nazev }}."
+              agent: tutorial-slogan-writer
+              prompt: "Write a playful, witty slogan for the product {{ inputs.product }} named {{ steps.propose.name }}."
               schema:
                 slogan: string
-        vazny:
-          - id: slogan_vazny
+        serious:
+          - id: slogan_serious
             default: { slogan: "" }
             ask:
-              agent: tutorial-sloganista
-              prompt: "Napiš vážný, elegantní slogan pro produkt {{ inputs.produkt }} s názvem {{ steps.navrh.nazev }}."
+              agent: tutorial-slogan-writer
+              prompt: "Write a serious, elegant slogan for the product {{ inputs.product }} named {{ steps.propose.name }}."
               schema:
                 slogan: string
       default:
-        - id: neznamy_ton
-          fail: "Neznámý tón: {{ steps.kontrola.ton }}"
+        - id: unknown_tone
+          fail: "Unknown tone: {{ steps.check.tone }}"
 
-  # 5. Proběhla jen jedna větev; druhá má výstup z default (prázdný text).
-  - id: vysledek
+  # 5. Only one branch ran; the other one has the output from default (empty text).
+  - id: result
     set:
-      slogan: steps.slogan_hravy.slogan + steps.slogan_vazny.slogan
-      procenta: round(steps.kontrola.zapamatovatelny * 100)
+      slogan: steps.slogan_playful.slogan + steps.slogan_serious.slogan
+      percent: round(steps.check.memorable * 100)
 
   - id: out
     output:
-      nazev: "{{ steps.navrh.nazev }}"
-      ton: "{{ steps.kontrola.ton }}"
-      slogan: "{{ steps.vysledek.slogan }}"
-      zapamatovatelnost: "{{ steps.vysledek.procenta }}"
+      name: "{{ steps.propose.name }}"
+      tone: "{{ steps.check.tone }}"
+      slogan: "{{ steps.result.slogan }}"
+      memorability: "{{ steps.result.percent }}"
 ```
 
-Projdi nové věci:
+Go through the new things:
 
 ### `jev`
 
-- `state` — co Jev posuzuje (šablona). Dej mu i kontext (produkt), ne jen
-  samotný název.
-- `questions` — klíč = jméno výstupu (`steps.kontrola.zapamatovatelny`).
-  Každá otázka má `type` a `instructions`; `choice` a `score` navíc
-  `criteria`.
-- `steps.kontrola.details.<otázka>` — co Jev vrátil navíc
-  (pravděpodobnosti). Uvidíš v kroku 4.
+- `state` — what Jev assesses (a template). Give it the context too (the
+  product), not just the bare name.
+- `questions` — key = the name of the output (`steps.check.memorable`).
+  Every question has a `type` and `instructions`; `choice` and `score` also
+  have `criteria`.
+- `steps.check.details.<question>` — what else Jev returned
+  (probabilities). You will see it in step 4.
 
 ### `when` + `fail`
 
-`when` je **výraz** (bez `{{ }}`), který musí dát `true`/`false`. Když
-dá `false`, krok se přeskočí. `fail` ukončí běh s chybou třídy `fail`
-a tvou zprávou. Dohromady: „když je název nezapamatovatelný, skonči".
+`when` is an **expression** (without `{{ }}`) that must give `true`/`false`.
+When it gives `false`, the step is skipped. `fail` ends the run with an error of
+class `fail` and your message. Together: "when the name is not memorable, stop".
 
 ### `switch`
 
-- `value` — výraz, který dá **text** (tady odpověď `choice`).
-- `cases` — pro každou hodnotu seznam kroků.
-- `default` — **povinný**: co dělat, když nic nesedí. Vědomé „nic" je
-  `default: []`. Tady raději skončíme chybou.
+- `value` — an expression that gives a **text** (here the answer of a `choice`).
+- `cases` — for each value, a list of steps.
+- `default` — **required**: what to do when nothing matches. A conscious
+  "nothing" is `default: []`. Here we would rather end with an error.
 
-Pro číselné prahy (`< 0.5`) používej `when`, ne `switch`.
+For numeric thresholds (`< 0.5`) use `when`, not `switch`.
 
-### Proč mají kroky ve větvích `default`
+### Why steps in branches have a `default`
 
-Krok `vysledek` čte `steps.slogan_hravy` **i** `steps.slogan_vazny`, ale
-proběhne jen jeden z nich. Výstup kroku, který neproběhl, je jeho
-`default` — tady prázdný text. `slogan_hravy + slogan_vazny` tak dá vždy
-ten jeden napsaný slogan. Bez `default` by `validate` scénář odmítl
-(krok 6).
+The step `result` reads `steps.slogan_playful` **and** `steps.slogan_serious`,
+but only one of them runs. The output of a step that did not run is its
+`default` — here an empty text. `slogan_playful + slogan_serious` thus always
+gives the one slogan that was written. Without `default`, `validate` would
+reject the scenario (step 6).
 
-Tohle je obecný vzor: **různé výsledky podle větví se sjednotí v `set`
-před `output`** (`output` smí být jen jeden, jako poslední krok).
+This is a general pattern: **different results from different branches are
+merged in a `set` before `output`** (there may be only one `output`, as the last
+step).
 
 ---
 
-## Krok 3 — fixtura pro Jev
+## Step 3 — a fixture for Jev
 
-`fake/tutorial-03-rozhodovani.yaml`:
+`fake/tutorial-03-decisions.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-03-rozhodovani.
-# Jev dostává answers: {otázka: hodnota}; u choice je hodnota klíč z criteria.
-navrh:
+# Scripted responses for tutorial-03-decisions.
+# Jev gets answers: {question: value}; for choice the value is a key from criteria.
+propose:
   - json:
-      nazev: "Ovesňák"
-kontrola:
+      name: "Oatsy"
+check:
   - answers:
-      zapamatovatelny: 0.835
-      ton: hravy
-      originalita: 1.4
-slogan_hravy:
+      memorable: 0.835
+      tone: playful
+      originality: 1.4
+slogan_playful:
   - json:
-      slogan: "Ovesňák — zmrzlina, co roste na poli"
+      slogan: "Oatsy — ice cream that grows in the field"
 ```
 
-Pro `slogan_vazny` odpověď nepotřebuješ — při `ton: hravy` se nezavolá.
+For `slogan_serious` you do not need a response — with `tone: playful` it is not
+called.
 
 ```bash
-agencast validate workflows/scenarios/tutorial-03-rozhodovani.yaml
-agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-03-rozhodovani.yaml
+agencast validate workflows/scenarios/tutorial-03-decisions.yaml
+agencast run workflows/scenarios/tutorial-03-decisions.yaml -i product="vegan oat milk ice cream" --fake fake/tutorial-03-decisions.yaml
 ```
 
 ```
-v pořádku: tutorial-03-rozhodovani (9 kroků)
-běh 20260925-151444-tutorial-03-rozhodovani-f56a: úspěch · 0,0 s · 0,0003 USD
-záznam: runs/20260925-151444-tutorial-03-rozhodovani-f56a/summary.md
+valid: tutorial-03-decisions (9 steps)
+run 20260925-151444-tutorial-03-decisions-f56a: succeeded · 0.0 s · 0.0003 USD
+run record: …/runs/20260925-151444-tutorial-03-decisions-f56a/summary.md
+report: file:///…/outputs/20260925-151444-tutorial-03-decisions-f56a-9770c2b2304c92c8902241bc65d68c77/report.html
 ```
 
-`9 kroků` — počítají se i kroky uvnitř větví `switch`. Tabulka kroků
-v `summary.md`:
+`9 steps` — the steps inside the `switch` branches are counted too. The steps
+table in `summary.md`:
 
 ```
-| # | Krok | Typ | Stav | Čas | Cena | Poznámka |
+| # | Step | Type | Status | Time | Cost | Note |
 |---|---|---|---|---|---|---|
-| 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | kontrola | jev | ✓ | 0,0 s | 0,0001 | zapamatovatelny = 0,83, ton = hravy, originalita = 1,40 |
-| 3 | stop | fail | přeskočeno |  |  | when: steps.kontrola.zapamatovatelny < 0.5 → false |
-| 4 | podle_tonu | switch | ✓ | 0,0 s | 0,0001 | větev hravy |
-| 5 | slogan_hravy | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 6 | slogan_vazny | ask | přeskočeno |  |  | switch: podle_tonu = "hravy" |
-| 7 | neznamy_ton | fail | přeskočeno |  |  | switch: podle_tonu = "hravy" |
-| 8 | vysledek | set | ✓ | 0,0 s | 0 |  |
-| 9 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 0,0 s | 0,0003 |  |
+| 1 | propose | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | check | jev | ✓ | 0.0 s | 0.0001 | memorable = 0.83, tone = playful, originality = 1.40 |
+| 3 | stop | fail | skipped |  |  | when: steps.check.memorable < 0.5 → false |
+| 4 | by_tone | switch | ✓ | 0.0 s | 0.0001 | branch playful |
+| 5 | slogan_playful | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 6 | slogan_serious | ask | skipped |  |  | switch: by_tone = "playful" |
+| 7 | unknown_tone | fail | skipped |  |  | switch: by_tone = "playful" |
+| 8 | result | set | ✓ | 0.0 s | 0 |  |
+| 9 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 0.0 s | 0.0003 |  |
 
-## Varování
-žádná
+## Warnings
+none
 
-## Výstup
-- nazev: „Ovesňák"
-- ton: „hravy"
-- slogan: „Ovesňák — zmrzlina, co roste na poli"
-- zapamatovatelnost: 84
+## Output
+- name: “Oatsy”
+- tone: “playful”
+- slogan: “Oatsy — ice cream that grows in the field”
+- memorability: 84
 ```
 
-Všimni si:
+Note:
 
-- **Každý přeskočený krok má důvod** — `when: … → false` nebo
-  `switch: podle_tonu = "hravy"`. Nic se neděje potichu.
-- `summary.md` ukazuje čísla na 2 místa (`0,83`), přesná hodnota
-  (`0.835`) je v `steps/02-kontrola/output.json`. Proto
+- **Every skipped step has a reason** — `when: … → false` or
+  `switch: by_tone = "playful"`. Nothing happens silently.
+- `summary.md` shows numbers to 2 decimal places (`0.83`); the exact value
+  (`0.835`) is in `steps/02-check/output.json`. That is why
   `round(0.835 * 100)` = `84`.
 
-### Cesta k `fail`
+### The path to `fail`
 
-Fixtura nemusí vyjmenovat všechny otázky — chybějící doplní falešný
-poskytovatel (`noul` 0,5, `choice` první možnost, `score` 0).
-`/tmp/nezapamatovatelny.yaml`:
+A fixture does not have to list all the questions — the fake provider fills in
+the missing ones (`noul` 0.5, `choice` the first option, `score` 0).
+`/tmp/unmemorable.yaml`:
 
 ```yaml
-navrh:
+propose:
   - json:
-      nazev: "Xyzqwrt Ovsprl"
-kontrola:
+      name: "Xyzqwrt Ovsprl"
+check:
   - answers:
-      zapamatovatelny: 0.12
+      memorable: 0.12
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake /tmp/nezapamatovatelny.yaml
+agencast run workflows/scenarios/tutorial-03-decisions.yaml -i product="vegan oat milk ice cream" --fake /tmp/unmemorable.yaml
 ```
 
 ```
-fail v kroku stop: Název Xyzqwrt Ovsprl není zapamatovatelný (zapamatovatelny = 0.12)
-běh 20260925-151455-tutorial-03-rozhodovani-967b: chyba · 0,0 s · 0,0002 USD
-záznam: runs/20260925-151455-tutorial-03-rozhodovani-967b/summary.md
+fail in step stop: The name Xyzqwrt Ovsprl is not memorable (memorable = 0.12)
+run 20260925-151455-tutorial-03-decisions-967b: failed · 0.0 s · 0.0002 USD
+run record: …/runs/20260925-151455-tutorial-03-decisions-967b/summary.md
+report: file:///…/outputs/20260925-151455-tutorial-03-decisions-967b-6b023b2b60bcf6f6b9befebcb7402197/report.html
 ```
 
-A přesně tohle by dostalo n8n (soubor `callback.json` ve složce běhu):
+And this is exactly what n8n would receive (the file `callback.json` in the run
+folder):
 
 ```
 {
-  "run_id": "20260925-151455-tutorial-03-rozhodovani-967b",
-  "scenario": "tutorial-03-rozhodovani",
+  "run_id": "20260925-151455-tutorial-03-decisions-967b",
+  "scenario": "tutorial-03-decisions",
   "request_key": null,
   "status": "failed",
   "outputs": null,
   "error": {
     "class": "fail",
     "step": "stop",
-    "message": "Název Xyzqwrt Ovsprl není zapamatovatelný (zapamatovatelny = 0.12)"
+    "message": "The name Xyzqwrt Ovsprl is not memorable (memorable = 0.12)"
   },
   "warnings": [],
   "cost_usd": 0.0002,
   "duration_s": 0.002,
-  "report_url": null,
+  "report_url": "file:///…/outputs/20260925-151455-tutorial-03-decisions-967b-6b023b2b60bcf6f6b9befebcb7402197/report.html",
   "sent_at": "2026-09-25T15:14:55.963Z"
 }
 ```
 
-Třída `fail` říká „scénář skončil záměrně", ne „něco se rozbilo". V n8n
-podle ní odlišíš „text neprošel kontrolou" od poruchy.
+The class `fail` says "the scenario ended on purpose", not "something broke". In
+n8n you use it to tell "the text did not pass the check" from a malfunction.
 
 ---
 
-## Krok 4 — ostrý běh
+## Step 4 — a live run
 
 ```bash
-agencast run workflows/scenarios/tutorial-03-rozhodovani.yaml -i produkt="veganská zmrzlina z ovesného mléka"
+agencast run workflows/scenarios/tutorial-03-decisions.yaml -i product="vegan oat milk ice cream"
 ```
 
 ```
-běh 20260925-151536-tutorial-03-rozhodovani-b547: úspěch · 5,9 s · 0,0007 USD
-záznam: runs/20260925-151536-tutorial-03-rozhodovani-b547/summary.md
+run 20260925-151536-tutorial-03-decisions-b547: succeeded · 5.9 s · 0.0007 USD
+run record: …/runs/20260925-151536-tutorial-03-decisions-b547/summary.md
+report: file:///…/outputs/20260925-151536-tutorial-03-decisions-b547-ce225553b8f799173e5f6450fe257c0a/report.html
 ```
 
+The model texts below are illustrative; the times, costs and Jev's numbers are
+from the real run:
+
 ```
-| 1 | navrh | ask | ✓ | 3,6 s | 0,0003 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | kontrola | jev | ✓ | 0,5 s | 0,00002 | zapamatovatelny = 0,85, ton = hravy, originalita = 0,64 |
-| 3 | stop | fail | přeskočeno |  |  | when: steps.kontrola.zapamatovatelny < 0.5 → false |
-| 4 | podle_tonu | switch | ✓ | 1,8 s | 0,0004 | větev hravy |
-| 5 | slogan_hravy | ask | ✓ | 1,8 s | 0,0004 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 6 | slogan_vazny | ask | přeskočeno |  |  | switch: podle_tonu = "hravy" |
-| 7 | neznamy_ton | fail | přeskočeno |  |  | switch: podle_tonu = "hravy" |
-| 8 | vysledek | set | ✓ | 0,0 s | 0 |  |
-| 9 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 5,9 s | 0,0007 |  |
+| 1 | propose | ask | ✓ | 3.6 s | 0.0003 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | check | jev | ✓ | 0.5 s | 0.00002 | memorable = 0.85, tone = playful, originality = 0.64 |
+| 3 | stop | fail | skipped |  |  | when: steps.check.memorable < 0.5 → false |
+| 4 | by_tone | switch | ✓ | 1.8 s | 0.0004 | branch playful |
+| 5 | slogan_playful | ask | ✓ | 1.8 s | 0.0004 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 6 | slogan_serious | ask | skipped |  |  | switch: by_tone = "playful" |
+| 7 | unknown_tone | fail | skipped |  |  | switch: by_tone = "playful" |
+| 8 | result | set | ✓ | 0.0 s | 0 |  |
+| 9 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 5.9 s | 0.0007 |  |
 …
-## Výstup
-- nazev: „Ověnka"
-- ton: „hravy"
-- slogan: „Ověnka - rostlinná vláka, která rozpouští srdce"
-- zapamatovatelnost: 85
+## Output
+- name: “Oatopia”
+- tone: “playful”
+- slogan: “Oatopia - plant-based silkiness that melts hearts”
+- memorability: 85
 ```
 
-Jev stál 0,00002 USD (v tabulce je celá cena). Co vrátil
-doopravdy:
+Jev cost 0.00002 USD (the table shows the whole cost). What it really
+returned:
 
 ```bash
-cat runs/20260925-151536-tutorial-03-rozhodovani-b547/steps/02-kontrola/output.json
+cat runs/20260925-151536-tutorial-03-decisions-b547/steps/02-check/output.json
 ```
 
 ```
 {
-  "zapamatovatelny": 0.85,
-  "ton": "hravy",
-  "originalita": 0.64,
+  "memorable": 0.85,
+  "tone": "playful",
+  "originality": 0.64,
   "details": {
-    "zapamatovatelny": {},
-    "ton": {
+    "memorable": {},
+    "tone": {
       "probabilities": {
-        "hravy": 0.66,
-        "vazny": 0.34
+        "playful": 0.66,
+        "serious": 0.34
       },
       "confidence": 0.31
     },
-    "originalita": {
+    "originality": {
       "legend": {
-        "0": "Běžný, obyčejný název",
-        "1": "Zajímavý název",
-        "2": "Výjimečně originální název"
+        "0": "A common, ordinary name",
+        "1": "An interesting name",
+        "2": "An exceptionally original name"
       },
       "probabilities": {
         "0": 0.37,
@@ -358,336 +369,340 @@ cat runs/20260925-151536-tutorial-03-rozhodovani-b547/steps/02-kontrola/output.j
 }
 ```
 
-- `ton` = `"hravy"`, ale jen s pravděpodobností 0,66. Chceš-li mít jistotu,
-  můžeš v `when` číst i `steps.kontrola.details.ton.probabilities.hravy`.
-- `originalita` = `0.64` — stupnice není celé číslo; je to vážený průměr
-  (0,37 × 0 + 0,62 × 1 + 0,01 × 2). Práh na `score` proto piš jako
-  `< 0.5`, ne `== 0`.
+- `tone` = `"playful"`, but only with a probability of 0.66. If you want to be
+  sure, you can also read `steps.check.details.tone.probabilities.playful` in
+  `when`.
+- `originality` = `0.64` — the scale is not an integer; it is a weighted
+  average (0.37 × 0 + 0.62 × 1 + 0.01 × 2). So write the threshold on a `score`
+  as `< 0.5`, not `== 0`.
 
 ---
 
-## Krok 5 — pravidla výrazů
+## Step 5 — expression rules
 
-Výrazy (`when`, `switch.value`, `set`) vypadají jako Python, ale jsou
-přísnější. Nejrychleji je pochopíš na **hřišti výrazů** — scénáři bez
-modelu, který nic nestojí. `workflows/scenarios/tutorial-03-vyrazy.yaml`:
+Expressions (`when`, `switch.value`, `set`) look like Python but are stricter.
+The fastest way to understand them is the **expression playground** — a scenario
+without a model that costs nothing. `workflows/scenarios/tutorial-03-expressions.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-03-vyrazy
-description: Hřiště výrazů — jen krok set, žádný model, nic nestojí (tutoriál, díl 3)
+name: tutorial-03-expressions
+description: Expression playground — only a set step, no model, costs nothing (tutorial, part 3)
 
 inputs:
-  jazyk:
+  language:
     type: string
-    default: cs
-  delitel:
+    default: en
+  divisor:
     type: number
     default: 2
 
 outputs:
-  vysledky:
+  results:
     type: object
-    description: Všechny spočítané hodnoty
+    description: All computed values
 
 steps:
-  - id: ukazky
+  - id: examples
     set:
-      # Zaokrouhlení: půlka jde vždy od nuly (jinak než v Pythonu).
+      # Rounding: a half always goes away from zero (unlike Python).
       round_2_5: round(2.5)
       round_minus_2_5: round(-2.5)
-      round_0_125_na_2: round(0.125, 2)
-      # Dělení dává vždy desetinné číslo.
-      sedm_lomeno_dvema: 7 / 2
-      ctyri_lomeno_dvema: 4 / 2
-      deleni_vstupem: 10 / inputs.delitel
-      # Převody musí být výslovné.
-      text_plus_cislo: '"verze " + str(2)'
-      z_textu_na_cislo: float("0.7") + 0.1
-      a_zaokrouhlene: round(float("0.7") + 0.1, 2)
-      # in: prvek v seznamu, podřetězec v textu.
-      cesky_nebo_slovensky: inputs.jazyk in ["cs", "sk"]
-      obsahuje_ves: '"oves" in "ovesné mléko"'
-      # null lze porovnat s čímkoli.
-      jazyk_zadan: inputs.jazyk != null
-      # Logika jen nad true/false.
-      obe_podminky: len(inputs.jazyk) == 2 and not (inputs.delitel < 0)
+      round_0_125_to_2: round(0.125, 2)
+      # Division always gives a decimal number.
+      seven_div_two: 7 / 2
+      four_div_two: 4 / 2
+      div_by_input: 10 / inputs.divisor
+      # Conversions must be explicit.
+      text_plus_number: '"version " + str(2)'
+      text_to_number: float("0.7") + 0.1
+      and_rounded: round(float("0.7") + 0.1, 2)
+      # in: an item in a list, a substring in a text.
+      english_or_french: inputs.language in ["en", "fr"]
+      contains_oat: '"oat" in "oat milk"'
+      # null can be compared with anything.
+      language_given: inputs.language != null
+      # Logic only on true/false.
+      both_conditions: len(inputs.language) == 2 and not (inputs.divisor < 0)
 
   - id: out
     output:
-      vysledky: "{{ steps.ukazky }}"
+      results: "{{ steps.examples }}"
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-03-vyrazy.yaml --fake
-cat runs/20260925-151532-tutorial-03-vyrazy-6194/steps/01-ukazky/output.json
+agencast run workflows/scenarios/tutorial-03-expressions.yaml --fake
+cat runs/20260925-151532-tutorial-03-expressions-6194/steps/01-examples/output.json
 ```
 
 ```
-běh 20260925-151532-tutorial-03-vyrazy-6194: úspěch · 0,0 s · 0 USD
-záznam: runs/20260925-151532-tutorial-03-vyrazy-6194/summary.md
+run 20260925-151532-tutorial-03-expressions-6194: succeeded · 0.0 s · 0 USD
+run record: …/runs/20260925-151532-tutorial-03-expressions-6194/summary.md
+report: file:///…/outputs/20260925-151532-tutorial-03-expressions-6194-4eee9a9a2c2a427a751c1d50add3dcf6/report.html
 {
   "round_2_5": 3,
   "round_minus_2_5": -3,
-  "round_0_125_na_2": 0.13,
-  "sedm_lomeno_dvema": 3.5,
-  "ctyri_lomeno_dvema": 2.0,
-  "deleni_vstupem": 5.0,
-  "text_plus_cislo": "verze 2",
-  "z_textu_na_cislo": 0.7999999999999999,
-  "a_zaokrouhlene": 0.8,
-  "cesky_nebo_slovensky": true,
-  "obsahuje_ves": true,
-  "jazyk_zadan": true,
-  "obe_podminky": true
+  "round_0_125_to_2": 0.13,
+  "seven_div_two": 3.5,
+  "four_div_two": 2.0,
+  "div_by_input": 5.0,
+  "text_plus_number": "version 2",
+  "text_to_number": 0.7999999999999999,
+  "and_rounded": 0.8,
+  "english_or_french": true,
+  "contains_oat": true,
+  "language_given": true,
+  "both_conditions": true
 }
 ```
 
-Pravidla, která z toho plynou:
+The rules that follow from it:
 
-1. **`round` zaokrouhluje „školně"** — půlka od nuly: `round(2.5)` = `3`,
-   `round(-2.5)` = `-3`. (Python by dal `2`.) `round(x)` bez počtu míst
-   dává celé číslo.
-2. **`/` dává vždy desetinné číslo** (`4 / 2` = `2.0`). Dělení nulou je
-   chyba.
-3. **Desetinná čísla nejsou přesná** (`0.7 + 0.1` = `0.7999999999999999`).
-   Na výstup pro lidi použij `round(…, 2)`.
-4. **Typy se nemíchají.** Text + číslo nejde, převeď výslovně: `str()`,
-   `float()`, `int()`.
-5. **Text jako hodnota v `set` potřebuje dvoje uvozovky:** vnější pro
-   YAML, vnitřní pro výraz — `'"verze " + str(2)'`. Totéž platí pro každý
-   výraz, který začíná uvozovkou, `[` nebo `{`.
-6. **Literály jsou `true`, `false`, `null`** (jako v YAML), ne `True`/`None`.
-7. **Tečka čte klíč, nic jiného** — `steps.kontrola.ton`, nikdy metodu.
+1. **`round` rounds "the school way"** — a half goes away from zero:
+   `round(2.5)` = `3`, `round(-2.5)` = `-3`. (Python would give `2`.) `round(x)`
+   without a number of places gives an integer.
+2. **`/` always gives a decimal number** (`4 / 2` = `2.0`). Division by zero is
+   an error.
+3. **Decimal numbers are not exact** (`0.7 + 0.1` = `0.7999999999999999`).
+   For output meant for humans, use `round(…, 2)`.
+4. **Types do not mix.** Text + number does not work, convert explicitly:
+   `str()`, `float()`, `int()`.
+5. **A text as a value in `set` needs two sets of quotes:** the outer one for
+   YAML, the inner one for the expression — `'"version " + str(2)'`. The same
+   applies to every expression that starts with a quote, `[` or `{`.
+6. **The literals are `true`, `false`, `null`** (as in YAML), not
+   `True`/`None`.
+7. **The dot reads a key, nothing else** — `steps.check.tone`, never a method.
 
-Zkus `delitel=0`:
+Try `divisor=0`:
 
 ```bash
-agencast run workflows/scenarios/tutorial-03-vyrazy.yaml --fake -i delitel=0
+agencast run workflows/scenarios/tutorial-03-expressions.yaml --fake -i divisor=0
 ```
 
 ```
-expression v kroku ukazky: set.deleni_vstupem: dělení nulou
-  10 / inputs.delitel
+expression in step examples: set.div_by_input: division by zero
+  10 / inputs.divisor
        ^
-běh 20260925-151526-tutorial-03-vyrazy-9181: chyba · 0,0 s · 0 USD
-záznam: runs/20260925-151526-tutorial-03-vyrazy-9181/summary.md
+run 20260925-151526-tutorial-03-expressions-9181: failed · 0.0 s · 0 USD
+run record: …/runs/20260925-151526-tutorial-03-expressions-9181/summary.md
+report: file:///…/outputs/20260925-151526-tutorial-03-expressions-9181-af1de3848c106e5d98d39637cc6d1bbe/report.html
 ```
 
-`validate` hodnotu vstupu předem nezná, proto chyba přišla až za běhu
-(třída `expression`).
+`validate` does not know the input value in advance, so the error came only at
+run time (class `expression`).
 
 ---
 
-## Krok 6 — skutečné chybové hlášky
+## Step 6 — real error messages
 
-Všechny tyto hlášky dá `validate`, **před během**. Každou jsem vyzkoušel
-výměnou řádku `when:` v kroku `stop` (a pak ho vrátil).
+All of these messages come from `validate`, **before the run**. I tried each of
+them by replacing the `when:` line in the step `stop` (and then put it back).
 
-**Porovnání čísla s textem:** `when: steps.kontrola.zapamatovatelny < "0.5"`
-
-```
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: porovnání number s string — převeď typ výslovně (float(), str())
-  steps.kontrola.zapamatovatelny < "0.5"
-                                   ^
-```
-
-Stejně `steps.kontrola.ton == 1` → `porovnání string s number`.
-
-**`when` bez porovnání:** `when: steps.kontrola.zapamatovatelny`
+**Comparing a number with a text:** `when: steps.check.memorable < "0.5"`
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: výraz musí dát true/false, dá number
-  steps.kontrola.zapamatovatelny
+config: tutorial-03-decisions.yaml: step "stop", when: comparing number with string — convert the type explicitly (float(), str())
+  steps.check.memorable < "0.5"
+                          ^
 ```
 
-V Pythonu by `0.85` „platilo". Tady ne: napiš, co myslíš (`> 0.5`).
+Likewise `steps.check.tone == 1` → `comparing string with number`.
 
-**`and` s textem:** `when: steps.navrh.nazev and steps.kontrola.zapamatovatelny < 0.5`
+**`when` without a comparison:** `when: steps.check.memorable`
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: 'and' chce true/false, dostal string — porovnej výslovně (např. len(x) > 0)
-  steps.navrh.nazev and steps.kontrola.zapamatovatelny < 0.5
+config: tutorial-03-decisions.yaml: step "stop", when: expression must return true/false, got number
+  steps.check.memorable
+```
+
+In Python `0.85` would be "truthy". Not here: write what you mean (`> 0.5`).
+
+**`and` with a text:** `when: steps.propose.name and steps.check.memorable < 0.5`
+
+```
+config: tutorial-03-decisions.yaml: step "stop", when: 'and' requires true/false, got string — compare explicitly (e.g. len(x) > 0)
+  steps.propose.name and steps.check.memorable < 0.5
   ^
 ```
 
-**Pythonovské `True`:** `… and True`
+**Pythonic `True`:** `… and True`
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: neznámé jméno 'True' — literály se píšou true, false, null
-  steps.kontrola.zapamatovatelny < 0.5 and True
-                                           ^
+config: tutorial-03-decisions.yaml: step "stop", when: unknown name 'True' — literals are written as true, false, null
+  steps.check.memorable < 0.5 and True
+                                  ^
 ```
 
-**Metoda:** `when: steps.navrh.nazev.lower() == "x"`
+**A method:** `when: steps.propose.name.lower() == "x"`
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: volání metod není povolené
-  steps.navrh.nazev.lower() == "x"
+config: tutorial-03-decisions.yaml: step "stop", when: method calls are not allowed
+  steps.propose.name.lower() == "x"
   ^
 ```
 
-**Podmíněný výraz:** `… if true else false`
+**A conditional expression:** `… if true else false`
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: podmínka 'x if c else y' není povolená
-  steps.kontrola.zapamatovatelny < 0.5 if true else false
+config: tutorial-03-decisions.yaml: step "stop", when: conditional 'x if c else y' is not allowed
+  steps.check.memorable < 0.5 if true else false
   ^
 ```
 
-**Překlep v klíči:** `steps.kontrola.detail.ton…` (místo `details`)
+**A typo in a key:** `steps.check.detail.tone…` (instead of `details`)
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: 'steps.kontrola' nemá klíč 'detail' (dostupné: zapamatovatelny, ton, originalita, details)
-  steps.kontrola.detail.ton.probabilities.hravy < 0.5
-                 ^
+config: tutorial-03-decisions.yaml: step "stop", when: 'steps.check' has no key 'detail' (available: memorable, tone, originality, details)
+  steps.check.detail.tone.probabilities.playful < 0.5
+              ^
 ```
 
-**Šablona ve výrazu:** `when: '{{ steps.kontrola.zapamatovatelny }} < 0.5'`
+**A template in an expression:** `when: '{{ steps.check.memorable }} < 0.5'`
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "stop", when: šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, jev.questions (instructions, criteria), fail, hodnotách output, call.inputs a dedupe_key
-  {{ steps.kontrola.zapamatovatelny }} < 0.5
+config: tutorial-03-decisions.yaml: step "stop", when: template {{ }} is not allowed here — allowed only in prompt, jev.state, jev.questions (instructions, criteria), fail, output values, call.inputs and dedupe_key
+  {{ steps.check.memorable }} < 0.5
   ^
 ```
 
-Bez uvozovek (`when: {{ … }} < 0.5`) je to dokonce chyba YAML —
-`{` na začátku hodnoty YAML čte jako mapu:
+Without the quotes (`when: {{ … }} < 0.5`) it is even a YAML error — YAML reads
+a `{` at the start of a value as a map:
 
 ```
-config: tutorial-03-rozhodovani.yaml, řádek 56: YAML nejde přečíst — hodnota s {, [, ': ' nebo ' #' patří do uvozovek (scenario.md §5 „Pozor na YAML“)
+config: tutorial-03-decisions.yaml, line 56: cannot read YAML — a value containing {, [, ': ' or ' #' must be quoted (scenario.md §5 'YAML pitfalls')
   expected <block end>, but found '<scalar>'
 ```
 
-**`switch` bez `default`:**
+**`switch` without `default`:**
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok 'podle_tonu': switch: chybí povinné pole 'default'
+config: tutorial-03-decisions.yaml: step 'by_tone': switch: missing required field 'default'
 ```
 
-**Případ, který Jev nikdy nevrátí** (`vazne:` místo `vazny:`):
+**A case that Jev never returns** (`seriuos:` instead of `serious:`):
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "podle_tonu", switch.cases: vazne není mezi možnostmi criteria otázky 'ton' (hravy, vazny)
+config: tutorial-03-decisions.yaml: step "by_tone", switch.cases: seriuos is not among the criteria choices for question 'tone' (playful, serious)
 ```
 
-**Krok ve větvi bez `default`** (smaž `default:` u `slogan_hravy`):
+**A step in a branch without `default`** (delete `default:` of `slogan_playful`):
 
 ```
-config: tutorial-03-rozhodovani.yaml: krok "vysledek", set.slogan: krok 'slogan_hravy' nemusí proběhnout (je ve větvi switch 'podle_tonu') a nemá default — doplň mu default se všemi poli výstupu (§5.4)
-  steps.slogan_hravy.slogan + steps.slogan_vazny.slogan
+config: tutorial-03-decisions.yaml: step "result", set.slogan: step 'slogan_playful' may not run (is in a switch branch 'by_tone') and has no default — add a default with all output fields (§5.4)
+  steps.slogan_playful.slogan + steps.slogan_serious.slogan
         ^
 ```
 
 ---
 
-## Co sis zapamatoval
+## What you have learned
 
-- `jev`: `noul` (0–1), `choice` (klíč), `score` (0…n, i mezi). Práh píšeš
-  vždy sám.
-- `when` = výraz, který dá `true`/`false`; `false` → krok přeskočen
-  s důvodem.
-- `fail` = záměrný konec, třída `fail`.
-- `switch` = větve podle textu, `default` povinný; kroky ve větvích,
-  které čteš dál, potřebují `default`.
-- Výrazy: typy se nemíchají, `and/or/not` jen nad `true/false`,
-  `true/false/null` malými, `round` školně.
+- `jev`: `noul` (0–1), `choice` (a key), `score` (0…n, also in between). You
+  always write the threshold yourself.
+- `when` = an expression that gives `true`/`false`; `false` → the step is
+  skipped with a reason.
+- `fail` = a deliberate end, class `fail`.
+- `switch` = branches by text, `default` required; steps in branches that you
+  read later need a `default`.
+- Expressions: types do not mix, `and/or/not` only on `true/false`,
+  `true/false/null` in lowercase, `round` the school way.
 
 ---
 
-## Cvičení
+## Exercise
 
-Název, který Jev ohodnotí jako obyčejný (`originalita` pod 0,5), nechceš.
-Přidej krok, který v takovém případě běh ukončí se zprávou, ve které je
-název i hodnota. Ulož jako `workflows/scenarios/tutorial-03-cviceni.yaml`
-s fixturou, se kterou běh projde. Pak falešným během ověř, že název
-s `originalita: 0.2` běh zastaví.
+You do not want a name that Jev rates as ordinary (`originality` below 0.5).
+Add a step that ends the run in that case with a message that contains the name
+and the value. Save it as `workflows/scenarios/tutorial-03-exercise.yaml` with a
+fixture that lets the run pass. Then verify with a fake run that a name with
+`originality: 0.2` stops the run.
 
 <details>
-<summary>Řešení</summary>
+<summary>Solution</summary>
 
-Rozdíl proti `tutorial-03-rozhodovani.yaml`:
+The difference against `tutorial-03-decisions.yaml`:
 
 ```bash
-diff workflows/scenarios/tutorial-03-rozhodovani.yaml workflows/scenarios/tutorial-03-cviceni.yaml
+diff workflows/scenarios/tutorial-03-decisions.yaml workflows/scenarios/tutorial-03-exercise.yaml
 ```
 
 ```
 2,3c2,3
-< name: tutorial-03-rozhodovani
-< description: Vymyslí název, nechá ho posoudit Jevem a podle tónu napíše slogan (tutoriál, díl 3)
+< name: tutorial-03-decisions
+< description: Comes up with a name, has Jev assess it and writes a slogan based on its tone (tutorial, part 3)
 ---
-> name: tutorial-03-cviceni
-> description: Vymyslí název, nechá ho posoudit Jevem a podle tónu napíše slogan (tutoriál, díl 3 — řešení cvičení)
+> name: tutorial-03-exercise
+> description: Comes up with a name, has Jev assess it and writes a slogan based on its tone (tutorial, part 3 — exercise solution)
 57a58,62
 > 
->   # 3b. Příliš obyčejný název taky nechceme. Score 0 = běžný, 1 = zajímavý, 2 = výjimečný.
->   - id: stop_originalita
->     when: steps.kontrola.originalita < 0.5
->     fail: "Název {{ steps.navrh.nazev }} je příliš obyčejný (originalita = {{ steps.kontrola.originalita }})"
+>   # 3b. We do not want a name that is too ordinary either. Score 0 = common, 1 = interesting, 2 = exceptional.
+>   - id: stop_originality
+>     when: steps.check.originality < 0.5
+>     fail: "The name {{ steps.propose.name }} is too ordinary (originality = {{ steps.check.originality }})"
 ```
 
-Fixtura `fake/tutorial-03-cviceni.yaml` je stejná jako
-u hlavního scénáře (`originalita: 1.4` → běh projde):
+The fixture `fake/tutorial-03-exercise.yaml` is the same as for the main
+scenario (`originality: 1.4` → the run passes):
 
 ```yaml
-# Skriptované odpovědi pro tutorial-03-cviceni (řešení cvičení z dílu 3).
-# Jev dostává answers: {otázka: hodnota}; u choice je hodnota klíč z criteria.
-navrh:
+# Scripted responses for tutorial-03-exercise (exercise solution from part 3).
+# Jev gets answers: {question: value}; for choice the value is a key from criteria.
+propose:
   - json:
-      nazev: "Ovesňák"
-kontrola:
+      name: "Oatsy"
+check:
   - answers:
-      zapamatovatelny: 0.835
-      ton: hravy
-      originalita: 1.4
-slogan_hravy:
+      memorable: 0.835
+      tone: playful
+      originality: 1.4
+slogan_playful:
   - json:
-      slogan: "Ovesňák — zmrzlina, co roste na poli"
+      slogan: "Oatsy — ice cream that grows in the field"
 ```
 
 ```bash
-agencast validate workflows/scenarios/tutorial-03-cviceni.yaml
-agencast run workflows/scenarios/tutorial-03-cviceni.yaml -i produkt="veganská zmrzlina" --fake fake/tutorial-03-cviceni.yaml
+agencast validate workflows/scenarios/tutorial-03-exercise.yaml
+agencast run workflows/scenarios/tutorial-03-exercise.yaml -i product="vegan ice cream" --fake fake/tutorial-03-exercise.yaml
 ```
 
 ```
-v pořádku: tutorial-03-cviceni (10 kroků)
-běh 20260925-151552-tutorial-03-cviceni-7a12: úspěch · 0,0 s · 0,0003 USD
+valid: tutorial-03-exercise (10 steps)
+run 20260925-151552-tutorial-03-exercise-7a12: succeeded · 0.0 s · 0.0003 USD
 ```
 
-Obyčejný název, `/tmp/obycejny.yaml`:
+An ordinary name, `/tmp/ordinary.yaml`:
 
 ```yaml
-navrh:
+propose:
   - json:
-      nazev: "Zmrzlina"
-kontrola:
+      name: "Ice cream"
+check:
   - answers:
-      zapamatovatelny: 0.95
-      originalita: 0.2
+      memorable: 0.95
+      originality: 0.2
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-03-cviceni.yaml -i produkt="veganská zmrzlina" --fake /tmp/obycejny.yaml
+agencast run workflows/scenarios/tutorial-03-exercise.yaml -i product="vegan ice cream" --fake /tmp/ordinary.yaml
 ```
 
 ```
-fail v kroku stop_originalita: Název Zmrzlina je příliš obyčejný (originalita = 0.2)
-běh 20260925-151553-tutorial-03-cviceni-c3c6: chyba · 0,0 s · 0,0002 USD
+fail in step stop_originality: The name Ice cream is too ordinary (originality = 0.2)
+run 20260925-151553-tutorial-03-exercise-c3c6: failed · 0.0 s · 0.0002 USD
 ```
 
 ```
-| 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | kontrola | jev | ✓ | 0,0 s | 0,0001 | zapamatovatelny = 0,95, ton = hravy, originalita = 0,20 |
-| 3 | stop | fail | přeskočeno |  |  | when: steps.kontrola.zapamatovatelny < 0.5 → false |
-| 4 | stop_originalita | fail | chyba | 0,0 s | 0 | viz Chyba |
-| | Celkem | | | 0,0 s | 0,0002 |  |
+| 1 | propose | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | check | jev | ✓ | 0.0 s | 0.0001 | memorable = 0.95, tone = playful, originality = 0.20 |
+| 3 | stop | fail | skipped |  |  | when: steps.check.memorable < 0.5 → false |
+| 4 | stop_originality | fail | failed | 0.0 s | 0 | see Error |
+| | Total | | | 0.0 s | 0.0002 |  |
 ```
 
-Krok musí být **za** `kontrola` (čte její výstup) a **před** `podle_tonu`
-(ať se za slogan zbytečně neplatí).
+The step must be **after** `check` (it reads its output) and **before**
+`by_tone` (so that a slogan is not paid for needlessly).
 
 </details>
 
-**Další díl:** [Paralelně a s obrázkem](04-paralelne-a-obrazek.md).
+**Next part:** [Parallel steps and an image](04-parallel-and-image.md).

@@ -1,6 +1,6 @@
-// Rozpracovaný scénář ve Form režimu (§4.4, §4.6): strom kroků lokálně + v localStorage, krok zpět,
-// průběžná validace přes `render` (500 ms), uložení jednou dávkou (edit.ts saveDraft), 409 → konflikt,
-// 422 → chyby u karet, hlídání disku přes `HEAD files/`.
+// In-progress scenario in Form mode (§4.4, §4.6): the step tree locally + in localStorage, undo,
+// continuous validation via `render` (500 ms), saving in a single batch (edit.ts saveDraft), 409 → conflict,
+// 422 → errors on the cards, disk watching via `HEAD files/`.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, enc, getJson, headEtag } from "./api";
 import { deepEqual, draftOf, LocalError, renderDraft, saveDraft, type Draft, type WStep } from "./edit";
@@ -8,7 +8,7 @@ import { t } from "./i18n";
 import { clock, draftKey, readDraft, useWatch, VALIDATE_MS, writeDraft, type Conflict, type SaveState } from "./textfile";
 import type { ErrorItem, FileDoc, Scenario } from "./types";
 
-/** Obsah kroků bez odvozených polí (nn, refs) — podle něj se pozná neuložená změna. */
+/** Step content without derived fields (nn, refs) — used to detect an unsaved change. */
 const canon = (d: Draft): unknown => {
   const step = (s: WStep): unknown => [
     s.uid, s.id, s.type, s.when, s.fields,
@@ -38,7 +38,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
   const key = draftKey(project, path, "form");
   const [server, setServer] = useState<Snapshot>();
   const [loadError, setLoadError] = useState<ApiError>();
-  /** Verze, ke které patří rozpracované změny (obvykle = server; po obnovení stránky může být starší). */
+  /** The version the in-progress changes belong to (usually = server; may be older after a page reload). */
   const [base, setBase] = useState<{ etag: string; draft: Draft; text: string }>();
   const [work, setWork] = useState<Draft>();
   const [past, setPast] = useState<Draft[]>([]);
@@ -46,7 +46,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
   const [errors, setErrors] = useState<ErrorItem[]>([]);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
   const [conflict, setConflict] = useState<Conflict>();
-  /** Po „Ponechat moje“: změny se pošlou nad tuto verzi disku. */
+  /** After "Keep mine": changes are sent on top of this disk version. */
   const [rebase, setRebase] = useState<{ etag: string; sim: WStep[] }>();
   const busy = useRef(false);
   const edits = useRef(0);
@@ -65,7 +65,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     setErrors(s.sc.errors);
   };
 
-  /** `keepEdits`: když uživatel mezitím začal upravovat, načtení nic nepřepíše (změnu na disku pak ohlásí hlídání). */
+  /** `keepEdits`: if the user has started editing in the meantime, loading overwrites nothing (a disk change is then reported by the watcher). */
   const load = useCallback(async (quiet = false, keepEdits = false) => {
     const at = edits.current;
     try {
@@ -103,7 +103,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     writeDraft(key, sameDraft(next, base.draft) ? null : { etag: base.etag, base: base.draft, work: next, text: base.text });
   };
 
-  /** Změna rozpracovaného stavu; stejné `coalesce` po sobě = jeden krok zpět (psaní do pole). */
+  /** Change of the in-progress state; consecutive changes with the same `coalesce` = one undo step (typing into a field). */
   const change = (fn: (d: Draft) => Draft, coalesce?: string) => {
     if (!work) return;
     const next = fn(work);
@@ -144,7 +144,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
     setState({ kind: "idle" });
   };
 
-  // průběžná validace rozpracovaného stavu: `render` vrátí všechny chyby výsledku bez zápisu
+  // continuous validation of the in-progress state: `render` returns all errors of the result without writing
   useEffect(() => {
     if (!active || !server || !base || !work) return;
     if (!dirty) {
@@ -161,7 +161,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
         if (!alive) return;
         if (e instanceof ApiError && e.status === 422) setErrors(e.errors.filter((x) => !x.file || x.file === path));
         else if (e instanceof LocalError) setErrors([{ message: t(`save.local.${e.code}`, { step: e.step ?? "" }), step: e.step }]);
-        // 409 a nedostupný server: konflikt hlásí hlídání disku, spojení ServerBar
+        // 409 and unreachable server: the conflict is reported by the disk watcher, the connection by ServerBar
       }
     }, VALIDATE_MS);
     return () => {
@@ -231,7 +231,7 @@ export function useScenarioDraft(project: string, scenario: string, active: bool
       setConflict(undefined);
     },
     diskText: async () => (await getJson<FileDoc>(`/projects/${enc(project)}/files/${path}`)).text,
-    /** Rozpracovaný stav jako YAML text (`render`) — pro přechod do YAML bez uložení. */
+    /** The in-progress state as YAML text (`render`) — for switching to YAML without saving. */
     renderText: async () => {
       if (!base || !work) return undefined;
       const etag = rebase?.etag ?? base.etag;

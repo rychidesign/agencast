@@ -1,558 +1,569 @@
-# Díl 2 — Navazování kroků
+# Part 2 — Chaining steps
 
-Příkazy spouštěj z `examples/tutorial` (z kořene klonu: `cd examples/tutorial`).
+Run the commands from `examples/tutorial` (from the clone root: `cd examples/tutorial`).
 
-**Čas:** asi 15 minut · **Útrata:** jeden ostrý běh za ~0,0008 USD
-**Co budeš umět:** poslat výstup jednoho kroku do dalšího, dostat od modelu
-data místo volného textu (`schema`), počítat bez modelu (`set`), vrátit
-víc polí a číst hlášky `validate`.
+**Time:** about 15 minutes · **Spend:** one live run for ~0.0008 USD
+**You will learn to:** pass the output of one step to the next, get data
+from the model instead of free text (`schema`), calculate without a model
+(`set`), return several fields and read `validate` messages.
 
-Předpoklad: díl 1 (agent `tutorial-pojmenovavac`, zkratka
+Prerequisite: part 1 (the agent `tutorial-namer`, the shortcut
 `alias agencast="uv run --project ../../framework agencast"`).
 
 ---
 
-## Krok 1 — druhý agent
+## Step 1 — a second agent
 
-Vytvoř `workflows/agents/tutorial-sloganista.md`:
+Create `workflows/agents/tutorial-slogan-writer.md`:
 
 ```markdown
 ---
 version: 1
-name: tutorial-sloganista
-description: Píše krátké reklamní slogany k názvu produktu (tutoriál, díl 2)
-model: chytry
+name: tutorial-slogan-writer
+description: Writes short advertising slogans for a product name (tutorial, part 2)
+model: smart
 limits:
   budget_usd: 0.01
 ---
-Jsi copywriter. Píšeš česky krátké reklamní slogany.
+You are a copywriter. You write short advertising slogans in English.
 
-Pravidla:
-- Slogan má nejvýš 8 slov.
-- Bez uvozovek, bez emoji, bez hashtagů.
+Rules:
+- A slogan has at most 8 words.
+- No quotation marks, no emoji, no hashtags.
 ```
 
-Nic nového — stejný tvar jako pojmenovávač.
+Nothing new — the same shape as the namer.
 
 ---
 
-## Krok 2 — scénář, kde krok 2 čte krok 1
+## Step 2 — a scenario where step 2 reads step 1
 
-Vytvoř `workflows/scenarios/tutorial-02-nazev-a-slogan.yaml`:
+Create `workflows/scenarios/tutorial-02-name-and-slogan.yaml`:
 
 ```yaml
 version: 1
-name: tutorial-02-nazev-a-slogan
-description: Vymyslí názvy produktu a k prvnímu napíše slogan (tutoriál, díl 2)
+name: tutorial-02-name-and-slogan
+description: Comes up with product names and writes a slogan for the first one (tutorial, part 2)
 
 inputs:
-  produkt:
+  product:
     type: string
     required: true
-    description: Jaký produkt pojmenováváme
+    description: The product we are naming
 
 outputs:
-  nazev:
+  name:
     type: string
-    description: Vybraný název (první z návrhů)
+    description: The chosen name (the first of the ideas)
   slogan:
     type: string
-    description: Slogan k vybranému názvu
-  vsechny_nazvy:
+    description: Slogan for the chosen name
+  all_names:
     type: string
-    description: Všechny návrhy oddělené čárkou
-  pocet:
+    description: All ideas separated by commas
+  count:
     type: integer
-    description: Kolik názvů agent navrhl
+    description: How many names the agent proposed
 
 steps:
-  # 1. Agent vymyslí názvy — díky schema jako seznam, ne jako volný text.
-  - id: navrh
+  # 1. The agent comes up with names — thanks to schema as a list, not as free text.
+  - id: propose
     ask:
-      agent: tutorial-pojmenovavac
-      prompt: "Vymysli 3 názvy pro tento produkt: {{ inputs.produkt }}."
+      agent: tutorial-namer
+      prompt: "Come up with 3 names for this product: {{ inputs.product }}."
       schema:
-        nazvy: [string]
+        names: [string]
 
-  # 2. Druhý agent napíše slogan k prvnímu názvu.
+  # 2. A second agent writes a slogan for the first name.
   - id: slogan
     ask:
-      agent: tutorial-sloganista
+      agent: tutorial-slogan-writer
       prompt: |
-        Produkt: {{ inputs.produkt }}
-        Název: {{ steps.navrh.nazvy[0] }}
-        Napiš k němu jeden slogan.
+        Product: {{ inputs.product }}
+        Name: {{ steps.propose.names[0] }}
+        Write one slogan for it.
       schema:
         slogan: string
 
-  # 3. Výpočty bez modelu.
-  - id: souhrn
+  # 3. Calculations without a model.
+  - id: summary
     set:
-      vsechny: join(steps.navrh.nazvy, ", ")
-      pocet: len(steps.navrh.nazvy)
+      all_names: join(steps.propose.names, ", ")
+      count: len(steps.propose.names)
 
-  # 4. Výsledek.
+  # 4. Result.
   - id: out
     output:
-      nazev: "{{ steps.navrh.nazvy[0] }}"
+      name: "{{ steps.propose.names[0] }}"
       slogan: "{{ steps.slogan.slogan }}"
-      vsechny_nazvy: "{{ steps.souhrn.vsechny }}"
-      pocet: "{{ steps.souhrn.pocet }}"
+      all_names: "{{ steps.summary.all_names }}"
+      count: "{{ steps.summary.count }}"
 ```
 
-Co je nové:
+What is new:
 
-### `{{ steps.<id>.<pole> }}` — výstup jiného kroku
+### `{{ steps.<id>.<field> }}` — the output of another step
 
-Krok vidí výstupy kroků **nad sebou**. `steps.navrh.nazvy` = pole `nazvy`
-z výstupu kroku `navrh`. `[0]` = první prvek seznamu (`[-1]` by byl
-poslední).
+A step sees the outputs of the steps **above** it. `steps.propose.names` = the
+field `names` from the output of the step `propose`. `[0]` = the first item of
+the list (`[-1]` would be the last).
 
-### `schema` — data místo volného textu
+### `schema` — data instead of free text
 
-V dílu 1 vrátil `ask` jeden text (`steps.navrh.text`). Když chceš s odpovědí
-dál pracovat — vzít první název, spočítat je — potřebuješ **data**.
-`schema` říká, jaký JSON má model vrátit:
+In part 1, `ask` returned a single text (`steps.propose.text`). When you want to
+keep working with the response — take the first name, count them — you need
+**data**. `schema` says what JSON the model should return:
 
-| Zápis | Znamená |
+| Notation | Means |
 |---|---|
-| `string`, `number`, `integer`, `boolean` | hodnota daného typu |
-| `[string]` | seznam textů (funguje s každým typem) |
-| `{ a: string, b: number }` | vnořený objekt |
+| `string`, `number`, `integer`, `boolean` | a value of that type |
+| `[string]` | a list of texts (works with every type) |
+| `{ a: string, b: number }` | a nested object |
 
-Kořen je vždy mapa (pole pod `schema:`). Všechna pole jsou povinná. **Co**
-v poli má být, píšeš do promptu nebo do agenta — `schema` hlídá jen tvar.
+The root is always a map (the fields under `schema:`). All fields are required.
+**What** goes into a field, you write in the prompt or in the agent — `schema`
+only guards the shape.
 
-Jak to framework zařídí: pošle modelu JSON Schema a odpověď zkontroluje.
-Nesedí-li, zkusí to znovu a modelu pošle chybu jako zpětnou vazbu (víc
-v kroku 5).
+How the framework does it: it sends the model a JSON Schema and checks the
+response. If it does not match, it tries again and sends the model the error as
+feedback (more in step 5).
 
-### `set` — výpočet bez modelu
+### `set` — a calculation without a model
 
-Každý klíč pod `set` je nový výstup (`steps.souhrn.pocet`), hodnota je
-**výraz**. Výraz se píše **bez** `{{ }}` — to je jediný rozdíl, který si
-teď potřebuješ pamatovat:
+Every key under `set` is a new output (`steps.summary.count`), and the value is
+an **expression**. An expression is written **without** `{{ }}` — that is the
+only difference you need to remember for now:
 
-| Kde | Zápis |
+| Where | Notation |
 |---|---|
-| `prompt`, hodnoty v `output`, `fail` | šablona `"{{ steps.navrh.nazvy[0] }}"` |
-| `set`, `when` (díl 3) | výraz `len(steps.navrh.nazvy)` |
+| `prompt`, values in `output`, `fail` | template `"{{ steps.propose.names[0] }}"` |
+| `set`, `when` (part 3) | expression `len(steps.propose.names)` |
 
-`join(seznam, oddělovač)` spojí seznam textů, `len(x)` spočítá délku.
+`join(list, separator)` joins a list of texts, `len(x)` computes the length.
 
-### `output` s více poli
+### `output` with several fields
 
-Klíče pod `output` jsou **přesně** ty z `outputs` v hlavičce. Když je
-hodnota celá jedna šablona (`"{{ steps.souhrn.pocet }}"`), vloží se se
-svým typem — `pocet` zůstane číslem, ne textem `"3"`.
+The keys under `output` are **exactly** those from `outputs` in the header. When
+a value is one whole template (`"{{ steps.summary.count }}"`), it is inserted
+with its type — `count` stays a number, not the text `"3"`.
 
 ---
 
-## Krok 3 — fixtura pro krok se `schema`
+## Step 3 — a fixture for a step with `schema`
 
-Krok se `schema` dostává ve fixtuře `json:` místo `text:`. Vytvoř
-`fake/tutorial-02-nazev-a-slogan.yaml`:
+A step with `schema` gets `json:` instead of `text:` in the fixture. Create
+`fake/tutorial-02-name-and-slogan.yaml`:
 
 ```yaml
-# Skriptované odpovědi pro tutorial-02-nazev-a-slogan.
-# Krok se schema dostává odpověď jako json: {pole: hodnota}.
-navrh:
+# Scripted responses for tutorial-02-name-and-slogan.
+# A step with schema gets its response as json: {field: value}.
+propose:
   - json:
-      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+      names: ["Oatsy", "Frost Oat", "Frozen Field"]
 slogan:
   - json:
-      slogan: "Zmrzlina, která roste na poli"
+      slogan: "Ice cream that grows in the field"
 ```
 
 ```bash
-agencast validate workflows/scenarios/tutorial-02-nazev-a-slogan.yaml
-agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veganská zmrzlina z ovesného mléka" --fake fake/tutorial-02-nazev-a-slogan.yaml
+agencast validate workflows/scenarios/tutorial-02-name-and-slogan.yaml
+agencast run workflows/scenarios/tutorial-02-name-and-slogan.yaml -i product="vegan oat milk ice cream" --fake fake/tutorial-02-name-and-slogan.yaml
 ```
 
 ```
-v pořádku: tutorial-02-nazev-a-slogan (4 kroky)
-běh 20260925-151207-tutorial-02-nazev-a-slogan-6952: úspěch · 0,0 s · 0,0002 USD
-záznam: runs/20260925-151207-tutorial-02-nazev-a-slogan-6952/summary.md
+valid: tutorial-02-name-and-slogan (4 steps)
+run 20260925-151207-tutorial-02-name-and-slogan-6952: succeeded · 0.0 s · 0.0002 USD
+run record: …/runs/20260925-151207-tutorial-02-name-and-slogan-6952/summary.md
+report: file:///…/outputs/20260925-151207-tutorial-02-name-and-slogan-6952-266515b74a65f0d8e96e2dcfc87b0561/report.html
 ```
 
 ```bash
-cat runs/20260925-151207-tutorial-02-nazev-a-slogan-6952/summary.md
+cat runs/20260925-151207-tutorial-02-name-and-slogan-6952/summary.md
 ```
 
 ```
-# tutorial-02-nazev-a-slogan — úspěch
+# tutorial-02-name-and-slogan — success
 
-Vymyslí názvy produktu a k prvnímu napíše slogan (tutoriál, díl 2)
-Běh `20260925-151207-tutorial-02-nazev-a-slogan-6952` · 25. 9. 2026 15:12:07 UTC · 0,0 s · 0,0002 USD
+Comes up with product names and writes a slogan for the first one (tutorial, part 2)
+Run `20260925-151207-tutorial-02-name-and-slogan-6952` · 2026-09-25 15:12 UTC · 0.0 s · 0.0002 USD
 
-## Vstupy
-- produkt: veganská zmrzlina z ovesného mléka
+**Fake run** (`--fake`) — model responses are fabricated, dedupe in `_dedupe-fake/`.
 
-## Kroky
-| # | Krok | Typ | Stav | Čas | Cena | Poznámka |
+## Inputs
+- product: vegan oat milk ice cream
+
+## Steps
+| # | Step | Type | Status | Time | Cost | Note |
 |---|---|---|---|---|---|---|
-| 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | slogan | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 3 | souhrn | set | ✓ | 0,0 s | 0 |  |
-| 4 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 0,0 s | 0,0002 |  |
+| 1 | propose | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | slogan | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 3 | summary | set | ✓ | 0.0 s | 0 |  |
+| 4 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 0.0 s | 0.0002 |  |
 
-## Varování
-žádná
+## Warnings
+none
 
-## Výstup
-- nazev: „Ovesňák"
-- slogan: „Zmrzlina, která roste na poli"
-- vsechny_nazvy: „Ovesňák, Mrazík Oves, Zmrzlá Pláň"
-- pocet: 3
+## Output
+- name: “Oatsy”
+- slogan: “Ice cream that grows in the field”
+- all_names: “Oatsy, Frost Oat, Frozen Field”
+- count: 3
 ```
 
-`(native_schema)` v poznámce říká, jakým způsobem framework JSON od modelu
-vynutil — tady nativním JSON Schema. Podívej se, co přesně krok 2 dostal:
+`(native_schema)` in the note says how the framework enforced JSON from the
+model — here with a native JSON Schema. Look at what exactly step 2 received:
 
 ```bash
-sed -n '/# Zpráva/,$p' runs/20260925-151207-tutorial-02-nazev-a-slogan-6952/steps/02-slogan/prompt.md
+sed -n '/# Message/,$p' runs/20260925-151207-tutorial-02-name-and-slogan-6952/steps/02-slogan/prompt.md
 ```
 
 ```
-# Zpráva
+# Message
 
-Produkt: veganská zmrzlina z ovesného mléka
-Název: Ovesňák
-Napiš k němu jeden slogan.
+Product: vegan oat milk ice cream
+Name: Oatsy
+Write one slogan for it.
 ```
 
-A výstupy kroků 1 a 3:
+And the outputs of steps 1 and 3:
 
 ```bash
-cat runs/20260925-151207-tutorial-02-nazev-a-slogan-6952/steps/01-navrh/output.json
-cat runs/20260925-151207-tutorial-02-nazev-a-slogan-6952/steps/03-souhrn/output.json
+cat runs/20260925-151207-tutorial-02-name-and-slogan-6952/steps/01-propose/output.json
+cat runs/20260925-151207-tutorial-02-name-and-slogan-6952/steps/03-summary/output.json
 ```
 
 ```
 {
-  "nazvy": [
-    "Ovesňák",
-    "Mrazík Oves",
-    "Zmrzlá Pláň"
+  "names": [
+    "Oatsy",
+    "Frost Oat",
+    "Frozen Field"
   ]
 }
 {
-  "vsechny": "Ovesňák, Mrazík Oves, Zmrzlá Pláň",
-  "pocet": 3
+  "all_names": "Oatsy, Frost Oat, Frozen Field",
+  "count": 3
 }
 ```
 
-Tip: `--fake` **bez** fixtury u kroku se `schema` vyrobí hodnoty podle
-schématu sám — `nazev: „falešný text (nazvy)"`, `pocet: 1`. Na kontrolu,
-že scénář projde, to stačí.
+Tip: `--fake` **without** a fixture for a step with `schema` produces the values
+from the schema by itself — `name: “fake text (names)”`, `count: 1`. To check
+that a scenario runs through, that is enough.
 
 ---
 
-## Krok 4 — ostrý běh
+## Step 4 — a live run
 
 ```bash
-agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="veganská zmrzlina z ovesného mléka"
+agencast run workflows/scenarios/tutorial-02-name-and-slogan.yaml -i product="vegan oat milk ice cream"
 ```
 
 ```
-běh 20260925-151245-tutorial-02-nazev-a-slogan-8c39: úspěch · 4,2 s · 0,0008 USD
-záznam: runs/20260925-151245-tutorial-02-nazev-a-slogan-8c39/summary.md
+run 20260925-151245-tutorial-02-name-and-slogan-8c39: succeeded · 4.2 s · 0.0008 USD
+run record: …/runs/20260925-151245-tutorial-02-name-and-slogan-8c39/summary.md
+report: file:///…/outputs/20260925-151245-tutorial-02-name-and-slogan-8c39-a7d633feb6bfdaf592a061ad9c1384e2/report.html
 ```
 
-Z `summary.md`:
+From `summary.md` (the model texts are illustrative; the times and costs are
+from the real run):
 
 ```
-| 1 | navrh | ask | ✓ | 2,0 s | 0,0004 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | slogan | ask | ✓ | 2,2 s | 0,0004 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 3 | souhrn | set | ✓ | 0,0 s | 0 |  |
-| 4 | out | output | ✓ | 0,0 s | 0 |  |
-| | Celkem | | | 4,2 s | 0,0008 |  |
+| 1 | propose | ask | ✓ | 2.0 s | 0.0004 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | slogan | ask | ✓ | 2.2 s | 0.0004 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 3 | summary | set | ✓ | 0.0 s | 0 |  |
+| 4 | out | output | ✓ | 0.0 s | 0 |  |
+| | Total | | | 4.2 s | 0.0008 |  |
 
-## Varování
-žádná
+## Warnings
+none
 
-## Výstup
-- nazev: „OvesKréma"
-- slogan: „OvesKréma - čistá dobrota bez výčitek"
-- vsechny_nazvy: „OvesKréma, VeganChil, MléčnoLed"
-- pocet: 3
+## Output
+- name: “OatCloud”
+- slogan: “OatCloud - plant-based goodness, zero guilt”
+- all_names: “OatCloud, PlantFrost, Creamy Oat”
+- count: 3
 ```
 
-`set` a `output` stojí vždy 0 — model nevolají.
+`set` and `output` always cost 0 — they do not call a model.
 
 ---
 
-## Krok 5 — co když model JSON pokazí
+## Step 5 — what if the model breaks the JSON
 
-Fixtura umí nasimulovat model, který na první pokus odpoví textem místo
-JSON. Ulož si kamkoli (třeba `/tmp/spatny-json.yaml`):
+A fixture can simulate a model that answers with text instead of JSON on the
+first attempt. Save this anywhere (for example `/tmp/bad-json.yaml`):
 
 ```yaml
-navrh:
-  - text: "Tady jsou názvy: Ovesňák, Mrazík Oves, Zmrzlá Pláň"
+propose:
+  - text: "Here are the names: Oatsy, Frost Oat, Frozen Field"
   - json:
-      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+      names: ["Oatsy", "Frost Oat", "Frozen Field"]
 slogan:
   - json:
-      slogan: "Zmrzlina, která roste na poli"
+      slogan: "Ice cream that grows in the field"
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="zmrzlina" --fake /tmp/spatny-json.yaml
+agencast run workflows/scenarios/tutorial-02-name-and-slogan.yaml -i product="ice cream" --fake /tmp/bad-json.yaml
 ```
 
 ```
-běh 20260925-151235-tutorial-02-nazev-a-slogan-6286: úspěch · 0,0 s · 0,0003 USD
+run 20260925-151235-tutorial-02-name-and-slogan-6286: succeeded · 0.0 s · 0.0003 USD
 ```
 
-Běh prošel. V `summary.md` je u kroku 1 `(tool_wrapper)` místo
-`(native_schema)` a v `events.jsonl` je vidět, proč:
+The run passed. In `summary.md` step 1 has `(tool_wrapper)` instead of
+`(native_schema)`, and `events.jsonl` shows why:
 
 ```bash
-grep '"error"' runs/20260925-151235-tutorial-02-nazev-a-slogan-6286/events.jsonl
+grep '"error"' runs/20260925-151235-tutorial-02-name-and-slogan-6286/events.jsonl
 ```
 
 ```
-{"ts":"2026-09-25T15:12:35.304Z","type":"error","step":"navrh","class":"schema","message":"odpověď není JSON (Expecting value: line 1 column 1 (char 0)): Tady jsou názvy: Ovesňák, Mrazík Oves, Zmrzlá Pláň","attempt":1,"will_retry":true,"http_status":null}
+{"ts":"2026-09-25T15:12:35.304Z","type":"error","step":"propose","class":"schema","message":"response is not JSON (Expecting value: line 1 column 1 (char 0)): Here are the names: Oatsy, Frost Oat, Frozen Field","attempt":1,"will_retry":true,"http_status":null}
 {"ts":"2026-09-25T15:12:35.306Z","type":"run_finished","status":"succeeded","error":null,"warnings":[],"duration_s":0.003,"usage":{"input_tokens":300,"output_tokens":60,"cost_usd":0.0003},"image_cost_usd":0.0,"image_duration_s":0.0}
 ```
 
-(Druhý řádek grep chytil jen proto, že obsahuje `"error":null`.) První
-pokus skončil chybou třídy **`schema`**, `will_retry: true`. Druhý pokus
-šel „o úroveň níž" (JSON přes nástroj-obal, `tool_wrapper`) a prošel.
-Ve složce kroku jsou proto dvě volání: `calls/01.*` a `calls/02.*`. Oba
-pokusy se platí — proto je cena kroku dvojnásobná.
+(The second line was caught by grep only because it contains `"error":null`.)
+The first attempt ended with an error of class **`schema`**, `will_retry: true`.
+The second attempt went "one level down" (JSON through a wrapper tool,
+`tool_wrapper`) and passed. That is why the step folder holds two calls:
+`calls/01.*` and `calls/02.*`. Both attempts are paid for — that is why the
+step costs double.
 
-**Bez `schema`** by se nic z toho nedělo: výstupem by byl jen
-`steps.navrh.text` a s „Tady jsou názvy: …" bys dál pracovat nemohl.
-A `validate` by ti to řekl dřív, než cokoli zaplatíš — viz další krok.
+**Without `schema`** none of this would happen: the output would be only
+`steps.propose.text` and you could not work further with "Here are the names: …".
+And `validate` would tell you that before you pay anything — see the next step.
 
 ---
 
-## Krok 6 — hlášky `validate` a jak je číst
+## Step 6 — `validate` messages and how to read them
 
-Všechny hlášky mají stejnou stavbu:
-
-```
-config: <soubor>: krok "<id>", <kde>: <co je špatně>
-  <výraz nebo šablona>
-      ^ ← místo chyby
-```
-
-Vyzkoušej si je — vždy jednu změnu, `validate`, a vrať zpět.
-
-**Smaž `schema` z kroku `navrh`.** Výstupem je pak jen `text`:
+All messages have the same structure:
 
 ```
-config: tutorial-02-nazev-a-slogan.yaml: krok "slogan", ask.prompt: 'steps.navrh' nemá klíč 'nazvy' (dostupné: text)
-  {{ steps.navrh.nazvy[0] }}
-                 ^
-config: tutorial-02-nazev-a-slogan.yaml: krok "souhrn", set.vsechny: 'steps.navrh' nemá klíč 'nazvy' (dostupné: text)
-  join(steps.navrh.nazvy, ", ")
+config: <file>: step "<id>", <where>: <what is wrong>
+  <expression or template>
+      ^ ← place of the error
+```
+
+Try them out — always one change, `validate`, and change it back.
+
+**Delete `schema` from the step `propose`.** The output is then only `text`:
+
+```
+config: tutorial-02-name-and-slogan.yaml: step "slogan", ask.prompt: 'steps.propose' has no key 'names' (available: text)
+  {{ steps.propose.names[0] }}
                    ^
-config: tutorial-02-nazev-a-slogan.yaml: krok "souhrn", set.pocet: 'steps.navrh' nemá klíč 'nazvy' (dostupné: text)
-  len(steps.navrh.nazvy)
-                  ^
-config: tutorial-02-nazev-a-slogan.yaml: krok "out", output.nazev: 'steps.navrh' nemá klíč 'nazvy' (dostupné: text)
-  {{ steps.navrh.nazvy[0] }}
-                 ^
+config: tutorial-02-name-and-slogan.yaml: step "summary", set.all_names: 'steps.propose' has no key 'names' (available: text)
+  join(steps.propose.names, ", ")
+                     ^
+config: tutorial-02-name-and-slogan.yaml: step "summary", set.count: 'steps.propose' has no key 'names' (available: text)
+  len(steps.propose.names)
+                    ^
+config: tutorial-02-name-and-slogan.yaml: step "out", output.name: 'steps.propose' has no key 'names' (available: text)
+  {{ steps.propose.names[0] }}
+                   ^
 ```
 
-Čti vždy **první** hlášku; ostatní jsou často následek téže chyby.
-„(dostupné: text)" ti říká, co krok opravdu vrací.
+Always read the **first** message; the others are often a consequence of the
+same error. "(available: text)" tells you what the step really returns.
 
-**Překlep v id kroku** — `{{ steps.nvrh.nazvy[0] }}`:
+**A typo in a step id** — `{{ steps.propse.names[0] }}`:
 
 ```
-config: tutorial-02-nazev-a-slogan.yaml: krok "slogan", ask.prompt: krok 'nvrh' neexistuje (dostupné: navrh)
-  {{ steps.nvrh.nazvy[0] }}
+config: tutorial-02-name-and-slogan.yaml: step "slogan", ask.prompt: step 'propse' does not exist (available: propose)
+  {{ steps.propse.names[0] }}
            ^
 ```
 
-**Chybějící pole** — `slogan: "{{ steps.slogan.text }}"` (krok má `schema`,
-takže `text` nemá):
+**A missing field** — `slogan: "{{ steps.slogan.text }}"` (the step has a
+`schema`, so it has no `text`):
 
 ```
-config: tutorial-02-nazev-a-slogan.yaml: krok "out", output.slogan: 'steps.slogan' nemá klíč 'text' (dostupné: slogan)
+config: tutorial-02-name-and-slogan.yaml: step "out", output.slogan: 'steps.slogan' has no key 'text' (available: slogan)
   {{ steps.slogan.text }}
                   ^
 ```
 
-**Odkaz na krok níž** — do promptu kroku `slogan` přidej
-`{{ steps.souhrn.pocet }}`:
+**A reference to a later step** — add `{{ steps.summary.count }}` to the prompt
+of the step `slogan`:
 
 ```
-config: tutorial-02-nazev-a-slogan.yaml: krok "slogan", ask.prompt: krok 'souhrn' je až níž — výraz vidí jen kroky nad sebou
-  {{ steps.souhrn.pocet }}
+config: tutorial-02-name-and-slogan.yaml: step "slogan", ask.prompt: step 'summary' comes later — expressions can only reference preceding steps
+  {{ steps.summary.count }}
            ^
 ```
 
-**`output` nesedí na hlavičku** — smaž řádek `pocet:` z kroku `out`:
+**`output` does not match the header** — delete the line `count:` from the step
+`out`:
 
 ```
-config: tutorial-02-nazev-a-slogan.yaml: krok "out", output: chybí výstupy z hlavičky: pocet
+config: tutorial-02-name-and-slogan.yaml: step "out", output: missing outputs declared in the header: count
 ```
 
-**Špatný typ výstupu** — `pocet: "{{ steps.souhrn.vsechny }}"`:
+**A wrong output type** — `count: "{{ steps.summary.all_names }}"`:
 
 ```
-config: tutorial-02-nazev-a-slogan.yaml: krok "out", output.pocet: výstup má typ integer, hodnota je string
+config: tutorial-02-name-and-slogan.yaml: step "out", output.count: output has type integer, value is string
 ```
 
-**`null`** — framework nikdy nevloží `null` potichu. Přidej do `set`
-řádek `poznamka: null` a do výstupu `"{{ steps.souhrn.vsechny }} {{ steps.souhrn.poznamka }}"`:
+**`null`** — the framework never inserts `null` silently. Add the line
+`note: null` to `set` and use `"{{ steps.summary.all_names }} {{ steps.summary.note }}"`
+in the output:
 
 ```
-config: tutorial-02-nazev-a-slogan.yaml: krok "out", output.vsechny_nazvy: 'steps.souhrn.poznamka' je vždy null — šablona null nevloží
-  {{ steps.souhrn.poznamka }}
+config: tutorial-02-name-and-slogan.yaml: step "out", output.all_names: 'steps.summary.note' is always null — a template cannot insert null
+  {{ steps.summary.note }}
      ^
 ```
 
-**Šablona tam, kde patří výraz** — `pocet: "{{ steps.navrh.nazvy }}"` v `set`:
+**A template where an expression belongs** — `count: "{{ steps.propose.names }}"`
+in `set`:
 
 ```
-config: tutorial-02-nazev-a-slogan.yaml: krok "souhrn", set.pocet: šablona {{ }} tu není povolená — smí být jen v prompt, jev.state, jev.questions (instructions, criteria), fail, hodnotách output, call.inputs a dedupe_key
-  {{ steps.navrh.nazvy }}
+config: tutorial-02-name-and-slogan.yaml: step "summary", set.count: template {{ }} is not allowed here — allowed only in prompt, jev.state, jev.questions (instructions, criteria), fail, output values, call.inputs and dedupe_key
+  {{ steps.propose.names }}
   ^
 ```
 
-### Chyba, kterou `validate` poznat nemůže
+### An error `validate` cannot detect
 
-`validate` neví, co model vrátí. Když vrátí prázdný seznam, `[0]` nemá
-co vzít. Nasimuluj to fixturou `/tmp/prazdne.yaml`:
+`validate` does not know what the model will return. When it returns an empty
+list, `[0]` has nothing to take. Simulate it with the fixture `/tmp/empty.yaml`:
 
 ```yaml
-navrh:
+propose:
   - json:
-      nazvy: []
+      names: []
 ```
 
 ```bash
-agencast run workflows/scenarios/tutorial-02-nazev-a-slogan.yaml -i produkt="zmrzlina" --fake /tmp/prazdne.yaml
+agencast run workflows/scenarios/tutorial-02-name-and-slogan.yaml -i product="ice cream" --fake /tmp/empty.yaml
 ```
 
 ```
-expression v kroku slogan: ask.prompt: index 0 mimo rozsah 'steps.navrh.nazvy' (délka 0)
-  {{ steps.navrh.nazvy[0] }}
-                       ^
-běh 20260925-151229-tutorial-02-nazev-a-slogan-ec41: chyba · 0,0 s · 0,0001 USD
-záznam: runs/20260925-151229-tutorial-02-nazev-a-slogan-ec41/summary.md
+expression in step slogan: ask.prompt: index 0 out of range for 'steps.propose.names' (length 0)
+  {{ steps.propose.names[0] }}
+                         ^
+run 20260925-151229-tutorial-02-name-and-slogan-ec41: failed · 0.0 s · 0.0001 USD
+run record: …/runs/20260925-151229-tutorial-02-name-and-slogan-ec41/summary.md
+report: file:///…/outputs/20260925-151229-tutorial-02-name-and-slogan-ec41-e73dd66f902d269a51db5dc45850b668/report.html
 ```
 
-Třída **`expression`** = chyba výrazu **za běhu**. Neopakuje se, běh
-končí. V `summary.md`:
+The class **`expression`** = an expression error **at run time**. It is not
+retried, the run ends. In `summary.md`:
 
 ```
-# tutorial-02-nazev-a-slogan — chyba
+# tutorial-02-name-and-slogan — failed
 …
-## Chyba
-- třída: `expression`
-- krok: `slogan`
-- zpráva:
+## Error
+- class: `expression`
+- step: `slogan`
+- message:
 
 …
-Běh skončil v kroku slogan.
+Run ended at step slogan.
 …
-| 1 | navrh | ask | ✓ | 0,0 s | 0,0001 | chytry → anthropic/claude-haiku-4.5 (native_schema) |
-| 2 | slogan | ask | chyba | 0,0 s | 0 | viz Chyba |
-| | Celkem | | | 0,0 s | 0,0001 |  |
+| 1 | propose | ask | ✓ | 0.0 s | 0.0001 | smart → anthropic/claude-haiku-4.5 (native_schema) |
+| 2 | slogan | ask | failed | 0.0 s | 0 | see Error |
+| | Total | | | 0.0 s | 0.0001 |  |
 ```
 
-Rozdíl, který stojí za zapamatování:
+A difference worth remembering:
 
-| Třída | Kdy | Běh |
+| Class | When | Run |
 |---|---|---|
-| `config` | `validate`, **před** během | vůbec nezačne, nic nestojí |
-| `expression` | **za běhu**, hodnota nesedí | skončí v kroku, zaplacené kroky zůstanou zaplacené |
+| `config` | `validate`, **before** the run | does not start at all, costs nothing |
+| `expression` | **at run time**, a value does not fit | ends in the step, steps already paid for stay paid |
 
 ---
 
-## Co sis zapamatoval
+## What you have learned
 
-- `{{ steps.<id>.<pole> }}` čte výstup kroku **nad** sebou.
-- `schema` z odpovědi udělá data; bez ní máš jen `steps.<id>.text`.
-  Ve fixtuře `json:` místo `text:`.
-- `set` počítá **výrazy** (bez `{{ }}`), zadarmo.
-- `output` = přesně pole z `outputs`, se správnými typy.
-- Hlášky: čti první, hledej `^` a „(dostupné: …)".
+- `{{ steps.<id>.<field> }}` reads the output of a step **above** it.
+- `schema` turns a response into data; without it you only have `steps.<id>.text`.
+  In a fixture, `json:` instead of `text:`.
+- `set` calculates with **expressions** (without `{{ }}`), for free.
+- `output` = exactly the fields from `outputs`, with the right types.
+- Messages: read the first one, look for the `^` and "(available: …)".
 
 ---
 
-## Cvičení
+## Exercise
 
-Přidej do scénáře výstup **`kratky_slogan`** (typ `boolean`): `true`, když
-má slogan nejvýš 40 znaků. Spočítej ho v kroku `souhrn`. Ulož jako
-`workflows/scenarios/tutorial-02-cviceni.yaml` s fixturou.
+Add an output **`short_slogan`** (type `boolean`) to the scenario: `true` when
+the slogan has at most 40 characters. Calculate it in the step `summary`. Save
+it as `workflows/scenarios/tutorial-02-exercise.yaml` with a fixture.
 
 <details>
-<summary>Řešení</summary>
+<summary>Solution</summary>
 
-Rozdíl proti `tutorial-02-nazev-a-slogan.yaml` (celý soubor je
-v `workflows/scenarios/tutorial-02-cviceni.yaml`):
+The difference against `tutorial-02-name-and-slogan.yaml` (the whole file is in
+`workflows/scenarios/tutorial-02-exercise.yaml`):
 
 ```bash
-diff workflows/scenarios/tutorial-02-nazev-a-slogan.yaml workflows/scenarios/tutorial-02-cviceni.yaml
+diff workflows/scenarios/tutorial-02-name-and-slogan.yaml workflows/scenarios/tutorial-02-exercise.yaml
 ```
 
 ```
 2,3c2,3
-< name: tutorial-02-nazev-a-slogan
-< description: Vymyslí názvy produktu a k prvnímu napíše slogan (tutoriál, díl 2)
+< name: tutorial-02-name-and-slogan
+< description: Comes up with product names and writes a slogan for the first one (tutorial, part 2)
 ---
-> name: tutorial-02-cviceni
-> description: Vymyslí názvy produktu a k prvnímu napíše slogan (tutoriál, díl 2 — řešení cvičení)
+> name: tutorial-02-exercise
+> description: Comes up with product names and writes a slogan for the first one (tutorial, part 2 — exercise solution)
 23a24,26
->   kratky_slogan:
+>   short_slogan:
 >     type: boolean
->     description: Má slogan nejvýš 40 znaků?
+>     description: Does the slogan have at most 40 characters?
 49a53
->       kratky: len(steps.slogan.slogan) <= 40
+>       short: len(steps.slogan.slogan) <= 40
 57a62
->       kratky_slogan: "{{ steps.souhrn.kratky }}"
+>       short_slogan: "{{ steps.summary.short }}"
 ```
 
-Porovnání `<=` dává `true`/`false`, takže typ `boolean` sedí.
-Krok `souhrn` smí číst `steps.slogan`, protože `slogan` je nad ním.
+The comparison `<=` gives `true`/`false`, so the type `boolean` fits. The step
+`summary` may read `steps.slogan` because `slogan` is above it.
 
-Fixtura `fake/tutorial-02-cviceni.yaml` je stejná jako
-u hlavního scénáře (kroky se nezměnily):
+The fixture `fake/tutorial-02-exercise.yaml` is the same as for the main
+scenario (the steps did not change):
 
 ```yaml
-# Skriptované odpovědi pro tutorial-02-cviceni (řešení cvičení z dílu 2).
-# Krok se schema dostává odpověď jako json: {pole: hodnota}.
-navrh:
+# Scripted responses for tutorial-02-exercise (exercise solution from part 2).
+# A step with schema gets its response as json: {field: value}.
+propose:
   - json:
-      nazvy: ["Ovesňák", "Mrazík Oves", "Zmrzlá Pláň"]
+      names: ["Oatsy", "Frost Oat", "Frozen Field"]
 slogan:
   - json:
-      slogan: "Zmrzlina, která roste na poli"
+      slogan: "Ice cream that grows in the field"
 ```
 
 ```bash
-agencast validate workflows/scenarios/tutorial-02-cviceni.yaml
-agencast run workflows/scenarios/tutorial-02-cviceni.yaml -i produkt="veganská zmrzlina" --fake fake/tutorial-02-cviceni.yaml
+agencast validate workflows/scenarios/tutorial-02-exercise.yaml
+agencast run workflows/scenarios/tutorial-02-exercise.yaml -i product="vegan ice cream" --fake fake/tutorial-02-exercise.yaml
 ```
 
 ```
-v pořádku: tutorial-02-cviceni (4 kroky)
-běh 20260925-151257-tutorial-02-cviceni-1680: úspěch · 0,0 s · 0,0002 USD
+valid: tutorial-02-exercise (4 steps)
+run 20260925-151257-tutorial-02-exercise-1680: succeeded · 0.0 s · 0.0002 USD
 ```
 
-Konec `summary.md`:
+The end of `summary.md`:
 
 ```
-## Výstup
-- nazev: „Ovesňák"
-- slogan: „Zmrzlina, která roste na poli"
-- vsechny_nazvy: „Ovesňák, Mrazík Oves, Zmrzlá Pláň"
-- pocet: 3
-- kratky_slogan: true
+## Output
+- name: “Oatsy”
+- slogan: “Ice cream that grows in the field”
+- all_names: “Oatsy, Frost Oat, Frozen Field”
+- count: 3
+- short_slogan: true
 ```
 
-(„Zmrzlina, která roste na poli" má 29 znaků.)
+(“Ice cream that grows in the field” has 33 characters.)
 
 </details>
 
-**Další díl:** [Rozhodování](03-rozhodovani.md) — Jev, `when`, `fail`,
-`switch` a pravidla výrazů.
+**Next part:** [Decisions](03-decisions.md) — Jev, `when`, `fail`,
+`switch` and the expression rules.

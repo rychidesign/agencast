@@ -1,10 +1,10 @@
-"""Registr projektů, nový projekt/agent/scénář ze šablon a popis projektu pro GUI
+"""Project registry, new projects/agents/scenarios from templates and project descriptions for the GUI
 (`agencast projects`, `new`, `GET /projects/...`; projects.md, api.md).
 
-Registr = `<AGENCAST_CONFIG_DIR, výchozí ~/.config/agencast>/projects.yaml`,
-`projects: [{name, root}]`, bez tajemství; projekty se neskenují.
-Šablony jsou tady jako řetězce, ne kopie z workflows/ — ty jsou zlaté testy
-a mění se s nimi. Nic se nepřepisuje: existující soubor = chyba `config`.
+Registry = `<AGENCAST_CONFIG_DIR, default ~/.config/agencast>/projects.yaml`,
+`projects: [{name, root}]`, without secrets; projects are not scanned.
+Templates are strings here, not copies from workflows/ — those are golden tests
+and change with them. Never overwrite: existing file = `config` error.
 """
 import ast
 import fcntl
@@ -23,20 +23,20 @@ from .loader import LoadError, load_yaml, nested_lists, read_frontmatter, read_y
 from .mcp_client import load_mcp, secret_names
 from .validate import _strings, env_fields, load_agent, load_skill, require_config, validate
 
-NAME = re.compile(r"[a-z][a-z0-9-]*")  # jako name agenta a scénáře ve schématech
+NAME = re.compile(r"[a-z][a-z0-9-]*")  # matches agent and scenario names in the schemas
 
 CONFIG = """\
-# Mění jen vlastník. Žádné tajné hodnoty: pole *_env obsahují JMÉNO
-# proměnné prostředí, hodnota je v .env (zkopíruj .env.example).
+# Only the project owner may edit this. No secret values: *_env fields contain the NAME
+# of an environment variable; its value is in .env (copy .env.example).
 version: 1
 
 openrouter:
   api_key_env: OPENROUTER_API_KEY
 
-# Aliasy modelů. Agenti a scénáře znají jen levou stranu.
+# Model aliases. Agents and scenarios only use the left-hand names.
 models:
-  chytry:       { id: anthropic/claude-haiku-4.5 }
-  rychly:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
+  smart:       { id: anthropic/claude-haiku-4.5 }
+  fast:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
   gemini-image: { id: google/gemini-3.1-flash-image }
 
 runs_dir: ./runs
@@ -45,14 +45,14 @@ storage:
   type: local
   local: { path: ./outputs }
 
-# Pojistky jednoho běhu.
+# Limits for a single run.
 limits:
   run_budget_usd: 1.00
   run_image_budget_usd: 0.30
   run_timeout: 1h
   max_call_depth: 3
 
-# Jen pro agencast serve.
+# Only for agencast serve.
 webhook:
   token_env: WEBHOOK_TOKEN
 
@@ -61,9 +61,9 @@ callback:
 """
 
 ENV_EXAMPLE = """\
-# Zkopíruj na .env a doplň hodnoty. .env do gitu nepatří.
+# Copy to .env and fill in the values. Do not commit .env to git.
 OPENROUTER_API_KEY=
-# jen pro agencast serve
+# only for agencast serve
 WEBHOOK_TOKEN=
 CALLBACK_SECRET=
 """
@@ -87,22 +87,22 @@ version: 1
 name: {name}
 description: {description}
 inputs:
-  tema: {{ type: string, default: káva, description: O čem psát }}
+  topic: {{ type: string, default: coffee, description: What to write about }}
 outputs:
   text: {{ type: string }}
 steps:
-  - id: napis
+  - id: write
     ask:
       agent: {agent}
-      prompt: "Napiš dvě věty na téma: {{{{ inputs.tema }}}}"
-  - id: vystup
+      prompt: "Write two sentences about: {{{{ inputs.topic }}}}"
+  - id: result
     output:
-      text: "{{{{ steps.napis.text }}}}"
+      text: "{{{{ steps.write.text }}}}"
 """
 
 
 def etag(text: str | None) -> str | None:
-    """Otisk verze souboru pro editační operace (edit.py): sha256 obsahu, None = soubor není."""
+    """File version hash for editing operations (edit.py): sha256 of content, None = no file."""
     return None if text is None else hashlib.sha256(text.encode()).hexdigest()
 
 
@@ -112,26 +112,26 @@ def _etag(path: Path) -> str:
 
 def _check_name(name: str, what: str):
     if not NAME.fullmatch(name):
-        raise ConfigErrors([f"{what} '{name}': jméno má být malá písmena, číslice a pomlčka, začíná písmenem"])
+        raise ConfigErrors([f"{what} '{name}': name must use lowercase letters, digits and hyphens, starting with a letter"])
 
 
 def _write(files: dict[Path, str]) -> list[Path]:
     if taken := [p for p in files if p.exists()]:
-        raise ConfigErrors([f"{p}: už existuje — nepřepisuju" for p in taken])
+        raise ConfigErrors([f"{p}: already exists — refusing to overwrite" for p in taken])
     for p, text in files.items():
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text, encoding="utf-8")
     return list(files)
 
 
-# --- registr ---------------------------------------------------------------------
+# --- registry ---------------------------------------------------------------------
 
 def registry_path() -> Path:
     return Path(os.environ.get("AGENCAST_CONFIG_DIR") or Path.home() / ".config" / "agencast") / "projects.yaml"
 
 
 class ProjectConflict(ConfigErrors):
-    """Kolize projektu, kterou HTTP API vrací jako 409; CLI ji dál bere jako chybu config."""
+    """Project conflict returned as HTTP 409 by the API; the CLI treats it as a config error."""
 
 
 def _read_registry() -> dict[str, Any]:
@@ -143,13 +143,13 @@ def _read_registry() -> dict[str, Any]:
     except LoadError as e:
         raise ConfigErrors([str(e)]) from None
     if not isinstance(data, dict):
-        raise ConfigErrors([f"{p}: má mít tvar projects: [{{name, root}}]"])
+        raise ConfigErrors([f"{p}: expected format projects: [{{name, root}}]"])
     items = data.get("projects") or []
     if not isinstance(items, list) or not all(
             isinstance(x, dict) and isinstance(x.get("name"), str) and isinstance(x.get("root"), str) for x in items):
-        raise ConfigErrors([f"{p}: má mít tvar projects: [{{name, root}}]"])
+        raise ConfigErrors([f"{p}: expected format projects: [{{name, root}}]"])
     if "projects_root" in data and not isinstance(data["projects_root"], str):
-        raise ConfigErrors([f"{p}: projects_root má být cesta jako text"])
+        raise ConfigErrors([f"{p}: projects_root must be a path string"])
     return data
 
 
@@ -158,19 +158,19 @@ def _read() -> list[dict[str, str]]:
 
 
 def projects_root() -> Path:
-    """Kořen pro projekty z GUI; výchozí `~/workspace`."""
+    """Root for projects created in the GUI; default `~/workspace`."""
     try:
         return Path(_read_registry().get("projects_root", "~/workspace")).expanduser().resolve()
     except (OSError, RuntimeError, ValueError) as e:
-        raise ConfigErrors([f"projects_root: neplatná cesta ({e})"]) from None
+        raise ConfigErrors([f"projects_root: invalid path ({e})"]) from None
 
 
 def normalize_root(value: str | Path, base: Path | None = None) -> Path:
-    """Rozbalí `~`, absolutní cestu nebo cestu pod `base`; zakáže `..` a únik relativní cesty."""
+    """Expand `~`, absolute paths or paths under `base`; reject `..` and relative paths escaping the base."""
     try:
         path = Path(value).expanduser()
         if ".." in path.parts:
-            raise ConfigErrors(["root: cesta nesmí obsahovat '..'"])
+            raise ConfigErrors(["root: path must not contain '..'"])
         if path.is_absolute():
             return path.resolve()
         if base is None:
@@ -178,14 +178,14 @@ def normalize_root(value: str | Path, base: Path | None = None) -> Path:
         base = base.resolve()
         root = (base / path).resolve()
     except (OSError, RuntimeError, TypeError, ValueError) as e:
-        raise ConfigErrors([f"root: neplatná cesta ({e})"]) from None
+        raise ConfigErrors([f"root: invalid path ({e})"]) from None
     if not root.is_relative_to(base):
-        raise ConfigErrors([f"root: relativní cesta musí zůstat pod {base}"])
+        raise ConfigErrors([f"root: relative path must stay under {base}"])
     return root
 
 
 def registry_writable() -> bool:
-    """Zda může proces atomicky zapsat registr (soubor i adresář pro jeho náhradu)."""
+    """Whether the process can write the registry atomically (file and directory for replacement)."""
     path = registry_path()
     if path.exists():
         if not os.access(path, os.W_OK):
@@ -209,17 +209,17 @@ def _save(change: Callable[[list[dict[str, str]]], Any]):
         data["projects"] = items
         tmp = p.with_suffix(".tmp")
         tmp.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
-        tmp.replace(p)  # serve čte registr při každém požadavku → nikdy půlka souboru
+        tmp.replace(p)  # serve reads the registry on every request → never expose a partial file
     return result
 
 
 def list_projects() -> list[dict[str, str | bool]]:
-    """Projekty z registru; `available: false` = chybí workflows/config.yaml (položka zůstává, `reason` proč)."""
+    """Registry projects; `available: false` = missing workflows/config.yaml (keep the entry, with `reason`)."""
     out: list[dict[str, str | bool]] = []
     for x in _read():
         cfg = Path(x["root"]) / "workflows" / "config.yaml"
         out.append({"name": x["name"], "root": x["root"], "available": cfg.is_file()}
-                   | ({} if cfg.is_file() else {"reason": f"chybí {cfg}"}))
+                   | ({} if cfg.is_file() else {"reason": f"missing {cfg}"}))
     return out
 
 
@@ -231,18 +231,18 @@ def _checked_name(root: Path, name: str | None, items: list[dict[str, str]]) -> 
     name = name or default_name(root)
     other = next((x for x in items if x["name"] == name), None)
     if other:
-        raise ProjectConflict([f"projekt '{name}' už v registru je ({other['root']}) — zvol jméno: agencast projects add {root} --name <jméno>"])
+        raise ProjectConflict([f"project '{name}' is already in the registry ({other['root']}) — choose a name: agencast projects add {root} --name <name>"])
     if not NAME.fullmatch(name):
-        raise ConfigErrors([f"projekt '{name}' není malá písmena, číslice a pomlčka od písmene — "
-                            f"zvol jméno: agencast projects add {root} --name <jméno>"])
+        raise ConfigErrors([f"project '{name}' must use lowercase letters, digits and hyphens, starting with a letter — "
+                            f"choose a name: agencast projects add {root} --name <name>"])
     return name
 
 
 def add(root: Path, name: str | None = None) -> str:
-    """Zapíše projekt do registru; jméno výchozí = složka (kebab). Vrací jméno."""
+    """Add a project to the registry; default name = folder (kebab-case). Return the name."""
     def append(items):
         if hit := next((x for x in items if Path(x["root"]) == root), None):
-            raise ProjectConflict([f"{root}: už je v registru jako '{hit['name']}'"])
+            raise ProjectConflict([f"{root}: already in the registry as '{hit['name']}'"])
         checked_name = _checked_name(root, name, items)
         items.append({"name": checked_name, "root": str(root)})
         return checked_name
@@ -252,44 +252,44 @@ def add(root: Path, name: str | None = None) -> str:
 def remove(name: str):
     def discard(items):
         if not any(x["name"] == name for x in items):
-            raise ConfigErrors([f"projekt '{name}' v registru není ({registry_path()})"])
+            raise ConfigErrors([f"project '{name}' is not in the registry ({registry_path()})"])
         items[:] = [x for x in items if x["name"] != name]
     _save(discard)
 
 
 def ensure(root: Path) -> str | None:
-    """Po úspěšném run: projekt, který v registru není, přidá. Vrací hlášku pro stderr."""
+    """After a successful run, register the project if absent. Return a message for stderr."""
     if any(Path(x["root"]) == root for x in _read()):
         return None
-    return f"projekt {add(root)} přidán do registru ({registry_path()})"
+    return f"project {add(root)} added to the registry ({registry_path()})"
 
 
-# --- šablony ------------------------------------------------------------------------
+# --- templates ------------------------------------------------------------------------
 
 def new_project(root, name: str | None = None, *, example: str | None = None) -> list[Path]:
-    """Kostra projektu s jedním agentem a scénářem, které projdou `validate --offline` i `--fake`;
-    hned ji zapíše do registru (jméno se ověří před vytvořením souborů)."""
+    """Project skeleton with one agent and scenario that pass both `validate --offline` and `--fake`;
+    register it immediately (check the name before creating files)."""
     root = Path(root).resolve()
     wf = root / "workflows"
     if wf.exists():
-        raise ProjectConflict([f"{wf}: už existuje — existující projekt přidej přes agencast projects add"])
+        raise ProjectConflict([f"{wf}: already exists — add an existing project with agencast projects add"])
     items = _read()
     if hit := next((x for x in items if Path(x["root"]) == root), None):
-        raise ProjectConflict([f"{root}: už je v registru jako '{hit['name']}'"])
+        raise ProjectConflict([f"{root}: already in the registry as '{hit['name']}'"])
     name = _checked_name(root, name, items)
     files = {
         wf / "config.yaml": CONFIG,
         root / ".env.example": ENV_EXAMPLE,
-        wf / "agents" / "pisatel.md": AGENT.format(
-            name="pisatel", description="Píše krátké texty na zadané téma", model="chytry", aliases="",
-            body="Píšeš krátké, věcné texty česky. Jen text, bez emoji a bez nadpisů."),
-        wf / "scenarios" / "ukazka.yaml": SCENARIO.format(
-            name="ukazka", description="Napíše krátký text na zadané téma", agent="pisatel"),
+        wf / "agents" / "writer.md": AGENT.format(
+            name="writer", description="Write short texts on a given topic", model="smart", aliases="",
+            body="Write short, factual texts in English. Text only, no emoji or headings."),
+        wf / "scenarios" / "demo.yaml": SCENARIO.format(
+            name="demo", description="Write a short text on a given topic", agent="writer"),
     }
     if example is not None:
         from .resources import resource_dir
         if example not in {"showcase", "tutorial"}:
-            raise ConfigErrors([f"neznámý příklad: {example}"])
+            raise ConfigErrors([f"unknown example: {example}"])
         source = resource_dir("examples") / example
         files = {}
         for part in ("workflows", "fake", ".env.example", "README.md"):
@@ -310,42 +310,42 @@ def _workflows(root: Path):
 
 
 def _description(description) -> str | None:
-    """Popis z API do šablony jako YAML text v uvozovkách (JSON řetězec je platný YAML); None = šablonový TODO."""
+    """API description as a quoted YAML string (JSON strings are valid YAML); None = template TODO."""
     if description is not None and not isinstance(description, str):
-        raise ConfigErrors(["description: má být text"])
+        raise ConfigErrors(["description: must be a string"])
     return None if description is None else json.dumps(description, ensure_ascii=False)
 
 
 def new_agent(root: Path, name: str, description: str | None = None, model: str | None = None) -> list[Path]:
-    """Minimální agent; model = `model` (alias z config.yaml), jinak první alias, ostatní aliasy v komentáři."""
+    """Minimal agent; model = `model` (config.yaml alias) or the first alias; list other aliases in a comment."""
     _check_name(name, "agent")
     wf, cfg = _workflows(root)
     aliases = list(cfg["models"])
     if model is not None and (not isinstance(model, str) or model not in aliases):
-        raise ConfigErrors([f"model: {model!r} není alias z config.yaml (jsou: {', '.join(aliases)})"])
+        raise ConfigErrors([f"model: {model!r} is not an alias from config.yaml (available: {', '.join(aliases)})"])
     return _write({wf / "agents" / f"{name}.md": AGENT.format(
-        name=name, description=_description(description) or "TODO — co agent dělá (pro lidi, modelu se neposílá)",
-        model=model or aliases[0], aliases=f"    # alias z config.yaml: {', '.join(aliases)}",
-        body="TODO: instrukce agenta (systémový prompt).")})
+        name=name, description=_description(description) or "TODO — what the agent does (for people, not sent to the model)",
+        model=model or aliases[0], aliases=f"    # alias from config.yaml: {', '.join(aliases)}",
+        body="TODO: agent instructions (system prompt).")})
 
 
 def new_scenario(root: Path, name: str, description: str | None = None) -> list[Path]:
-    """Minimální scénář (vstup → ask → output) s prvním agentem projektu podle abecedy."""
-    _check_name(name, "scénář")
+    """Minimal scenario (input → ask → output) with the project's first agent alphabetically."""
+    _check_name(name, "scenario")
     wf, _ = _workflows(root)
     desc = _description(description)
     agents = sorted(p.stem for p in (wf / "agents").glob("*.md"))
     if not agents:
-        raise ConfigErrors([f"{wf / 'agents'}: projekt nemá agenta — nejdřív agencast new agent <jméno>"])
+        raise ConfigErrors([f"{wf / 'agents'}: project has no agent — first run agencast new agent <name>"])
     return _write({wf / "scenarios" / f"{name}.yaml": SCENARIO.format(
-        name=name, description=desc or "TODO — co scénář dělá", agent=agents[0])})
+        name=name, description=desc or "TODO — what the scenario does", agent=agents[0])})
 
 
-# --- popis projektu pro GUI (api.md) ------------------------------------------------
-# Z YAML přes loader, chyby z validate (check_models=False) — i rozbitý soubor jde zobrazit.
+# --- project description for the GUI (api.md) ------------------------------------------------
+# Load YAML with loader, errors from validate (check_models=False) — even broken files can be displayed.
 
 def _refs(own: dict[str, Any]) -> list[str]:
-    """Odkazy `steps.<id>.<pole>` ve výrazech a šablonách kroku (bez vnořených kroků)."""
+    """`steps.<id>.<field>` references in step expressions and templates (excluding nested steps)."""
     out = set()
     for path, text in _strings(own):
         if "{{" in text:
@@ -369,8 +369,8 @@ def _refs(own: dict[str, Any]) -> list[str]:
 
 
 def _steps(steps, flat: list[dict[str, Any]], at: tuple[Any, ...] = ("steps",)) -> list[dict[str, Any]]:
-    """Strom kroků pro karty; `nn` = pořadí v souboru hloubkově (jako složky běhu). `flat` = všechny kroky.
-    `address` = cesta kroku v dokumentu (`at` + index), jak ji berou editační operace (edit.py)."""
+    """Step tree for cards; `nn` = depth-first file order (as in run folders). `flat` = all steps.
+    `address` = step path in the document (`at` + index), used by editing operations (edit.py)."""
     out = []
     for i, st in enumerate(steps if isinstance(steps, list) else []):
         if not isinstance(st, dict):
@@ -399,22 +399,22 @@ def _steps(steps, flat: list[dict[str, Any]], at: tuple[Any, ...] = ("steps",)) 
     return out
 
 
-# Začátek hlášky validate/loaderu: `<soubor>[, řádek N][: krok "id"][, pole|: pole]: …` (_Checker.err,
-# schema_errors, load_yaml). Scénář se hlásí jménem souboru (ig-post.yaml), ostatní cestou ve workflows/.
+# Validation/loader message prefix: `<file>[, line N][: step "id"][, field|: field]: …` (_Checker.err,
+# schema_errors, load_yaml). Scenarios use the file name (ig-post.yaml), others the path within workflows/.
 ERROR_HEAD = re.compile(r"(?P<file>agents/[^/:,\s]+\.md|skills/[^/:,\s]+/SKILL\.md|(?:scenarios/)?[^/:,\s]+\.yaml)"
-                        r"(?:, řádek (?P<line>\d+))?(?:: krok [\"'](?P<step>[^\"']+)[\"'])?"
-                        r"(?:(?:, |: )(?P<field>[\w.\[\]-]+(?: \(klíč\))?)(?=: ))?: ")
+                        r"(?:, line (?P<line>\d+))?(?:: step [\"'](?P<step>[^\"']+)[\"'])?"
+                        r"(?:(?:, |: )(?P<field>[\w.\[\]-]+(?: \(key\))?)(?=: ))?: ")
 
 
 def error_fields(message: str, root: Path) -> dict[str, Any]:
-    """Hláška jako objekt pro GUI (api.md): `{message, file?, step?, field?, line?}`; `message` beze změny.
-    ponytail: pole se čtou ze začátku hlášky — hláška jiného tvaru má jen `message`."""
+    """Message as an object for the GUI (api.md): `{message, file?, step?, field?, line?}`; `message` unchanged.
+    ponytail: parse fields from the message prefix — other formats only have `message`."""
     out: dict[str, Any] = {"message": message}
     m = ERROR_HEAD.match(message.removeprefix(f"{root / 'workflows'}/"))
     if not m:
         return out
     f = m["file"]
-    # ponytail: scénář pojmenovaný config nebo mcp se tu splete s config.yaml/mcp.yaml
+    # ponytail: scenarios named config or mcp are confused with config.yaml/mcp.yaml here
     out["file"] = f if "/" in f or f in ("config.yaml", "mcp.yaml") else f"scenarios/{f}"
     out |= {k: m[k] for k in ("step", "field") if m[k]}
     if m["line"]:
@@ -423,7 +423,7 @@ def error_fields(message: str, root: Path) -> dict[str, Any]:
 
 
 def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """(popis scénáře se stromem kroků a chybami validate, všechny kroky)."""
+    """(scenario description with step tree and validation errors, all steps)."""
     info: dict[str, Any] = {"name": path.stem, "etag": _etag(path), "description": None, "inputs": {}, "outputs": {}, "callable": False}
     try:
         sc = read_yaml(path, path.name)
@@ -444,13 +444,13 @@ def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
 
 
 def describe_scenario(root: Path, name: str) -> dict[str, Any] | None:
-    """Scénář pro karty kroků; None = neexistuje."""
+    """Scenario for step cards; None = does not exist."""
     path = root / "workflows" / "scenarios" / f"{name}.yaml"
     return _scenario(path)[0] if NAME.fullmatch(name) and path.is_file() else None
 
 
 def describe_project(root: Path) -> dict[str, Any]:
-    """Scénáře, agenti, skilly, MCP servery (bez tajemství), aliasy, limity a vazby mezi nimi."""
+    """Scenarios, agents, skills, MCP servers (without secrets), aliases, limits and their links."""
     wf, cfg = _workflows(root)
     errs = []
     mcp = load_mcp(wf, errs)
@@ -492,9 +492,9 @@ def describe_project(root: Path) -> dict[str, Any]:
         skills.append({"name": path.parent.name, "etag": _etag(path), "description": s[1] if s else None, "errors": s_errs})
     servers = [{"name": n, "type": "stdio" if "command" in s else "http", "agents": s["agents"],
                 "tools": s.get("tools"), "scenarios": s.get("scenarios")} for n, s in mcp.items()]
-    # proměnné z config.yaml (*_env) a mcp.yaml (env, bearer_token_env): jen jestli je nastavená, nikdy hodnota
+    # variables from config.yaml (*_env) and mcp.yaml (env, bearer_token_env): presence only, never values
     env = {n: bool(os.environ.get(n)) for n in sorted({n for _, n in env_fields(cfg)} | set(secret_names(mcp)))}
-    # 0.8.0: alias → soubory, které ho používají (agent přes model, scénář přes image.model); [] = nepoužitý
+    # 0.8.0: alias → files using it (agent via model, scenario via image.model); [] = unused
     used: dict[str, list[str]] = {a: [] for a in cfg["models"]}
     for a in agents:
         if isinstance(a["model"], str):
@@ -507,7 +507,7 @@ def describe_project(root: Path) -> dict[str, Any]:
 
 
 def text_tree(text: str, where: str) -> list[dict[str, Any]]:
-    """Strom kroků z YAML textu scénáře; nečitelný YAML = prázdný strom (chyby hlásí validate)."""
+    """Step tree from scenario YAML text; unreadable YAML = empty tree (validate reports errors)."""
     try:
         sc = load_yaml(text, where)
     except LoadError:
@@ -520,8 +520,8 @@ def _tree(path: Path) -> list[dict[str, Any]]:
 
 
 def run_tree(root: Path, run_dir: Path, scenario: str | None) -> dict[str, Any]:
-    """Strom kroků pro detail běhu (tvar `steps` z GET …/scenarios/<s>): ze snímku `<run>/scenario/`
-    (0.7.0, i volané scénáře v `callees`), u starších běhů ze současného souboru (`tree_source: current`)."""
+    """Step tree for run details (`steps` shape from GET …/scenarios/<s>): from snapshot `<run>/scenario/`
+    (0.7.0, including called scenarios in `callees`); older runs use the current file (`tree_source: current`)."""
     snap = run_dir / "scenario"
     if snap.is_dir():
         trees = {p.stem: _tree(p) for p in sorted(snap.glob("*.yaml"))}
