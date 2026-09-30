@@ -489,7 +489,7 @@ export function KeyInput({ name, taken, onRename, label, pattern = IDENT, normal
 
 // --- scenario header ----------------------------------------------------------------------
 
-const IO_TYPES = ["string", "number", "integer", "boolean", "list", "object", "file"];
+const IO_TYPES = ["string", "number", "integer", "boolean", "list", "object", "file", "files"];
 
 export function HeaderPanel({ name, header, errors, onClose, change }: {
   /** Scenario name as the title (like the Run panel), the eyebrow "HEADER" is not repeated. */

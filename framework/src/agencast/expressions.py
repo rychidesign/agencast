@@ -15,7 +15,7 @@ import json
 import math
 import operator
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 MAX_LEN = 2000        # expression characters, checked before parsing
@@ -34,10 +34,17 @@ _FLOAT_RE = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+
 TEMPLATE_RE = re.compile(r"\{\{(.*?)\}\}", re.S)
 
 
+FILE_KEYS = {"width": "number", "height": "number", "format": "string"}  # 0.18.0: `file` metadata read with a dot
+
+
 @dataclass(frozen=True)
 class FileRef:
-    """Value of type `file`: path relative to the run directory (scenario.md File type)."""
+    """Value of type `file`: path relative to the run directory (scenario.md File type).
+    Metadata (0.18.0) do not take part in `==`; None = unknown (e.g. an SVG from an image step)."""
     path: str
+    width: int | None = field(default=None, compare=False)
+    height: int | None = field(default=None, compare=False)
+    format: str | None = field(default=None, compare=False)  # png | jpeg | webp | gif | avif | svg+xml (image step)
 
 
 class ExprError(Exception):
@@ -410,7 +417,7 @@ class _Eval(_Walk):
                 return self.key(self.ev(base), key, base, n, len(key))
             case ast.Subscript(value=base, slice=idx):
                 obj, i = self.ev(base), self.ev(idx)
-                if isinstance(obj, dict):
+                if isinstance(obj, (dict, FileRef)):
                     return self.key(obj, i, base, n, None)
                 if isinstance(obj, list):
                     if kind(i) != "number" or not float(i).is_integer():
@@ -461,6 +468,13 @@ class _Eval(_Walk):
 
     def key(self, obj, key, base, n, end_len):
         where = ast.unparse(base)
+        if isinstance(obj, FileRef):  # 0.18.0: file metadata
+            if not isinstance(key, str) or key not in FILE_KEYS:
+                raise self.err(f"'{where}' is file — has no key '{key}' (available: {', '.join(FILE_KEYS)})", n, end_len)
+            v = getattr(obj, key)
+            if v is None:
+                raise self.err(f"'{where}': {key} of {obj.path} is unknown (unsupported image format)", n, end_len)
+            return v
         if not isinstance(obj, dict):
             raise self.err(f"'{where}' is {kind(obj)}, not object — has no key '{key}'", n, end_len)
         if not isinstance(key, str):
@@ -578,6 +592,11 @@ class _Infer(_Walk):
                 raise self.err(f"'{ast.unparse(base)}' has no key '{key}' (available: {', '.join(t) or '—'})", n, end_len)
             return t[key]
         k = tkind(t)
+        if k == "file":  # 0.18.0: file metadata
+            if key not in FILE_KEYS:
+                raise self.err(f"'{ast.unparse(base)}' is file — has no key '{key}' (available: {', '.join(FILE_KEYS)})",
+                               n, end_len)
+            return FILE_KEYS[key]
         if k and k != "object":
             raise self.err(f"'{ast.unparse(base)}' is {k}, not object — has no key '{key}'", n, end_len)
         return None

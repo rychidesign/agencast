@@ -6,6 +6,7 @@ Budgets and deadlines have an owner: `on_error: continue` cannot override
 an exhausted limit belonging to something other than the step itself (scenario.md §6).
 """
 import asyncio
+import base64
 import contextvars
 import copy
 import hashlib
@@ -30,12 +31,14 @@ from . import ConfigErrors, AgencastError, __version__
 from .expressions import ExprError, FileRef, evaluate, kind, path_step, render, to_json, to_text
 from .loader import nested_lists
 from .mcp_client import Pool, _leaves, secret_names  # 3a
-from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, images_body, image_size, json_schema,
-                        http_error, parse_chat, parse_image, parse_images, parse_jev, prompt_level_suffix)
-from .record import (SUM_DIGITS, Record, count, format_number, format_usd, now_iso, plan_md,
+from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, images_body, image_media_type,
+                        image_size, json_schema, http_error, parse_chat, parse_image, parse_images, parse_jev,
+                        probe_image, prompt_level_suffix)
+from .record import (SUM_DIGITS, Record, count, format_number, format_usd, now_iso, plan_md, redact,
                      report_html, scrub, summary_md)
-from .task import dedupe_skip, hold_run_lock, local_dedupe, local_ledger, local_slots, run_task  # 3a
-from .validate import DEFAULT_TIMEOUT, Project, StepInfo, _matches, env_fields, mcp_servers_used, seconds
+from .task import dedupe_skip, hold_run_lock, images_md, local_dedupe, local_ledger, local_slots, run_task  # 3a
+from .validate import (DEFAULT_TIMEOUT, MAX_FILES, Project, StepInfo, _matches, env_fields, mcp_servers_used,
+                       seconds)
 
 RETRY_BASE_S = 2.0           # delay 2 s, 4 s, 8 s… (scenario.md §3 retry); tests reduce it to 0
 CALLBACK_DELAYS = (5, 30)    # 3 attempts (run-record.md callback_sent, design)
@@ -43,7 +46,10 @@ SLOT_POLL_S = 0.5            # how often to check for a free max_parallel_runs s
 # Read timeout for one provider HTTP call (ISSUES 34): min(remaining step time, cap); expiration = transient.
 CALL_TIMEOUT_S = {"chat": 120, "jev": 30, "images": 180}  # chat = ask, task turn and image; images = Images API
 STEP_DEADLINE = contextvars.ContextVar("step_deadline", default=None)  # step deadline (loop time) from with_deadline
-IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg"}
+IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif",
+             "image/svg+xml": "svg"}
+# ponytail: formats OpenRouter image input accepts; AVIF/SVG would need a decoder the framework does not have
+MODEL_IMAGE_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
 
 
 @dataclass
@@ -213,7 +219,7 @@ class Run:
                 "status": self.status, "outputs": self.outputs if self.status == "succeeded" else None,
                 "error": self.error, "warnings": self.warnings, "cost_usd": round(self.cost, SUM_DIGITS),
                 "duration_s": self.duration, "report_url": self.report_url, "sent_at": now_iso()}
-        data = self.rec.mask(json.dumps(body, ensure_ascii=False)).encode()
+        data = self.rec.mask(to_json(body)).encode()  # a file inside a list/object output = its path (scenario.md Type file)
         self.rec.write("callback.json", json.loads(data))
         if self.callback_url:
             self.callback_failed = not await self.send_callback(data)
@@ -346,6 +352,43 @@ class Run:
     def text(self, s: str, fld: str) -> str:
         return to_text(self.tpl(s, fld))
 
+    def image_parts(self, spec, fld: str) -> tuple[list, dict, list]:
+        """0.18.0 `images:` → chat content parts (data URLs), notes for the record (data URL → `<file: …>`,
+        run-record.md) and one line per image for prompt.md. Each template leads to a file or a list of files;
+        null (an explicit default) is skipped."""
+        if spec is None:
+            return [], {}, []
+        refs = []
+        for i, s in enumerate(spec if isinstance(spec, list) else [spec]):
+            where = f"{fld}[{i}]" if isinstance(spec, list) else fld
+            v = self.tpl(s, where)
+            for r in (v if isinstance(v, list) else [v]):
+                if r is None:
+                    continue
+                if not isinstance(r, FileRef):
+                    raise AgencastError("expression", f"{where}: expected a file, got {kind(r)}")
+                refs.append(r)
+        if len(refs) > MAX_FILES:
+            raise AgencastError("config", f"{fld}: {len(refs)} images, maximum {MAX_FILES}")
+        parts, notes, lines, run_dir = [], {}, [], self.rec.dir.resolve()
+        for k, ref in enumerate(refs, 1):
+            src = (run_dir / ref.path).resolve()
+            if not src.is_relative_to(run_dir) or not src.is_file():
+                raise AgencastError("config", f"{fld}: file {ref.path} is not inside the run directory")
+            data = src.read_bytes()
+            media = image_media_type(data)
+            if media not in MODEL_IMAGE_TYPES:
+                raise AgencastError("config", f"{fld}: {ref.path} ({media or 'unknown format'}) cannot be sent to a model "
+                                              "— use PNG, JPEG, WebP or GIF")
+            url = f"data:{media};base64,{base64.b64encode(data).decode()}"
+            note = f"<file: {ref.path}, {len(data)} B>"
+            notes.setdefault(url, note)  # identical bytes at two paths: the record names the first path for both
+            lines.append(note)
+            size = f", {ref.width}×{ref.height}" if ref.width else ""
+            parts += [{"type": "text", "text": f"Image {k} ({ref.path.rsplit('/', 1)[-1]}{size}):"},
+                      {"type": "image_url", "image_url": {"url": url}}]
+        return parts, notes, lines
+
     # --- API calls: attempts, budget, record ------------------------------------------
     def leaf_budgets(self, info: StepInfo, ctx: Ctx, agent_budget=None, image=False) -> list:
         limits = [x for x in (info.data.get("budget_usd"), agent_budget) if x is not None]
@@ -435,6 +478,7 @@ class Run:
         alias = agent.data["model"]
         m = self.p.config["models"][alias]
         prompt = self.text(a["prompt"], "ask.prompt")
+        parts, notes, lines = self.image_parts(a.get("images"), "ask.images")  # 0.18.0
         schema = json_schema(a["schema"]) if "schema" in a else None
         base = system_prompt_ask(agent)
         st = {"level": m.get("structured_output", "native_schema") if schema else None, "feedback": [], "prev": None}
@@ -448,8 +492,10 @@ class Run:
                                   else []) + [{"role": "user", "content": f"The previous response was invalid: "
                                                f"{last.message}\nRespond again, exactly in the required format."}]
             system = base + (prompt_level_suffix(schema) if st["level"] == "prompt" else "")
-            msgs = [{"role": "user", "content": prompt}, *st["feedback"]]
+            msgs = [{"role": "user", "content": [{"type": "text", "text": prompt}, *parts] if parts else prompt},
+                    *st["feedback"]]
             self.rec.write(f"{info.folder}/prompt.md", "# System prompt\n\n" + system + "\n\n# Message\n\n" + prompt
+                           + images_md(lines)
                            + "".join(f"\n\n# Feedback ({x['role']})\n\n{x.get('content') or ''}"
                                      for x in st["feedback"]))
             return chat_body(m["id"], system, msgs, st["level"], schema, m.get("max_tokens")), \
@@ -465,7 +511,7 @@ class Run:
                       lim.get("timeout") or "24h", key=seconds)
         value = await self.with_deadline(info, ctx, timeout, self.call_api(
             info, ctx, self.leaf_budgets(info, ctx, lim["budget_usd"]), "/chat/completions", build, parse,
-            "model_call"))
+            "model_call", record=lambda body: redact(body, notes)))
         self.rows[info.id]["note"] = f"{alias} → {m['id']}" + (f" ({st['level']})" if schema else "")
         return value if schema else {"text": value}
 
@@ -532,7 +578,7 @@ class Run:
                 if dev > 0.02:
                     raise AgencastError("config", f"model does not support aspect_ratio {ratio}: image is {w}×{h} "
                                              f"(deviation {dev:.1%}, allowed 2 %) — no cropping is performed")
-            return {"file": FileRef(rel)}, f"<file: {rel}, {len(data)} B>"
+            return {"file": FileRef(rel, w, h, media.split("/")[1])}, f"<file: {rel}, {len(data)} B>"
 
         t0 = time.monotonic()
         try:
@@ -558,7 +604,14 @@ class Run:
                                     or want != "file" and not _matches(want, val)):
                 raise AgencastError("expression", f"output.{k}: output must be {want}, value is {kind(val)}")
             values[k] = val
-            public[k] = self.upload(k, val) if isinstance(val, FileRef) and not self.depth else val  # 3b
+            if self.depth or val is None:  # 3b: nested runs do not upload
+                public[k] = val
+            elif want == "file":
+                public[k] = self.upload(k, val)
+            elif want == "files":  # 0.18.0: one storage key per file
+                public[k] = [self.upload(f"{k}-{i}", r) for i, r in enumerate(val, 1)]
+            else:
+                public[k] = val
         self.outputs = public
         return values
 
@@ -683,8 +736,29 @@ def dry_run(p: Project, inputs: dict) -> Record:
     offers = asyncio.run(mcp_offers(p, servers)) if servers else None
     rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
     rec.write("plan.md", plan_md(p, offers))
-    rec.write("inputs.json", inputs)
+    rec.write("inputs.json", stage_inputs(rec, inputs, copy=False))
     return rec
+
+
+def stage_inputs(rec: Record, inputs: dict, copy: bool = True) -> dict:
+    """0.18.0: input images (host `Path` from resolve_inputs) → `inputs/<name>[-<i>].<ext>` in the run directory
+    as `FileRef` with metadata. `copy=False` (dry run, a run that will not start) only plans the paths — the record
+    never contains a host path."""
+    out = {}
+    for name, v in inputs.items():
+        items, refs = v if isinstance(v, list) else [v], []
+        for i, item in enumerate(items, 1):
+            if not isinstance(item, Path):
+                refs.append(item)
+                continue
+            data = item.read_bytes()
+            fmt, w, h = probe_image(data) or ("bin", None, None)
+            rel = f"inputs/{name}{f'-{i}' if isinstance(v, list) else ''}.{IMAGE_EXT.get('image/' + fmt, fmt)}"
+            if copy:
+                rec.write_bytes(rel, data)
+            refs.append(FileRef(rel, w, h, fmt))
+        out[name] = refs if isinstance(v, list) else refs[0]
+    return out
 
 
 async def mcp_offers(p: Project, servers: set) -> dict:
@@ -729,6 +803,7 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
         else:
             rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
             run_id = rec.dir.name
+        inputs = stage_inputs(rec, inputs, copy=error is None)  # 0.18.0
         lock = hold_run_lock(rec.dir)  # 0.7.0: running = lock held by a live process (record.run_status)
         if error is None:
             rec.write("plan.md", plan_md(p))

@@ -54,7 +54,8 @@
               "boolean",
               "list",
               "object",
-              "file"
+              "file",
+              "files"
             ]
           },
           "description": {
@@ -132,6 +133,20 @@
       "type": "string",
       "minLength": 1
     },
+    "images": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/template"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/template"
+          }
+        }
+      ]
+    },
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -147,7 +162,8 @@
             "boolean",
             "list",
             "object",
-            "file"
+            "file",
+            "files"
           ]
         },
         "required": {
@@ -346,6 +362,9 @@
             "prompt": {
               "$ref": "#/$defs/template"
             },
+            "images": {
+              "$ref": "#/$defs/images"
+            },
             "schema": {
               "$ref": "#/$defs/schema_root"
             }
@@ -398,6 +417,9 @@
             },
             "prompt": {
               "$ref": "#/$defs/template"
+            },
+            "images": {
+              "$ref": "#/$defs/images"
             },
             "max_turns": {
               "type": "integer",

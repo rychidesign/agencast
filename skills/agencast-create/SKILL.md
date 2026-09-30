@@ -81,8 +81,11 @@ steps:
       text: "{{ steps.write.text }}"
 ```
 
-Input types: `string number integer boolean list object` (`file` only via
-`call`). Steps run top to bottom; a step sees only steps above it as
+Input types: `string number integer boolean list object file files`. `file` =
+one image, `files` = 1–16 (PNG/JPEG/WebP/GIF/AVIF ≤ 10 MB): from the CLI a path
+(`-i photo=a.jpg`, `-i 'refs=["a.png","b.webp"]'`), copied into the run folder;
+a file has `.width`, `.height`, `.format` (`inputs.photo.width > inputs.photo.height`
+in `set`/`when`). Steps run top to bottom; a step sees only steps above it as
 `steps.<id>.<field>`. Step `id`: lowercase, digits, `_`, starts with a letter,
 unique in the file, not a Python keyword (`in`, `is`, `if`, …).
 
@@ -90,7 +93,10 @@ unique in the file, not a Python keyword (`in`, `is`, `if`, …).
 
 - `ask` — one model call via an agent, no tools; output `.text`, or the fields of
   `schema: {a: string, b: [string], c: {x: number}}` (root is a map, all fields required).
-- `task` — agent loop with MCP tools (`max_turns`, `mcp`, `tools` subsets of the agent's); same outputs as `ask`.
+  `images: ["{{ inputs.photo }}", "{{ inputs.refs }}"]` sends images with the message
+  (the model sees them as Image 1, 2, …; a `jev` cannot look at an image).
+- `task` — agent loop with MCP tools (`max_turns`, `mcp`, `tools` subsets of the agent's); same outputs
+  and `images` as `ask`.
 - `jev` — cheap classifier: `state` + `questions.<q>` with `type: noul` (0–1), `choice` (`criteria: {key: description}` → key) or `score` (`criteria:` list of levels → number); output `steps.<id>.<q>`.
 - `image` — `model` (image alias), `prompt`; optional `aspect_ratio`, `quality`, `resolution` (may be templates); output `.file`.
 - `call` — run another scenario (it needs `callable: true`) in the same run with `inputs:`; output = its `outputs`.
@@ -102,7 +108,9 @@ unique in the file, not a Python keyword (`in`, `is`, `if`, …).
 
 Common step keys: `when`, `timeout`, `budget_usd`, `retry` (repeats one API
 call on `transient`/`schema`), `on_error: continue` + `default`,
-`dedupe_key` (template; the step runs once per key, bound to scenario + step).
+`dedupe_key` (template; the step runs once per key, bound to scenario + step —
+the only state shared between runs; scheduling and "what was already used"
+live in the caller, see skill `agencast-run`).
 
 ## Values
 

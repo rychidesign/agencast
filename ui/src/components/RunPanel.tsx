@@ -50,7 +50,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
   const [error, setError] = useState<ApiError>();
   const [busy, setBusy] = useState(false);
   const spend = useApi<Spend>(dry ? null : `/projects/${enc(project.name)}/spend`);
-  const hasFile = Object.values(specs).some((s) => s.type === "file");
+  const hasFile = Object.values(specs).some((s) => s.type === "file" || s.type === "files");
   const l = project.limits;
 
   const submit = async () => {
@@ -75,7 +75,7 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
         {!Object.keys(specs).length && <p className="text-sm text-fg-muted">{t("runForm.noInputs")}</p>}
         {Object.entries(specs).map(([name, s]) => (
           <FormField key={name} label={name} required={s.required}
-            help={[s.type, s.description, s.type === "file" ? t("runForm.fileHelp") : ""].filter(Boolean).join(" · ")}
+            help={[s.type, s.description, s.type === "file" || s.type === "files" ? t("runForm.fileHelp") : ""].filter(Boolean).join(" · ")}
             errors={missing.includes(name) ? [t("runForm.required")] : []}>
             {(a) => <ValueInput a11y={a} type={s.type} value={values[name]} onChange={(v) => (setValues({ ...values, [name]: v }), setMissing(missing.filter((m) => m !== name)))} />}
           </FormField>

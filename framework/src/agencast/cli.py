@@ -364,7 +364,8 @@ def main(argv=None) -> int:
     r = sub.add_parser("run", parents=[common], help="run a scenario")
     r.add_argument("scenario", help="scenario name or path to .yaml")
     r.add_argument("-i", "--input", action="append", default=[], metavar="KEY=VALUE",
-                   help="scenario input; numbers, true/false, lists and objects as JSON")
+                   help="scenario input; numbers, true/false, lists and objects as JSON; "
+                        "file/files = a path (or a JSON list of paths)")
     r.add_argument("--dry-run", action="store_true", help="generate a plan without making calls")
     r.add_argument("--fake", nargs="?", const="", metavar="SCRIPT",
                    help="fake provider without network access; optional YAML with scripted responses")

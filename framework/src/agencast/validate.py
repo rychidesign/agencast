@@ -7,21 +7,31 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import ConfigErrors, AgencastError
-from .expressions import ExprError, infer, kind, parse, template_type, tkind
+from .expressions import ExprError, FileRef, infer, kind, parse, template_type, tkind
 from .loader import (LoadError, load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors,
                      schema_errors, seconds, step_kind, version_error)
 from .mcp_client import api_name, load_mcp, secret_names
-from .providers import DEFAULT_BASE_URL, list_image_models, list_models, shape_type
+from .providers import DEFAULT_BASE_URL, list_image_models, list_models, probe_image, shape_type
 
 NOOUT = "no output"  # type of parallel/switch/fail/output steps
 DEFAULT_TIMEOUT = {"ask": "2m", "task": "15m", "jev": "30s", "image": "3m"}  # scenario.md §3 (draft)
 # Fields that allow {{ }} templates (scenario.md §5); "*" = any key/index.
 TEMPLATE_FIELDS = [("ask", "prompt"), ("task", "prompt"), ("image", "prompt"), ("jev", "state"),
                    ("image", "aspect_ratio"), ("image", "quality"), ("image", "resolution"),
+                   ("ask", "images"), ("ask", "images", "*"), ("task", "images"), ("task", "images", "*"),
                    ("jev", "questions", "*", "instructions"), ("jev", "questions", "*", "criteria", "*"),
                    ("fail",), ("output", "*"), ("call", "inputs", "*"), ("dedupe_key",)]
 INPUT_TYPES = {"string": "string", "number": "number", "integer": "number", "boolean": "boolean",
-               "list": "list", "object": "object", "file": "file"}
+               "list": "list", "object": "object", "file": "file", "files": "list"}
+# 0.18.0: input images (scenario.md Type file) — fixed limits, no config
+IMAGE_FORMATS = ("png", "jpeg", "webp", "gif", "avif")
+MAX_FILE_BYTES = 10_000_000
+MAX_FILES = 16
+
+
+def static_type(t: str):
+    """Static type of an input/output declaration (expressions.py): `files` = a list of `file` (0.18.0)."""
+    return ["file"] if t == "files" else INPUT_TYPES[t]
 
 
 @dataclass
@@ -225,11 +235,15 @@ def mcp_servers_used(p: "Project") -> set[str]:
 def _matches(t: str, v) -> bool:
     if t == "integer":
         return kind(v) == "number" and float(v).is_integer()
+    if t == "files":
+        return isinstance(v, list) and all(isinstance(x, FileRef) for x in v)
     return kind(v) == INPUT_TYPES[t]
 
 
 def resolve_inputs(scenario: dict, given: dict, from_text: bool = False) -> dict:
-    """Run inputs with defaults applied; errors prevent the run from starting (scenario.md inputs)."""
+    """Run inputs with defaults applied; errors prevent the run from starting (scenario.md inputs).
+    0.18.0: `file`/`files` inputs are host paths (`Path`; text only from the CLI) checked here and copied into
+    the run directory by the engine (`stage_inputs`). A JSON string is never a path — a webhook cannot send files."""
     import json
     specs, errs, out = scenario.get("inputs") or {}, [], {}
     for name in given:
@@ -244,20 +258,53 @@ def resolve_inputs(scenario: dict, given: dict, from_text: bool = False) -> dict
                 out[name] = sp["default"]
             continue
         v = given[name]
-        if t == "file":
-            errs.append(f"input '{name}' has type file — it can only be passed via call, not the CLI or a webhook")
-            continue
-        if from_text and t != "string":
+        if from_text and t not in ("string", "file"):
             try:
                 v = json.loads(v)
             except ValueError:
                 pass
+        if t in ("file", "files"):
+            # idempotent: cli.py / server.py resolve first, api.run / api.dry_run again — an applied default passes
+            out[name] = v if not from_text and "default" in sp and v == sp["default"] \
+                else _input_files(name, t, v, from_text, errs)
+            continue
         if not _matches(t, v):
             errs.append(f"input '{name}' must be {t}, got {kind(v)}")
         out[name] = v
     if errs:
         raise ConfigErrors(errs)
     return out
+
+
+def _input_files(name: str, t: str, v, from_text: bool, errs: list):
+    """`file` = one host path, `files` = 1–MAX_FILES of them (a list, or one path from the CLI); each an image."""
+    if t == "files" and isinstance(v, str) and from_text:
+        v = [v]
+    items = v if isinstance(v, list) else [v]
+    if t == "file" and isinstance(v, list) or not 1 <= len(items) <= MAX_FILES:
+        errs.append(f"input '{name}' must be " + ("one image path" if t == "file" else f"1–{MAX_FILES} image paths")
+                    + (f", got a list of {len(v)}" if isinstance(v, list) else f", got {kind(v)}"))
+        return None
+    out = []
+    for item in items:
+        if isinstance(item, str) and from_text:
+            item = Path(item)
+        if not isinstance(item, Path):
+            errs.append(f"input '{name}' has type {t} — pass a path from the CLI (-i {name}=photo.jpg) or a Path "
+                        "from Python; a webhook cannot send files")
+            return None
+        p = item.expanduser().resolve()
+        if not p.is_file():
+            errs.append(f"input '{name}': file {item} does not exist")
+        elif p.stat().st_size > MAX_FILE_BYTES:
+            errs.append(f"input '{name}': file {item} has {p.stat().st_size} B, maximum {MAX_FILE_BYTES} B")
+        elif not (probe := probe_image(p.read_bytes())) or probe[0] not in IMAGE_FORMATS:
+            errs.append(f"input '{name}': file {item} is not a supported image (PNG, JPEG, WebP, GIF, AVIF)")
+        elif probe[1] is None:
+            errs.append(f"input '{name}': cannot read the dimensions of {item}")
+        else:
+            out.append(p)
+    return out if t == "files" else out[0] if out else None
 
 
 # --- scenario -----------------------------------------------------------------------
@@ -362,6 +409,9 @@ def check_models_list(config: dict, needs: dict, models: list, image_models: lis
             errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not support image output")
         if "tools" in chat_need and "tools" not in m["supported_parameters"]:
             errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not support tools — an agent using it cannot run in a task step")
+        if "vision" in chat_need and m.get("input_modalities") is not None and "image" not in m["input_modalities"]:
+            errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not accept image input — an agent using it "
+                        "cannot run a step with images")
         if "schema" in chat_need and not {"structured_outputs", "tools"} & set(m["supported_parameters"]):
             errs.append(f"config.yaml: model '{mid}' (alias {alias}) supports neither structured_outputs nor tools — "
                         "the step's schema could not be enforced")
@@ -398,7 +448,7 @@ class _Checker:
         self.agents: dict[str, Agent | None] = {}
         self.callees: dict[str, Project] = {}
         self.model_needs: dict[str, set] = {} if model_needs is None else model_needs
-        self.inputs_type = {k: INPUT_TYPES[v["type"]] for k, v in (sc.get("inputs") or {}).items()}
+        self.inputs_type = {k: static_type(v["type"]) for k, v in (sc.get("inputs") or {}).items()}
         self.mcp = load_mcp(wf, self.errs)
         own = {name: path for path, name in env_fields(config)}
         for name in secret_names(self.mcp):  # a config.yaml key would be sent to an MCP server (e.g. OPENROUTER_API_KEY)
@@ -433,7 +483,8 @@ class _Checker:
                                            "call.inputs and dedupe_key", line.index("{{"), line)))
         self.walk(self.sc["steps"], {}, top=True)
         outs = self.sc.get("outputs") or {}
-        if len(self.stack) == 1 and self.config["storage"]["type"] == "r2" and any(o["type"] == "file" for o in outs.values()):
+        if len(self.stack) == 1 and self.config["storage"]["type"] == "r2" and any(o["type"] in ("file", "files")
+                                                                                   for o in outs.values()):
             self.err(None, None, "file output requires storage, but the framework does not yet support storage.type: r2 "
                                  "— set storage.type: local in config.yaml")
         last = self.sc["steps"][-1]
@@ -556,9 +607,12 @@ class _Checker:
     def ask(self, info, res, k="ask"):
         st, a = info.data, info.data[k]
         self.template(info, f"{k}.prompt", a["prompt"], res)
+        self.images(info, k, a.get("images"), res)
         agent = self.agent(a["agent"], info)
         if agent:
             self.need(agent.data["model"], "schema" if "schema" in a else None)
+            if "images" in a:
+                self.need(agent.data["model"], "vision")
             lim = agent.data["limits"]
             if st.get("budget_usd", 0) > lim["budget_usd"]:
                 self.err(info.id, "budget_usd", f"{st['budget_usd']} exceeds limits.budget_usd of agent "
@@ -567,6 +621,19 @@ class _Checker:
                 self.err(info.id, "timeout", f"{st['timeout']} exceeds limits.timeout of agent '{agent.name}' "
                                              f"({lim['timeout']}) — steps may only lower limits")
         return shape_type(a["schema"]) if "schema" in a else {"text": "string"}
+
+    def images(self, info, k, spec, res):
+        """0.18.0 `images:` — one template or a list of them, each leading to a file or a list of files."""
+        if spec is None:
+            return
+        for i, s in enumerate(spec if isinstance(spec, list) else [spec]):
+            fld = f"{k}.images[{i}]" if isinstance(spec, list) else f"{k}.images"
+            t = self.template(info, fld, s, res)
+            item = tkind(t[0]) if isinstance(t, list) and t else None
+            single = s.strip().startswith("{{") and s.strip().endswith("}}") and s.count("{{") == 1
+            if not single or tkind(t) not in (None, "file", "list") or item not in (None, "file"):
+                self.err(info.id, fld, "must be one template leading to a file or a list of files "
+                                       f"(e.g. {{{{ inputs.photo }}}}), got {'a list of ' + item if item else tkind(t) or 'text'}")
 
     def task(self, info, res):
         """Task step: limits and permissions step ⊆ agent ⊆ mcp.yaml (agent.md Permissions, §5.2, §5.8)."""
@@ -671,9 +738,14 @@ class _Checker:
         if missing := [k for k, sp in specs.items() if sp.get("required") and k not in given]:
             self.err(info.id, "call.inputs", f"missing required inputs for scenario '{name}': {', '.join(missing)}")
         for k, t in types.items():
-            if k in specs and tkind(t) and tkind(t) != INPUT_TYPES[specs[k]["type"]]:
+            if k not in specs:
+                continue
+            item = tkind(t[0]) if isinstance(t, list) and t else None
+            if tkind(t) and tkind(t) != INPUT_TYPES[specs[k]["type"]]:
                 self.err(info.id, f"call.inputs.{k}", f"input has type {specs[k]['type']}, value is {tkind(t)}")
-        return {k: INPUT_TYPES[o["type"]] for k, o in (callee.scenario.get("outputs") or {}).items()}
+            elif specs[k]["type"] == "files" and item not in (None, "file"):
+                self.err(info.id, f"call.inputs.{k}", f"input has type files, value is a list of {item}")
+        return {k: static_type(o["type"]) for k, o in (callee.scenario.get("outputs") or {}).items()}
 
     def callee(self, name: str, info) -> Project | None:
         """Validate a called scenario recursively; cycles and excessive depth are config errors."""
@@ -751,9 +823,13 @@ class _Checker:
             if k not in outs:
                 continue
             want = outs[k]["type"]
-            t = tkind(self.template(info, f"output.{k}", v, res) if isinstance(v, str) else kind(v))
+            ft = self.template(info, f"output.{k}", v, res) if isinstance(v, str) else kind(v)
+            t, item = tkind(ft), tkind(ft[0]) if isinstance(ft, list) and ft else None
             if want == "file" and t and t != "file":
-                self.err(info.id, f"output.{k}", "file output must be a template referencing a file from an image step "
-                                                 f"(e.g. {{{{ steps.photo.file }}}}), not {t}")
-            elif want != "file" and t and t != INPUT_TYPES[want]:
+                self.err(info.id, f"output.{k}", "file output must be a template referencing a file (an input or an "
+                                                 f"image step, e.g. {{{{ steps.photo.file }}}}), not {t}")
+            elif want == "files" and (t and t != "list" or item not in (None, "file")):
+                self.err(info.id, f"output.{k}", "files output must be a template referencing a list of files "
+                                                 f"(e.g. {{{{ inputs.photos }}}}), not {'a list of ' + item if item else t}")
+            elif want not in ("file", "files") and t and t != INPUT_TYPES[want]:
                 self.err(info.id, f"output.{k}", f"output has type {want}, value is {t}")

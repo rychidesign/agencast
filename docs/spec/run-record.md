@@ -12,7 +12,9 @@ Notation: **proposal** = not covered by DESIGN.md; proposed default behavior.
 ```
 runs/20260925-140311-ig-post-a1b2/
   plan.md              plan from validate: step order, tools, limits
-  inputs.json          run inputs (after filling in defaults)
+  inputs.json          run inputs (after filling in defaults); images as paths inputs/…
+  inputs/              copies of file/files inputs: <name>.<ext>, <name>-1.<ext>, … (since 0.18.0;
+                       a dry run only plans the paths); the record never holds the caller's path
   events.jsonl         machine log — one event per line
   summary.md           summary for humans
   report.html          the same as a single HTML file (uploaded to storage)
@@ -294,7 +296,7 @@ stderr and exits with code 1.
 
 | Field | What it is |
 |---|---|
-| `output` | output name (`image`), `report` for the HTML record |
+| `output` | output name (`image`); for a `files` output `<name>-<i>` (`gallery-1`, since 0.18.0); `report` for the HTML record |
 | `path`, `url` | from where and to where |
 
 **`run_finished`** — the run finished.
@@ -460,7 +462,7 @@ On error:
 | Field | What it is |
 |---|---|
 | `status` | `succeeded` / `failed` |
-| `outputs` | values according to the scenario's `outputs`; a `file` is replaced with a **URL** in storage. `null` on error. |
+| `outputs` | values according to the scenario's `outputs`; a `file` is replaced with a **URL** in storage, a `files` output with a list of URLs (since 0.18.0); a file inside a `list`/`object` output stays a run-relative path. `null` on error. |
 | `error` | `{class, step, message}` or `null`; `step` is a path (`propose/copy`) |
 | `warnings` | the same as in `run_finished` |
 | `report_url` | URL of `report.html`; when uploading the record fails, `null` and a warning |

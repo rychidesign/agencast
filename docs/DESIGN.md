@@ -418,6 +418,7 @@ Everything else can be written by other people and agents.
    silently interprets it its own way.
 
 ### 5.7 Images and files
+- Since 0.18.0 images are also **inputs**: `file`/`files` inputs come as host paths from the CLI or Python (never from JSON — a webhook string is never a path), are checked (PNG/JPEG/WebP/GIF/AVIF, ≤ 10 MB, headers parsed without Pillow, EXIF orientation applied to the dimensions) and copied into `runs/<id>/inputs/` before the run starts, so the record never holds the caller's path. A `file` value carries `width`, `height`, `format`; `images:` on `ask`/`task` sends files as `image_url` data URLs after the prompt with `Image k (…)` labels (the same shape as tool images, §5.8), the record keeps `<file: …>`. Input images cost only the model's vision tokens (`usage.cost`), no separate budget (additive, version 1).
 - Since 0.14.0 the `image` step accepts templates in `aspect_ratio`, `quality` and `resolution`; the step's quality overrides the alias, the chat API ignores quality and resolution with a warning (additive, version 1).
 - `image` returns base64 → the framework saves a file into the run folder → the step
   returns the path. Files in `output` are uploaded at the end of the run to the storage

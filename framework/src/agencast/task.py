@@ -20,11 +20,16 @@ from . import AgencastError
 from .mcp_client import Pool, api_name, arg_errors, provider_schema
 from .providers import (LEVELS, SUBMIT_TOOL, assistant_message, image_size, json_schema, parse_task,
                         prompt_level_suffix, task_body)
-from .record import scrub
+from .record import redact
 from .validate import DEFAULT_TIMEOUT, StepInfo, effective_tools, seconds
 
 SKILLS_SERVER, SKILL_TOOL = "_skills", "load_skill"
-IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif"}
+IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif"}
+
+
+def images_md(lines: list) -> str:
+    """`# Images` section of prompt.md: one line per image sent with the message (0.18.0)."""
+    return "\n\n# Images\n\n" + "\n".join(f"- {n}" for n in lines) if lines else ""
 
 
 def system_prompt_task(agent) -> str:
@@ -240,26 +245,23 @@ class _Loop:
         return out + ([skill_tool(self.agent)] if self.agent.skills else [])
 
     def redact(self, body):
-        """Tool images as `<file: …>`, the rest as in other steps (run-record.md)."""
-        def walk(o):
-            if isinstance(o, dict):
-                return {k: walk(v) for k, v in o.items()}
-            if isinstance(o, list):
-                return [walk(v) for v in o]
-            return self.notes.get(o, o) if isinstance(o, str) else o
-        return scrub(walk(body))
+        """Tool and input images as `<file: …>`, the rest as in other steps (run-record.md)."""
+        return redact(body, self.notes)
 
     async def execute(self):
         run, info = self.run, self.info
         tools = await self.tools()
         system = system_prompt_task(self.agent)
         prompt = run.text(self.t["prompt"], "task.prompt")
+        parts, notes, lines = run.image_parts(self.t.get("images"), "task.images")  # 0.18.0
+        self.notes.update(notes)
         max_turns = self.t.get("max_turns", self.agent.data["limits"]["max_turns"])
-        messages = [{"role": "user", "content": prompt}]
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, *parts] if parts else prompt}]
         # always start with tool_wrapper regardless of alias: native schema on each turn tempts the model (Haiku)
         # to answer with JSON without calling tools (BUGS 7, ISSUES 36); alias applies only to ask
         st = {"level": "tool_wrapper" if self.schema else None, "feedback": [], "prev": None, "turn": 0}
-        run.rec.write(f"{info.folder}/prompt.md", "# System prompt\n\n" + system + "\n\n# Message\n\n" + prompt)
+        run.rec.write(f"{info.folder}/prompt.md", "# System prompt\n\n" + system + "\n\n# Message\n\n" + prompt
+                      + images_md(lines))
 
         def build(attempt, last):
             if last and last.cls == "schema":  # cascade one level down + feedback (as with ask)
@@ -351,7 +353,7 @@ class _Loop:
                 w, h = image_size(data)
                 run.rec.event("image_saved", step=info.id, path=rel, media_type=media, bytes=len(data), width=w, height=h)
                 url = f"data:{media};base64,{base64.b64encode(data).decode()}"
-                self.notes[url] = f"<file: {rel}, {len(data)} B>"
+                self.notes.setdefault(url, f"<file: {rel}, {len(data)} B>")  # same bytes as an input image: first wins
                 images.append({"type": "image_url", "image_url": {"url": url}})
                 files.append(rel)
                 text += f"\nimage in the next message: {rel.rsplit('/', 1)[1]}"

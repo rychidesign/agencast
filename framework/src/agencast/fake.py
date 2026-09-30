@@ -80,7 +80,8 @@ class Fake:
                 for m in self.image_models]})
         if path.endswith("/models"):
             return httpx.Response(200, json={"data": [
-                {"id": m, "architecture": {"output_modalities": ["image", "text"] if "image" in m else ["text"]},
+                {"id": m, "architecture": {"output_modalities": ["image", "text"] if "image" in m else ["text"],
+                                           "input_modalities": ["text", "image"]},
                  "supported_parameters": ["max_tokens", "response_format", "structured_outputs", "tool_choice",
                                           "tools"]} for m in self.models]})
         step = request.extensions.get("agencast_step", "")

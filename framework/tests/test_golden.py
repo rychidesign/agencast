@@ -14,6 +14,7 @@ import yaml
 from conftest import REPO, WORKFLOWS, TUTORIAL, example_files, golden_config, run
 
 from agencast.expressions import parse, parse_path, template_parts
+from agencast.fake import png
 from agencast.loader import (load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors, schema_errors,
                         version_error)
 from agencast.mcp_client import load_mcp
@@ -26,15 +27,18 @@ SPEC = REPO / "docs" / "spec"
 def test_workflow_scenario_runs_with_fake(wf, path):
     fixture = path.parents[2] / "fake" / path.name
     script = read_yaml(fixture) if fixture.is_file() else None
-    r, _ = run(wf / "scenarios" / path.name, _sample_inputs(read_yaml(path)), script)
+    r, _ = run(wf / "scenarios" / path.name, _sample_inputs(read_yaml(path), wf.parent), script)
     if script:
         assert r.status == "succeeded", r.error
     else:
         assert r.status == "succeeded" or r.error["class"] == "fail", r.error
 
 
-def _sample_inputs(sc):
-    samples = {"string": "test", "number": 1, "integer": 1, "boolean": True, "list": [], "object": {}}
+def _sample_inputs(sc, root: Path):
+    sample = root / "sample.png"
+    sample.write_bytes(png(4, 3))
+    samples = {"string": "test", "number": 1, "integer": 1, "boolean": True, "list": [], "object": {},
+               "file": sample, "files": [sample, sample]}
     return {k: samples[v["type"]] for k, v in (sc.get("inputs") or {}).items() if v.get("required")}
 
 
@@ -126,7 +130,7 @@ def test_spec_yaml_examples(wf, md, block):
     if md == "scenario.md" and isinstance(data, dict) and "version" in data:
         # whole scenario: validate + run with a fake provider in a copy of workflows/
         (wf / "scenarios" / f"{data['name']}.yaml").write_text(block)
-        r, _ = run(wf / "scenarios" / f"{data['name']}.yaml", _sample_inputs(data))
+        r, _ = run(wf / "scenarios" / f"{data['name']}.yaml", _sample_inputs(data, wf.parent))
         assert r.status == "succeeded", r.error
     elif md == "scenario.md":
         head = {"version": 1, "name": "x", "description": "x"}

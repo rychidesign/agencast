@@ -59,6 +59,20 @@ A `task` step still runs the real MCP servers from `mcp.yaml`; the example
 Only scenarios without `task` (including called scenarios)
 and without `--callback-url` are guaranteed to run offline, for example `ig-post`.
 
+## What AgenCast does not do — the caller's job
+
+A run executes one scenario once. Scheduling ("every Monday"), event triggers,
+approvals and any state that must survive between runs belong to whoever calls
+`agencast` (n8n, cron, a scheduled Claude Code task, …). The only cross-run
+state inside the framework is `dedupe_key` on a side-effect step: the side
+effect happens at most once per key even if the trigger repeats the run.
+Pattern for "one item per run from a pool": keep the pool as a folder outside
+`runs/`, pick one item, pass it (or its name) as an input, move it to a `done/`
+folder after a successful run, and put the item into the publishing step's
+`dedupe_key`. Image inputs (`file`, `files`): `-i photo=./a.jpg`,
+`-i 'refs=["a.png","b.webp"]'` — PNG/JPEG/WebP/GIF/AVIF ≤ 10 MB, copied into
+`runs/<id>/inputs/`; a webhook cannot send files yet.
+
 ## Reading the result
 
 The CLI prints one line and the paths:

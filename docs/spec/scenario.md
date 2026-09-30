@@ -91,7 +91,7 @@ inputs:
 
 | Input field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
-| `type` | yes | Value type: `string`, `number`, `integer`, `boolean`, `list`, `object`, and `file` (only when the scenario is called by another scenario via `call` — from the webhook and the CLI a `file` input is a `config` error). The value from outside is checked against it before the run starts. | `config` error. | `type: string` |
+| `type` | yes | Value type: `string`, `number`, `integer`, `boolean`, `list`, `object`, `file` (one image) and `files` (1–16 images; since 0.18.0). An image comes as a path from the CLI (`-i photo=a.jpg`; for `files` a JSON list or one path) or from Python (`Path`), or as a `file` value from `call`; a webhook cannot send files yet. PNG, JPEG, WebP, GIF or AVIF, at most 10 MB each — checked and copied into the run directory before the run starts (see [Type `file`](#type-file)). The value from outside is checked against the type before the run starts. | `config` error. | `type: string` |
 | `required` | see text | `true` = the input must come from outside. | — | `required: true` |
 | `default` | see text | Value when the input does not come. Must match `type`. | — | `default: en` |
 | `description` | no | Explanation for humans. | Nothing. | `description: What to write about` |
@@ -114,7 +114,7 @@ outputs:
 
 | Output field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
-| `type` | yes | As for inputs, including `file` (a file from an `image` step). | `config` error. | `type: file` |
+| `type` | yes | As for inputs, including `file` (an image from an input or an `image` step) and `files` (a list of them; since 0.18.0 — every file gets its own URL in the callback, stored as `<name>-1`, `<name>-2`, …). | `config` error. | `type: file` |
 | `description` | no | Explanation for humans. | Nothing. | |
 
 A value of type `file` is uploaded at the end of the run to the storage
@@ -245,6 +245,7 @@ A single model call through an agent, without tools (D1b).
 |---|---|---|---|---|
 | `agent` | yes | Name of an agent from `workflows/agents/`. The agent provides the model, instructions and skills (in `ask` inserted in full, see [agent.md](agent.md#how-the-system-prompt-is-built)). | `config` error. | `agent: copywriter` |
 | `prompt` | yes | Message for the model (a [template](#templates--)). | `config` error. | `prompt: "Topic: {{ inputs.topic }}"` |
+| `images` | no | Images the model sees with the message (since 0.18.0): one template or a list of templates, each leading to a `file` or a list of files (an input, `steps.<id>.file` from an `image` step, a `set` value). The message carries the prompt, then `Image 1 (photo.png, 1024×768):` and the image for each one, so the model can refer to them by number. At most 16; text instead of a file is a `validate` error; a `null` from an explicit `default` is skipped; an AVIF or SVG file is a `config` error at run time (see [Type `file`](#type-file)). `validate` checks (online) that the agent's model accepts image input. The record keeps `<file: inputs/photo.png, 12345 B>` instead of the data. | The message is plain text. | `images: ["{{ inputs.photo }}"]` |
 | `schema` | no | Shape of the JSON the model must return. The framework enforces it with a cascade (native schema → tool wrapper → prompt + check, §5.5); an invalid response is a `schema` error and is retried with the error as feedback. | The output is `steps.<id>.text`. | see below |
 
 `schema` notation (shorthand, **proposal**; the framework turns it into a
@@ -305,6 +306,7 @@ An autonomous agent: a model ↔ tools (MCP) loop with limits (D1b).
 |---|---|---|---|---|
 | `agent` | yes | Agent; its `mcp`, `tools` and `limits` are the **maximum** (§5.2). | `config` error. | `agent: publisher` |
 | `prompt` | yes | The task assignment (a [template](#templates--)). | `config` error. | |
+| `images` | no | As for `ask`: images sent with the first message (since 0.18.0). | The message is plain text. | `images: "{{ inputs.photos }}"` |
 | `max_turns` | no | At most this many **turns** (model responses processed by the loop; retries after `transient`/`schema` do not count). May only be less than or equal to the agent's `limits.max_turns`. | The agent's `limits.max_turns` applies. An agent without `limits.max_turns` in `task` is a `config` error — so a turn limit always exists (§5.1 item 6). | `max_turns: 4` |
 | `mcp` | no | A subset of the agent's `mcp`. | All of the agent's servers. | `mcp: [instagram]` |
 | `tools` | no | Narrowing of the tools on a server (a subset of what the agent allows). | Tools according to the agent. | `tools: { instagram: [publish_media] }` |
@@ -532,8 +534,8 @@ Contract (§5.3):
   ones and with the correct types, and that only declared `outputs` are
   read. The type of an input that cannot be verified in advance is checked
   at `call`; a mismatch = `expression`.
-- An input of type `file` can only be passed via `call` (an image from one
-  scenario to another).
+- An input of type `file` or `files` is passed via `call` as a value (an image
+  from one scenario to another); from outside it is a path (see [`inputs`](#inputs)).
 - **Same run:** same budget and timeout, the record of the called scenario
   is a subdirectory `steps/<nn>-<id>/` (see [run-record.md](run-record.md)).
   The queue does not know about `call`.
@@ -617,7 +619,7 @@ A scenario has two different notations (D1c). A simple rule:
 | Where | Notation | Example |
 |---|---|---|
 | `when`, `switch.value`, values in `set` | **expression** — without braces | `steps.tone_check.on_brand < 0.7` |
-| **only** in: `ask.prompt`, `task.prompt`, `image.prompt`, `image.aspect_ratio`, `image.quality`, `image.resolution`, `jev.state`, `jev.questions.*.instructions`, `jev.questions.*.criteria` (values), `fail`, `output` values, `call.inputs`, `dedupe_key` | **template** — `{{ }}` only inserts a value | `"Topic: {{ inputs.topic }}"` |
+| **only** in: `ask.prompt`, `task.prompt`, `ask.images`, `task.images`, `image.prompt`, `image.aspect_ratio`, `image.quality`, `image.resolution`, `jev.state`, `jev.questions.*.instructions`, `jev.questions.*.criteria` (values), `fail`, `output` values, `call.inputs`, `dedupe_key` | **template** — `{{ }}` only inserts a value | `"Topic: {{ inputs.topic }}"` |
 
 `{{` anywhere else (names, `id`, step types, aliases, agents,
 `max_turns`, `cases` keys, …) is a `validate` error.
@@ -808,15 +810,59 @@ or ` #`, entirely in single quotes: `when: '"x" == inputs.language'`,
 
 ### Type `file`
 
-- A `file` value is created **only** by an `image` step (and by an image
-  returned by a tool in `task`). It cannot be created from text: text in a
-  place where a `file` is expected (`image: "/home/x/.env"`) is a
-  `validate` error.
+- A `file` value is created by an `image` step, by an image returned by a tool
+  in `task` and (since 0.18.0) from an input of type `file`/`files`: the
+  framework checks the file (format, size), copies it into the run directory as
+  `inputs/<name>.<ext>` (`inputs/<name>-1.<ext>`, `-2`, … for `files`) and the
+  scenario sees only that copy. It cannot be created from text: text in a place
+  where a `file` is expected (`image: "/home/x/.env"`) is a `validate` error.
 - The path is always inside the run directory; the framework verifies this
-  before uploading (the real path after resolving links). Otherwise a
-  `config` error.
+  before uploading or sending the file to a model (the real path after
+  resolving links). Otherwise a `config` error.
+- **Metadata** (since 0.18.0): `width`, `height` (pixels, after EXIF
+  orientation) and `format` (the MIME subtype: `png`, `jpeg`, `webp`, `gif`,
+  `avif`; an `image` step can also return `svg+xml`) are read with a dot or
+  `["key"]`: `inputs.photo.width > inputs.photo.height`,
+  `{{ steps.photo.file.format }}`. Any other key is a `validate` error; an
+  unknown dimension (an SVG from an `image` step) is an `expression` error at
+  run time. In text and in the callback a `file` is still its path (or URL);
+  a `file` inside a `list` or `object` output is its path; `==` compares paths.
+- **Sending to a model** (`images:`): PNG, JPEG, WebP and GIF go as they are.
+  AVIF and SVG are accepted as inputs and as outputs (metadata, pass-through),
+  but the framework has no image decoder, so sending one to a model is a
+  `config` error — convert it to PNG/JPEG/WebP first.
+- A list of files (a `files` input, `[inputs.a, steps.gen.file]` in `set`) is
+  an ordinary list: `len()`, indexing (`inputs.photos[steps.pick.n - 1]` in
+  `set`), `images:` of a step, a `files` output.
 - `file: null` from an explicit `default` goes to the callback as `null`
   (nothing is uploaded).
+
+```yaml
+version: 1
+name: photo-caption
+description: Caption for an uploaded photo; the photo is returned as it is
+inputs:
+  photo: { type: file, required: true, description: "PNG, JPEG, WebP, GIF or AVIF" }
+outputs:
+  caption: { type: string }
+  photo:   { type: file }
+  wide:    { type: boolean }
+steps:
+  - id: shape
+    set: { wide: inputs.photo.width > inputs.photo.height }
+  - id: copy
+    ask:
+      agent: copywriter
+      prompt: "Write a one-line Instagram caption for Image 1."
+      images: ["{{ inputs.photo }}"]
+  - id: out
+    output:
+      caption: "{{ steps.copy.text }}"
+      photo:   "{{ inputs.photo }}"
+      wide:    "{{ steps.shape.wide }}"
+```
+
+`agencast run photo-caption -i photo=./coffee.jpg`
 
 ### Skipped steps and `default` (§5.4)
 

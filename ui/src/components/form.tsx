@@ -540,6 +540,7 @@ export function ValueInput({ type, value, onChange, a11y }: {
     case "object":
       return <JsonInput a11y={a11y} value={value} onChange={onChange} />;
     case "file":
+    case "files":
       return <input {...a11y} disabled className={inputCls} value="" placeholder={t("run.fileInput")} />;
     default:
       return <textarea {...a11y} rows={2} className={inputCls} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />;

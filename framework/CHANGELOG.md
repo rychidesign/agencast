@@ -7,6 +7,12 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
 
 ## Unreleased
 
+- Images as inputs and as a variable (0.18.0, scenario.md Type `file`): input types `file` and `files` take a path
+  from the CLI (`-i photo=a.jpg`, `-i 'refs=["a.png","b.webp"]'`) or from Python (`Path`), are copied into
+  `runs/<id>/inputs/` and carry `width`, `height` and `format` readable with a dot; `images:` on `ask`/`task` sends
+  them to the model (`Image 1 (…)` labels, `<file: …>` in the record); a `files` output uploads every file;
+  PNG, JPEG (EXIF orientation), WebP, GIF and AVIF headers are read without Pillow; `validate` checks
+  `input_modalities` of the agent's model. A webhook cannot send files yet.
 - English is the primary language for messages, the CLI and documentation. The GUI defaults to English, with an optional Czech translation.
 - Example projects, their files and identifiers now use English names. New projects create the `writer` agent and `demo` scenario, with `write`/`result` steps and the `topic` input.
 - Model aliases are now `smart`/`fast` (and `cheap` where used).

@@ -94,6 +94,7 @@ def list_models(base_url: str, runs_dir: Path, transport=None) -> list[dict]:
         raise AgencastError("transient", f"GET {base_url}/models failed ({getattr(r, 'status_code', r)}) and no valid "
                                     f"cache {cache} exists — checking models requires network access")
     data = [{"id": m["id"], "output_modalities": (m.get("architecture") or {}).get("output_modalities") or [],
+             "input_modalities": (m.get("architecture") or {}).get("input_modalities"),  # 0.18.0; None = unknown
              "supported_parameters": m.get("supported_parameters") or []} for m in data]
     if transport is None:
         runs_dir.mkdir(parents=True, exist_ok=True)
@@ -418,15 +419,78 @@ def image_media_type(data: bytes) -> str | None:
         return "image/jpeg"
     if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
         return "image/webp"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if data[4:8] == b"ftyp" and (b"avif" in data[8:32] or b"avis" in data[8:32]):
+        return "image/avif"
     return None
 
 
+def probe_image(data: bytes) -> tuple[str, int | None, int | None] | None:
+    """(format, width, height) of an input image (0.18.0); None = not a supported image format."""
+    media = image_media_type(data)
+    if not media:
+        return None
+    w, h = image_size(data)
+    return media.split("/")[1], w, h
+
+
+def _exif_orientation(seg: bytes) -> int:
+    """Orientation tag (0x0112) from a JPEG APP1 Exif segment; 1 when absent or malformed."""
+    t = seg[6:] if seg.startswith(b"Exif\x00\x00") else b""
+    bo = {b"II": "<", b"MM": ">"}.get(t[:2])
+    if not bo:
+        return 1
+    try:
+        ifd = struct.unpack(bo + "I", t[4:8])[0]
+        for k in range(struct.unpack(bo + "H", t[ifd:ifd + 2])[0]):
+            e = ifd + 2 + 12 * k
+            tag, typ = struct.unpack(bo + "HH", t[e:e + 4])
+            if tag == 0x0112 and typ == 3:
+                return struct.unpack(bo + "H", t[e + 8:e + 10])[0]
+    except struct.error:
+        pass
+    return 1
+
+
+def _avif_size(data: bytes) -> tuple[int | None, int | None]:
+    """`ispe` box (meta → iprp → ipco) of an AVIF/HEIF file.
+    ponytail: the first ispe wins; an alpha or thumbnail item listed first would be misread."""
+    def boxes(start, end):
+        i = start
+        while i + 8 <= end:
+            size, typ, hdr = int.from_bytes(data[i:i + 4], "big"), data[i + 4:i + 8], 8
+            if size == 1:
+                size, hdr = int.from_bytes(data[i + 8:i + 16], "big"), 16
+            elif size == 0:
+                size = end - i
+            if size < hdr:
+                return
+            yield typ, i + hdr, min(i + size, end)
+            i += size
+
+    path = (b"meta", b"iprp", b"ipco", b"ispe")
+    level = [(0, len(data))]
+    for j, want in enumerate(path):
+        found = [(s + (4 if want in (b"meta", b"ispe") else 0), e)  # full boxes carry version + flags
+                 for s0, e0 in level for t, s, e in boxes(s0, e0) if t == want]
+        if not found:
+            return None, None
+        level = found
+    s, e = level[0]
+    return struct.unpack(">II", data[s:s + 8]) if e - s >= 8 else (None, None)
+
+
 def image_size(data: bytes) -> tuple[int | None, int | None]:
-    """Dimensions from the PNG, JPEG or WebP header."""
+    """Dimensions from the PNG, JPEG (after EXIF orientation), WebP, GIF or AVIF header."""
     if data[:8] == b"\x89PNG\r\n\x1a\n":
         if len(data) < 24:
             return None, None
         return struct.unpack(">II", data[16:24])
+    if data[:6] in (b"GIF87a", b"GIF89a") and len(data) >= 10:
+        return struct.unpack("<HH", data[6:10])
+    if data[4:8] == b"ftyp":
+        return _avif_size(data)
     if len(data) >= 30 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         chunk = data[12:16]
         if chunk == b"VP8X":
@@ -439,7 +503,7 @@ def image_size(data: bytes) -> tuple[int | None, int | None]:
             return (int.from_bytes(data[26:28], "little") & 0x3FFF,
                     int.from_bytes(data[28:30], "little") & 0x3FFF)
     if data[:2] == b"\xff\xd8":
-        i = 2
+        i, rotated = 2, False
         while i + 9 <= len(data):
             if data[i] != 0xFF:
                 break
@@ -447,8 +511,10 @@ def image_size(data: bytes) -> tuple[int | None, int | None]:
             length = struct.unpack(">H", data[i + 2:i + 4])[0]
             if length < 2 or i + 2 + length > len(data):
                 break
+            if marker == 0xE1 and data[i + 4:i + 10] == b"Exif\x00\x00":  # not XMP; orientation 5–8 = rotated by 90°
+                rotated = _exif_orientation(data[i + 4:i + 2 + length]) in (5, 6, 7, 8)
             if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
                 h, w = struct.unpack(">HH", data[i + 5:i + 9])
-                return w, h
+                return (h, w) if rotated else (w, h)
             i += 2 + length
     return None, None

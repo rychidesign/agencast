@@ -33,7 +33,7 @@ Content-Type: application/json
 |---|---|---|---|---|
 | `Authorization` header | yes | `Bearer <token>`; the token is the value of the variable named in `webhook.token_env` in `config.yaml` (Modal endpoints are otherwise public, D5). | 401 | |
 | `scenario` | yes | Name of a scenario from `workflows/scenarios/`. | 422 | `"ig-post"` |
-| `inputs` | no | Inputs according to the scenario's `inputs`. Type `file` is not allowed from the webhook. | `{}` — the scenario gets its `default` values. | `{"topic": "new coffee"}` |
+| `inputs` | no | Inputs according to the scenario's `inputs`. Types `file` and `files` are not allowed from the webhook (422) — a JSON string is never a path. | `{}` — the scenario gets its `default` values. | `{"topic": "new coffee"}` |
 | `callback_url` | yes | Where to send the result. `https://` only. Typically the resume URL of a waiting n8n workflow. | 422 | |
 | `request_key` | no | Idempotency key (§5.2): a repeated request with the same key does not start a second run. | Every request = a new run. | `"n8n-4711"` |
 

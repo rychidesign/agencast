@@ -280,3 +280,17 @@ the names in the examples are English now:
 - the files created by `agencast new` (the `writer` agent, the `demo` scenario
   with the steps `write` and `result` and the input `topic`) and the example
   projects (model aliases `smart` and `fast`).
+
+## version 1 — backward-compatible addition (framework 0.18.0, images as inputs)
+
+- `inputs.<name>.type: file` is accepted from the CLI and Python as a path
+  (checked and copied into `runs/<id>/inputs/`); new input and output type
+  `files` = a list of 1–16 images. A webhook still cannot send files.
+- A `file` value carries `width`, `height` and `format`, read with a dot
+  (`inputs.photo.width`); before 0.18.0 a dot on a `file` was always an error,
+  so no existing scenario changes meaning.
+- New optional `images:` on `ask` and `task` (one template or a list, each
+  leading to a file or a list of files); without it the request body is
+  unchanged.
+- `files` output: every file is uploaded under `<name>-<i>` and the callback
+  carries a list of URLs.

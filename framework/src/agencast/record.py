@@ -37,6 +37,17 @@ def scrub(obj, file_note: str | None = None):
     return obj
 
 
+def redact(obj, notes: dict):
+    """Data URLs of known files as `<file: …>` (`notes`), the rest as `scrub` (run-record.md)."""
+    def walk(o):
+        if isinstance(o, dict):
+            return {k: walk(v) for k, v in o.items()}
+        if isinstance(o, list):
+            return [walk(v) for v in o]
+        return notes.get(o, o) if isinstance(o, str) else o
+    return scrub(walk(obj))
+
+
 class Record:
     def __init__(self, directory: Path, secrets: dict[str, str], exist_ok: bool = False):
         self.dir = directory
