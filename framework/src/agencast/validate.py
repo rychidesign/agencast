@@ -28,6 +28,7 @@ INPUT_TYPES = {"string": "string", "number": "number", "integer": "number", "boo
 IMAGE_FORMATS = ("png", "jpeg", "webp", "gif", "avif")
 MAX_FILE_BYTES = 10_000_000
 MAX_FILES = 16
+UPLOAD_ID = re.compile(r"up_[0-9a-f]{32}")  # POST …/uploads (api.md); the only file reference a client may send
 
 
 def static_type(t: str):
@@ -242,10 +243,11 @@ def _matches(t: str, v) -> bool:
     return kind(v) == INPUT_TYPES[t]
 
 
-def resolve_inputs(scenario: dict, given: dict, from_text: bool = False) -> dict:
+def resolve_inputs(scenario: dict, given: dict, from_text: bool = False, uploads: Path | None = None) -> dict:
     """Run inputs with defaults applied; errors prevent the run from starting (scenario.md inputs).
     0.18.0: `file`/`files` inputs are host paths (`Path`; text only from the CLI) checked here and copied into
-    the run directory by the engine (`stage_inputs`). A JSON string is never a path — a webhook cannot send files."""
+    the run directory by the engine (`stage_inputs`). A JSON string is never a path; over HTTP a file is
+    `{"upload_id": …}` resolved in the `uploads` directory (server.py), only when the caller passes it."""
     import json
     specs, errs, out = scenario.get("inputs") or {}, [], {}
     for name in given:
@@ -268,7 +270,7 @@ def resolve_inputs(scenario: dict, given: dict, from_text: bool = False) -> dict
         if t in ("file", "files"):
             # idempotent: cli.py / server.py resolve first, api.run / api.dry_run again — an applied default passes
             out[name] = v if not from_text and "default" in sp and v == sp["default"] \
-                else _input_files(name, t, v, from_text, errs)
+                else _input_files(name, t, v, from_text, errs, uploads)
             continue
         if not _matches(t, v):
             errs.append(f"input '{name}' must be {t}, got {kind(v)}")
@@ -278,9 +280,10 @@ def resolve_inputs(scenario: dict, given: dict, from_text: bool = False) -> dict
     return out
 
 
-def _input_files(name: str, t: str, v, from_text: bool, errs: list):
-    """`file` = one host path, `files` = 1–MAX_FILES of them (a list, or one path from the CLI); each an image."""
-    if t == "files" and isinstance(v, str) and from_text:
+def _input_files(name: str, t: str, v, from_text: bool, errs: list, uploads: Path | None = None):
+    """`file` = one host path, `files` = 1–MAX_FILES of them (a list, or one path from the CLI); each an image.
+    With `uploads`, an item may be `{"upload_id": "up_…"}` = a file in that directory (never a client path)."""
+    if t == "files" and isinstance(v, (str, dict)) and (from_text or isinstance(v, dict)):
         v = [v]
     items = v if isinstance(v, list) else [v]
     if t == "file" and isinstance(v, list) or not 1 <= len(items) <= MAX_FILES:
@@ -291,9 +294,20 @@ def _input_files(name: str, t: str, v, from_text: bool, errs: list):
     for item in items:
         if isinstance(item, str) and from_text:
             item = Path(item)
+        if isinstance(item, dict) and uploads is not None:
+            uid = item.get("upload_id")
+            if list(item) != ["upload_id"] or not isinstance(uid, str) or not UPLOAD_ID.fullmatch(uid):
+                errs.append(f"input '{name}': expected {{\"upload_id\": \"up_…\"}} from POST …/uploads")
+                return None
+            item = next(uploads.glob(f"{uid}.*"), None)  # the id is validated above — no path from the client
+            if item is None:
+                errs.append(f"input '{name}': upload {uid} not found — upload the file again (an unused upload "
+                            "expires after 24 h)")
+                return None
+            item.touch()  # in use: the server's sweep counts 24 h from the last use, so a dry run cannot lose it
         if not isinstance(item, Path):
             errs.append(f"input '{name}' has type {t} — pass a path from the CLI (-i {name}=photo.jpg) or a Path "
-                        "from Python; a webhook cannot send files")
+                        "from Python; over HTTP an upload_id from POST …/uploads")
             return None
         p = item.expanduser().resolve()
         if not p.is_file():

@@ -315,5 +315,5 @@ def test_inputs():
         resolve_inputs(sc, {"n": "x", "z": "1"}, from_text=True)
     assert {"missing required input 't' (string)", "unknown input 'z' (scenario has: t, n, b, l)",
             "input 'n' must be integer, got string"} <= set(e.value.errors)
-    with pytest.raises(ConfigErrors, match="a webhook cannot send files"):  # a JSON string is never a host path
+    with pytest.raises(ConfigErrors, match="an upload_id from POST"):  # a JSON string is never a host path
         resolve_inputs({"inputs": {"f": {"type": "file", "required": True}}}, {"f": "/etc/passwd"})

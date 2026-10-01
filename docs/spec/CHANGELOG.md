@@ -285,7 +285,8 @@ the names in the examples are English now:
 
 - `inputs.<name>.type: file` is accepted from the CLI and Python as a path
   (checked and copied into `runs/<id>/inputs/`); new input and output type
-  `files` = a list of 1–16 images. A webhook still cannot send files.
+  `files` = a list of 1–16 images. Over HTTP a file is `{"upload_id"}` from the
+  new `POST …/uploads` (api.md); a JSON string is never a path.
 - A `file` value carries `width`, `height` and `format`, read with a dot
   (`inputs.photo.width`); before 0.18.0 a dot on a `file` was always an error,
   so no existing scenario changes meaning.

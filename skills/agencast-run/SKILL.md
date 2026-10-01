@@ -71,7 +71,8 @@ Pattern for "one item per run from a pool": keep the pool as a folder outside
 folder after a successful run, and put the item into the publishing step's
 `dedupe_key`. Image inputs (`file`, `files`): `-i photo=./a.jpg`,
 `-i 'refs=["a.png","b.webp"]'` — PNG/JPEG/WebP/GIF/AVIF ≤ 10 MB, copied into
-`runs/<id>/inputs/`; a webhook cannot send files yet.
+`runs/<id>/inputs/`. Over HTTP: `POST /projects/<p>/uploads` with the raw bytes
+→ `{"upload_id"}`, then `"inputs": {"photo": {"upload_id": "up_…"}}` (api.md Uploads).
 
 ## Reading the result
 

@@ -12,7 +12,13 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
   `runs/<id>/inputs/` and carry `width`, `height` and `format` readable with a dot; `images:` on `ask`/`task` sends
   them to the model (`Image 1 (…)` labels, `<file: …>` in the record); a `files` output uploads every file;
   PNG, JPEG (EXIF orientation), WebP, GIF and AVIF headers are read without Pillow; `validate` checks
-  `input_modalities` of the agent's model. A webhook cannot send files yet.
+  `input_modalities` of the agent's model.
+- `POST /projects/<p>/uploads` (single project: `POST /uploads`): raw image bytes → `{"upload_id"}`, which a run
+  request (also `dry_run`) passes as a `file`/`files` input; stored in `<runs_dir>/_uploads/`, an upload not
+  used for 24 h expires. The token is checked before the body is read; the body limit is 10 MB.
+- GUI: `file`/`files` inputs in the run form are a file picker (PNG, JPEG, WebP, GIF, AVIF; uploaded on pick,
+  previews with size and format, removable); the step panel has an `images` field for ask, task and image steps;
+  run files show GIF and AVIF; files served from a run carry `X-Content-Type-Options: nosniff`.
 - `image` step with reference images (`images:`, Images API `input_references`; aliases with `api: images` only,
   `validate` checks `input_references` in `GET /images/models`): edit one photo or compose from several.
   `aspect_ratio: auto` / no ratio with references = the first reference's ratio snapped to a supported value

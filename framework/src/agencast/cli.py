@@ -181,11 +181,12 @@ def cmd_serve(a) -> int:
     fake = " · fake provider" if a.fake is not None else ""
     if hook:
         hook.start()
-        print(f"{url} — POST /runs, GET /runs/<run_id>, GET /projects/… · workers {hook.workers} · "
+        print(f"{url} — POST /runs, POST /uploads, GET /runs/<run_id>, GET /projects/… · workers {hook.workers} · "
               f"queued {count(hook.q.qsize(), 'run', 'runs')} · run records {hook.runs}{fake}", flush=True)
     else:
         print(f"{url} — registry mode ({_projects.registry_path()}): GET /projects/…, "
-              f"POST /projects/<project>/runs · workers per project {a.workers}{fake}", flush=True)
+              f"POST /projects/<project>/runs, POST /projects/<project>/uploads · workers per project {a.workers}{fake}",
+              flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

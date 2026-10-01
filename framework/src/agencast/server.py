@@ -19,6 +19,7 @@ import mimetypes
 import os
 import queue
 import re
+import secrets
 import sys
 import threading
 import time
@@ -30,14 +31,16 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import ConfigErrors, AgencastError, api
-from .engine import RUN_ID, RUN_ID_TRIES, new_run_id
+from .engine import IMAGE_EXT, RUN_ID, RUN_ID_TRIES, new_run_id
 from .projects import NAME, default_name, error_fields, registry_path
+from .providers import probe_image
 from .record import INTERRUPTED_BY_RESTART, _events
-from .validate import Project, require_config, resolve_inputs
+from .validate import IMAGE_FORMATS, MAX_FILE_BYTES, UPLOAD_ID, Project, require_config, resolve_inputs
 
 FIELDS = ("scenario", "inputs", "callback_url", "request_key")
 CALLBACK_PREFIXES = ("https://", "http://127.0.0.1:", "http://127.0.0.1/")  # 127.0.0.1 for tests only (ISSUES)
 MAX_BODY = 1_000_000
+UPLOAD_TTL_S = 24 * 3600  # uploads nobody queued are deleted after this (lazily, on the next upload)
 UNAUTHORIZED = {"error": "missing or invalid token (Authorization: Bearer … header)"}
 UI = Path(__file__).resolve().parent / "ui"  # built GUI (ui/ → npm run build); not tracked in git
 NO_UI = {"error": "GUI is not built — run npm install and npm run build in the repository's ui/ directory "
@@ -59,6 +62,7 @@ class Webhook:
         self.wf, self.fake, self.callback_transport, self.workers = workflows, fake, callback_transport, workers
         self.runs = workflows.parent / c["runs_dir"]
         self.qdir = self.runs / "_queue"
+        self.uploads = self.runs / "_uploads"  # 0.18.0: POST …/uploads; `_` = ignored by runs list
         (self.qdir / "keys").mkdir(parents=True, exist_ok=True)
         # ponytail: one lock for request acceptance and validation in worker threads (validation takes ms)
         self.lock = threading.Lock()
@@ -125,17 +129,18 @@ class Webhook:
             path = self.wf / "scenarios" / f"{name}.yaml"
             known = not any(e.startswith("scenario:") for e in errs) and path.is_file()
             if errs:  # BUGS 9: include scenario and input errors so n8n can fix everything in one pass
-                more = self.check(path, inputs) if known and isinstance(inputs, dict) else []
+                more = self.check(path, inputs)[0] if known and isinstance(inputs, dict) else []
                 return 422, {"error": "invalid request", "details": errs + more}
             if not known:
                 return 422, {"error": f"unknown scenario '{name}'", "details": []}
-            if errs := self.check(path, inputs):
+            errs, resolved = self.check(path, inputs)
+            if errs:
                 return 422, {"error": f"scenario '{name}' or its inputs failed validation", "details": errs}
             if not dry:
-                return self.enqueue(name, inputs, url, key)
+                return self.enqueue(name, inputs, url, key)  # the queue keeps the request as sent (upload ids)
             p = api.load(path, fake=self.fake)
         # outside the lock: a dry run starts MCP servers to list tools (takes seconds)
-        return 200, {"run_id": api.dry_run(p, inputs).dir.name, "dry_run": True}
+        return 200, {"run_id": api.dry_run(p, resolved).dir.name, "dry_run": True}
 
     def enqueue(self, name: str, inputs: dict[str, Any], url: str | None, key: str | None) -> tuple[int, dict[str, Any]]:
         """Enqueue a new run; called under `self.lock` (request_key was checked under the same lock)."""
@@ -156,12 +161,42 @@ class Webhook:
         self.q.put(entry)
         return 202, {"run_id": run_id, "queue_position": position}
 
-    def check(self, path: Path, inputs: dict) -> list[str]:
+    def check(self, path: Path, inputs: dict) -> tuple[list[str], dict]:
+        """(errors, resolved inputs) — upload ids become paths in `_uploads/` (never a client path)."""
         try:
-            resolve_inputs(api.load(path, fake=self.fake).scenario, inputs)
+            return [], resolve_inputs(api.load(path, fake=self.fake).scenario, inputs, uploads=self.uploads)
         except ConfigErrors as e:
-            return e.errors
-        return []
+            return e.errors, {}
+
+    # --- POST /uploads (0.18.0) ------------------------------------------------------------
+    def upload(self, auth: str | None, raw: bytes) -> tuple[int, dict]:
+        """Raw image bytes → `_uploads/up_<hex>.<ext>`; a run then refers to it as `{"upload_id": …}` (api.md).
+        The id is the only file reference a client can send; the file is checked like a CLI path."""
+        if not self.authorized(auth):
+            return 401, UNAUTHORIZED
+        probe = probe_image(raw) if raw else None
+        if not probe or probe[0] not in IMAGE_FORMATS:
+            return 422, {"error": "body is not a supported image (PNG, JPEG, WebP, GIF, AVIF)", "details": []}
+        fmt, w, h = probe
+        if w is None:
+            return 422, {"error": "cannot read the image dimensions", "details": []}
+        uid = f"up_{secrets.token_hex(16)}"
+        self.uploads.mkdir(parents=True, exist_ok=True)
+        (self.uploads / f"{uid}.{IMAGE_EXT.get('image/' + fmt, fmt)}").write_bytes(raw)
+        self.sweep_uploads()
+        return 201, {"upload_id": uid, "format": fmt, "width": w, "height": h, "bytes": len(raw)}
+
+    def sweep_uploads(self):
+        """Uploads not used (uploaded or resolved — `_input_files` touches them) for UPLOAD_TTL_S that no queued
+        run refers to are deleted; a finished run keeps its copy in `inputs/`, so the upload itself is disposable."""
+        with self.lock:
+            referenced = {uid for e in self.entries() for uid in UPLOAD_ID.findall(json.dumps(e.get("inputs")))}
+            for f in self.uploads.glob("up_*.*"):
+                try:
+                    if f.stem not in referenced and time.time() - f.stat().st_mtime > UPLOAD_TTL_S:
+                        f.unlink()
+                except OSError:
+                    pass
 
     # --- GET /runs/<run_id> ---------------------------------------------------------------
     def status(self, auth: str | None, run_id: str) -> tuple[int, dict]:
@@ -215,7 +250,7 @@ class Webhook:
         try:
             with self.lock:
                 p = api.load(path, fake=self.fake)
-            inputs = resolve_inputs(p.scenario, entry["inputs"])
+            inputs = resolve_inputs(p.scenario, entry["inputs"], uploads=self.uploads)
         except ConfigErrors as e:
             return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
                 "config", "scenario failed validation after being dequeued:\n" + "\n".join(e.errors)), **kw)
@@ -556,7 +591,8 @@ class Projects:
                 return 200, api.write_file(root, "/".join(rel), tag, g("text"))
         return None
 
-    def post_run(self, auth: str | None, name: str, raw: bytes) -> tuple[int, dict[str, Any]]:
+    def post_run(self, auth: str | None, name: str, raw: bytes, upload: bool = False) -> tuple[int, dict[str, Any]]:
+        """`upload` = POST /projects/<p>/uploads (0.18.0): the body is an image, not a run request."""
         if not self.authorized(auth):
             return 401, UNAUTHORIZED
         root, err = self.project(name)
@@ -566,25 +602,36 @@ class Projects:
             hook = self.webhook(root)
         except ConfigErrors as e:
             return 422, {"error": f"project '{name}' cannot be run", "details": e.errors}
-        return hook.accept(auth, raw, gui=True)
+        return hook.upload(auth, raw) if upload else hook.accept(auth, raw, gui=True)
 
 
 class Handler(BaseHTTPRequestHandler):
     server: "Server"
 
-    def body(self) -> bytes | None:
+    def body(self, limit: int = MAX_BODY) -> bytes | None:
         """Request body; if too large, respond with 422 and return None."""
         try:
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             n = -1
-        if not 0 <= n <= MAX_BODY:
-            self.reply(422, {"error": f"body is {n} B, maximum {MAX_BODY} B", "details": []})
+        if not 0 <= n <= limit:
+            self.reply(422, {"error": f"body is {n} B, maximum {limit} B", "details": []})
             return None
         return self.rfile.read(n)
 
     def do_POST(self):
         path = urlsplit(self.path).path
+        if m := re.fullmatch(r"(?:/projects/([^/]+))?/uploads", path):  # 0.18.0: image upload for file inputs
+            auth = self.headers.get("Authorization")
+            if not self.server.projects.authorized(auth):  # before reading up to MAX_FILE_BYTES
+                return self.reply(401, UNAUTHORIZED)
+            if (raw := self.body(MAX_FILE_BYTES)) is None:
+                return
+            if m.group(1):
+                return self.safe(self.server.projects.post_run, auth, unquote(m.group(1)), raw, True)
+            if not self.server.hook:
+                return self.reply(404, {"error": "server is in registry mode — upload via POST /projects/<project>/uploads"})
+            return self.safe(self.server.hook.upload, auth, raw)
         if path in ("/projects", "/projects/new"):
             if (raw := self.body()) is None:
                 return
@@ -697,6 +744,8 @@ class Handler(BaseHTTPRequestHandler):
             data, ctype = json.dumps(body, ensure_ascii=False).encode(), "application/json; charset=utf-8"
         self.send_response(status)
         self.send_header("Content-Type", ctype)
+        if isinstance(body, Path):  # uploaded inputs are served back: never let the browser sniff them as HTML
+            self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

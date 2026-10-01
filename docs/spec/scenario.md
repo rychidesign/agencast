@@ -91,7 +91,7 @@ inputs:
 
 | Input field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
-| `type` | yes | Value type: `string`, `number`, `integer`, `boolean`, `list`, `object`, `file` (one image) and `files` (1–16 images; since 0.18.0). An image comes as a path from the CLI (`-i photo=a.jpg`; for `files` a JSON list or one path) or from Python (`Path`), or as a `file` value from `call`; a webhook cannot send files yet. PNG, JPEG, WebP, GIF or AVIF, at most 10 MB each — checked and copied into the run directory before the run starts (see [Type `file`](#type-file)). The value from outside is checked against the type before the run starts. | `config` error. | `type: string` |
+| `type` | yes | Value type: `string`, `number`, `integer`, `boolean`, `list`, `object`, `file` (one image) and `files` (1–16 images; since 0.18.0). An image comes as a path from the CLI (`-i photo=a.jpg`; for `files` a JSON list or one path) or from Python (`Path`), over HTTP as `{"upload_id": …}` from `POST …/uploads` ([api.md](api.md#uploads-since-0180)), or as a `file` value from `call`; a JSON string is never a path. PNG, JPEG, WebP, GIF or AVIF, at most 10 MB each — checked and copied into the run directory before the run starts (see [Type `file`](#type-file)). The value from outside is checked against the type before the run starts. | `config` error. | `type: string` |
 | `required` | see text | `true` = the input must come from outside. | — | `required: true` |
 | `default` | see text | Value when the input does not come. Must match `type`. | — | `default: en` |
 | `description` | no | Explanation for humans. | Nothing. | `description: What to write about` |

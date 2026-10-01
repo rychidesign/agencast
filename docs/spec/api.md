@@ -24,8 +24,8 @@ and the callbacks do not change. Projects: [projects.md](projects.md).
   (`<runs>/_queue/`) and `--workers N` worker threads; the queues of available
   projects are restored at start, a project added later on its first `POST`.
 - Reading and writing use the same token. A missing or mismatched token → 401.
-- The token protects only `/projects…` and `/runs…`; the GUI (`GET /`, `/assets/…`,
-  section [GUI and CORS](#gui-and-cors-since-060)) needs no token.
+- The token protects `/projects…`, `/runs…` and (since 0.18.0, single-project mode) `/uploads`;
+  the GUI (`GET /`, `/assets/…`, section [GUI and CORS](#gui-and-cors-since-060)) needs no token.
 
 ## Endpoints
 
@@ -51,6 +51,7 @@ plus `"details": [...]` (for editing operations `"errors": [...]`, section
 | `GET /projects/<p>/runs/<id>/files/<path>` | contents of a file from the run directory (`summary.md`, `report.html`, `events.jsonl`, `steps/…`), `Content-Type` by extension |
 | `GET /projects/<p>/spend?day=YYYY-MM-DD` | daily ledger of live-run spend: `{"day", "total_usd", "runs": [{"run_id", "cost_usd", "finished_at"}]}`; without `day` today (UTC); any other `day` format → 422 |
 | `POST /projects/<p>/runs` | like `POST /runs` ([webhook.md](webhook.md)) in project `<p>` — same body, same 202/200/401/422 responses and callback; since 0.6.0 `callback_url` is optional and `dry_run` exists ([Starting from the GUI](#starting-from-the-gui-since-060)) |
+| `POST /projects/<p>/uploads` | since 0.18.0: the raw bytes of one image (PNG, JPEG, WebP, GIF, AVIF; ≤ 10 MB) → 201 `{"upload_id", "format", "width", "height", "bytes"}`; a run's `file`/`files` input is then `{"upload_id": "up_…"}` ([Uploads](#uploads-since-0180)) |
 | `POST /projects/<p>/validate` | validation without writing (since 0.6.0, [below](#post-projectspvalidate-since-060)) |
 
 - **404** with a JSON error: unknown project, unavailable project
@@ -361,6 +362,29 @@ The `status` text is for humans; clients should read the machine field `state` (
 
 The `POST /runs` contract ([webhook.md](webhook.md)) does not change: `callback_url`
 is required, the `dry_run` field is unknown (422).
+
+### Uploads (since 0.18.0)
+
+Inputs of type `file` and `files` (scenario.md [Type `file`](scenario.md#type-file))
+cannot be JSON values — a string is never a path. Over HTTP a file is uploaded
+first:
+
+- `POST /projects/<p>/uploads` (in single-project mode `POST /uploads`), the
+  same `Authorization` token, the body = the raw bytes of one image (no
+  multipart, `Content-Type` and file name are ignored; the format comes from the
+  file header). Checked like a CLI path: PNG, JPEG, WebP, GIF or AVIF, at most
+  10 MB → **201** `{"upload_id": "up_<32 hex>", "format": "jpeg", "width":
+  4032, "height": 3024, "bytes": 2101234}`; otherwise **422** `{"error"}`
+  (**401** without the token, checked before the body is read).
+- The run request then carries `{"upload_id": "up_…"}` in place of the file —
+  `"inputs": {"photo": {"upload_id": "up_…"}, "refs": [{"upload_id": "up_…"},
+  {"upload_id": "up_…"}]}` — for `POST …/runs` and `dry_run` alike. An unknown
+  or expired id is a 422 (`upload … not found`). The id may be used again
+  (a dry run, then the real run; two scenarios).
+- The server keeps uploads in `<runs_dir>/_uploads/`; the run copies the file
+  into its own `inputs/` (run-record.md). An upload not used for 24 h (uploaded
+  or named in a run request) that no queued run refers to is deleted on the
+  next upload.
 
 ### GUI and CORS (since 0.6.0)
 
