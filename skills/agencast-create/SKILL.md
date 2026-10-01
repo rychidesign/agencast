@@ -98,7 +98,9 @@ unique in the file, not a Python keyword (`in`, `is`, `if`, …).
 - `task` — agent loop with MCP tools (`max_turns`, `mcp`, `tools` subsets of the agent's); same outputs
   and `images` as `ask`.
 - `jev` — cheap classifier: `state` + `questions.<q>` with `type: noul` (0–1), `choice` (`criteria: {key: description}` → key) or `score` (`criteria:` list of levels → number); output `steps.<id>.<q>`.
-- `image` — `model` (image alias), `prompt`; optional `aspect_ratio`, `quality`, `resolution` (may be templates); output `.file`.
+- `image` — `model` (image alias), `prompt`; optional `aspect_ratio` (`W:H`, `auto` or a template), `quality`,
+  `resolution`; `images: ["{{ inputs.photo }}"]` = reference images to edit one photo or compose from several
+  (only an alias with `api: images`; the output ratio then follows the first reference unless set); output `.file`.
 - `call` — run another scenario (it needs `callable: true`) in the same run with `inputs:`; output = its `outputs`.
 - `parallel` — named branches (lists of steps) run concurrently; no cross-branch refs.
 - `switch` — `value` (string expr), `cases: {v: [steps]}`, `default:` required (`[]` = nothing).

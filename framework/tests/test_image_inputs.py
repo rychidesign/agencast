@@ -5,11 +5,11 @@ import struct
 from pathlib import Path
 
 import pytest
-from conftest import events, run, scenario
+from conftest import add_image_model, events, image_model_ids, model_ids, run, scenario
 from test_task import setup
 
 from agencast import ConfigErrors, api
-from agencast.engine import dry_run
+from agencast.engine import dry_run, run_scenario, snap_ratio
 from agencast.expressions import ExprError, FileRef, evaluate, infer
 from agencast.fake import Fake, png
 from agencast.providers import image_size, probe_image
@@ -290,6 +290,123 @@ def test_dry_run_plans_paths_without_copying(wf, photos):
     rec = dry_run(p, resolve_inputs(p.scenario, {"photo": photos / "a.png", "refs": [photos / "b.jpg"]}))
     assert json.loads((rec.dir / "inputs.json").read_text()) == {"photo": "inputs/photo.png", "refs": ["inputs/refs-1.jpg"], "t": "x"}
     assert not (rec.dir / "inputs").exists() and str(photos) not in (rec.dir / "inputs.json").read_text()
+
+
+# --- image step with references (Images API) ---------------------------------------------------
+
+EDIT = HEAD + """
+inputs:
+  photo: { type: file, required: true }
+  ratio: { type: string, default: auto }
+outputs: { image: { type: file } }
+steps:
+  - id: edit
+    image:
+      model: gpt-image
+      prompt: "Same subject, new scene"
+      images: ["{{ inputs.photo }}"]
+      aspect_ratio: "{{ inputs.ratio }}"
+  - id: out
+    output: { image: "{{ steps.edit.file }}" }
+"""
+
+
+def test_image_references_follow_the_reference_ratio(wf, photos):
+    add_image_model(wf)
+    (photos / "tall.png").write_bytes(png(800, 1000))
+    r, fake = run(scenario(wf, EDIT), {"photo": photos / "tall.png"})
+    assert r.status == "succeeded", r.error
+    _, endpoint, body = fake.calls[0]
+    assert endpoint == "images" and body["aspect_ratio"] == "4:5" and body["quality"] == "low"
+    assert [p["type"] for p in body["input_references"]] == ["image_url"]
+    assert body["input_references"][0]["image_url"]["url"].startswith("data:image/png;base64,")
+    d = r.rec.dir
+    req = (d / "steps/01-edit/calls/01.request.json").read_text()
+    assert "<file: inputs/photo.png" in req and "base64," not in req
+    md = (d / "steps/01-edit/prompt.md").read_text()
+    assert "- aspect_ratio: 4:5 (from images[0], 800×1000)" in md and "# Images\n\n- <file: inputs/photo.png" in md
+    out = r.values["steps"]["edit"]["file"]
+    assert (out.width, out.height, out.format) == (4 * 64, 5 * 64, "png") and not r.warnings
+
+
+def test_image_references_explicit_ratio_overrides(wf, photos):
+    add_image_model(wf)
+    r, fake = run(scenario(wf, EDIT), {"photo": photos / "a.png", "ratio": "9:16"})
+    assert r.status == "succeeded", r.error
+    assert fake.calls[0][2]["aspect_ratio"] == "9:16"
+
+
+def test_image_auto_without_references_uses_the_model_default(wf):
+    add_image_model(wf)
+    r, fake = run(scenario(wf, HEAD + 'steps: [{ id: g, image: { model: gpt-image, prompt: x, aspect_ratio: auto } }]'))
+    assert r.status == "succeeded", r.error
+    assert "aspect_ratio" not in fake.calls[0][2] and "input_references" not in fake.calls[0][2]
+
+
+def test_image_derived_ratio_mismatch_is_a_warning_explicit_is_config(wf, photos):
+    add_image_model(wf)
+    odd = {"edit": {"image": {"width": 128, "height": 64}}}
+    r, _ = run(scenario(wf, EDIT), {"photo": photos / "a.png"}, script=odd)
+    assert r.status == "succeeded", r.error
+    assert any("does not support aspect_ratio 4:3" in w and "from images[0]" in w for w in r.warnings), r.warnings
+    r, _ = run(scenario(wf, EDIT), {"photo": photos / "a.png", "ratio": "4:3"}, script=odd)
+    assert r.error["class"] == "config" and "does not support aspect_ratio 4:3" in r.error["message"]
+
+
+def test_image_references_need_an_images_api_alias(wf):
+    got = errors(wf, HEAD + "inputs: { photo: { type: file, required: true } }\n"
+                            'steps: [{ id: g, image: { model: gemini-image, prompt: x, images: ["{{ inputs.photo }}"] } }]')
+    assert "reference images need a model alias with api: images" in got, got
+
+
+def test_image_catalog_on_project_and_reference_limit(wf, photos):
+    add_image_model(wf)
+    p = validate(scenario(wf, EDIT), transport=Fake({}, model_ids(wf), image_model_ids(wf)).transport())
+    assert p.image_models["openai/gpt-image-2"]["supported_parameters"]["input_references"]["max"] == 14
+    assert validate(scenario(wf, EDIT), check_models=False).image_models == {}  # offline: built-in ratio list
+    p = scenario(wf, HEAD + "inputs: { refs: { type: files, required: true } }\n"
+                            'steps: [{ id: g, image: { model: gpt-image, prompt: x, images: "{{ inputs.refs }}" } }]')
+    r, fake = run(p, {"refs": [photos / "a.png"] * 15})
+    assert r.error["class"] == "config" and "accepts at most 14" in r.error["message"] and not fake.calls
+
+
+def test_snap_ratio_builtin_list_decimals_and_reference_support():
+    assert snap_ratio(FileRef("a", 800, 1000), None) == "4:5"  # offline: DEFAULT_RATIOS
+    assert snap_ratio(FileRef("a", 900, 1950), ["9:19.5", "9:16", "auto"]) == "9:16"  # decimal and auto skipped
+    assert snap_ratio(FileRef("a", 800, 1000), ["auto"]) is None and snap_ratio(FileRef("a"), ["1:1"]) is None
+    cfg = {"models": {"g": {"id": "x/img", "api": "images"}}}
+    m = {"id": "x/img", "output_modalities": ["image"], "supported_parameters": {}}
+    for params in ({}, {"input_references": {"max": 0}}):
+        got = check_models_list(cfg, {"g": {"image", "references"}}, [], [{**m, "supported_parameters": params}])
+        assert "does not accept reference images" in got[0], got
+    assert check_models_list(cfg, {"g": {"image", "references"}}, [], [{**m, "supported_parameters": {"input_references": {"max": 3}}}]) == []
+    assert "does not support quality auto" in check_models_list(
+        cfg, {"g": {"image", "quality:auto"}}, [], [{**m, "supported_parameters": {"quality": {"values": ["low"]}}}])[0]
+
+
+def test_catalog_without_aspect_ratio_sends_none(wf, photos):
+    add_image_model(wf)
+    p = validate(scenario(wf, EDIT), check_models=False)
+    p.image_models = {"openai/gpt-image-2": {"supported_parameters": {"input_references": {"max": 14}}}}
+    fake = Fake({}, model_ids(wf), image_model_ids(wf))
+    r = run_scenario(p, resolve_inputs(p.scenario, {"photo": photos / "a.png"}), fake=fake)
+    assert r.status == "succeeded", r.error
+    assert "aspect_ratio" not in fake.calls[0][2] and "from images[0]" not in (r.rec.dir / "steps/01-edit/prompt.md").read_text()
+
+
+def test_called_scenario_uses_the_catalog(wf, photos):
+    add_image_model(wf)
+    scenario(wf, HEAD + "callable: true\ninputs: { refs: { type: files, required: true } }\noutputs: { image: { type: file } }\n"
+                        'steps: [{ id: g, image: { model: gpt-image, prompt: x, images: "{{ inputs.refs }}" } },'
+                        ' { id: o, output: { image: "{{ steps.g.file }}" } }]', "edit-sub")
+    p = scenario(wf, HEAD + "inputs: { refs: { type: files, required: true } }\n"
+                            'steps: [{ id: c, call: { scenario: edit-sub, inputs: { refs: "{{ inputs.refs }}" } } }]')
+    (photos / "wide.png").write_bytes(png(1250, 1000))
+    r, fake = run(p, {"refs": [photos / "wide.png"]})
+    assert r.status == "succeeded", r.error
+    assert fake.calls[0][2]["aspect_ratio"] == "4:3"  # the fake catalog has no 5:4; DEFAULT_RATIOS would give 5:4
+    r, fake = run(p, {"refs": [photos / "a.png"] * 15})
+    assert r.error["class"] == "config" and "accepts at most 14" in r.error["message"] and not fake.calls
 
 
 def test_task_with_images(wf, photos):

@@ -13,6 +13,12 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
   them to the model (`Image 1 (…)` labels, `<file: …>` in the record); a `files` output uploads every file;
   PNG, JPEG (EXIF orientation), WebP, GIF and AVIF headers are read without Pillow; `validate` checks
   `input_modalities` of the agent's model. A webhook cannot send files yet.
+- `image` step with reference images (`images:`, Images API `input_references`; aliases with `api: images` only,
+  `validate` checks `input_references` in `GET /images/models`): edit one photo or compose from several.
+  `aspect_ratio: auto` / no ratio with references = the first reference's ratio snapped to a supported value
+  (catalog kept on `Project`, also for called scenarios; offline a built-in list; a model whose catalog lists no
+  aspect_ratio gets none), a mismatch is then a warning. The showcase and tutorial configs gain the alias
+  `gemini-image-api`.
 - English is the primary language for messages, the CLI and documentation. The GUI defaults to English, with an optional Czech translation.
 - Example projects, their files and identifiers now use English names. New projects create the `writer` agent and `demo` scenario, with `write`/`result` steps and the `topic` input.
 - Model aliases are now `smart`/`fast` (and `cheap` where used).

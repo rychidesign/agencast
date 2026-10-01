@@ -16,14 +16,15 @@ Prerequisite: parts 1–4.
 
 ## Step 1 — model aliases: a swap = one line
 
-Your agents know only aliases (`smart`, `fast`, `gemini-image`). What hides
-behind them is in `workflows/config.yaml`:
+Your agents know only aliases (`smart`, `fast`, `gemini-image`, `gemini-image-api`).
+What hides behind them is in `workflows/config.yaml`:
 
 ```
 models:
   smart:       { id: anthropic/claude-haiku-4.5 }
   fast:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
   gemini-image: { id: google/gemini-3.1-flash-image }
+  gemini-image-api: { id: google/gemini-3.1-flash-image, api: images }   # Images API: reference images (image.images)
 ```
 
 Only the **owner** changes this file — you in the role of an administrator, not
@@ -182,7 +183,7 @@ Read the `AssertionError` line: it holds exactly what would be in
 - A fixture should go through the path that matters most to you (for `switch`
   pick a branch — see the exercise).
 - The tests use their own test `config.yaml` with the same aliases
-  (`smart`, `fast`, `gemini-image`), not yours — they cost nothing and need
+  (`smart`, `fast`, `gemini-image`, `gemini-image-api`), not yours — they cost nothing and need
   no key.
 
 ---

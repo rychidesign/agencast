@@ -253,7 +253,7 @@ class _Loop:
         tools = await self.tools()
         system = system_prompt_task(self.agent)
         prompt = run.text(self.t["prompt"], "task.prompt")
-        parts, notes, lines = run.image_parts(self.t.get("images"), "task.images")  # 0.18.0
+        parts, notes, lines, _ = run.image_parts(self.t.get("images"), "task.images")  # 0.18.0
         self.notes.update(notes)
         max_turns = self.t.get("max_turns", self.agent.data["limits"]["max_turns"])
         messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, *parts] if parts else prompt}]

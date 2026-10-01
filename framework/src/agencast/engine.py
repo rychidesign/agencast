@@ -12,6 +12,7 @@ import copy
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import secrets
@@ -50,6 +51,22 @@ IMAGE_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "ima
              "image/svg+xml": "svg"}
 # ponytail: formats OpenRouter image input accepts; AVIF/SVG would need a decoder the framework does not have
 MODEL_IMAGE_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
+# aspect ratios to snap a reference image to when the Images API catalog is not available (offline validate)
+DEFAULT_RATIOS = ("1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9")
+RATIO_RE = re.compile(r"[1-9][0-9]*:[1-9][0-9]*")
+
+
+def snap_ratio(ref: FileRef, values) -> str | None:
+    """Nearest supported `a:b` (by log ratio) to the reference image. `values` = the model's catalog values
+    (decimal ones like `9:19.5` and `auto` are skipped), None = no catalog (offline) → DEFAULT_RATIOS.
+    None when the reference size is unknown or the catalog lists no usable ratio (the model default applies)."""
+    if not ref.width or not ref.height:
+        return None
+    cands = [v for v in (DEFAULT_RATIOS if values is None else values) if isinstance(v, str) and RATIO_RE.fullmatch(v)]
+    if not cands:
+        return None
+    target = math.log(ref.width / ref.height)
+    return min(cands, key=lambda v: abs(math.log(int(v.split(":")[0]) / int(v.split(":")[1])) - target))
 
 
 @dataclass
@@ -352,12 +369,12 @@ class Run:
     def text(self, s: str, fld: str) -> str:
         return to_text(self.tpl(s, fld))
 
-    def image_parts(self, spec, fld: str) -> tuple[list, dict, list]:
+    def image_parts(self, spec, fld: str) -> tuple[list, dict, list, list]:
         """0.18.0 `images:` → chat content parts (data URLs), notes for the record (data URL → `<file: …>`,
-        run-record.md) and one line per image for prompt.md. Each template leads to a file or a list of files;
-        null (an explicit default) is skipped."""
+        run-record.md), one line per image for prompt.md and the FileRefs sent. Each template leads to a file
+        or a list of files; null (an explicit default) is skipped."""
         if spec is None:
-            return [], {}, []
+            return [], {}, [], []
         refs = []
         for i, s in enumerate(spec if isinstance(spec, list) else [spec]):
             where = f"{fld}[{i}]" if isinstance(spec, list) else fld
@@ -387,7 +404,7 @@ class Run:
             size = f", {ref.width}×{ref.height}" if ref.width else ""
             parts += [{"type": "text", "text": f"Image {k} ({ref.path.rsplit('/', 1)[-1]}{size}):"},
                       {"type": "image_url", "image_url": {"url": url}}]
-        return parts, notes, lines
+        return parts, notes, lines, refs
 
     # --- API calls: attempts, budget, record ------------------------------------------
     def leaf_budgets(self, info: StepInfo, ctx: Ctx, agent_budget=None, image=False) -> list:
@@ -478,7 +495,7 @@ class Run:
         alias = agent.data["model"]
         m = self.p.config["models"][alias]
         prompt = self.text(a["prompt"], "ask.prompt")
-        parts, notes, lines = self.image_parts(a.get("images"), "ask.images")  # 0.18.0
+        parts, notes, lines, _ = self.image_parts(a.get("images"), "ask.images")  # 0.18.0
         schema = json_schema(a["schema"]) if "schema" in a else None
         base = system_prompt_ask(agent)
         st = {"level": m.get("structured_output", "native_schema") if schema else None, "feedback": [], "prev": None}
@@ -544,8 +561,16 @@ class Run:
         alias = im["model"]
         m = self.p.config["models"][alias]
         prompt = self.text(im["prompt"], "image.prompt")
+        images_api = m.get("api", "chat") == "images"
+        catalog = (self.p.image_models.get(m["id"]) or {}).get("supported_parameters") or {}
+        parts, notes, lines, refs = self.image_parts(im.get("images"), "image.images")  # 0.18.0: references
+        if refs and not images_api:  # validate rejects this; the chat path with references is unverified
+            raise AgencastError("config", f"image.images: reference images need a model alias with api: images ('{alias}')")
+        limit = (catalog.get("input_references") or {}).get("max") if isinstance(catalog.get("input_references"), dict) else None
+        if limit is not None and len(refs) > limit:
+            raise AgencastError("config", f"image.images: {len(refs)} reference images, model '{m['id']}' accepts at most {limit}")
         params = {}
-        for field, pattern in (("aspect_ratio", r"[1-9][0-9]*:[1-9][0-9]*"),
+        for field, pattern in (("aspect_ratio", r"auto|[1-9][0-9]*:[1-9][0-9]*"),
                                ("quality", r"auto|low|medium|high"), ("resolution", r"512|1K|2K|4K")):
             value = im.get(field, m.get("quality") if field == "quality" else None)
             if value is not None:
@@ -553,11 +578,20 @@ class Run:
                 if not re.fullmatch(pattern, value):
                     raise AgencastError("config", f"image.{field}: invalid rendered value {value!r}")
                 params[field] = value
-        ratio = params.get("aspect_ratio")
+        ratio, derived = params.get("aspect_ratio"), None
+        if ratio == "auto" or ratio is None and refs:  # 0.18.0: follow the first reference (snapped), else model default
+            ar = catalog.get("aspect_ratio")  # online catalog without aspect_ratio = the model takes none
+            values = ((ar.get("values") if isinstance(ar, dict) else None) or ()) if m["id"] in self.p.image_models else None
+            ratio = snap_ratio(refs[0], values) if refs else None
+            params.pop("aspect_ratio", None)
+            if ratio:
+                params["aspect_ratio"] = ratio
+                derived = f"from images[0], {refs[0].width}×{refs[0].height}"
         self.rec.write(f"{info.folder}/prompt.md", "# Image prompt\n\n" + prompt
-                       + "\n\n## Parameters\n" + "\n".join(f"- {k}: {v}" for k, v in params.items()))
-        images_api = m.get("api", "chat") == "images"
-        body = (images_body(m["id"], prompt, ratio, params.get("quality"), params.get("resolution")) if images_api
+                       + "\n\n## Parameters\n" + "\n".join(f"- {k}: {v}" + (f" ({derived})" if k == "aspect_ratio" and derived else "")
+                                                             for k, v in params.items()) + images_md(lines))
+        body = (images_body(m["id"], prompt, ratio, params.get("quality"), params.get("resolution"),
+                            [p for p in parts if p["type"] == "image_url"]) if images_api
                 else image_body(m["id"], prompt, ratio))
         if not images_api and ("quality" in params or "resolution" in params):
             self.warnings.append(f"step {info.id}: model using the chat API ignores quality/resolution")
@@ -576,8 +610,11 @@ class Run:
                     raise AgencastError("config", f"cannot determine image dimensions ({media}) — cannot verify aspect_ratio")
                 dev = abs(w / h - a / b) / (a / b)
                 if dev > 0.02:
-                    raise AgencastError("config", f"model does not support aspect_ratio {ratio}: image is {w}×{h} "
-                                             f"(deviation {dev:.1%}, allowed 2 %) — no cropping is performed")
+                    msg = (f"model does not support aspect_ratio {ratio}: image is {w}×{h} "
+                           f"(deviation {dev:.1%}, allowed 2 %) — no cropping is performed")
+                    if not derived:
+                        raise AgencastError("config", msg)
+                    self.warnings.append(f"step {info.id}: {msg} (aspect_ratio {derived})")  # our guess, not a config
             return {"file": FileRef(rel, w, h, media.split("/")[1])}, f"<file: {rel}, {len(data)} B>"
 
         t0 = time.monotonic()
@@ -585,7 +622,8 @@ class Run:
             return await self.with_deadline(info, ctx, info.data.get("timeout", DEFAULT_TIMEOUT["image"]), self.call_api(
                 info, ctx, self.leaf_budgets(info, ctx, image=True), endpoint,
                 lambda a, l: (body, {"alias": alias, "model": m["id"], "structured_output": None}),
-                parse, "model_call", on_value, image=True, timeout_key="images" if images_api else "chat"))
+                parse, "model_call", on_value, image=True, timeout_key="images" if images_api else "chat",
+                record=lambda b: redact(b, notes)))
         finally:
             self.image_duration += time.monotonic() - t0
 
@@ -679,8 +717,8 @@ class Run:
             inputs[k] = v
         self.rec.write(f"{info.folder}/inputs.json", inputs)
         sub = copy.copy(self)  # shares record, client, budgets, warnings and step costs (key = path)
-        sub.p = replace(callee, steps={k: replace(s, id=f"{info.id}/{s.id}", dir=f"{info.folder}/")
-                                       for k, s in callee.steps.items()})
+        sub.p = replace(callee, image_models=self.p.image_models,  # 0.18.0: the catalog is fetched once, per run
+                        steps={k: replace(s, id=f"{info.id}/{s.id}", dir=f"{info.folder}/") for k, s in callee.steps.items()})
         sub.inputs, sub.values, sub.defaulted, sub.rows, sub.outputs = inputs, {"inputs": inputs, "steps": {}}, set(), {}, None
         sub.cost = sub.image_cost = sub.image_duration = 0.0
         sub.depth = self.depth + 1

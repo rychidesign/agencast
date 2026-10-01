@@ -72,6 +72,7 @@ models:
   smart:       { id: anthropic/claude-haiku-4.5 }
   fast:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
   gemini-image: { id: google/gemini-3.1-flash-image }
+  gemini-image-api: { id: google/gemini-3.1-flash-image, api: images }   # Images API: reference images (image.images)
 ```
 
 An agent never says "I want Claude Haiku 4.5". It says "I want `smart`".
@@ -212,7 +213,7 @@ config: agents/tutorial-namer.md: missing required field 'model'
 Fix that and write an alias with a typo, `model: smrt`:
 
 ```
-config: agents/tutorial-namer.md: model 'smrt' is not an alias in config.yaml (aliases: smart, fast, gemini-image)
+config: agents/tutorial-namer.md: model 'smrt' is not an alias in config.yaml (aliases: smart, fast, gemini-image, gemini-image-api)
 ```
 
 And in the scenario `agent: namer` (without the prefix):

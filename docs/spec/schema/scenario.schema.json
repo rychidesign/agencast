@@ -633,11 +633,14 @@
             "prompt": {
               "$ref": "#/$defs/template"
             },
+            "images": {
+              "$ref": "#/$defs/images"
+            },
             "aspect_ratio": {
               "anyOf": [
                 {
                   "type": "string",
-                  "pattern": "^[1-9][0-9]*:[1-9][0-9]*$"
+                  "pattern": "^(auto|[1-9][0-9]*:[1-9][0-9]*)$"
                 },
                 {
                   "$ref": "#/$defs/template",

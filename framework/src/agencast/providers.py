@@ -346,7 +346,7 @@ def image_body(model: str, prompt: str, aspect_ratio: str | None) -> dict:
 
 
 def images_body(model: str, prompt: str, aspect_ratio: str | None, quality: str | None = None,
-                resolution: str | None = None) -> dict:
+                resolution: str | None = None, refs: list = ()) -> dict:
     body = {"model": model, "prompt": prompt}
     if aspect_ratio:
         body["aspect_ratio"] = aspect_ratio
@@ -354,6 +354,8 @@ def images_body(model: str, prompt: str, aspect_ratio: str | None, quality: str 
         body["quality"] = quality
     if resolution:
         body["resolution"] = resolution
+    if refs:  # 0.18.0: reference images (edit / compose), image_url parts as in chat messages
+        body["input_references"] = list(refs)
     return body
 
 

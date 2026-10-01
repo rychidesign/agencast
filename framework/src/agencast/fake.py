@@ -71,12 +71,13 @@ class Fake:
         path = request.url.path
         if path.endswith("/images/models"):
             return httpx.Response(200, json={"data": [
-                {"id": m, "architecture": {"output_modalities": ["image"]},
+                {"id": m, "architecture": {"output_modalities": ["image"], "input_modalities": ["text", "image"]},
                  "supported_parameters": {
-                     "aspect_ratio": {"type": "enum", "values": ["1:1", "3:2", "2:3", "4:3", "3:4",
-                                                                       "16:9", "9:16", "21:9", "auto"]},
+                     "aspect_ratio": {"type": "enum", "values": ["1:1", "3:2", "2:3", "4:3", "3:4", "4:5",
+                                                                       "16:9", "9:16", "21:9", "auto"]},  # no 5:4: tests use it as unsupported
                      "quality": {"type": "enum", "values": ["auto", "low", "medium", "high"]},
-                     "resolution": {"type": "enum", "values": ["512", "1K", "2K", "4K"]}}}
+                     "resolution": {"type": "enum", "values": ["512", "1K", "2K", "4K"]},
+                     "input_references": {"type": "range", "min": 0, "max": 14}}}
                 for m in self.image_models]})
         if path.endswith("/models"):
             return httpx.Response(200, json={"data": [

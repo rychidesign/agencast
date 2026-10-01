@@ -19,6 +19,7 @@ DEFAULT_TIMEOUT = {"ask": "2m", "task": "15m", "jev": "30s", "image": "3m"}  # s
 TEMPLATE_FIELDS = [("ask", "prompt"), ("task", "prompt"), ("image", "prompt"), ("jev", "state"),
                    ("image", "aspect_ratio"), ("image", "quality"), ("image", "resolution"),
                    ("ask", "images"), ("ask", "images", "*"), ("task", "images"), ("task", "images", "*"),
+                   ("image", "images"), ("image", "images", "*"),
                    ("jev", "questions", "*", "instructions"), ("jev", "questions", "*", "criteria", "*"),
                    ("fail",), ("output", "*"), ("call", "inputs", "*"), ("dedupe_key",)]
 INPUT_TYPES = {"string": "string", "number": "number", "integer": "number", "boolean": "boolean",
@@ -75,6 +76,7 @@ class Project:
     order: list[StepInfo] = field(default_factory=list)
     callees: dict[str, "Project"] = field(default_factory=dict)  # 3b: scenarios invoked by call steps, by name
     mcp: dict = field(default_factory=dict)  # servers from mcp.yaml
+    image_models: dict = field(default_factory=dict)  # 0.18.0: GET /images/models by id (online validate; else empty)
 
     @property
     def base(self) -> Path:
@@ -327,6 +329,7 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
     chk = _Checker(sc, config, wf, where)
     chk.run()
     errs += chk.errs
+    image_models = []
     if not errs and check_models:
         try:
             models = list_models(config["openrouter"]["base_url"], wf.parent / config["runs_dir"], transport)
@@ -338,7 +341,6 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
             or (config["models"][alias].get("api", "chat") == "chat"
                 and config["models"][alias]["id"] not in models_by_id)
             for alias, need in chk.model_needs.items())
-        image_models = []
         if needs_images:
             try:
                 image_models = list_image_models(config["openrouter"]["base_url"],
@@ -348,7 +350,9 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
         errs += check_models_list(config, chk.model_needs, models, image_models)
     if errs:
         raise ConfigErrors(errs)
-    return chk.project(path)
+    project = chk.project(path)
+    project.image_models = {m["id"]: m for m in image_models}  # aspect-ratio snap and reference limits at run time
+    return project
 
 
 def _read_scenario(path: Path, errs: list) -> dict | None:
@@ -382,7 +386,10 @@ def check_models_list(config: dict, needs: dict, models: list, image_models: lis
             else:
                 if "image" not in m["output_modalities"]:
                     errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not support image output")
-                for requirement in need - {"image"}:
+                refs = m["supported_parameters"].get("input_references")
+                if "references" in need and not (isinstance(refs, dict) and (refs.get("max") or 0) >= 1):
+                    errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not accept reference images (image.images)")
+                for requirement in need - {"image", "references"}:
                     parameter, _, requested = requirement.partition(":")
                     if parameter not in ("aspect_ratio", "quality", "resolution"):
                         continue
@@ -392,7 +399,7 @@ def check_models_list(config: dict, needs: dict, models: list, image_models: lis
                     if values is not None and value not in values:
                         errs.append(f"config.yaml: model '{mid}' (alias {alias}) does not support {parameter} {value}"
                                     + (f" ({source})" if source else ""))
-        chat_need = need - {"image"} - {n for n in need if n.startswith(
+        chat_need = need - {"image", "references"} - {n for n in need if n.startswith(
             ("aspect_ratio:", "quality:", "resolution:"))} if images_api else need
         if not chat_need:
             continue
@@ -693,12 +700,20 @@ class _Checker:
 
     def image(self, info, res):
         im = info.data["image"]
-        if im["model"] not in self.config["models"]:
+        alias_ok = im["model"] in self.config["models"]
+        if not alias_ok:
             self.err(info.id, "image.model", f"'{im['model']}' is not an alias in config.yaml "
                                              f"(aliases: {', '.join(self.config['models'])})")
         else:
             self.need(im["model"], "image")
-        for field, pattern in (("aspect_ratio", r"[1-9][0-9]*:[1-9][0-9]*"),
+        self.images(info, "image", im.get("images"), res)  # 0.18.0: reference images, Images API only
+        if "images" in im and alias_ok:
+            if self.config["models"][im["model"]].get("api", "chat") != "images":
+                self.err(info.id, "image.images", f"reference images need a model alias with api: images "
+                                                  f"('{im['model']}' uses the chat API)")
+            else:
+                self.need(im["model"], "references")
+        for field, pattern in (("aspect_ratio", r"auto|[1-9][0-9]*:[1-9][0-9]*"),
                                ("quality", r"auto|low|medium|high"), ("resolution", r"512|1K|2K|4K")):
             value = im.get(field, self.config["models"].get(im["model"], {}).get("quality")
                            if field == "quality" else None)
@@ -717,7 +732,7 @@ class _Checker:
             if not isinstance(value, str) or not re.fullmatch(pattern, value):
                 self.err(info.id, f"image.{field}", f"invalid value {value!r}"
                          + (f" ({source})" if source else ""))
-            elif im["model"] in self.config["models"]:
+            elif alias_ok and not (field == "aspect_ratio" and value == "auto"):  # ratio auto = follow the reference, never sent
                 self.need(im["model"], f"{field}:{value}" + (f"\t{source}" if source else ""))
         self.template(info, "image.prompt", im["prompt"], res)
         return {"file": "file"}

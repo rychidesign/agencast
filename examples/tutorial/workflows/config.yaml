@@ -13,6 +13,7 @@ models:
   smart:       { id: anthropic/claude-haiku-4.5 }
   fast:       { id: google/gemini-3.5-flash-lite, structured_output: tool_wrapper }
   gemini-image: { id: google/gemini-3.1-flash-image }
+  gemini-image-api: { id: google/gemini-3.1-flash-image, api: images }   # Images API: reference images (image.images)
 
 # Folder with run records (on Modal, a path to the Volume).
 runs_dir: ./runs

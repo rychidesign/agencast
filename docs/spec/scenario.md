@@ -397,9 +397,35 @@ Generates an image via OpenRouter and saves it to the run directory (§5.7).
 |---|---|---|---|---|
 | `model` | yes | Alias of an image model from `config.yaml`. | `config` error. A model alias without image output is caught by `validate` (§5.7). | `model: gemini-image` |
 | `prompt` | yes | Image description (a [template](#templates--)). | `config` error. | |
-| `aspect_ratio` | no | Aspect ratio as the text `"width:height"` or a template `"{{ inputs.aspect_ratio }}"` (for IG `"1:1"` or `"4:5"`). After saving, the framework compares the aspect ratio from the file header; a deviation > 2 % = `config` error (“model does not support aspect_ratio …”), nothing is silently cropped. | Model default (for `gemini-3.1-flash-image` 1408×768). | `aspect_ratio: "4:5"` |
+| `images` | no | Reference images (since 0.18.0): one template or a list of templates, each leading to a `file` or a list of files — the model edits one image or composes a new one in the mood of several, depending on the prompt (refer to them as Image 1, 2, …). Only with an alias that has `api: images` (`input_references` of the Images API; the chat path with references is unverified) — otherwise a `validate` error; at most what the model accepts (`gemini-3.1-flash-image` 14). PNG, JPEG, WebP, GIF; the record keeps `<file: …>`. | Text-to-image. | `images: ["{{ inputs.photo }}"]` |
+| `aspect_ratio` | no | Aspect ratio as the text `"width:height"`, `auto` or a template `"{{ inputs.aspect_ratio }}"` (for IG `"1:1"` or `"4:5"`). `auto` (since 0.18.0) = the aspect ratio of the first reference image in `images`, snapped to the nearest ratio the model supports (from `GET /images/models`; offline a built-in list; a model whose catalog lists no `aspect_ratio` gets none) — without references the model default. After saving, the framework compares the aspect ratio from the file header; a deviation > 2 % = `config` error (“model does not support aspect_ratio …”), nothing is silently cropped; for a ratio derived from a reference it is only a warning in the record. | With references `auto` (since 0.18.0); otherwise the model default (for `gemini-3.1-flash-image` 1408×768). | `aspect_ratio: "4:5"` |
 | `quality` | no | Quality `auto`, `low`, `medium`, `high` or a template. | `models.<alias>.quality`, otherwise the model default. | `quality: "{{ inputs.quality }}"` |
 | `resolution` | no | Resolution as the text `"512"`, `"1K"`, `"2K"`, `"4K"` or a template. | Model default. | `resolution: "1K"` |
+
+Editing an uploaded photo (the ratio follows the photo unless the caller says
+otherwise; `gemini-image-api` is an alias with `api: images`):
+
+```yaml
+version: 1
+name: photo-edit
+description: Re-renders an uploaded photo into a described scene, keeping its aspect ratio unless told otherwise
+inputs:
+  photo: { type: file, required: true }
+  scene: { type: string, required: true }
+  ratio: { type: string, default: auto, description: "auto = follow the photo; e.g. 9:16 overrides" }
+outputs:
+  image: { type: file }
+steps:
+  - id: edit
+    image:
+      model: gemini-image-api
+      prompt: "Keep the subject exactly as in Image 1. New scene: {{ inputs.scene }}"
+      images: ["{{ inputs.photo }}"]
+      aspect_ratio: "{{ inputs.ratio }}"
+  - id: out
+    output:
+      image: "{{ steps.edit.file }}"
+```
 
 Output `steps.<id>.file` — the file `steps/<nn>-<id>/image.png` in the run
 directory. The record never contains base64, only the path (§5.7).

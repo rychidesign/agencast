@@ -294,3 +294,7 @@ the names in the examples are English now:
   unchanged.
 - `files` output: every file is uploaded under `<name>-<i>` and the callback
   carries a list of URLs.
+- `image.images` (reference images; only aliases with `api: images`) and
+  `aspect_ratio: auto`. With references and no explicit ratio the output follows
+  the first reference, snapped to a ratio the model supports; a ratio mismatch is
+  then a warning. Without references nothing changes.
