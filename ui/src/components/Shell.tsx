@@ -14,7 +14,7 @@ const NAV: [Tab, LucideIcon][] = [["scenarios", Workflow], ["agents", Bot], ["ru
 export function Shell({ project, tab, back, offline, children }: { project?: string; tab?: Tab; back?: boolean; offline?: boolean; children: ReactNode }) {
   const desktop = useMedia("(min-width: 1024px)", true);
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen lg:flex xl:pr-[var(--drawer-w,0px)]">
       {desktop ? <Sidebar project={project} tab={tab} back={back || !!project} offline={offline} />
         : <TopBar project={project} tab={tab} back={back || !!project} offline={offline} />}
       <main className="mx-auto w-full max-w-[1240px] min-w-0 px-4 pt-6 pb-28 md:px-6 lg:px-8 lg:pt-8 lg:pb-16">{children}</main>

@@ -128,7 +128,7 @@ test("C4 new scenario with two steps and output", async ({ page, project }) => {
   await expect(picker.getByRole("option")).toHaveText([/^jev\s*cheap Jev decision$/]);
   await picker.press("Enter");
   await expect(card(page, "jev_1")).toHaveAttribute("aria-label", "Step 2: jev jev_1");
-  await expect(card(page, "jev_1")).toContainText("fill in the panel");
+  await expect(card(page, "jev_1")).toContainText("2. jev_1");
   await expect(panel).toContainText("STEP 2");
   await expect(panel.getByRole("combobox", { name: "Step type" })).toHaveValue("jev");
   await expect(live(page)).toHaveText("Added step jev_1.");
@@ -143,7 +143,7 @@ test("C4 new scenario with two steps and output", async ({ page, project }) => {
   await expect(state).toHaveValue("{{ steps.write.text }}");
   await panel.getByRole("button", { name: "Add question" }).click();
   await expect(panel.getByRole("combobox", { name: "Question type for q_1" })).toBeVisible();
-  const key = panel.getByRole("textbox", { name: "Name" });
+  const key = panel.getByRole("textbox", { name: "Name", exact: true });
   await key.fill("ok");
   await key.press("Tab");
   await panel.getByRole("combobox", { name: "Question", exact: true }).fill("Is the text in English and error-free?");
@@ -151,7 +151,8 @@ test("C4 new scenario with two steps and output", async ({ page, project }) => {
   await card(page, "result").click();
   await expect(panel.getByRole("combobox", { name: "text" })).toHaveValue("{{ steps.write.text }}");
   await expect(panel.getByRole("button", { name: /^Condition/ })).toHaveCount(0); // output has no condition (scenario.md)
-  await expect(panel.getByRole("button", { name: /^Step details result/ })).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.getByRole("button", { name: /^Step details/ })).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.getByRole("textbox", { name: "Name (id)" })).toHaveValue("result"); // the name is the first field, not collapsed
 
   const saved = page.waitForResponse((r) => r.url().endsWith("/scenarios/article/batch") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Save" }).click();
@@ -296,7 +297,7 @@ test("C9 file conflict", async ({ page, project }) => {
   fs.writeFileSync(file, text.replace("My version", "Someone else's version"));
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(saveStatus(page)).toHaveText(/^Reloaded from disk \(\d{1,2}:\d{2}\s[AP]M\)$/);
-  await expect(card(page, "write")).toContainText("Someone else's version");
+  await expect(page.getByRole("combobox", { name: "Prompt" })).toHaveValue(/^Someone else's version/);
 
   // a draft of an older version after a page reload
   await page.getByRole("combobox", { name: "Prompt" }).fill("Draft: {{ inputs.topic }}");
@@ -421,7 +422,6 @@ test("C11 parallel and switch", async ({ page, project, server }) => {
   const par = project.yaml<Scn>("scenarios/demo.yaml").steps[1] as unknown as Par;
   expect(Object.keys(par.parallel)).toEqual(["a", "b", "short"]);
   expect(Object.values(par.parallel).map((l) => l.length)).toEqual([1, 1, 1]);
-  await expect(card(page, "parallel_1")).toContainText("a ∥ b ∥ short");
   await expect(card(page, "parallel_1")).toContainText("3 branches, run in parallel");
 
   const collapse = page.getByRole("button", { name: "Collapse parallel_1" });
@@ -499,9 +499,8 @@ test("C12 renaming a step rewrites references", async ({ page, project }) => {
   await panel.getByRole("button", { name: "result", exact: true }).click();
   await expect(page).toHaveURL(/step=result/);
   await card(page, "write").click();
-  await panel.getByRole("button", { name: /^Step details/ }).click();
 
-  const id = panel.getByRole("textbox", { name: "id" });
+  const id = panel.getByRole("textbox", { name: "Name (id)" });
   await id.fill("1");
   await expect(id).toHaveValue(""); // without a leading letter nothing is left
   await expect(panel.getByText("Lowercase letters, digits and _; starts with a letter.")).toBeVisible();
@@ -557,7 +556,7 @@ test("C15 keyboard path without a mouse", async ({ page, project }) => {
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/step=write/);
   const panel = page.getByRole("complementary");
-  await expect(panel.getByRole("combobox", { name: "Step type" })).toBeFocused();
+  await expect(panel.getByRole("textbox", { name: "Name (id)" })).toBeFocused(); // the first field of the panel
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
   await expect(card(page, "write")).toBeFocused();
@@ -615,7 +614,7 @@ test("N1 server not responding", async ({ page, project, server }) => {
   const bar = page.getByTestId("server-bar");
   await expect(bar).toHaveText(`The agencast server is not responding (127.0.0.1:${server.port}), retrying…`);
   await expect(bar).toHaveRole("alert");
-  await expect(card(page, "write")).toContainText("Offline");
+  await expect(page.getByRole("combobox", { name: "Prompt" })).toHaveValue(/^Offline/);
   await expect(saveStatus(page)).toHaveText("Unsaved");
   expect(await page.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith("agencast.draft.")))).toBe(true);
   await page.unroute(/\/projects/);
@@ -631,7 +630,7 @@ test("N6 leaving with unsaved changes", async ({ page, project }) => {
   await page.reload();
   expect(kinds).toContain("beforeunload");
   await expect(saveStatus(page)).toHaveText("Unsaved");
-  await expect(card(page, "write")).toContainText("Unsaved:");
+  await expect(page.getByRole("combobox", { name: "Prompt" })).toHaveValue(/^Unsaved:/);
 
   // a link to another GUI page asks; dismissing = stay
   page.removeAllListeners("dialog");

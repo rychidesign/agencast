@@ -224,8 +224,7 @@ describe("scenario editor", () => {
 
   it("renaming a step that is read asks and saves rename_step with rewritten references", async () => {
     await openEditor("#/p/p/scenarios/s?step=copy");
-    fireEvent.click(await screen.findByRole("button", { name: /Step details/ }));
-    const id = screen.getByRole("textbox", { name: "id" });
+    const id = await screen.findByRole("textbox", { name: "Name (id)" });
     fireEvent.change(id, { target: { value: "text" } });
     fireEvent.blur(id);
     expect(screen.getByRole("dialog").textContent).toContain("Rewrite references in 1 step?");
@@ -244,7 +243,8 @@ describe("scenario editor", () => {
     fireEvent.change(screen.getByRole("combobox", { name: /Prompt/ }), { target: { value: "work in progress" } });
     cleanup();
     await openEditor();
-    expect(screen.getByText(/work in progress/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Step 1: ask copy/ }));
+    expect((screen.getByRole("combobox", { name: /Prompt/ }) as HTMLTextAreaElement).value).toBe("work in progress");
     expect(screen.getByText("Unsaved")).toBeTruthy();
   });
 });

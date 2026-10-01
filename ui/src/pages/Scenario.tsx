@@ -3,7 +3,7 @@
 // only via the Save button / Ctrl+S. Form → YAML converts the in-progress tree to text via `render`;
 // YAML → Form converts the unsaved text via `render` without writing (api-findings.md item 26).
 import { CodeXml, Play, Save } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ApiError, enc, send, useApi } from "../api";
 import { stepLines } from "../components/yaml";
 import { Modal, NameDialog, slugify, type ModalAction } from "../components/form";
@@ -11,7 +11,7 @@ import { RunPanel } from "../components/RunPanel";
 import { Connector, HeaderCard, onColumnKey, StepList, uidOf, type EditCtx, type ListCtx } from "../components/StepCards";
 import { HeaderPanel, StepPanel } from "../components/StepPanel";
 import { ConflictBar, DiffModal, YamlEditor } from "../components/YamlEditor";
-import { BackLink, PageHeader } from "../components/PageHeader";
+import { PageHeader } from "../components/PageHeader";
 import { ErrorText, Loading, SheetContext, Toggle, btn, useMedia, type MenuItem } from "../components/ui";
 import {
   adopt, blankStep, findStep, flat, insert, move, numbered, remove, renameStep, shift, update, type Draft, type WStep,
@@ -58,31 +58,21 @@ export function closeOnEsc(selected: string | undefined) {
   };
 }
 
-export function PanelSlot({ children, wide = false, align }: { children: ReactNode; /** Step panel in a run (design 12: 520 px). */ wide?: boolean; align?: string }) {
-  // Beside the column from 1280 px (design 05, measured from .pen: column up to 676, gap 28, panel 440); narrower = full-screen
-  // sheet (PanelShell), never over the column or over the page header. The panel beside the column (z-20) lies below the sticky
-  // header (z-30), so that the ⋯ menu from the header overlaps it.
+export function PanelSlot({ children, wide = false }: { children: ReactNode; /** Step panel in a run (design 12: 520 px). */ wide?: boolean }) {
+  // From 1280 px a drawer over the full height of the window on the right edge (over the header strip too), with a large blurred
+  // shadow; it reports its width in `--drawer-w`, by which the Shell narrows the page, so the column and the header actions stay
+  // beside it. Not modal: the cards stay clickable. Narrower = full-screen sheet (PanelShell).
   const sheet = useMedia("(max-width: 1279px)");
-  const panel = useRef<HTMLDivElement>(null);
-  const [marginTop, setMarginTop] = useState(0);
+  const width = wide ? 520 : 440;
   useLayoutEffect(() => {
-    if (sheet || !panel.current) return;
-    const row = panel.current.parentElement;
-    const column = row?.querySelector<HTMLElement>("section");
-    if (!row || !column) return;
-    const measure = () => {
-      const card = align ? column.querySelector<HTMLElement>('[data-step-card][aria-pressed="true"]') : null;
-      setMarginTop(card ? card.getBoundingClientRect().top - row.getBoundingClientRect().top : 0);
-    };
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(column);
-    return () => observer.disconnect();
-  }, [align, sheet]);
+    if (sheet) return;
+    const root = document.documentElement.style;
+    root.setProperty("--drawer-w", `${width}px`);
+    return () => void root.removeProperty("--drawer-w");
+  }, [sheet, width]);
   if (sheet) return <SheetContext.Provider value>{children}</SheetContext.Provider>;
   return (
-    <div ref={panel} style={{ marginTop }} className={`z-20 shrink-0 self-start rounded-panel ${wide ? "w-[520px]" : "w-[440px]"}`}>
+    <div style={{ width }} className="drawer-enter drawer-shadow fixed inset-y-0 right-0 z-40 flex flex-col">
       {children}
     </div>
   );
@@ -315,11 +305,11 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
   ];
   // nonexistent scenario: only a title and an error, no Save, toggle or "Saved ✓"
   const missing = form.loadError?.status === 404;
+  const back = { href: href(project, "scenarios"), label: t("project.tab.scenarios") };
   return (
     <div onKeyDown={onKey}>
-      {missing ? <PageHeader back={<BackLink href={href(project, "scenarios")}>{t("project.tab.scenarios")}</BackLink>}
-        title={<span className="font-mono">{scenario}</span>} /> : <PageHeader sticky
-        back={<><BackLink href={href(project, "scenarios")}>{t("project.tab.scenarios")}</BackLink><Trail project={project} trail={trail} /></>}
+      {missing ? <PageHeader back={back} title={<span className="font-mono">{scenario}</span>} /> : <PageHeader sticky
+        back={back} trail={trail && <Trail project={project} trail={trail} />}
         title={<span className="font-mono md:text-[27px] md:leading-[41px]">{scenario}</span>}
         description={work?.header.description && <span className="text-[13px] leading-5">{work.header.description}</span>}
         actions={<>
@@ -372,13 +362,13 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
               </PanelSlot>
             )}
             {!running && selected === HEADER_KEY && (
-              <PanelSlot align={selected}>
+              <PanelSlot>
                 <HeaderPanel name={scenario} header={work.header} errors={fileErrors.filter((e) => !e.step)} onClose={() => setQuery({ step: undefined })}
                   change={(fn, key) => form.change((d: Draft) => ({ ...d, header: fn(d.header) }), key && `h:${key}`)} />
               </PanelSlot>
             )}
             {!running && step && p && (
-              <PanelSlot align={selected}>
+              <PanelSlot>
                 <StepPanel key={step.uid} step={step} steps={steps} header={work.header} project={p} scenario={scenario}
                   errors={byStep.get(step.id) ?? []} onClose={() => setQuery({ step: undefined })} onSelect={(id) => setQuery({ step: id })}
                   edit={{

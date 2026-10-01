@@ -8,10 +8,10 @@ import { btn, trapTab, usePopoverPosition } from "./ui";
 import { Expression } from "./yaml";
 
 const selectArrow = "[&:is(select)]:appearance-none [&:is(select)]:bg-[linear-gradient(45deg,transparent_50%,var(--color-fg-muted)_50%),linear-gradient(135deg,var(--color-fg-muted)_50%,transparent_50%)] [&:is(select)]:bg-[size:8px_8px] [&:is(select)]:bg-[position:calc(100%-25px)_55%,calc(100%-17px)_55%] [&:is(select)]:bg-no-repeat [&:is(select)]:pr-10";
-/** Field (design `V3 / TextInput`, measured from .pen): 44 px, `nested`, r6, no border at rest; focus ring 2 `accent`
+/** Field (design `V3 / TextInput`): 36 px with a mouse, 44 px on touch (like buttons), `nested`, r6, no border at rest; focus ring 2 `accent`
  *  without offset, invalid ring 2 `error`. */
 export const inputCls =
-  `w-full min-h-11 rounded-[6px] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-0 aria-invalid:ring-2 aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:text-base [&:is(textarea)]:p-3 ${selectArrow}`;
+  `w-full min-h-9 rounded-[6px] bg-nested px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-0 aria-invalid:ring-2 aria-invalid:ring-error aria-invalid:focus:ring-error disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:text-base [&:is(textarea)]:p-3 ${selectArrow}`;
 const mono = "font-mono text-[13px]";
 
 /** Field properties from `FormField`; `label` only for `boxed` (label in the `CodeBox` toolbar). */
@@ -51,9 +51,9 @@ export function FormField({ label, help, errors = [], required, children, action
   );
 }
 
-/** "+ Add …" to the right of a section label: secondary button (design 09, measured from .pen). */
+/** "+ Add …" to the right of a section label (`btn.add`). */
 export const AddPill = ({ label, onClick }: { label: string; onClick: () => void }) => (
-  <button type="button" onClick={onClick} className={btn.secondary}>
+  <button type="button" onClick={onClick} className={btn.add}>
     <Plus className="size-4" aria-hidden />{label}
   </button>
 );
@@ -212,7 +212,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
   };
   const variableButton = (
     <button
-      ref={variableRef} type="button" className="grid size-11 shrink-0 place-items-center text-variable hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:size-[18px]"
+      ref={variableRef} type="button" className="grid size-9 shrink-0 place-items-center text-variable pointer-coarse:size-11 hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:size-[18px]"
       aria-label={t("form.variables.insert")} title={candidates.length ? t("form.variables.insert") : t("form.variables.none")}
       aria-haspopup="menu" aria-expanded={variablesOpen} aria-controls={menuId} disabled={!candidates.length}
       onClick={() => (setVariableActive(0), setVariablesOpen((isOpen) => !isOpen))}
@@ -263,7 +263,7 @@ export function CodeInput({ value, onChange, candidates, template = false, multi
     </div>
   );
   if (!multiline) return (
-    // `V3 / VariableInput`: a single 44 px box, `{}` inside on the right without fill and without border
+    // `V3 / VariableInput`: a single box as tall as a field, `{}` inside on the right without fill and without border
     <div ref={root} className="relative">
       <input {...props} className={`${inputCls.replace("text-fg ", clearText)} ${mono} pr-12`} />
       <div aria-hidden className={`pointer-events-none absolute inset-0 flex items-center px-3 py-2 pr-12 text-sm text-fg ${mono} pointer-coarse:text-base`}>
@@ -529,7 +529,7 @@ export function ValueInput({ type, value, onChange, a11y }: {
 }) {
   switch (type) {
     case "boolean":
-      return <label htmlFor={a11y.id} className="inline-flex size-11 items-center justify-center"><input {...a11y} type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} /></label>;
+      return <label htmlFor={a11y.id} className="inline-flex size-9 items-center justify-center pointer-coarse:size-11"><input {...a11y} type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} /></label>;
     case "number":
     case "integer":
       return (

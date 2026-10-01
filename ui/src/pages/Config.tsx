@@ -187,7 +187,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
         </div>
       </Section>
       </div>
-      <Section title={t("config.models")} action={<button type="button" className={btn.secondary} aria-label={`+ ${t("config.addAlias")}`} onClick={() => {
+      <Section title={t("config.models")} action={<button type="button" className={btn.add} aria-label={`+ ${t("config.addAlias")}`} onClick={() => {
         let n = 1;
         while (`model-${n}` in models) n++;
         put("models", { ...models, [`model-${n}`]: { id: "" } });
@@ -199,7 +199,7 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
             return (
               <li key={alias} className="space-y-4 rounded-[10px] bg-group p-4">
                 <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(120px,1fr)_minmax(220px,2fr)_minmax(100px,0.7fr)_minmax(110px,0.7fr)]">
-                  <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">{t("config.alias")}</span><div className="flex min-h-11 min-w-0 items-center">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
+                  <div className="min-w-0 space-y-1"><span className="text-[13px] font-medium text-fg-secondary">{t("config.alias")}</span><div className="flex min-h-9 min-w-0 items-center pointer-coarse:min-h-11">{users.length ? <span className="truncate px-3 font-mono text-sm" title={alias}>{alias}</span>
                     : <KeyInput name={alias} taken={Object.keys(models)} label={t("config.alias")} pattern={KEBAB} normalize={slugify} hint={t("config.aliasRule")}
                       onRename={(to) => put("models", Object.fromEntries(Object.entries(models).map(([k, v]) => [k === alias ? to : k, v])))} />}</div></div>
                   <div className="min-w-0 space-y-1"><label className="block text-[13px] font-medium text-fg-secondary" htmlFor={`model-${alias}`}>{t("config.modelId", { alias: "" }).trim()}</label><input id={`model-${alias}`} aria-label={t("config.modelId", { alias })} className={`${inputCls} font-mono`} placeholder="anthropic/claude-haiku-4.5"

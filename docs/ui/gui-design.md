@@ -66,18 +66,19 @@ Projects  (#/)                                   list from the registry, sidebar
   the conflict check are refreshed immediately; while the page is hidden the conflict check is paused.
 - **Below 1024 px** the top bar has the logo and the project name. The project navigation opens from a 56 px FAB
   at the bottom right into a menu above the button; it has “← Projects”, 48 px items, the spend and the language switch. The FAB is on every page (also the project list and 404) because the menu holds the language switch.
-- **Content responsiveness** (verified at 768 / 1024 / 1440 px): the scenario editor has the panel next to the column of cards
+- **Content responsiveness** (verified at 768 / 1024 / 1440 px): the scenario editor has the panel as a drawer on the right
   only from 1280 px (sidebar 232 + column + panel 440); a narrower screen shows a bottom sheet with 16 px top corners,
   a shadow and a max height of `100dvh - 48px` (on a tablet at most 720 px wide), always with a close cross and Esc. Agents and Skills have
   the list next to the editor from 1100 px; a narrower screen shows only cards and opens the editor in a bottom sheet. The runs table scrolls horizontally (min. 46rem), the row
   of a model alias in Config wraps. Popovers are in a portal in `body`, fit into the viewport with a 12 px margin
   and open downwards or upwards depending on the space, even from inside a transformed card or sheet.
-- **Page header** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4, fidelity §1): above the title
-  an optional back link (12 px); H1 28/42 regular (measured from the .pen) + `meta` (error chip, run status), below it a
+- **Page header** (`PageHeader`, `ui/src/components/PageHeader.tsx`, G1–G4, fidelity §1): an optional back link,
+  from 768 px only a ← arrow before the title (36 px ghost), narrower a “← Scenarios” row (12 px) above it; breadcrumbs
+  (`trail`) stay in the row above the title; H1 28/42 regular (measured from the .pen) + `meta` (error chip, run status), below it a
   one-line description 14 `fg-secondary` and `detail` 8 px under the title (mono 13 `fg-muted`: run_id); on the right
-  at most a primary + one secondary button (44 px) and a ⋯ “More actions” menu with the rest (dangerous items
-  last) as an icon button `bg-control` 44 × 44; a standalone icon button in the header is
-  `headerIconBtn` (44 × 44). 24 px below the header; a second row for the mode toggle and the save
+  at most a primary + one secondary button (36 px, 44 on touch) and a ⋯ “More actions” menu with the rest (dangerous
+  items last) as an icon button `bg-control` 36 × 36; a standalone icon button in the header is
+  `headerIconBtn` (36 × 36). 24 px below the header; a second row for the mode toggle and the save
   status or tabs. In the editor and the run detail the header is sticky and reports its height
   in `--page-header-h` (for the card offset when jumping to a step).
 - Headers by page:
@@ -100,7 +101,7 @@ Projects  (#/)                                   list from the registry, sidebar
     “There's nothing at this address.”, the sentence “Go back to the project overview and continue from there.” and a primary
     “← Projects”.
   - **Server token** (design V3 / 01): a 420 px card, radius 16, padding 32; logo, title 28, help,
-    a 44 px field with a lock and a Show token / Hide token toggle, the error as a `text-error` chip, a primary
+    a 36 px field (44 on touch) with a lock and a Show token / Hide token toggle, the error as a `text-error` chip, a primary
     “✓ Save” and below it the server address mono 12; the language switch is also here (§1.2).
 
 ### 1.2 Language (English by default, optional Czech)
@@ -193,30 +194,29 @@ Draft IG post for approval
       (    caption, hashtags, image                                              )
                                     (+)
 ```
-Pill (fidelity §6, measured from the .pen): `surface`, height 96, padding 16, gap 14; hover `surface-hover`, selection only by the `surface-active` fill (no border). On the left the sequence number mono 11 `fg-muted` (editor only), then a 40 px circle with a `type/7` fill and a 16 px type icon `type`. Texts (gap 4): the row `type · id` mono 11 `type` in lowercase (+ an optional error dot), title 15/22 semibold `fg` (an empty step “fill in the panel” normal `fg-muted`), the third row mono 12 `fg-secondary` with a complement and the condition `· when …`. On the right ⋯ without a fill inside the pill. In a run the circle holds a status icon, the third row shows “12.4 s · 0.0210 USD” (for containers and `call` after the description) and on the right an 11 px status. A new step gets the id `<type>_<n>`. Title and third row by type (`steps.ts` `stepLines`):
+Pill (fidelity §6): `surface`, height 72, padding 16, gap 14; hover `surface-hover`, selection only by the `surface-active` fill (no border). On the left a 40 px circle with a `type/7` fill and a 16 px type icon `type`. Texts (gap 2): the row `type · complement` mono 11 `type` in lowercase (+ with a condition only the mark “◇ conditional”, the expression in its tooltip, + an optional error dot), then **the name `n. id`** 15/22 semibold `fg` (not mono; the sequence number `fg-muted` is part of the name). The prompt, messages and the condition expression are not on the card — they are in the panel. On the right ⋯ without a fill inside the pill. In a run the circle holds a status icon, below the name the run value (model, answers, error, skip reason) 13/19 on up to 2 lines, the last row “12.4 s · 0.0210 USD” and on the right an 11 px status. Container heads have the same rows. A new step gets the id `<type>_<n>`. Complement by type (`steps.ts` `stepDetail`):
 
-| Type | Title | Third row |
-|---|---|---|
-| ask, task | “prompt…” | agent |
-| jev | “first question” | type · “+1 question” |
-| image | “prompt…” | alias · aspect ratio · quality · resolution |
-| call | `→ ig-text` | N inputs |
-| set | value names | — |
-| fail | message | — |
-| parallel | `short ∥ long` (container) | N branches, run in parallel |
-| switch | `by steps.tone_check.kind: product, sale, otherwise` (container) | — |
-| output | output names | — |
+| Type | Complement |
+|---|---|
+| ask, task | agent |
+| jev | type · “+1 question” |
+| image | alias · aspect ratio · quality · resolution |
+| call | scenario · N inputs |
+| parallel | N branches, run in parallel |
+| set, fail, switch, output | — |
 
-**Connector:** a 16 px `fg-muted` arrow ↓, height 44, which on hover or focus turns into a 44 px (+) circle `surface` (hover `control`); a cut step keeps the (+) visible with `ring-accent`. Below the main column are the secondary 44 px buttons “+ Add step” and “+ output” side by side, centred; at the end of the branches a (+) stays permanently visible. TypePicker: `surface` r12, 40 px items, keyword mono 13 `fg` + description 13 `fg-muted`, active `surface-active`. Column up to 676 px, panel 440 px, gap 28 (measured from the .pen). The header card is a rectangle r14 p22 with a 24 icon, the title “HEADER” 21 px, below it the inputs row by row (icon `{x}` `variable`, name, “required” and type, like Start in Dify) and a row of outputs mono 13; the selected one has an `accent` ring. The ⋯ menu has “Insert step above / below”. Container cards (`parallel`, `switch`, `call`) have a wrapper and a main card with the `card` radius. In a run the status icon replaces the number; the running icon pulses only when motion is allowed, skipped and not-reached steps have 40 % opacity.
+**Connector:** a 16 px `fg-muted` arrow ↓, height 44, which on hover or focus turns into a 44 px (+) circle `surface` (hover `control`); a cut step keeps the (+) visible with `ring-accent`. Below the main column are the secondary 44 px buttons “+ Add step” and “+ output” side by side, centred; at the end of the branches a (+) stays permanently visible. TypePicker: `surface` r12, 40 px items, keyword mono 13 `fg` + description 13 `fg-muted`, active `surface-active`. Column up to 676 px, panel 440 px, gap 28 (measured from the .pen). The header card is a rectangle r14 p22 with a 24 icon, the title “HEADER” 21 px, below it the inputs row by row (icon `{}` `variable` — the same as the insert-variable button in fields, name, “required” and type, like Start in Dify) and a row of outputs mono 13; the selected one has an `accent` ring. The ⋯ menu has “Insert step above / below”. Container cards (`parallel`, `switch`, `call`) have a wrapper and a main card with the `card` radius. In a run the status icon replaces the type icon; the running icon pulses only when motion is allowed, skipped and not-reached steps have 40 % opacity.
 
 **Deleting a step:** ⋯ on the card → a red “Delete” with the Del shortcut on the right, the trash in the header of the open panel, or the Delete key on a focused card. There is no separate trash next to the card; the delete protection from §4.3 applies unchanged. The header card is not deleted. Other shortcuts in the menu are on the right as a muted hint (hidden on touch; ⌘/⌥ on Mac).
 
-**Panel** (V3: `bg-surface`, panel radius 16, padding 20; from 1280 px in the page flow next to the column, its top edge at the selected card and without its own scroll, a narrower screen = a sheet at the bottom over the column with a close cross, see §1.1):
+**Panel** (V3: `bg-surface`, padding 20; from 1280 px a drawer on the right edge over the full window height, over the header strip too, with a large blurred shadow to the left (`--shadow-drawer`); it reports its width in `--drawer-w` and the Shell narrows the page by it, so the column and the header actions stay beside it; not modal (the cards stay clickable), its body scrolls, a narrower screen = a sheet at the bottom over the column with a close cross, see §1.1):
 
 ```
 ┌ STEP 2 · JEV                                🗑   ✕ ┐
 │ tone_check                                        │
 │                                                   │
+│ Name (id)                                         │
+│ [tone_check                                      ]│
 │ Step type                                         │
 │ [jev                                            ▾]│
 │ State                                             │
@@ -229,15 +229,16 @@ Pill (fidelity §6, measured from the .pen): `surface`, height 96, padding 16, g
 │ ──────────────────────────────────────────────────│
 │ Reliability                             default  ›│
 │ ──────────────────────────────────────────────────│
-│ Step details                         tone_check  ›│
+│ Step details                                     ›│
 └───────────────────────────────────────────────────┘
 ```
-- **PanelShell** (redesign V3, measured from the .pen): header padding 20 with a line (panel icon 16, eyebrow mono 10 px uppercase `letter-spacing 0.08em` `fg-muted` “STEP n · TYPE” — also the accessible name of the panel, title 18 semibold = the step id in mono, on the right trash and close as a 44 px ghost, also Esc), body padding 20, field gap 18. The step type is the first form field (a select with options such as “ask · single agent call” — a mono key + description), not the title. Fields without framed info boxes, one 12 px help line below the field (G11). Map rows (Jev questions, `set` values, header inputs/outputs) are separated by a hairline, header inputs and outputs as nested `nested` r8 p14 cards: key (`KeyInput`, mono) + remove (`Trash2`), below it the fields; “+ Add …” as a secondary button next to the label (accessible name “Add …”).
+- **PanelShell** (redesign V3, measured from the .pen): header padding 20 with a line (panel icon 16, eyebrow mono 10 px uppercase `letter-spacing 0.08em` `fg-muted` “STEP n · TYPE” — also the accessible name of the panel, title 18 semibold = the step id (not mono, like the name on the card), on the right trash and close as a 36 px ghost (44 on touch), also Esc), body padding 20, field gap 18. The step type is the first form field (a select with options such as “ask · single agent call” — a mono key + description), not the title. Fields without framed info boxes, one 12 px help line below the field (G11). Map rows (Jev questions, `set` values, header inputs/outputs) are separated by a hairline, header inputs and outputs as nested `nested` r8 p14 cards: key (`KeyInput`, mono) + remove (`Trash2`), below it the fields; “+ Add …” next to the label as text only in `type` (#8BDCDF), 14 medium, without a fill, `surface-hover` on hover (`btn.add`) (accessible name “Add …”); the same style for “+ Add alias” in Config and “+ case” / “+ branch” in a container card.
 - **Scenario header** (`HeaderPanel`, eyebrow “HEADER”, title = the scenario name in mono as in the Run panel): description, Inputs and Outputs as rows (inline name, type, for an input required / default value, description, remove) and a “Callable” toggle with an explanation below it.
 - As in Buzz: the type field on top, common things at the bottom in three collapsed rows (value on the right in grey, a hairline between them). A row expands in place (accordion, the chevron rotates) so the panel context stays.
 - **Condition:** the collapsed row shows `always` or a shortened expression (`steps.tone_check.on_brand < 0.7`); expanded = `ExprInput` + the help “If it evaluates to false, the step is skipped; any step that reads its output needs a default.” There is no such row for `output`.
 - **Reliability:** timeout, budget_usd, retry, on_error, default; only for the types from the table in §3 of the spec.
-- **Step details:** id (rename with a check of `refs` and an offer to rewrite references), “Reads from” and “Output read by” as chips (a click jumps to the card), the “Open in YAML” link (jumps to the step's line).
+- **Name (id)** is the first field of the panel (rename with a check of `refs` and an offer to rewrite references); the card shows it as the name of the step.
+- **Step details:** “Reads from” and “Output read by” as chips (a click jumps to the card), the “Open in YAML” link (jumps to the step's line).
 - A validation error is right below the card and at the field in the panel.
 
 ### 2.4 `parallel`, `switch`, `call` cards
@@ -282,7 +283,7 @@ Steps · Summary · Report · Files                                             
 ```
 Header (G10, measured from the .pen): title = the scenario in mono 26 with a ↗ icon (a link to the editor), 8 px below it the run_id mono 13 `fg-muted`; on the right the status chip (+ “fake run”), mono 13 “32.4 s · 0.0812 USD” and a secondary “Open scenario”. Inputs as a `bg-nested` r8 p14 card: the label “INPUTS” 10 px + values mono 12 on one line (in full in `title`). Tabs 47 px, 13 medium. A queued run shows “queued (#N)” and an empty state of 380 px; the dry run plan in a card with the eyebrow “RUN PLAN”. Tabs underlined across the full width, “follow run” on the right on the same line. “follow run” only while the run is alive; the message “Run finished: …” only for the screen reader (`role="status"`), the hint of an interrupted run visible. The same cards as in the editor: the circle holds a status icon instead of the number, on the right mono duration · cost with tabular figures. Skipped and not-reached steps are muted to 40 %, the running icon pulses only when motion is allowed. Panel by type: `ask`/`task` Prompt (prompt.md), Response, Output (output.json), Calls (attempts, turns, tokens, `finish_reason`, cascade level), and for `task` also Tools (`tool_call`, denied and invalid arguments highlighted); `image` preview + prompt; `jev` answers with probabilities; `call` expands right in the card into nested cards (`propose/copy`); `set` values; `output` values + URLs of uploaded files. A skipped step: the reason and “default used”. A warning (`continued: true`) = a `text-warning` triangle + text below the card. Tabs: Summary = the rendered summary.md, Report = report.html in a sandboxed iframe, Files = a tree from `files` with a text/JSON/PNG viewer.
 
-**Step panel in a run** (redesign V3, measured from the .pen; width 520): the same PanelShell (eyebrow “STEP n · type”, title = the step path in mono). Status row: a status chip + mono 11 “12.4 s · 0.0210 USD” + “3 turns · 2 tool calls”; below it the text of a skip / warning / error. Tabs 44 px, 13 px (`role="tablist"`, active `fg` + `border-accent`, inactive `fg-muted`); “Calls (n)” carries the count. Prompt, Output and Response are a `CodeBlock` (r16, a header with `{}` 18 + the file name mono 13 + a “Read-only” chip, `nested` body with 27 px rows and mono 12 `fg-muted` numbers, a footer “JSON · read-only” + an outlined “Copy”); step files are `nested` r8 52 px rows (icon + path mono 12 + ↗) leading to the Files tab; Jev answers = key mono, value tabular, a 0–1 bar (`bg-nested` / `accent`); calls and tools as `bg-nested` rows with the control radius, errors `bg-error/10` with red text; the image with rounded corners; the list of files as mono links to the Files tab; an empty tab “Nothing to show.” The **Files** tab in the run detail: a tree on the left 300 px in a `surface` r10 p12 card (mono 12 items with a folder/file icon, the selected file `surface-active`), the viewer on the right in a `surface` r12 padding 24 card: the path, for Markdown a Preview | Code toggle (preview = rendered Markdown), otherwise a code block or an image; the report unchanged in a sandboxed iframe.
+**Step panel in a run** (redesign V3, measured from the .pen; width 520): the same PanelShell (eyebrow “STEP n · type”, title = the step path, not mono). Status row: a status chip + mono 11 “12.4 s · 0.0210 USD” + “3 turns · 2 tool calls”; below it the text of a skip / warning / error. Tabs 44 px, 13 px (`role="tablist"`, active `fg` + `border-accent`, inactive `fg-muted`); “Calls (n)” carries the count. Prompt, Output and Response are a `CodeBlock` (r16, a header with `{}` 18 + the file name mono 13 + a “Read-only” chip, `nested` body with 27 px rows and mono 12 `fg-muted` numbers, a footer “JSON · read-only” + an outlined “Copy”); step files are `nested` r8 52 px rows (icon + path mono 12 + ↗) leading to the Files tab; Jev answers = key mono, value tabular, a 0–1 bar (`bg-nested` / `accent`); calls and tools as `bg-nested` rows with the control radius, errors `bg-error/10` with red text; the image with rounded corners; the list of files as mono links to the Files tab; an empty tab “Nothing to show.” The **Files** tab in the run detail: a tree on the left 300 px in a `surface` r10 p12 card (mono 12 items with a folder/file icon, the selected file `surface-active`), the viewer on the right in a `surface` r12 padding 24 card: the path, for Markdown a Preview | Code toggle (preview = rendered Markdown), otherwise a code block or an image; the report unchanged in a sandboxed iframe.
 
 ### 2.6 Run list
 

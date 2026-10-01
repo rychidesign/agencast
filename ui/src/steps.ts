@@ -5,50 +5,27 @@ import type { Step } from "./types";
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (v && typeof v === "object" && !Array.isArray(v) ? (v as Obj) : {});
 const str = (v: unknown) => (typeof v === "string" ? v : "");
-/** Join several lines into one (card rows are ellipsized). */
-const line = (s: string) => s.replace(/\s+/g, " ").trim();
-const quote = (s: string) => (s ? t("common.quoted", { text: line(s) }) : "");
-const keys = (v: unknown) => Object.keys(obj(v)).join(", ");
 
-/** Title and third line of the pill (fidelity §6); an empty title = the step has no value yet ("fill in the panel"). */
-export function stepLines(step: Step): { title: string; detail: string } {
-  const body = step.type ? step.fields[step.type] : undefined;
-  const b = obj(body);
+/** The `type · detail` line of the pill (fidelity §6): who does the work and with what; the prompt and the condition stay in the panel. */
+export function stepDetail(step: Step): string {
+  const b = obj(step.type ? step.fields[step.type] : undefined);
   const join = (...xs: string[]) => xs.filter(Boolean).join(" · ");
   switch (step.type) {
     case "ask":
     case "task":
-      return { title: quote(str(b.prompt)), detail: str(b.agent) };
+      return str(b.agent);
     case "jev": {
       const qs = Object.values(obj(b.questions)).map(obj);
-      if (!qs.length) return { title: "", detail: "" };
-      return {
-        title: quote(str(qs[0].instructions)),
-        detail: join(str(qs[0].type), qs.length > 1 ? t("step.value.moreQuestions", { n: qs.length - 1 }) : ""),
-      };
+      return qs.length ? join(str(qs[0].type), qs.length > 1 ? t("step.value.moreQuestions", { n: qs.length - 1 }) : "") : "";
     }
     case "image":
-      return { title: quote(str(b.prompt)), detail: join(str(b.model), str(b.aspect_ratio), str(b.quality), str(b.resolution)) };
+      return join(str(b.model), str(b.aspect_ratio), str(b.quality), str(b.resolution));
     case "call":
-      return b.scenario
-        ? { title: `→ ${str(b.scenario)}`, detail: t("step.value.inputs", { n: Object.keys(obj(b.inputs)).length }) }
-        : { title: "", detail: "" };
-    case "set":
-    case "output":
-      return { title: keys(body), detail: "" };
-    case "fail":
-      return { title: line(str(body)), detail: "" };
-    case "parallel": {
-      const names = Object.keys(step.branches ?? {});
-      return { title: names.join(" ∥ "), detail: t("step.parallel.meta", { n: names.length }) };
-    }
-    case "switch": {
-      const cases = Object.keys(step.cases ?? {});
-      if (step.default?.length) cases.push(t("step.switch.else"));
-      return { title: `${t("step.value.by", { value: str(b.value) })}: ${cases.join(", ")}`, detail: "" };
-    }
+      return b.scenario ? join(str(b.scenario), t("step.value.inputs", { n: Object.keys(obj(b.inputs)).length })) : "";
+    case "parallel":
+      return t("step.parallel.meta", { n: Object.keys(step.branches ?? {}).length });
     default:
-      return { title: "", detail: "" };
+      return "";
   }
 }
 

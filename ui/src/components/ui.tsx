@@ -9,15 +9,18 @@ import { t } from "../i18n";
 import type { ErrorItem } from "../types";
 import { highlight } from "./yaml";
 
-// Dimensions measured from .pen (1440 screens): button 44 px, padding 0 18, radius 10; icon buttons 44 × 44.
+// Buttons 36 px with a mouse, 44 px on touch (`pointer-coarse:`); padding 0 18, radius 10; icon buttons square.
 export const btn = {
-  primary: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-accent px-[18px] text-sm font-semibold whitespace-nowrap text-ink hover:bg-fg disabled:opacity-50",
-  secondary: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-control px-[18px] text-sm font-semibold whitespace-nowrap text-fg hover:bg-control-hover disabled:opacity-50",
-  danger: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] bg-danger px-[18px] text-sm font-semibold whitespace-nowrap text-error hover:bg-danger-hover disabled:opacity-50",
-  ghost: "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-button)] px-[18px] text-sm font-semibold whitespace-nowrap text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50",
-  icon: "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] bg-control text-fg hover:bg-control-hover disabled:opacity-50",
+  primary: "inline-flex h-9 shrink-0 items-center justify-center pointer-coarse:h-11 gap-2 rounded-[var(--radius-button)] bg-accent px-[18px] text-sm font-semibold whitespace-nowrap text-ink hover:bg-fg disabled:opacity-50",
+  secondary: "inline-flex h-9 shrink-0 items-center justify-center pointer-coarse:h-11 gap-2 rounded-[var(--radius-button)] bg-control px-[18px] text-sm font-semibold whitespace-nowrap text-fg hover:bg-control-hover disabled:opacity-50",
+  danger: "inline-flex h-9 shrink-0 items-center justify-center pointer-coarse:h-11 gap-2 rounded-[var(--radius-button)] bg-danger px-[18px] text-sm font-semibold whitespace-nowrap text-error hover:bg-danger-hover disabled:opacity-50",
+  ghost: "inline-flex h-9 shrink-0 items-center justify-center pointer-coarse:h-11 gap-2 rounded-[var(--radius-button)] px-[18px] text-sm font-semibold whitespace-nowrap text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50",
+  icon: "grid size-9 shrink-0 place-items-center rounded-[var(--radius-button)] pointer-coarse:size-11 bg-control text-fg hover:bg-control-hover disabled:opacity-50",
+  /** Contextual "+ Add …" next to a section label or at the end of a container: text only in `type`, a surface only on hover;
+   *  always right-aligned, `-mr-2` puts the text on the edge of the fields below. */
+  add: "-mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[var(--radius-button)] px-2 text-sm font-medium whitespace-nowrap text-type hover:bg-surface-hover disabled:opacity-50 pointer-coarse:h-11",
   /** ⋯ on cards (design: no fill, a surface only on hover / when open). */
-  iconGhost: "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg hover:bg-control aria-expanded:bg-control disabled:opacity-50 [&>svg]:size-[18px]",
+  iconGhost: "grid size-9 shrink-0 place-items-center rounded-[var(--radius-button)] pointer-coarse:size-11 text-fg hover:bg-control aria-expanded:bg-control disabled:opacity-50 [&>svg]:size-[18px]",
 };
 
 // --- layout and dialogs -----------------------------------------------------------------------
@@ -233,7 +236,7 @@ export function CliLine({ cmd, className = "" }: { cmd: string; className?: stri
 }
 
 /** Copy in the code block footer: transparent with an outline (design 12 "Code actions"). */
-export const copyBtn = "inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--radius-button)] px-3.5 text-sm font-semibold text-fg ring-1 ring-fg-muted/70 hover:bg-control";
+export const copyBtn = "inline-flex h-9 shrink-0 items-center gap-2 rounded-[var(--radius-button)] px-3.5 text-sm font-semibold text-fg ring-1 pointer-coarse:h-11 ring-fg-muted/70 hover:bg-control";
 
 /** Code block header: icon 18 + mono 13 name + chip (r6, outline), p 14 18 with a line (design 12, measured from .pen). */
 export function CodeHead({ icon: Icon = Braces, name, chip }: { icon?: LucideIcon; name: string; chip: ReactNode }) {
@@ -369,7 +372,7 @@ export function TabLinks({ tabs, active, label }: { tabs: { key: string; label: 
   );
 }
 
-/** Segmented Form / `<>` YAML toggle (§3 `FormYamlToggle`; design 05, measured from .pen: r9 p4 wrapper, 44 px r7 segment, 13 px). */
+/** Segmented Form / `<>` YAML toggle (§3 `FormYamlToggle`): r9 p4 wrapper, r7 segment 28 px (44 on touch), 13 px — as tall as a button. */
 export function Toggle<K extends string>({ value, options, onChange, label }: {
   value: K; options: { key: K; label: ReactNode; /** Reason why switching is not possible (tooltip and screen reader text). */ disabled?: string }[];
   onChange: (k: K) => void; label: string;
@@ -380,7 +383,7 @@ export function Toggle<K extends string>({ value, options, onChange, label }: {
         <button
           key={o.key} type="button" role="radio" aria-checked={o.key === value} aria-disabled={!!o.disabled || undefined}
           title={o.disabled} aria-description={o.disabled} onClick={() => !o.disabled && onChange(o.key)}
-          className={`inline-flex h-11 items-center gap-2 rounded-[7px] px-3.5 text-[13px] ${o.key === value ? "bg-accent text-ink" : o.disabled ? "cursor-not-allowed text-fg-muted opacity-50" : "text-fg-muted hover:text-fg"}`}
+          className={`inline-flex h-7 items-center gap-2 rounded-[7px] px-3 text-[13px] pointer-coarse:h-11 pointer-coarse:px-3.5 ${o.key === value ? "bg-accent text-ink" : o.disabled ? "cursor-not-allowed text-fg-muted opacity-50" : "text-fg-muted hover:text-fg"}`}
         >
           {o.label}
         </button>

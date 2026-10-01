@@ -64,14 +64,14 @@ test("P5 basic controls keep the design sizes", async ({ page, project }) => {
   await page.goto("/");
   const add = page.getByRole("button", { name: "Add project" }).first();
   await expect(add).toBeVisible();
-  // .pen: screen buttons 44 px, radius 10; card ⋯ ghost with a 44 px click area
-  expect(await add.evaluate((el) => ({ height: el.getBoundingClientRect().height, radius: getComputedStyle(el).borderRadius }))).toEqual({ height: 44, radius: "10px" });
+  // with a mouse buttons 36 px, radius 10; card ⋯ ghost with a 36 px click area (44 on touch, mobile.spec)
+  expect(await add.evaluate((el) => ({ height: el.getBoundingClientRect().height, radius: getComputedStyle(el).borderRadius }))).toEqual({ height: 36, radius: "10px" });
   const menu = page.getByRole("button", { name: `Actions for ${project.name}` });
-  expect(await menu.evaluate((el) => el.getBoundingClientRect().width)).toBe(44);
+  expect(await menu.evaluate((el) => el.getBoundingClientRect().width)).toBe(36);
   await expect(menu).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 
   await page.goto(`/#/p/${project.name}/config`);
   const field = page.locator("input:not([type=checkbox])").first();
   await expect(field).toBeVisible();
-  expect(await field.evaluate((el) => el.getBoundingClientRect().height)).toBe(44);
+  expect(await field.evaluate((el) => el.getBoundingClientRect().height)).toBe(36);
 });

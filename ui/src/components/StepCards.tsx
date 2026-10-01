@@ -1,13 +1,13 @@
 // Column of step cards (§2.3, §2.4) — the same for the editor and the run viewer (§2.5).
 // The editor adds `ctx.edit`: connectors with +, the ⋯ menu and keys (§4.1–4.3, §6).
-import { AlignJustify, ArrowDown, ChevronDown, ChevronRight, CircleX, Plus, TriangleAlert, Variable } from "lucide-react";
+import { AlignJustify, ArrowDown, Braces, ChevronDown, ChevronRight, CircleX, Diamond, Plus, TriangleAlert } from "lucide-react";
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { Anchor, ListRef } from "../edit";
 import { formatCost, formatDuration } from "../format";
 import { t } from "../i18n";
 import { href } from "../router";
 import { callChildren, runValue, type RunCtx } from "../run";
-import { flatten, stepLines } from "../steps";
+import { flatten, stepDetail } from "../steps";
 import type { ErrorItem, IoSpec, RunStep, Step } from "../types";
 import { AddButton, TypePicker, type Pick } from "./TypePicker";
 import { TypeIcon } from "./TypeIcon";
@@ -76,33 +76,32 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
   const rs = ctx.run?.steps.get(key);
   const selected = ctx.selected === key;
   const errors = ctx.errors.get(step.id) ?? [];
-  const lines = stepLines(step);
-  const title = (ctx.run && runValue(step.type, rs)) || lines.title
-    || (ctx.run ? (rs ? t(`rstatus.${rs.status}`) : t("run.notReached")) : "");
-  const detail = [lines.detail, step.when ? t("step.when", { expr: step.when }) : ""].filter(Boolean).join(" · ");
+  // `n. id` is the name of the step (the most prominent line); the prompt and the condition expression stay in the panel,
+  // the card only says that there is a condition. In a run the result (answers, model, error) goes below the name.
+  const value = ctx.run ? runValue(step.type, rs) : "";
+  const meta = [step.type ?? "?", stepDetail(step)].filter(Boolean).join(" · ");
+  const when = step.when ? t("step.when", { expr: step.when }) : "";
   const warn = !!rs?.continued;
   const status: Status | undefined = ctx.run ? (warn ? "warning" : rs ? RUN_ICON[rs.status] : "none") : undefined;
   // not reached and skipped (unselected case, `when`) is dimmed (§3 CaseSection); the reason is carried by the card value.
   // Dimming = dashed outline without a surface and muted text, not transparency (which would drop contrast below 4.5:1).
   const dim = ctx.run && (!rs || rs.status === "skipped");
-  // run (design 12, measured from .pen): third row = duration · cost (for containers and call after the description), state 11 px on the right
+  // run (design 12): last row = duration · cost, state 11 px on the right
   let right: ReactNode = null;
   let runDetail: ReactNode = null;
   if (ctx.run) {
     const secs = rs?.status === "running" && rs.started_at ? (ctx.run.now - Date.parse(rs.started_at)) / 1000 : rs?.duration_s;
-    const keep = step.type === "parallel" || step.type === "switch" || step.type === "call" ? lines.detail : "";
     runDetail = rs && rs.status !== "skipped" ? (
       <span className="tabular-nums">
-        {keep && `${keep} · `}
         <span data-testid={`step-duration-${key}`}>{formatDuration(secs)}</span>
         {rs.cost_usd != null && <> · <span data-testid={`step-cost-${key}`}>{formatCost(rs.cost_usd)} USD</span></>}
       </span>
-    ) : keep || null;
+    ) : null;
     right = <span className={`shrink-0 text-[11px] ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</span>;
   }
   const edit = ctx.edit;
   const isCut = !!edit?.cut_ && uidOf(edit.cut_) === uidOf(step);
-  const label = `${t("step.number", { n: step.nn })}: ${step.type ?? "?"} ${step.id}${status ? ` — ${rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}` : ""}${isCut ? ` — ${t("edit.cutMark")}` : ""}`;
+  const label = `${t("step.number", { n: step.nn })}: ${step.type ?? "?"} ${step.id}${when ? `, ${t("step.conditional")}` : ""}${status ? ` — ${rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}` : ""}${isCut ? ` — ${t("edit.cutMark")}` : ""}`;
   const onKey = (e: KeyboardEvent) => {
     if (!edit) return;
     if (e.key === "Delete") edit.remove(step);
@@ -114,7 +113,7 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
   };
   const head = shape === "head";
   const pr = head || edit ? "pr-14" : ""; // room for ⋯ inside the card
-  // design 05 (measured from .pen): pill p 16, gap 14, height 96; selected = `surface-active` surface without a border
+  // design 05 (measured from .pen): pill p 16, gap 14, height 72; selected = `surface-active` surface without a border
   const plane = head ? "rounded-card" : `rounded-full ${dim ? "border border-dashed border-line" : selected ? "bg-surface-active" : "bg-surface"}`;
   return (
     // The card has its own stacking context; popovers are therefore portaled to body.
@@ -122,25 +121,29 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
       <button
         type="button" data-step-card={key} aria-pressed={selected} aria-label={label}
         onClick={(e) => (ctx.onSelect(key), !selected && focusPanel(e))} onKeyDown={onKey}
-        className={`lg:scroll-mt-[calc(var(--page-header-h,5rem)+0.25rem)] flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-24 gap-3.5 p-4 max-md:min-h-20 max-md:py-2.5 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
+        className={`lg:scroll-mt-[calc(var(--page-header-h,5rem)+0.25rem)] flex w-full items-center text-left transition-colors hover:bg-surface-hover ${head ? "gap-2.5 px-4 py-2" : "min-h-18 gap-3.5 p-4 in-data-branch:min-h-0 in-data-branch:p-2.5"} ${plane} ${pr} ${isCut ? "opacity-50" : ""}`}
       >
-        {/* order only in the editor; a card in a run does not have it (design 12) */}
-        {!head && !ctx.run && <span className={`w-4 shrink-0 text-center font-mono text-[11px] in-data-branch:hidden max-md:hidden ${selected ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}</span>}
         {/* container: plain 20 px icon; card: 40 px circle (30 in a branch) with a type-color surface */}
         <span className={`grid shrink-0 place-items-center rounded-full ${head ? "" : "size-10 bg-type/7 max-md:size-9 in-data-branch:size-[30px]"}`}>
           {status ? <StatusIcon status={status} label="" className={head ? "size-5" : "size-4"} />
             : <TypeIcon type={step.type} className={`${head ? "size-5" : "size-4"} ${dim ? "text-fg-muted" : "text-type"}`} />}
         </span>
-        <span className={`flex min-w-0 flex-1 flex-col gap-1 max-md:gap-0.5 ${head ? "flex-col-reverse" : ""}`}>
-          <span className={`flex items-center gap-1.5 font-mono ${head ? "text-[10px] leading-[15px] text-fg-muted" : `text-[11px] leading-4 ${dim ? "text-fg-muted" : "text-type"}`}`}>
-            <span className="truncate">{head && `${step.nn} · `}{step.type ?? "?"} · {step.id}{head && detail ? ` · ${detail}` : ""}</span>
+        {/* small `type · agent` row (+ condition mark), `n. id` as the name; in a run the result and duration · cost */}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className={`flex items-center gap-1.5 font-mono text-[11px] leading-4 ${dim ? "text-fg-muted" : "text-type"}`}>
+            <span className="truncate" title={meta}>{meta}</span>
+            {when && <span className="inline-flex shrink-0 items-center gap-1" title={when}><Diamond className="size-3" aria-hidden />{t("step.conditional")}</span>}
             {errors.length > 0 && <span className="size-1.5 shrink-0 rounded-full bg-error" aria-hidden />}
           </span>
-          <span className={`block truncate text-[15px] leading-[22px] in-data-branch:text-[13px] in-data-branch:leading-[19px] ${title && !dim ? "font-semibold text-fg" : "font-normal text-fg-muted"}`} title={title || undefined}>
-            {title || t("step.value.empty")}
+          <span className={`block truncate text-[15px] leading-[22px] font-semibold in-data-branch:text-[13px] in-data-branch:leading-[19px] ${dim ? "text-fg-muted" : "text-fg"}`}>
+            <span className="font-medium text-fg-muted tabular-nums">{step.nn}.</span> {step.id}
           </span>
-          {ctx.run ? runDetail && !head && <span className="block truncate font-mono text-xs leading-[17px] text-fg-secondary">{runDetail}</span>
-            : detail && !head && <span className="block truncate font-mono text-xs leading-[17px] text-fg-secondary" title={detail}>{detail}</span>}
+          {value && (
+            <span className={`line-clamp-2 text-[13px] leading-[19px] [overflow-wrap:anywhere] in-data-branch:line-clamp-1 ${dim ? "text-fg-muted" : "text-fg-secondary"}`} title={value}>
+              {value}
+            </span>
+          )}
+          {runDetail && !head && <span className="block truncate font-mono text-xs leading-[17px] text-fg-muted">{runDetail}</span>}
         </span>
         {right}
       </button>
@@ -159,7 +162,7 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
   );
 }
 
-/** ⋯ on the right of the pill (fidelity §6), vertically centered on the card (96 px, 50 px in a branch). */
+/** ⋯ on the right of the pill (fidelity §6), vertically centered on the card (72 px, 57 px in a branch). */
 function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?: Anchor }) {
   const [picker, setPicker] = useState<Anchor | null>(null);
   const pickerAnchor = useRef<HTMLDivElement>(null);
@@ -176,7 +179,7 @@ function CardControls({ step, edit, above }: { step: Step; edit: EditCtx; above?
     { label: t("edit.delete"), shortcut: "Del", onSelect: () => edit.remove(step), danger: true },
   ];
   return (
-    <div ref={pickerAnchor} className="absolute top-12 right-3 -translate-y-1/2 max-md:top-10 in-data-branch:top-[25px] in-data-branch:right-1">
+    <div ref={pickerAnchor} className="absolute top-9 right-3 -translate-y-1/2 in-data-branch:top-[28.5px] in-data-branch:right-1">
       <Menu ghost items={items} label={t("common.menuFor", { name: step.id })} />
       {picker && <TypePicker anchor={pickerAnchor} paste={edit.cut_?.id} onClose={() => setPicker(null)} onPick={(p) => (setPicker(null), edit.add(picker, p))} />}
     </div>
@@ -209,8 +212,8 @@ const fromRun = (rs: RunStep, i: number): Step => ({
   nn: i + 1, address: [], id: rs.step.split("/").pop()!, type: rs.kind, when: null, fields: {}, refs: [],
 });
 
-/** Container (design 05, measured from .pen): `surface` r14 p16 gap 16 wrapper, header = icon 20 + title 15 + mono 10
- *  ("3 · parallel · variants"), collapsed with an arrow on the right (the inside disappears, the step count remains). */
+/** Container (design 05, measured from .pen): `surface` r14 p16 gap 16 wrapper, header = icon 20 + mono 11 `parallel · 2 branches`
+ *  + name 15 (`3. variants`), collapsed with an arrow on the right (the inside disappears, the step count remains). */
 function Container({ step, ctx, above, inner, children }: {
   step: Step; ctx: ListCtx; above?: Anchor; inner: Step[]; children: ReactNode;
 }) {
@@ -221,7 +224,7 @@ function Container({ step, ctx, above, inner, children }: {
       <StepCard step={step} ctx={ctx} shape="head" above={above} />
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
         aria-label={t(open ? "step.collapse" : "step.expand", { id: step.id })}
-        className={`absolute top-[43px] z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full text-fg-muted hover:bg-surface-hover hover:text-fg ${ctx.edit ? "right-[64px]" : "right-5"}`}>
+        className={`absolute top-11 z-10 grid size-11 -translate-y-1/2 place-items-center rounded-full text-fg-muted hover:bg-surface-hover hover:text-fg ${ctx.edit ? "right-[64px]" : "right-5"}`}>
         <Icon className="size-4" aria-hidden />
       </button>
       {open ? <div>{children}</div>
@@ -243,8 +246,9 @@ function StepItem({ step, ctx, above }: { step: Step; ctx: ListCtx; above?: Anch
   const uid = uidOf(step);
   const sub = (key: string[]): ListRef => ({ parent: uid, key });
   const addBranch = ctx.edit && (
-    <button type="button" onClick={() => ctx.edit!.addBranch(step)} className={btn.secondary}>
-      + {t(step.type === "parallel" ? "edit.addBranch" : "edit.addCase")}
+    <button type="button" onClick={() => ctx.edit!.addBranch(step)} className={btn.add}
+      aria-label={`+ ${t(step.type === "parallel" ? "edit.addBranch" : "edit.addCase")}`}>
+      <Plus className="size-4" aria-hidden />{t(step.type === "parallel" ? "edit.addBranch" : "edit.addCase")}
     </button>
   );
   if (step.type === "parallel" && step.branches) {
@@ -363,7 +367,7 @@ export function HeaderCard({ inputs, outputs, selected, onSelect }: {
         <span className="flex flex-col gap-1.5">
           {i.map(([name, spec]) => (
             <span key={name} className="flex items-center gap-2 rounded-[8px] bg-nested px-3 py-2 font-mono text-[13px] leading-[19px]" title={spec.description}>
-              <Variable className="size-4 shrink-0 text-variable" aria-hidden />
+              <Braces className="size-4 shrink-0 text-variable" aria-hidden />
               <span className="min-w-0 flex-1 truncate text-fg">{name}</span>
               {spec.required && <span className="text-[11px] text-fg-muted uppercase">{t("step.header.required")}</span>}
               {spec.type && <span className="text-[11px] text-type">{spec.type}</span>}

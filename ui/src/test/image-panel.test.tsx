@@ -16,9 +16,9 @@ it("image parameters accept templates and offer variables", () => {
   render(<StepPanel step={step} steps={[step]} header={{ description: "", callable: false, outputs: null,
     inputs: { aspect_ratio: { type: "string", default: "4:5" } } }} project={project} scenario="s" errors={[]}
     onClose={vi.fn()} onSelect={vi.fn()} edit={{ change, retype: vi.fn(), remove: vi.fn(), rename: vi.fn() }} />);
-  // PanelShell: the eyebrow “STEP 1 · image” names the panel, the title is the step id, the type is a form field
+  // PanelShell: the eyebrow “STEP 1 · image” names the panel, the title is the step id (not mono, like the card), the type is a form field
   const panel = screen.getByRole("complementary", { name: "STEP 1 · image" });
-  expect(within(panel).getAllByText("photo")[0].className).toContain("font-mono");
+  expect(within(panel).getAllByText("photo")[0].className).not.toContain("font-mono");
   expect((screen.getByRole("combobox", { name: "Step type" }) as HTMLSelectElement).value).toBe("image");
   for (const [label, field, placeholder] of [["Aspect ratio", "aspect_ratio", "4:5"], ["Quality", "quality", "medium"], ["Resolution", "resolution", "1K"]]) {
     const input = screen.getByRole("combobox", { name: label }) as HTMLInputElement;

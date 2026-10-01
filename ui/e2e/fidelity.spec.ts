@@ -55,7 +55,7 @@ test("F5 run detail: step card without order number, duration · cost in the thi
   await expect(step.getByTestId("step-cost-write")).toHaveText(/^\d+\.\d{4} USD$/);
   await expect(step.locator(".w-4")).toHaveCount(0);
   await step.click();
-  expect((await page.getByRole("complementary").boundingBox())!.width).toBe(520);
+  expect((await page.getByRole("complementary").boundingBox())!.width).toBeCloseTo(520, 0);
 
   await page.goto(`/#/p/${project.name}/runs/${id}?tab=files&file=summary.md`);
   const mode = page.getByRole("radiogroup", { name: "View" });
@@ -65,12 +65,13 @@ test("F5 run detail: step card without order number, duration · cost in the thi
   await expect(page.getByRole("region", { name: "summary.md" })).toBeVisible();
 });
 
-test("F6 editor: header card r14, connector 48, column 676 + panel 440, 44 px switch", async ({ page, project }) => {
+test("F6 editor: header card r14, connector 48, column 676 + panel 440, switch as tall as a button", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenarios/demo?step=write`);
   const header = page.locator('[data-step-card=""]');
   await expect(header).toHaveCSS("border-top-left-radius", "14px");
   expect((await page.getByTestId("add-after-write").locator("xpath=../..").boundingBox())!.height).toBe(48);
-  expect((await page.getByRole("radio", { name: "Form" }).boundingBox())!.height).toBe(44);
-  expect((await page.getByRole("complementary").boundingBox())!.width).toBe(440);
+  expect((await page.getByRole("radio", { name: "Form" }).boundingBox())!.height).toBe(28);
+  expect((await page.getByRole("radiogroup", { name: "View" }).boundingBox())!.height).toBe((await page.getByRole("button", { name: "Run", exact: true }).boundingBox())!.height);
+  expect((await page.getByRole("complementary").boundingBox())!.width).toBeCloseTo(440, 0);
   await expect(page.getByTestId("save-status").locator("xpath=..")).toHaveClass(/rounded-full/);
 });

@@ -22,7 +22,7 @@ test("Step card: selection, connector and menu keyboard", async ({ page, project
   await expect(page.locator('[data-step-card="jev_1"]')).toBeVisible();
 });
 
-test("Editor: panel in the page flow aligned to the card", async ({ page, project }) => {
+test("Editor: the panel is a drawer over the full height on the right, the page stays beside it", async ({ page, project }) => {
   project.write("scenarios/tutorial-03-exercise.yaml", fs.readFileSync(path.resolve(import.meta.dirname, "../../examples/tutorial/workflows/scenarios/tutorial-03-exercise.yaml"), "utf8"));
   for (const agent of ["tutorial-namer", "tutorial-slogan-writer"])
     project.write(`agents/${agent}.md`, fs.readFileSync(path.resolve(import.meta.dirname, `../../examples/tutorial/workflows/agents/${agent}.md`), "utf8"));
@@ -34,49 +34,61 @@ test("Editor: panel in the page flow aligned to the card", async ({ page, projec
   await expect(panel).toBeVisible();
   await expect(header).toContainText("Comes up with a name");
   await page.evaluate(() => document.fonts.ready);
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--page-header-h") === `${document.querySelector<HTMLElement>("main header")?.offsetHeight}px`)).toBe(true);
-  const aligned = async (selected: string) => {
-    const box = page.locator(`[data-step-card="${selected}"]`);
-    await expect.poll(async () => Math.abs((await panel.boundingBox())!.y - (await box.boundingBox())!.y)).toBeLessThanOrEqual(1);
+  // the drawer covers the right edge from top to bottom; the header actions and the column stay left of it
+  const drawer = async (width: number) => {
+    await expect.poll(async () => {
+      const p = (await panel.boundingBox())!;
+      const more = (await page.getByRole("button", { name: "More actions" }).boundingBox())!;
+      const col = (await page.getByRole("region", { name: "Scenario steps" }).boundingBox())!;
+      return [Math.round(p.x + p.width), Math.round(p.y), Math.round(p.height), more.x + more.width <= p.x, col.x + col.width <= p.x];
+    }).toEqual([width, 0, 900, true, true]);
   };
-  expect((await card.boundingBox())!.y).toBeGreaterThanOrEqual((await header.boundingBox())!.y + (await header.boundingBox())!.height);
   await expect(card).toHaveClass(/ring-inset ring-1/);
   const slot = panel.locator("xpath=..");
   fs.mkdirSync("/tmp/agencast-l", { recursive: true });
-  await aligned("");
-  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  await drawer(1440);
+  await expect(slot).toHaveCSS("position", "fixed");
+  expect(await slot.evaluate((el) => getComputedStyle(el).boxShadow)).toContain("160px");
   await page.screenshot({ path: "/tmp/agencast-l/1440-header.png" });
   await page.locator('[data-step-card="stop"]').click();
   await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
   for (const width of [1440, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    await aligned("stop");
-    expect((await slot.boundingBox())!.width).toBe(440);
-    expect(await slot.evaluate((el) => ({ height: el.scrollHeight - el.clientHeight, overflow: getComputedStyle(el).overflowY, position: getComputedStyle(el).position })))
-      .toEqual({ height: 0, overflow: "visible", position: "static" });
+    await drawer(width);
+    expect((await slot.boundingBox())!.width).toBeCloseTo(440, 0);
     await page.screenshot({ path: `/tmp/agencast-l/${width}-step-3.png` });
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator('[data-step-card="propose"]').click();
   for (const name of ["Condition", "Reliability", "Step details"])
     await panel.getByRole("button", { name: new RegExp(name) }).click();
-  await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeGreaterThan(900);
+  // a long panel scrolls inside, the header of the panel stays
+  const body = panel.locator(":scope > div").last();
+  await expect.poll(() => body.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
   await page.evaluate(() => window.scrollTo(0, document.scrollingElement!.scrollHeight));
-  await expect.poll(async () => (await panel.boundingBox())!.y + (await panel.boundingBox())!.height).toBeLessThanOrEqual(900);
+  await drawer(1440);
   await page.screenshot({ path: "/tmp/agencast-l/1440-long-panel-bottom.png" });
+  // cards stay clickable (not modal); closing gives the width back to the page
+  await page.locator('[data-step-card="stop"]').click();
+  await expect(panel).toContainText("stop");
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--drawer-w"))).toBe("");
   await expect(page.getByRole("region", { name: "Scenario steps" }).getByRole("button", { name: /^Delete step / })).toHaveCount(0);
 });
 
-test("Run detail: panel aligned to the card", async ({ page, project, server }) => {
+test("Run detail: the step panel is a 520 drawer on the right", async ({ page, project, server }) => {
   const id = await startRun(server, project.name, "demo", { inputs: { topic: "coffee" } });
   await waitRun(server, project.name, id, ["succeeded"]);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/#/p/${project.name}/runs/${id}?step=write`);
-  const card = page.locator('[data-step-card="write"]');
   const panel = page.getByRole("complementary");
   await expect(panel).toBeVisible();
-  await expect.poll(async () => Math.abs((await panel.boundingBox())!.y - (await card.boundingBox())!.y)).toBeLessThanOrEqual(1);
-  expect((await panel.boundingBox())!.width).toBe(520);
+  await expect.poll(async () => {
+    const p = (await panel.boundingBox())!;
+    return [Math.round(p.x + p.width), Math.round(p.y), Math.round(p.height), Math.round(p.width)];
+  }).toEqual([1440, 0, 900, 520]);
+  expect((await page.getByRole("link", { name: "Open scenario" }).boundingBox())!.x).toBeLessThan((await panel.boundingBox())!.x);
   await page.screenshot({ path: "/tmp/agencast-l/1440-run-step.png" });
 });
 
@@ -95,27 +107,34 @@ test("Scenarios: card without extension and a dashed empty state", async ({ page
   await expect(empty).toContainText("New scenario");
 });
 
-test("KV6 fidelity (measured from .pen): 96 px pill, 40 px circle with the type icon, type line mono 11 lowercase, ⋯ inside", async ({ page, project }) => {
+test("KV6 fidelity: 72 px pill, 40 px circle with the type icon, type line mono 11 lowercase, `n. id` name not mono, ⋯ inside", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenarios/demo`);
   const card = page.locator('[data-step-card="write"]');
-  expect((await card.boundingBox())!.height).toBeCloseTo(96, 0);
+  expect((await card.boundingBox())!.height).toBeCloseTo(72, 0);
   const badge = card.locator(".size-10.rounded-full");
   expect((await badge.boundingBox())!.width).toBeCloseTo(40, 0);
-  const typeLine = card.getByText("ask · write");
+  const typeLine = card.getByText("ask · writer");
   await expect(typeLine).toHaveCSS("font-size", "11px");
   await expect(typeLine).not.toHaveCSS("text-transform", "uppercase");
+  const name = card.getByText("1. write");
+  await expect(name).toHaveCSS("font-size", "15px");
+  expect(await name.evaluate((el) => getComputedStyle(el).fontFamily)).not.toMatch(/mono/i);
+  // ⋯ centered on the pill
+  const dots = (await page.getByRole("button", { name: "Actions for write" }).boundingBox())!;
+  const pill = (await card.boundingBox())!;
+  expect(dots.y + dots.height / 2).toBeCloseTo(pill.y + pill.height / 2, 0);
   // ⋯ sits inside the pill on the right
   const menu = (await page.getByRole("button", { name: "Actions for write" }).boundingBox())!;
   const box = (await card.boundingBox())!;
   expect(menu.x + menu.width).toBeLessThanOrEqual(box.x + box.width);
-  // column 676 and panel 440 with a 28 gap (design 05 at 1440 px)
+  // column 676 beside the 440 drawer at 1440 px, never under it
   await page.setViewportSize({ width: 1440, height: 900 });
   await card.click();
   const panel = (await page.getByRole("complementary").boundingBox())!;
   const col = (await card.boundingBox())!;
   expect(panel.width).toBeCloseTo(440, 0);
   expect(col.width).toBeCloseTo(676, 0);
-  expect(Math.round(panel.x - (col.x + col.width))).toBe(28);
+  expect(panel.x - (col.x + col.width)).toBeGreaterThanOrEqual(28);
 });
 
 test("KV5 fidelity (measured from .pen): scenario card r14 p24 h. 292, plain type icons without arrows, mono meta, Open ↗", async ({ page, project }) => {

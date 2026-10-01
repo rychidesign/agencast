@@ -57,12 +57,12 @@ test("G1 FAB navigation: menu above the button, Esc, scrim and an item close it"
   await noOverflow(page);
 });
 
-test("C16 editor on mobile: 80 px card, step panel as a bottom sheet", async ({ page, project }) => {
+test("C16 editor on mobile: card with the type line and the name, step panel as a bottom sheet", async ({ page, project }) => {
   await page.goto(`/#/p/${project.name}/scenarios/demo`);
   expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
   const write = page.locator('[data-step-card="write"]');
   await expect(write).toBeVisible();
-  expect((await write.boundingBox())!.height).toBe(80);
+  expect((await write.boundingBox())!.height).toBe(72); // type · agent, `n. id`; no prompt
   await noOverflow(page);
   // only the primary action + ⋯; Save is in ⋯
   await expect(page.getByRole("button", { name: "Run", exact: true })).toBeVisible();

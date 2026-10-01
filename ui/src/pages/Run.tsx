@@ -7,7 +7,7 @@ import { RUN_STATUS } from "../components/RunBadge";
 import { FilesTab, ReportTab } from "../components/RunFiles";
 import { RunStepPanel } from "../components/RunStepPanel";
 import { onColumnKey, StepList, type ListCtx } from "../components/StepCards";
-import { BackLink, PageHeader } from "../components/PageHeader";
+import { PageHeader } from "../components/PageHeader";
 import { btn, EmptyState, ErrorText, Loading, StatusChip, TabLinks } from "../components/ui";
 import { failReason, formatCost, formatDuration, isLive, runScenario } from "../format";
 import { t } from "../i18n";
@@ -81,7 +81,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
   return (
     <div onKeyDown={closeOnEsc(selected)}>
       <PageHeader sticky
-        back={<BackLink href={href(project, "runs")}>{t("project.tab.runs")}</BackLink>}
+        back={{ href: href(project, "runs"), label: t("project.tab.runs") }}
         title={run && (
           <a href={href(project, "scenarios", runScenario(run))} className="font-mono hover:underline md:text-[26px] md:leading-[39px]">
             {runScenario(run)}<ArrowUpRight className="ml-3 inline size-5 shrink-0 align-[-2px]" aria-hidden />
@@ -162,7 +162,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
                 <StepList steps={steps} ctx={ctx} />
               </section>
               {selected && sel && (
-                <PanelSlot wide align={selected}>
+                <PanelSlot wide>
                   <RunStepPanel key={`${selected}:${sel.rs?.status}`} project={project} runId={runId} path={selected} rs={sel.rs}
                     kind={sel.step?.type ?? sel.rs?.kind ?? null} onClose={() => setQuery({ step: undefined })} />
                 </PanelSlot>

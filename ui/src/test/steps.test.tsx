@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { HeaderCard, StepCard, type ListCtx } from "../components/StepCards";
 import { IconChain } from "../components/TypeIcon";
-import { readBy, readsFrom, stepLines } from "../steps";
+import { readBy, readsFrom, stepDetail } from "../steps";
 import type { Step, StepType } from "../types";
 
 afterEach(cleanup);
@@ -11,62 +11,57 @@ const step = (type: StepType, fields: Record<string, unknown>, extra: Partial<St
   nn: 1, address: ["steps", 0], id: `${type}_1`, type, when: null, fields, refs: [], ...extra,
 });
 
-// `fields` shapes as from GET …/scenarios/<s> (ig-post, tutorial-03/04, demo-call): [step, title, third line].
-const CASES: [Step, string, string][] = [
-  [step("ask", { ask: { agent: "copywriter", prompt: "Write an IG post\nabout: {{ inputs.topic }}" } }),
-    "“Write an IG post about: {{ inputs.topic }}”", "copywriter"],
-  [step("task", { task: { agent: "publisher", prompt: "Publish" } }), "“Publish”", "publisher"],
+// `fields` shapes as from GET …/scenarios/<s> (ig-post, tutorial-03/04, demo-call): [step, detail after the type].
+const CASES: [Step, string][] = [
+  [step("ask", { ask: { agent: "copywriter", prompt: "Write an IG post\nabout: {{ inputs.topic }}" } }), "copywriter"],
+  [step("task", { task: { agent: "publisher", prompt: "Publish" } }), "publisher"],
   [step("jev", { jev: { state: "x", questions: {
     on_brand: { type: "noul", instructions: "Does the text match the tone?" }, second: { type: "noul", instructions: "?" } } } }),
-    "“Does the text match the tone?”", "noul · +1 question"],
-  [step("image", { image: { model: "gemini-image", prompt: "{{ steps.p.description }}", aspect_ratio: "4:5" } }),
-    "“{{ steps.p.description }}”", "gemini-image · 4:5"],
-  [step("call", { call: { scenario: "ig-text", inputs: { text: "a", b: "c" } } }), "→ ig-text", "2 inputs"],
-  [step("set", { set: { slogan: "a + b", percent: "round(x)" } }), "slogan, percent", ""],
-  [step("fail", { fail: "Text is off-brand" }), "Text is off-brand", ""],
-  [step("parallel", { budget_usd: 0.15 }, { branches: { short: [], long: [] } }), "short ∥ long", "2 branches, run in parallel"],
-  [step("switch", { switch: { value: "steps.check.kind" } }, { cases: { product: [], action: [] }, default: [step("fail", { fail: "x" })] }),
-    "by steps.check.kind: product, action, otherwise", ""],
-  [step("output", { output: { caption: "{{ a }}", hashtags: "{{ b }}", image: "{{ c }}" } }), "caption, hashtags, image", ""],
+    "noul · +1 question"],
+  [step("image", { image: { model: "gemini-image", prompt: "{{ steps.p.description }}", aspect_ratio: "4:5" } }), "gemini-image · 4:5"],
+  [step("call", { call: { scenario: "ig-text", inputs: { text: "a", b: "c" } } }), "ig-text · 2 inputs"],
+  [step("set", { set: { slogan: "a + b", percent: "round(x)" } }), ""],
+  [step("fail", { fail: "Text is off-brand" }), ""],
+  [step("parallel", { budget_usd: 0.15 }, { branches: { short: [], long: [] } }), "2 branches, run in parallel"],
+  [step("switch", { switch: { value: "steps.check.kind" } }, { cases: { product: [], action: [] }, default: [step("fail", { fail: "x" })] }), ""],
+  [step("output", { output: { caption: "{{ a }}", hashtags: "{{ b }}", image: "{{ c }}" } }), ""],
 ];
 
-describe("card title and third line by type (fidelity §6)", () => {
-  it.each(CASES.map(([s, title, detail]) => [s.type, s, title, detail] as const))("%s", (_, s, title, detail) =>
-    expect(stepLines(s)).toEqual({ title, detail }));
+describe("card detail by type (fidelity §6)", () => {
+  it.each(CASES.map(([s, detail]) => [s.type, s, detail] as const))("%s", (_, s, detail) => expect(stepDetail(s)).toBe(detail));
 
-  it("image without a prompt: empty title, model and parameters in the third line", () =>
-    expect(stepLines(step("image", { image: { model: "gemini-image", aspect_ratio: "{{ inputs.aspect_ratio }}", quality: "high", resolution: "1K" } })))
-      .toEqual({ title: "", detail: "gemini-image · {{ inputs.aspect_ratio }} · high · 1K" }));
+  it("image without a prompt: model and parameters", () =>
+    expect(stepDetail(step("image", { image: { model: "gemini-image", aspect_ratio: "{{ inputs.aspect_ratio }}", quality: "high", resolution: "1K" } })))
+      .toBe("gemini-image · {{ inputs.aspect_ratio }} · high · 1K"));
 
-  it("switch without default does not show “otherwise”", () =>
-    expect(stepLines(step("switch", { switch: { value: "v" } }, { cases: { a: [] }, default: [] })).title).toBe("by v: a"));
-
-  it("step without a value = empty title (the card shows “fill in the panel”)", () =>
-    expect(stepLines(step("ask", { ask: {} }))).toEqual({ title: "", detail: "" }));
+  it("empty step = empty detail", () => expect(stepDetail(step("ask", { ask: {} }))).toBe(""));
 });
 
 describe("StepCard", () => {
   const ctx: ListCtx = { project: "p", onSelect: () => {}, errors: new Map() };
 
-  // sizes measured from .pen (design 05): type mono 11 `type`, title 15 semibold, third line mono 12 `fg-secondary`,
-  // 40 px circle filled with the type color
-  it.each(CASES.map(([s, title, detail]) => [s.type, s, title, detail] as const))("%s: type · id line in lowercase, title, third line", (type, s, title, detail) => {
+  // `type · detail` mono 11 `type`, `n. id` as the name (15 semibold, not mono), no prompt; 40 px circle filled with the type color
+  it.each(CASES.map(([s, detail]) => [s.type, s, detail] as const))("%s: type · detail line, n. id as the name, no prompt", (type, s, detail) => {
     render(<StepCard step={s} ctx={ctx} />);
     const card = screen.getByRole("button");
-    expect(screen.getByText(`${type} · ${type}_1`).parentElement!.className).toContain("font-mono text-[11px] leading-4 text-type");
-    expect(screen.getByText(title).className).toContain("text-[15px] leading-[22px]");
-    expect(screen.getByText(title).className).toContain("font-semibold");
-    if (detail) expect(screen.getByText(detail).className).toContain("font-mono text-xs leading-[17px] text-fg-secondary");
-    expect(card.className).toContain("min-h-24");
+    expect(screen.getByText([type, detail].filter(Boolean).join(" · ")).parentElement!.className).toContain("font-mono text-[11px] leading-4 text-type");
+    const name = screen.getByText(`${type}_1`, { exact: false });
+    expect(name.textContent).toBe(`1. ${type}_1`);
+    expect(name.className).toContain("text-[15px] leading-[22px] font-semibold");
+    expect(name.className).not.toContain("font-mono");
+    expect(card.textContent).not.toMatch(/Write an IG post|Publish|Does the text|off-brand/);
+    expect(card.className).toContain("min-h-18");
     expect(card.querySelector(".size-10.rounded-full.bg-type\\/7 svg.text-type")).toBeTruthy();
   });
 
-  it("placeholder, condition in the third line and a validation error", () => {
+  it("a condition is only marked (expression in the tooltip), a validation error", () => {
     const s = step("ask", { ask: { agent: "writer" } }, { id: "copy", when: "inputs.x == 1" });
     const errors = new Map([["copy", [{ message: "agent 'photographer' does not exist\n  detail" }]]]);
     render(<StepCard step={s} ctx={{ ...ctx, errors }} />);
-    expect(screen.getByText("fill in the panel")).toBeTruthy();
-    expect(screen.getByText("writer · when inputs.x == 1")).toBeTruthy();
+    expect(screen.getByText("ask · writer")).toBeTruthy();
+    expect(screen.getByText("conditional").getAttribute("title")).toBe("when inputs.x == 1");
+    expect(screen.queryByText("when inputs.x == 1")).toBeNull();
+    expect(screen.getByRole("button").getAttribute("aria-label")).toBe("Step 1: ask copy, conditional");
     expect(screen.getByText("agent 'photographer' does not exist")).toBeTruthy();
   });
 
