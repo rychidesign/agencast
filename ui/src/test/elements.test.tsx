@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { Markdown } from "../components/Markdown";
-import { Modal, ValueInput } from "../components/form";
+import { Modal } from "../components/form";
 import { CodeBlock, Menu, StatusChip, type Status } from "../components/ui";
 
 afterEach(cleanup);
@@ -57,9 +57,6 @@ it("modal returns focus, the dangerous action uses danger and a file field is di
   unmount();
   expect(document.activeElement).toBe(outside);
   outside.remove();
-
-  render(<ValueInput a11y={{ id: "file" }} type="file" value={undefined} onChange={vi.fn()} />);
-  expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(true);
 });
 
 it("Markdown renders links and a code block safely", () => {

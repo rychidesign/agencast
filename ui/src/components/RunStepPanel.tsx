@@ -145,7 +145,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
   if (active === "calls") body = <Calls events={own} />;
   if (active === "tools") body = <Tools events={own} />;
   if (active === "image") {
-    const imgs = files.filter((f) => /\.(png|jpe?g|webp)$/i.test(f));
+    const imgs = files.filter((f) => /\.(png|jpe?g|webp|gif|avif)$/i.test(f));
     body = imgs.length ? <div className="space-y-3">{imgs.map((f) => <FileViewer key={f} project={project} runId={runId} path={f} />)}</div> : <Empty />;
   }
   if (active === "files")

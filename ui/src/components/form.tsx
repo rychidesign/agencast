@@ -522,10 +522,70 @@ export function NameDialog({ title, taken, onSubmit, onCancel, withDescription =
   );
 }
 
-/** Value of an input by the scenario `type` (run form, default value of an input). */
-export function ValueInput({ type, value, onChange, a11y }: {
+/** One image of a `file`/`files` input in the run form (api.md Uploads); `url` = local preview. */
+export interface ImageValue { upload_id: string; name: string; width: number; height: number; format: string; url: string }
+
+/** `<input type="file">` with previews: every picked image is uploaded at once (`upload`), the value holds the
+ *  upload ids (one `ImageValue`, or a list for `files`). An upload finishes after an await, so a list is
+ *  appended through an updater `(prev) => next` — the owner applies it to its current state (RunPanel). */
+export function FileInput({ multiple, value, onChange, upload, a11y }: {
+  multiple: boolean; value: unknown; onChange: (v: unknown | ((prev: unknown) => unknown)) => void;
+  upload: (file: File) => Promise<Omit<ImageValue, "name" | "url">>;
+  a11y: { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean };
+}) {
+  const [busy, setBusy] = useState(0);
+  const [error, setError] = useState<string>();
+  const items = (multiple ? (Array.isArray(value) ? value : []) : value ? [value] : []) as ImageValue[];
+  const emit = (next: ImageValue[]) => {  // synchronous changes: remove, replace a single file
+    for (const it of items) if (!next.includes(it)) URL.revokeObjectURL(it.url);
+    onChange(multiple ? (next.length ? next : undefined) : next.at(-1));
+  };
+  const pick = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setError(undefined);
+    const added: ImageValue[] = [], failed: string[] = [];
+    for (const f of Array.from(files)) {
+      setBusy((n) => n + 1);
+      try {
+        added.push({ ...(await upload(f)), name: f.name, url: URL.createObjectURL(f) });
+      } catch (e) {
+        failed.push(t("runForm.uploadFailed", { name: f.name, error: e instanceof Error ? e.message : String(e) }));
+      } finally {
+        setBusy((n) => n - 1);
+      }
+    }
+    setError(failed.join("\n") || undefined);
+    if (!added.length) return;
+    if (multiple) onChange((prev: unknown) => [...(Array.isArray(prev) ? (prev as ImageValue[]) : []), ...added]);
+    else emit(added);
+  };
+  return (
+    <div className="space-y-2">
+      <input {...a11y} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" multiple={multiple}
+        className={inputCls} onChange={(e) => (pick(e.target.files), (e.target.value = ""))} />
+      {busy > 0 && <p className="text-xs text-fg-muted">{t("runForm.uploading")}</p>}
+      {error && <p role="alert" className="font-mono text-xs whitespace-pre-wrap text-error">{error}</p>}
+      {items.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {items.map((it, i) => (
+            <li key={it.upload_id} className="flex items-center gap-2 rounded-control bg-nested p-2 text-xs text-fg-secondary">
+              <img src={it.url} alt={it.name} className="size-12 rounded-[4px] object-cover" />
+              <span className="font-mono">{it.name}<br />{t("runForm.imageInfo", { width: it.width, height: it.height, format: it.format })}</span>
+              <button type="button" className={btn.secondary} aria-label={t("runForm.removeImage", { name: it.name })}
+                onClick={() => emit(items.filter((_, k) => k !== i))}><X className="size-4" aria-hidden /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Value of an input by the scenario `type` in the run form; `file`/`files` upload images via `upload`. */
+export function ValueInput({ type, value, onChange, a11y, upload }: {
   type?: string; value: unknown; onChange: (v: unknown) => void;
   a11y: { id: string; "aria-describedby"?: string; "aria-invalid"?: boolean };
+  upload: (file: File) => Promise<Omit<ImageValue, "name" | "url">>;
 }) {
   switch (type) {
     case "boolean":
@@ -541,7 +601,7 @@ export function ValueInput({ type, value, onChange, a11y }: {
       return <JsonInput a11y={a11y} value={value} onChange={onChange} />;
     case "file":
     case "files":
-      return <input {...a11y} disabled className={inputCls} value="" placeholder={t("run.fileInput")} />;
+      return <FileInput multiple={type === "files"} value={value} onChange={onChange} upload={upload} a11y={a11y} />;
     default:
       return <textarea {...a11y} rows={2} className={inputCls} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />;
   }

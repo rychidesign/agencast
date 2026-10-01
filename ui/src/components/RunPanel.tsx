@@ -2,24 +2,27 @@
 // dry run or a live run without a callback; before a live run the limits from config and today's spend.
 import { Play, TriangleAlert, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { ApiError, enc, send, useApi } from "../api";
+import { ApiError, enc, send, upload, useApi } from "../api";
 import { formatMoney, formatSpend } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
 import type { IoSpec, Project, Spend } from "../types";
-import { FormField, ValueInput } from "./form";
+import { FormField, ValueInput, type ImageValue } from "./form";
 import { PanelShell } from "./StepPanel";
 import { btn, ErrorText } from "./ui";
 
-/** Values to submit: empty ones are omitted (`default` applies), required without a value = error on the field. */
+const uploadRef = (v: unknown) => ({ upload_id: (v as ImageValue).upload_id });
+
+/** Values to submit: empty ones are omitted (`default` applies), required without a value = error on the field.
+ *  Images (`file`/`files`) go as `{upload_id}` (api.md Uploads). */
 export function runInputs(specs: Record<string, IoSpec>, values: Record<string, unknown>) {
   const inputs: Record<string, unknown> = {};
   const missing: string[] = [];
   for (const [name, spec] of Object.entries(specs)) {
     const v = values[name];
-    if (v === undefined || v === "") {
+    if (v === undefined || v === "" || (spec.type === "files" && Array.isArray(v) && !v.length)) {
       if (spec.required) missing.push(name);
-    } else inputs[name] = v;
+    } else inputs[name] = spec.type === "file" ? uploadRef(v) : spec.type === "files" ? (v as unknown[]).map(uploadRef) : v;
   }
   return { inputs, missing };
 }
@@ -49,14 +52,22 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
   const [missing, setMissing] = useState<string[]>([]);
   const [error, setError] = useState<ApiError>();
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(0);
   const spend = useApi<Spend>(dry ? null : `/projects/${enc(project.name)}/spend`);
-  const hasFile = Object.values(specs).some((s) => s.type === "file" || s.type === "files");
   const l = project.limits;
+  const uploadImage = async (file: File) => {
+    setUploading((n) => n + 1);
+    try {
+      return await upload(project.name, file);
+    } finally {
+      setUploading((n) => n - 1);
+    }
+  };
 
   const submit = async () => {
     const r = runInputs(specs, values);
     setMissing(r.missing);
-    if (r.missing.length || hasFile) return;
+    if (r.missing.length || uploading) return;
     setBusy(true);
     setError(undefined);
     try {
@@ -77,7 +88,11 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
           <FormField key={name} label={name} required={s.required}
             help={[s.type, s.description, s.type === "file" || s.type === "files" ? t("runForm.fileHelp") : ""].filter(Boolean).join(" · ")}
             errors={missing.includes(name) ? [t("runForm.required")] : []}>
-            {(a) => <ValueInput a11y={a} type={s.type} value={values[name]} onChange={(v) => (setValues({ ...values, [name]: v }), setMissing(missing.filter((m) => m !== name)))} />}
+            {(a) => <ValueInput a11y={a} type={s.type} value={values[name]} upload={uploadImage}
+              // functional updates: an upload resolves after an await (other fields may have changed meanwhile)
+              // and a `files` input appends through an updater (FileInput)
+              onChange={(v) => (setValues((vs) => ({ ...vs, [name]: typeof v === "function" ? v(vs[name]) : v })),
+                setMissing((ms) => ms.filter((m) => m !== name)))} />}
           </FormField>
         ))}
         <fieldset className="space-y-3">
@@ -106,7 +121,6 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
           </div>
         )}
         {dirty && <Warning text={t("runForm.dirty")} />}
-        {hasFile && <Warning text={t("runForm.fileBlocked")} />}
         {error && (
           <div className="space-y-1">
             <ErrorText error={error} />
@@ -117,8 +131,8 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
           <button type="button" className={`${btn.secondary} max-sm:w-full`} onClick={onClose}>
             <X className="size-4" aria-hidden />{t("common.cancel")}
           </button>
-          <button type="submit" className={`${btn.primary} max-sm:w-full`} disabled={busy || hasFile}>
-            <Play className="size-4" aria-hidden />{busy ? t("runForm.starting") : dry ? t("runForm.submitDry") : t("runForm.submitLive")}
+          <button type="submit" className={`${btn.primary} max-sm:w-full`} disabled={busy || uploading > 0}>
+            <Play className="size-4" aria-hidden />{busy ? t("runForm.starting") : uploading ? t("runForm.uploading") : dry ? t("runForm.submitDry") : t("runForm.submitLive")}
           </button>
         </div>
       </form>

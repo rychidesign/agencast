@@ -241,6 +241,8 @@ interface FormCtx {
 function TypeForm({ ctx }: { ctx: FormCtx }) {
   const { step, candidates, project, errors } = ctx;
   const type = step.type;
+  const [imagesText, setImagesText] = useState<string | null>(null);  // draft of the `images` field while typing
+  useEffect(() => setImagesText(null), [step.id]);
   if (!type) return null;
   const body: Obj = isObj(step.fields[type]) ? (step.fields[type] as Obj) : {};
   const setBody = (k: string, v: unknown) =>
@@ -267,6 +269,19 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
       {(a) => <JsonInput a11y={a} value={body[k]} onChange={(v) => setBody(k, v)} />}
     </FormField>
   );
+  // `images:` (0.18.0): one template, or several separated by commas → a list in the file. The text being typed
+  // stays as typed (a trailing comma or space would vanish if it were rebuilt from the parsed list); on blur the
+  // parsed form is shown again.
+  const imagesShown = Array.isArray(body.images) ? (body.images as unknown[]).map(String).join(", ") : str("images");
+  const imagesField = (
+    <div onBlur={() => setImagesText(null)}>
+      <FormField label={t("field.images")} help={t("help.images", { ex: "{{ inputs.photo }}, {{ inputs.refs }}" })} errors={errors(`${type}.images`)}>
+        {(a) => <CodeInput a11y={a} template multiline={false} placeholder="{{ inputs.photo }}" candidates={candidates}
+          value={imagesText ?? imagesShown}
+          onChange={(v) => (setImagesText(v), setBody("images", !v.trim() ? undefined : v.includes(",") ? v.split(",").map((s) => s.trim()).filter(Boolean) : v.trim()))} />}
+      </FormField>
+    </div>
+  );
 
   switch (type) {
     case "ask":
@@ -277,6 +292,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
         <div className="space-y-4">
           {agentSelect}
           {tpl("prompt", t("field.prompt"))}
+          {imagesField}
           {type === "task" && (
             <>
               <FormField label={t("field.max_turns")} help={t("help.max_turns")} errors={errors("task.max_turns")}>
@@ -347,6 +363,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
             )}
           </FormField>
           {tpl("prompt", t("field.prompt"))}
+          {imagesField}
           {([['aspect_ratio', '4:5', 'aspect_ratio'], ['quality', 'medium', 'quality'], ['resolution', '1K', 'resolution']] as const).map(([field, placeholder, input]) => (
             <FormField key={field} label={t(`field.${field}`)} errors={errors(`image.${field}`)}
               help={t("help.imageParameter", { example: `{{ inputs.${input} }}` })}>

@@ -682,7 +682,7 @@ test("C18 inserting a variable from the menu with mouse and keyboard", async ({ 
   await page.goto(`/#/p/${project.name}/scenarios/demo`);
   await page.getByRole("button", { name: /Step 1: ask write/ }).click();
   const prompt = page.getByRole("combobox", { name: /Prompt/ });
-  const insert = page.getByRole("button", { name: "Insert variable" });
+  const insert = page.getByRole("button", { name: "Insert variable" }).first();  // the prompt's; `images` has its own
 
   await prompt.fill("Write a long text");
   await prompt.click({ position: { x: 72, y: 12 } });

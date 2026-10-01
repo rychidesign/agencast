@@ -67,7 +67,7 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   let res: Response;
   try {
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-    if (init.body) headers["Content-Type"] = "application/json";
+    if (init.body && !(init.body instanceof Blob)) headers["Content-Type"] = "application/json";  // a Blob = raw upload
     const fetchOnce = () => fetch(API_BASE + path, { ...init, headers, ...(reading && { signal: AbortSignal.timeout(20_000) }) });
     try {
       res = await fetchOnce();
@@ -108,6 +108,11 @@ export const headEtag = async (path: string): Promise<string | null> =>
 /** Write (edit operation, starting a run): JSON body, JSON response; error → ApiError. */
 export const send = async <T>(method: string, path: string, body?: unknown): Promise<T> =>
   (await request(path, { method, body: body === undefined ? undefined : JSON.stringify(body) })).json();
+
+/** `POST /projects/<p>/uploads` (api.md Uploads): the raw bytes of one image for a `file`/`files` input. */
+export interface Uploaded { upload_id: string; format: string; width: number; height: number; bytes: number }
+export const upload = async (project: string, file: Blob): Promise<Uploaded> =>
+  (await request(`/projects/${enc(project)}/uploads`, { method: "POST", body: file })).json();
 
 /** Response of an edit operation (api.md “Editing”). */
 export interface Saved {

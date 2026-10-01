@@ -265,3 +265,55 @@ test("N25 run list loads the older page by cursor without duplicates", async ({ 
   expect(new Set(displayed).size).toBe(52);
   await expect(page.getByRole("button", { name: "Load more" })).toBeHidden();
 });
+
+// PNG signature + IHDR 4×3 — enough for the server's header check (api.md Uploads)
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52,
+  0, 0, 0, 4, 0, 0, 0, 3, 8, 2, 0, 0, 0, 0, 0, 0, 0]);
+const PIC = `version: 1
+name: pic
+description: Caption from an uploaded photo
+inputs:
+  photo: { type: file, required: true }
+  refs: { type: files, default: [] }
+outputs:
+  text: { type: string }
+  photo: { type: file }
+steps:
+  - id: write
+    ask:
+      agent: writer
+      prompt: "Describe Image 1"
+      images: ["{{ inputs.photo }}", "{{ inputs.refs }}"]
+  - id: result
+    output:
+      text: "{{ steps.write.text }}"
+      photo: "{{ inputs.photo }}"
+`;
+
+test("C6b image inputs: picked files are uploaded, previewed and sent as upload ids", async ({ page, project }) => {
+  project.write("scenarios/pic.yaml", PIC);
+  await page.goto(`/#/p/${project.name}/scenarios/pic`);
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  const panel = page.getByRole("complementary");
+  await expect(panel.getByText("PNG, JPEG, WebP, GIF or AVIF, up to 10 MB; uploaded as soon as you pick it").first()).toBeVisible();
+  const uploaded = page.waitForResponse((r) => r.url().endsWith(`/projects/${project.name}/uploads`) && r.request().method() === "POST");
+  await panel.locator('input[type="file"]').first().setInputFiles({ name: "a.png", mimeType: "image/png", buffer: PNG });
+  expect((await uploaded).status()).toBe(201);
+  await expect(panel.getByRole("img", { name: "a.png" })).toBeVisible();
+  await expect(panel.getByText(/4×3 png/)).toBeVisible();
+  await panel.locator('input[type="file"]').nth(1).setInputFiles([
+    { name: "b.png", mimeType: "image/png", buffer: PNG }, { name: "c.png", mimeType: "image/png", buffer: PNG }]);
+  await expect(panel.getByRole("img", { name: "c.png" })).toBeVisible();
+  await panel.getByRole("button", { name: "Remove b.png" }).click();
+  await expect(panel.getByRole("img", { name: "b.png" })).toBeHidden();
+  const dry = page.waitForResponse((r) => r.url().endsWith(`/projects/${project.name}/runs`) && r.request().method() === "POST");
+  await panel.getByRole("button", { name: "Start dry run" }).click();
+  const sent = (await dry).request().postDataJSON();
+  expect((await dry).status()).toBe(200);
+  expect(sent.dry_run).toBe(true);
+  expect(sent.inputs.photo.upload_id).toMatch(/^up_[0-9a-f]{32}$/);
+  expect(sent.inputs.refs.map((x: { upload_id: string }) => x.upload_id)).toHaveLength(1);
+  await expect(page).toHaveURL(/#\/p\/[^/]+\/runs\/[^?]+$/);
+  const inputs = JSON.parse(fs.readFileSync(path.join(project.runsDir, runIdFromUrl(page), "inputs.json"), "utf8"));
+  expect(inputs).toEqual({ photo: "inputs/photo.png", refs: ["inputs/refs-1.png"] });  // never the upload path
+});

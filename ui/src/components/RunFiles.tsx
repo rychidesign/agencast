@@ -10,7 +10,7 @@ import { CodeBlock, CodeHead, ErrorText, Loading, Toggle } from "./ui";
 export const runFilePath = (project: string, runId: string, path: string) =>
   `/projects/${enc(project)}/runs/${enc(runId)}/files/${path.split("/").map(enc).join("/")}`;
 
-const isImage = (p: string) => /\.(png|jpe?g|webp|gif)$/i.test(p);
+const isImage = (p: string) => /\.(png|jpe?g|webp|gif|avif)$/i.test(p);
 const isMarkdown = (p: string) => /\.md$/i.test(p);
 
 function prettyJson(text: string): string {
