@@ -402,7 +402,8 @@ class Run:
             notes.setdefault(url, note)  # identical bytes at two paths: the record names the first path for both
             lines.append(note)
             size = f", {ref.width}×{ref.height}" if ref.width else ""
-            parts += [{"type": "text", "text": f"Image {k} ({ref.path.rsplit('/', 1)[-1]}{size}):"},
+            # the label carries the path a template renders (`{{ inputs.photo }}`), so a prompt can name the image
+            parts += [{"type": "text", "text": f"Image {k} ({ref.path}{size}):"},
                       {"type": "image_url", "image_url": {"url": url}}]
         return parts, notes, lines, refs
 
@@ -569,6 +570,9 @@ class Run:
         limit = (catalog.get("input_references") or {}).get("max") if isinstance(catalog.get("input_references"), dict) else None
         if limit is not None and len(refs) > limit:
             raise AgencastError("config", f"image.images: {len(refs)} reference images, model '{m['id']}' accepts at most {limit}")
+        if refs:  # the Images API takes references as a bare list: the legend gives them the labels ask/task send
+            prompt = ("Reference images, in the order attached:\n"
+                      + "\n".join(p["text"][:-1] for p in parts if p["type"] == "text") + "\n\n" + prompt)
         params = {}
         for field, pattern in (("aspect_ratio", r"auto|[1-9][0-9]*:[1-9][0-9]*"),
                                ("quality", r"auto|low|medium|high"), ("resolution", r"512|1K|2K|4K")):

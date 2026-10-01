@@ -298,4 +298,7 @@ the names in the examples are English now:
 - `image.images` (reference images; only aliases with `api: images`) and
   `aspect_ratio: auto`. With references and no explicit ratio the output follows
   the first reference, snapped to a ratio the model supports; a ratio mismatch is
-  then a warning. Without references nothing changes.
+  then a warning. Without references nothing changes. Every image sent is
+  labelled `Image <k> (<path>, <W>×<H>)` (for `image` in a legend at the top of
+  the prompt), the path a template renders — a prompt names an image with
+  `{{ inputs.shirt }}`.

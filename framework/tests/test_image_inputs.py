@@ -228,8 +228,8 @@ def test_ask_with_images_staged_sent_and_redacted(wf, photos):
     assert r.values["steps"]["shape"] == {"wide": True, "n": 2}
     content = fake.calls[0][2]["messages"][1]["content"]
     assert content[0] == {"type": "text", "text": "Describe image 1; there are 2 more."}
-    assert [c["text"] for c in content[1::2]] == ["Image 1 (photo.png, 4×3):", "Image 2 (refs-1.jpg, 480×640):",
-                                                   "Image 3 (refs-2.png, 4×3):"]
+    assert [c["text"] for c in content[1::2]] == ["Image 1 (inputs/photo.png, 4×3):", "Image 2 (inputs/refs-1.jpg, 480×640):",
+                                                   "Image 3 (inputs/refs-2.png, 4×3):"]
     assert content[2]["image_url"]["url"].startswith("data:image/png;base64,")
     assert content[4]["image_url"]["url"].startswith("data:image/jpeg;base64,")
     req = (d / "steps/02-write/calls/01.request.json").read_text()
@@ -282,7 +282,7 @@ steps:
 """)
     r, fake = run(p, {"photo": photos / "a.png"})
     assert r.status == "succeeded", r.error
-    assert [c["text"] for c in fake.calls[0][2]["messages"][1]["content"][1::2]] == ["Image 1 (photo.png, 4×3):"]
+    assert [c["text"] for c in fake.calls[0][2]["messages"][1]["content"][1::2]] == ["Image 1 (inputs/photo.png, 4×3):"]
 
 
 def test_dry_run_plans_paths_without_copying(wf, photos):
@@ -319,6 +319,9 @@ def test_image_references_follow_the_reference_ratio(wf, photos):
     _, endpoint, body = fake.calls[0]
     assert endpoint == "images" and body["aspect_ratio"] == "4:5" and body["quality"] == "low"
     assert [p["type"] for p in body["input_references"]] == ["image_url"]
+    # the Images API takes no labels: the legend in the prompt names each reference by its path
+    assert body["prompt"] == ("Reference images, in the order attached:\nImage 1 (inputs/photo.png, 800×1000)\n\n"
+                              "Same subject, new scene")
     assert body["input_references"][0]["image_url"]["url"].startswith("data:image/png;base64,")
     d = r.rec.dir
     req = (d / "steps/01-edit/calls/01.request.json").read_text()
@@ -416,6 +419,6 @@ def test_task_with_images(wf, photos):
     r, fake = run(p, {"photo": photos / "a.png"}, script={"t": {"text": "Done."}})
     assert r.status == "succeeded", r.error
     content = fake.calls[0][2]["messages"][1]["content"]
-    assert content[0]["text"] == "Complete the task" and content[1]["text"] == "Image 1 (photo.png, 4×3):"
+    assert content[0]["text"] == "Complete the task" and content[1]["text"] == "Image 1 (inputs/photo.png, 4×3):"
     req = (r.rec.dir / "steps/01-t/calls/01.request.json").read_text()
     assert "<file: inputs/photo.png" in req and "base64," not in req

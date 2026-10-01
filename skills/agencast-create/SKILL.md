@@ -94,13 +94,16 @@ unique in the file, not a Python keyword (`in`, `is`, `if`, …).
 - `ask` — one model call via an agent, no tools; output `.text`, or the fields of
   `schema: {a: string, b: [string], c: {x: number}}` (root is a map, all fields required).
   `images: ["{{ inputs.photo }}", "{{ inputs.refs }}"]` sends images with the message
-  (the model sees them as Image 1, 2, …; a `jev` cannot look at an image).
+  (each is labelled `Image 1 (inputs/photo.png, W×H)`: name an image in the prompt with its template,
+  `{{ inputs.photo }}`, or by number; a `jev` cannot look at an image).
 - `task` — agent loop with MCP tools (`max_turns`, `mcp`, `tools` subsets of the agent's); same outputs
   and `images` as `ask`.
 - `jev` — cheap classifier: `state` + `questions.<q>` with `type: noul` (0–1), `choice` (`criteria: {key: description}` → key) or `score` (`criteria:` list of levels → number); output `steps.<id>.<q>`.
 - `image` — `model` (image alias), `prompt`; optional `aspect_ratio` (`W:H`, `auto` or a template), `quality`,
   `resolution`; `images: ["{{ inputs.photo }}"]` = reference images to edit one photo or compose from several
   (only an alias with `api: images`; the output ratio then follows the first reference unless set); output `.file`.
+  With several references name each one in the prompt by its template — `the T-shirt from {{ inputs.shirt }},
+  the cap from {{ inputs.cap }}` — the framework adds a legend that maps those paths to the attached images.
 - `call` — run another scenario (it needs `callable: true`) in the same run with `inputs:`; output = its `outputs`.
 - `parallel` — named branches (lists of steps) run concurrently; no cross-branch refs.
 - `switch` — `value` (string expr), `cases: {v: [steps]}`, `default:` required (`[]` = nothing).

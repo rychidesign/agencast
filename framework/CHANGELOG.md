@@ -10,7 +10,8 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
 - Images as inputs and as a variable (0.18.0, scenario.md Type `file`): input types `file` and `files` take a path
   from the CLI (`-i photo=a.jpg`, `-i 'refs=["a.png","b.webp"]'`) or from Python (`Path`), are copied into
   `runs/<id>/inputs/` and carry `width`, `height` and `format` readable with a dot; `images:` on `ask`/`task` sends
-  them to the model (`Image 1 (…)` labels, `<file: …>` in the record); a `files` output uploads every file;
+  them to the model (`Image 1 (inputs/photo.png, W×H)` labels — the path `{{ inputs.photo }}` renders, so a prompt
+  can name an image; the `image` step puts the same labels in a legend at the top of the prompt; `<file: …>` in the record); a `files` output uploads every file;
   PNG, JPEG (EXIF orientation), WebP, GIF and AVIF headers are read without Pillow; `validate` checks
   `input_modalities` of the agent's model.
 - `POST /projects/<p>/uploads` (single project: `POST /uploads`): raw image bytes → `{"upload_id"}`, which a run

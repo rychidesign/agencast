@@ -130,7 +130,7 @@
   "field.agent": "Agent",
   "field.prompt": "Prompt",
   "field.images": "Images",
-  "help.images": "templates leading to a file or a list of files, e.g. {ex}; several separated by commas (an image step: an alias with api: images)",
+  "help.images": "templates leading to a file or a list of files, e.g. {ex}; several separated by commas; name an image in the prompt with the same template (an image step: an alias with api: images)",
   "field.schema": "Output schema",
   "field.questions": "Questions",
   "field.state": "State",

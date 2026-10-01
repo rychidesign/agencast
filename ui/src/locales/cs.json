@@ -130,7 +130,7 @@
   "field.agent": "Agent",
   "field.prompt": "Prompt",
   "field.images": "Obrázky",
-  "help.images": "šablony vedoucí na soubor nebo seznam souborů, např. {ex}; více oddělte čárkou (u kroku image alias s api: images)",
+  "help.images": "šablony vedoucí na soubor nebo seznam souborů, např. {ex}; více oddělte čárkou; v promptu obrázek pojmenujte stejnou šablonou (u kroku image alias s api: images)",
   "field.schema": "Schéma výstupu",
   "field.questions": "Otázky",
   "field.state": "State",
