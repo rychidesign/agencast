@@ -65,7 +65,7 @@ export function TokenScreen({ bad }: { bad: boolean }) {
             <input
               id="token" type={shown ? "text" : "password"} autoComplete="off" autoFocus value={value} onChange={(e) => setValue(e.target.value)}
               aria-describedby="token-help"
-              className="h-11 w-full rounded-[6px] bg-nested pr-11 pl-10 font-mono text-sm focus:ring-2 focus:ring-accent focus:ring-offset-0 focus:outline-none pointer-coarse:text-base"
+              className="h-9 w-full rounded-[6px] bg-nested pr-11 pl-10 pointer-coarse:h-11 font-mono text-sm focus:ring-2 focus:ring-accent focus:ring-offset-0 focus:outline-none pointer-coarse:text-base"
             />
             <button type="button" onClick={() => setShown(!shown)} aria-label={t(shown ? "token.hide" : "token.show")} aria-pressed={shown}
               className="absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 place-items-center rounded-control text-fg-muted hover:text-fg">

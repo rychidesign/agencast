@@ -14,11 +14,11 @@ import { Expression } from "./yaml";
 
 type Obj = Record<string, unknown>;
 
-/** Panel header icon button: 32 px ghost (fidelity §7), 44 px on touch. */
-export const panelIcon = "grid size-11 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50";
+/** Panel header icon button: 36 px ghost like the other icon buttons, 44 px on touch. */
+export const panelIcon = "grid size-9 shrink-0 place-items-center pointer-coarse:size-11 rounded-[var(--radius-button)] text-fg-secondary hover:bg-surface-hover hover:text-fg disabled:opacity-50";
 
 /** PanelShell (design 05, measured from .pen): `surface` r16; header p 20 with a line (icon 16, mono 10 uppercase eyebrow,
- *  title 18 semibold, close 44 ghost), body p 20, field gap 18. Up to 1279 px (`SheetContext`) a bottom sheet:
+ *  title 18 semibold, close 36 ghost), body p 20, field gap 18; from 1280 px it fills the `PanelSlot` drawer, the body scrolls. Up to 1279 px (`SheetContext`) a bottom sheet:
  *  `role="dialog"`, focus trap, Esc closes, body scrolls, header stays. */
 export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
   id: string; eyebrow: string; title: ReactNode; onClose: () => void; actions?: ReactNode; children: ReactNode;
@@ -29,7 +29,7 @@ export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
     <>{sheet && <div className="fixed inset-0 z-40 bg-canvas/70" onMouseDown={onClose} aria-hidden />}
     <aside aria-labelledby={id} ref={dialog.ref} onKeyDown={dialog.onKeyDown}
       {...(sheet && { role: "dialog", "aria-modal": true, tabIndex: -1 })}
-      className={sheet ? "sheet-enter sheet-shadow fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[calc(100dvh-48px)] flex-col rounded-t-panel bg-surface focus:outline-none md:max-w-[720px]" : "rounded-panel bg-surface"}>
+      className={sheet ? "sheet-enter sheet-shadow fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[calc(100dvh-48px)] flex-col rounded-t-panel bg-surface focus:outline-none md:max-w-[720px]" : "flex min-h-0 flex-1 flex-col bg-surface"}>
       {sheet && <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-fg-muted/40" aria-hidden />}
       <div className="flex shrink-0 items-center gap-3 border-b border-line py-4 pr-3 pl-5">
         <PanelRight className="size-4 shrink-0 text-fg-secondary" aria-hidden />
@@ -42,7 +42,7 @@ export function PanelShell({ id, eyebrow, title, onClose, actions, children }: {
           <X className="size-4" aria-hidden />
         </button>
       </div>
-      <div className={sheet ? "scroll-quiet min-h-0 overflow-y-auto overscroll-contain p-5 pb-[calc(20px+env(safe-area-inset-bottom))]" : "p-5"}>{children}</div>
+      <div className={sheet ? "scroll-quiet min-h-0 overflow-y-auto overscroll-contain p-5 pb-[calc(20px+env(safe-area-inset-bottom))]" : "scroll-thin min-h-0 flex-1 overflow-y-auto overscroll-contain p-5"}>{children}</div>
     </aside>
     </>
   );
@@ -108,7 +108,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
 
   return (
     <PanelShell id="step-panel-title" eyebrow={`${t("panel.step", { n: step.nn })} · ${type ?? "?"}`}
-      title={<span className="font-mono" title={step.id}>{step.id}</span>} onClose={onClose}
+      title={<span title={step.id}>{step.id}</span>} onClose={onClose}
       actions={
         <button type="button" onClick={edit.remove} aria-label={t("edit.deleteStep", { id: step.id })} title={t("edit.delete")}
           className={`${panelIcon} text-error hover:bg-error/10 hover:text-error`}>
@@ -117,6 +117,7 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
       }>
       <div className="space-y-[18px]">
         <ErrorList errors={loose} />
+        <IdField step={step} steps={steps} errors={fieldErrors("id")} onRename={edit.rename} />
         <FormField label={t("panel.type")}>
           {(a) => (
             <select {...a} value={type ?? ""} onChange={(e) => edit.retype(e.target.value as StepType)} disabled={type === "output"}
@@ -163,9 +164,8 @@ export function StepPanel({ step, steps, header, project, scenario, errors, onCl
               </div>
             </Collapsible>
           )}
-          <Collapsible title={t("panel.details")} value={<span className="font-mono">{step.id}</span>}>
+          <Collapsible title={t("panel.details")} value={null}>
             <div className="space-y-4">
-              <IdField step={step} steps={steps} errors={fieldErrors("id")} onRename={edit.rename} />
               <dl className="space-y-3 text-sm">
                 <div><dt className="text-[13px] font-semibold text-fg-secondary">{t("panel.readsFrom")}</dt>
                   <dd className="mt-1"><Chips ids={readsFrom(step)} onSelect={onSelect} /></dd></div>
@@ -193,7 +193,7 @@ const Chips = ({ ids, onSelect }: { ids: string[]; onSelect: (id: string) => voi
     </span>
   ) : <span className="text-fg-muted">{t("panel.nothing")}</span>;
 
-/** Renaming the id: format and uniqueness; references in the steps that read it are rewritten by a batch (`rename_step`, `rename_refs`). */
+/** The name of the step = its id, the first field of the panel. Renaming: format and uniqueness; references in the steps that read it are rewritten by a batch (`rename_step`, `rename_refs`). */
 function IdField({ step, steps, errors, onRename }: {
   step: WStep; steps: WStep[]; errors: ErrorItem[]; onRename: (id: string) => void;
 }) {
@@ -209,7 +209,7 @@ function IdField({ step, steps, errors, onRename }: {
     setValue(step.id); // after confirmation the new id arrives, after cancelling the old one stays
   };
   return (
-    <FormField label="id" errors={[...(problem ? [problem] : []), ...errors]}>
+    <FormField label={t("panel.name")} help={t("panel.nameHelp", { id: step.id })} errors={[...(problem ? [problem] : []), ...errors]}>
       {(a) => (
         <input {...a} className={`${inputCls} font-mono`} value={value} {...slugProps(setValue, snake)}
           onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())} />

@@ -5,19 +5,28 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { t } from "../i18n";
 import { btn, Menu, useMedia, type MenuItem } from "./ui";
 
-/** Icon button in the page header: 44 × 44, `bg-control`, icon 20 px (measured from .pen). */
+/** Icon button in the page header: `btn.icon` (36 × 36, 44 on touch), `bg-control`, icon 20 px. */
 export const headerIconBtn = `${btn.icon} [&>svg]:size-5`;
 
-/** Back link above the title ("← Scenarios"). */
-export function BackLink({ href, children }: { href: string; children: ReactNode }) {
+/** Back link: up to 767 px a row above the title ("← Scenarios"), wider only an arrow before the title (saves a row). */
+function BackLink({ href, label }: { href: string; label: string }) {
   return (
-    <a href={href} className="inline-flex items-center gap-3 text-xs text-fg-secondary hover:text-fg pointer-coarse:min-h-11">
-      <ArrowLeft className="size-4" aria-hidden /> {children}
+    <a href={href} className="inline-flex items-center gap-3 text-xs text-fg-secondary hover:text-fg md:hidden pointer-coarse:min-h-11">
+      <ArrowLeft className="size-4" aria-hidden /> {label}
     </a>
   );
 }
 
-export function PageHeader({ title, description, detail, meta, actions, compact = [], menu, menuLabel, back, sticky, children }: {
+function BackArrow({ href, label }: { href: string; label: string }) {
+  return (
+    <a href={href} aria-label={label} title={label}
+      className="-ml-2 grid size-9 shrink-0 place-items-center rounded-[var(--radius-button)] text-fg-secondary hover:bg-surface-hover hover:text-fg max-md:hidden pointer-coarse:size-11">
+      <ArrowLeft className="size-5" aria-hidden />
+    </a>
+  );
+}
+
+export function PageHeader({ title, description, detail, meta, actions, compact = [], menu, menuLabel, back, trail, sticky, children }: {
   title: ReactNode;
   description?: ReactNode;
   /** Row right below the title, mono 13 `fg-muted`: run_id. */
@@ -33,8 +42,10 @@ export function PageHeader({ title, description, detail, meta, actions, compact 
   menu?: MenuItem[];
   /** Accessible name of ⋯, default "More actions". */
   menuLabel?: string;
-  /** Row above the title: back link, breadcrumbs. */
-  back?: ReactNode;
+  /** Back to the parent list: an arrow before the title, up to 767 px a link row above it. */
+  back?: { href: string; label: string };
+  /** Breadcrumbs in the row above the title (all widths). */
+  trail?: ReactNode;
   /** Sticky header (editor, run); reports its height in `--page-header-h` for card spacing when jumping. */
   sticky?: boolean;
   /** Second row: mode toggle, SaveNote, tabs. */
@@ -57,10 +68,17 @@ export function PageHeader({ title, description, detail, meta, actions, compact 
     // z-30: the ⋯ menu from the header must sit above the sticky panel (z-20)
     <header ref={ref}
       className={`space-y-5 pb-6 max-md:space-y-4 ${sticky ? "z-30 bg-app lg:sticky lg:top-0 lg:-mx-8 lg:-mt-4 lg:px-8 lg:pt-4" : ""}`}>
-      {back && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{back}</div>}
+      {(back || trail) && (
+        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${trail ? "" : "md:hidden"}`}>
+          {back && <BackLink {...back} />}
+          {trail}
+        </div>
+      )}
       <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-        <div className={`min-w-0 flex-1 ${description || detail ? "max-md:basis-full" : ""}`}>
+        {/* basis 240: when the actions do not fit beside it (a narrower page next to the drawer), they wrap below the title */}
+        <div className={`min-w-0 grow basis-60 ${description || detail ? "max-md:basis-full" : ""}`}>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {back && <BackArrow {...back} />}
             {/* the title is never clipped: long mono names (without spaces) wrap anywhere */}
             <h1 className="text-h1 min-w-0 [overflow-wrap:anywhere] max-md:text-2xl max-md:leading-8">{title}</h1>
             {meta}
@@ -69,7 +87,7 @@ export function PageHeader({ title, description, detail, meta, actions, compact 
           {detail && <div className="mt-2 truncate font-mono text-[13px] leading-5 text-fg-muted max-md:text-xs">{detail}</div>}
         </div>
         {(actions || items?.length) && (
-          // ⋯ in the header as a `bg-control` icon button, 44 × 44 (measured from .pen)
+          // ⋯ in the header as a `bg-control` icon button (`btn.icon`)
           <div className="flex flex-wrap items-center gap-3">
             {actions}
             {!!items?.length && <Menu items={items} label={menuLabel ?? t("common.moreActions")} />}

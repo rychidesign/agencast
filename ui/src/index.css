@@ -35,8 +35,11 @@
   /* card in a grid / list (project, scenario, list item, step container, filters) — measured from .pen */
   --radius-tile: 14px;
   --radius-panel: 16px;
-  --shadow-pop: 20px 20px 40px rgba(20, 16, 48, 0.55);
-  --shadow-sheet: 0 -20px 40px rgba(20, 16, 48, 0.55);
+  /* shadows in the blue of the sidebar background (`--color-sidebar` #0B1524) */
+  --shadow-pop: 20px 20px 40px rgba(11, 21, 36, 0.55);
+  --shadow-sheet: 0 -20px 40px rgba(11, 21, 36, 0.55);
+  /* drawer on the right edge: one very soft, wide shadow to the left */
+  --shadow-drawer: -48px 0 160px rgba(11, 21, 36, 0.9);
 }
 
 /* shared app background gradient from the design ("AppBackground", measured from .pen); `fixed`, so the sticky header
@@ -66,11 +69,15 @@
   /* a single soft shadow (user: x/y 20, blur 40); the edge above the card is held by the lighter `menu` fill, not a second shadow */
   .popover { background: var(--color-menu); border-radius: 12px; box-shadow: var(--shadow-pop); outline: 0; }
   .sheet-shadow { box-shadow: var(--shadow-sheet); }
+  .drawer-shadow { box-shadow: var(--shadow-drawer); }
   @keyframes sheet-up { from { transform: translateY(16px); opacity: .85; } to { transform: translateY(0); opacity: 1; } }
+  /* movement only: text in the drawer keeps its full contrast from the first frame */
+  @keyframes drawer-in { from { transform: translateX(24px); } to { transform: translateX(0); } }
   @keyframes pop-up { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   @keyframes fab-turn { from { transform: rotate(-90deg); opacity: .6; } to { transform: rotate(0); opacity: 1; } }
   @media (prefers-reduced-motion: no-preference) {
     .sheet-enter { animation: sheet-up 200ms ease-out; }
+    .drawer-enter { animation: drawer-in 200ms ease-out; }
     .pop-enter { animation: pop-up 150ms ease-out; }
   }
 }

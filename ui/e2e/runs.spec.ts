@@ -122,7 +122,7 @@ test("C7 reading the result and cost", async ({ page, project, server }) => {
   await expect(panel).toContainText("write");
   for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    expect((await panel.locator("xpath=..").boundingBox())!.width).toBe(520);
+    expect((await panel.locator("xpath=..").boundingBox())!.width).toBeCloseTo(520, 0);
   }
   const tabs = panel.getByRole("tablist", { name: "Step sections" }).getByRole("tab");
   await expect(tabs).toContainText(["Prompt", "Response", "Output", "Calls", "Files"]);

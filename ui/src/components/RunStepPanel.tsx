@@ -165,7 +165,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
 
   return (
     <PanelShell id="run-step-title" eyebrow={`${rs?.nn ? t("panel.step", { n: rs.nn }) : ""} · ${kind ?? "?"}`.replace(/^ · /, "")}
-      title={<span className="font-mono">{path}</span>} onClose={onClose}>
+      title={path} onClose={onClose}>
       <div className="space-y-5">
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-fg-secondary">
           <StatusChip status={status}>{rs ? t(`rstatus.${rs.status}`) : t("run.notReached")}</StatusChip>

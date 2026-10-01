@@ -87,7 +87,7 @@ test("R4 design fidelity: sidebar, header, project card, run row (measured from 
   await expect(h1).toHaveCSS("font-size", "28px");
   await expect(h1).toHaveCSS("font-weight", "400");
   await expect(page.getByText("Manage projects, scenarios and agent runs in one place.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Reload" })).toHaveCSS("width", "44px");
+  await expect(page.getByRole("button", { name: "Reload" })).toHaveCSS("width", "36px");
   const card = page.getByTestId(`project-card-${project.name}`);
   await expect(card).toHaveCSS("border-top-left-radius", "14px");
   await expect(card).toHaveCSS("padding-left", "22px");
