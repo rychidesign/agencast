@@ -6,6 +6,30 @@ AgenCast is an open-source framework for defining and running LLM-agent workflow
 
 AgenCast is for developers and teams who want to compose repeatable LLM-agent tasks from files that can be read, versioned and reviewed. A scenario describes the flow of work; an agent describes its role and tools.
 
+## Why AgenCast
+
+- **Workflows are files, not code.** A scenario is YAML and an agent is Markdown. There is no graph to assemble
+  in a programming language and no classes to subclass, so a workflow can be read in a minute, reviewed in a pull
+  request and written by a coding agent.
+- **The flow is explicit.** The scenario fixes the steps, branches and calls; the model works inside a step and
+  never invents the route. You can read every possible path before anything runs.
+- **Check before you pay.** `validate` finds mistakes without calling a model, `--dry-run` prints the plan and
+  `--fake` runs the whole scenario with scripted answers — no key, no cost. The same fixtures serve as regression tests.
+- **Every run explains itself.** The run folder keeps each prompt and response, a timeline, the cost of every
+  step, `summary.md` and a standalone `report.html`. No tracing service and no account are needed.
+- **Costs have hard limits.** Budgets per step, per run and per day, a separate cap for images and a timeout on
+  every step. A limit that is hit stops the run with a named error class; nothing fails silently.
+- **Permissions belong to the owner.** Which tools and servers an agent may use is decided in the project owner's
+  files; a scenario can only narrow them. Secrets are referenced by variable name and masked in every record.
+- **Any model, one line to switch.** Agents refer to aliases; `config.yaml` maps them to models. Changing a model
+  touches one line and no scenario.
+- **Made to sit behind automation.** A token-protected webhook, signed callbacks, idempotent requests and
+  protection against repeating a step with a side effect. No web framework and no database: the files are the state,
+  and the GUI is only a view of them.
+
+AgenCast is deliberately small. It runs workflows you can describe step by step; it is not a library for
+free-form conversations between agents written in code.
+
 ## Quick start
 
 Tested on Linux/WSL with Python 3.12 and `uv`; native Windows is unsupported, macOS untested.
@@ -145,9 +169,8 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current framework version is **0.17.0** (the 0.17.x line); the history of changes is in
-the [changelog](framework/CHANGELOG.md). Image inputs and the MCP hardening (owner-only `mcp.yaml`,
-project trust) are on `main` and listed there under *Unreleased* (0.18.0). The project is available under the
+The current framework version is **0.18.0** (the 0.18.x line); the history of changes is in
+the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 
 This program comes without any warranty, to the extent permitted by applicable law.

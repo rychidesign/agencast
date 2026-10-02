@@ -1,6 +1,6 @@
 # AgenCast framework
 
-Version 0.17.0, Python 3.12 + uv. Formats per `docs/spec/` (v1), design
+Version 0.18.0, Python 3.12 + uv. Formats per `docs/spec/` (v1), design
 in `docs/DESIGN.md`. The package and the command are both called `agencast` (until 0.2.5
 `maw`); the command name is in `pyproject.toml` (`[project.scripts]`).
 

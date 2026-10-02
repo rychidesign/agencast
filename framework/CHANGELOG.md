@@ -5,7 +5,7 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
-## Unreleased
+## 0.18.0 — 2026-10-02 (images as inputs, MCP hardening)
 
 - Images as inputs and as a variable (0.18.0, scenario.md Type `file`): input types `file` and `files` take a path
   from the CLI (`-i photo=a.jpg`, `-i 'refs=["a.png","b.webp"]'`) or from Python (`Path`), are copied into
