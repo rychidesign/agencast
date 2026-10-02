@@ -34,7 +34,7 @@ uv run --project framework agencast projects list | add <path> [--name N] | rm <
 
 - Configuration `workflows/config.yaml` (template `config.example.yaml`) and the
   MCP server registry `workflows/mcp.yaml` (template `mcp.example.yaml`; only the
-  owner changes both — `mcp.yaml` only on disk, the API and the GUI neither show nor write it). Keys only from the environment or from `.env` in the project
+  owner changes both — `mcp.yaml` only on disk: the API never reads or writes the file, the GUI shows its servers read-only). Keys only from the environment or from `.env` in the project
   root.
 - A `task` step starts the MCP servers from `mcp.yaml` once per run (stdio via
   `npx` needs Node; on Modal, preinstall the package). The servers' stderr
@@ -45,6 +45,11 @@ uv run --project framework agencast projects list | add <path> [--name N] | rm <
   `filesystem` via `npx` needs Node.js and downloads a package on first run.
   The callback is really sent and needs a signing secret. Only scenarios without
   `task` (including called scenarios) and without `--callback-url` are guaranteed to run offline, e.g. `ig-post`.
+- Inputs of type `file` and `files` are images (PNG, JPEG, WebP, GIF, AVIF; at most 10 MB each, up to 16):
+  `-i photo=a.jpg`, `-i 'refs=["a.png","b.webp"]'`. They are copied into `runs/<id>/inputs/` and carry
+  `width`, `height` and `format`; `images:` on `ask`/`task` shows them to the model, on `image` they are
+  reference images (only an alias with `api: images`). Over HTTP an image is uploaded first and passed as
+  `{"upload_id": …}` (docs/spec/scenario.md, Type `file`; docs/spec/api.md, Uploads).
 - `--callback-url https://…` sends the result signed with HMAC after the run
   (`callback.secret_env`).
 - Run records are in `runs/` (in `.gitignore`), files from `output`
@@ -57,8 +62,8 @@ uv run --project framework agencast projects list | add <path> [--name N] | rm <
   `.env.example` and `.gitignore`; `new agent|scenario <name>` adds a
   minimal file to the project. It never overwrites anything (docs/spec/projects.md).
 - The project registry `~/.config/agencast/projects.yaml` (`AGENCAST_CONFIG_DIR`)
-  is filled by `new project`, `projects add` and a successful `run` (since 0.15.1 `validate` does not
-  change the registry); the GUI can
+  is filled by `new project`, `projects add` and a `run` that passed validation (not `--dry-run`; since 0.15.1
+  `validate` does not change the registry); the GUI can
   write in registry mode — its entries are `trusted: false`: such a project uses no MCP server
   until `agencast projects trust <name>`, which shows the project root and its servers and asks first
   (`--yes` outside a terminal; docs/spec/projects.md). `projects_root` sets the default folder for
@@ -81,6 +86,7 @@ POST /runs            Authorization: Bearer $WEBHOOK_TOKEN
 GET /runs/<run_id>    status: queued (+ queue_position) / running / callback body + callback_failed
 GET /projects, /projects/<p>[/scenarios/<s>|/runs[/<id>[/files/<path>]]|/spend?day=]   read API (docs/spec/api.md)
 POST /projects/<p>/runs   like POST /runs in project <p>; callback_url optional, "dry_run": true → plan only
+POST /projects/<p>/uploads   raw bytes of one image → 201 {"upload_id"} for a file/files input (single project: POST /uploads)
 POST /projects/<p>/validate   validation without writing ({path, text} or an empty body), errors as objects
 POST /projects/new       creates a project from the template and writes it to the registry
 POST /projects           registers an existing project with workflows/config.yaml
@@ -135,7 +141,8 @@ GET /, /assets/…      GUI (framework/src/agencast/ui/, no token)
   N runs at once, and the completion order is then not guaranteed. The queue and
   `request_key` are files in `<runs>/_queue/` — after a server restart,
   waiting requests are processed; a run interrupted midway is not repeated,
-  a callback `internal` is sent (verify manually).
+  a callback `internal` is sent (verify manually). On SIGTERM or Ctrl-C `serve` first stops the MCP servers
+  of the runs in flight; requests still waiting stay in the queue.
 - The optional `limits.max_parallel_runs` and `limits.daily_budget_usd`
   in `config.yaml` (since 0.3.1) apply to all runs over one `runs/` —
   `serve`, the manual CLI and cron share one cap (docs/spec/config.md).

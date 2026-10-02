@@ -14,7 +14,15 @@ React 18 + Vite + TypeScript + Tailwind; it parses and validates nothing itself.
 - **Projects (part 5, API 0.10.0):** cards take counts and today's spend from `GET /projects`, with
   no extra requests for the detail or the spend of each card. “Add project” creates a new one (`POST /projects/new`) or adds an
   existing one (`POST /projects`), the card menu removes it from the registry (`DELETE /projects/<p>`); without
-  `writable` there is only a command for the CLI.
+  `writable` there is only a command for the CLI. A project added or created here is `trusted: false`: it runs no MCP
+  server until the owner runs `agencast projects trust <name>` in a terminal (Config and the run form show the notice).
+
+- **Config and MCP:** the form edits `config.yaml`; MCP servers are shown read-only (description, transport, agents,
+  tools, a missing token variable). `workflows/mcp.yaml` is the owner's file on disk — the API does not serve it and the
+  GUI has no editor for it.
+
+- **Image inputs (API 0.18.0):** a `file`/`files` input in the run form uploads each image via `POST …/uploads` and sends
+  `{"upload_id": …}`; a step's `images` field takes templates such as `{{ inputs.photo }}`.
 
 - **Runs (part 3, API 0.10.0):** status only from `state` (only `queued`/`running` are polled, `interrupted`
   has its own label), run cards from the `tree`/`callees` snapshot, step data from `steps`, the step panel
@@ -41,7 +49,7 @@ React 18 + Vite + TypeScript + Tailwind; it parses and validates nothing itself.
   and the Playwright 1.62 browser (`npx playwright install chromium`).
 - Each worker runs its own `agencast serve --fake` (port from `E2E_PORT`, default 18700) with `AGENCAST_CONFIG_DIR`
   in tmp; each test creates a project via `POST /projects/new` (`e2e/fixtures.ts`). Network only on localhost.
-- The tests cover journeys C1–C18 and states N1–N6 from `docs/ui/user-journeys.md`.
+- The tests cover the journeys and states described in `docs/ui/user-journeys.md`.
 
 Example projects for manual testing are in `../examples/showcase/` and
 `../examples/tutorial/`; add them to the GUI with `agencast projects add <path>`.

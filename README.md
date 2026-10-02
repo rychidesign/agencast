@@ -28,6 +28,10 @@ The command above installs the CLI/API; build the GUI from a clone as described 
 - Scenarios in YAML, agents and skills in Markdown.
 - Ten step types: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail` and `output`.
 - `task` calls permitted MCP tools; `parallel`, `switch` and `call` compose branches and scenarios.
+- Images as inputs: `file` and `files` inputs (PNG, JPEG, WebP, GIF, AVIF) come from the CLI, the API or the GUI;
+  `ask` and `task` can look at them, `image` can edit one or compose a new one from several.
+- Permissions belong to the project owner: MCP servers are set only in `workflows/mcp.yaml` on disk —
+  the API and the GUI cannot change them.
 - A fake provider replaces model calls with no cost and no key; MCP and callbacks stay real.
 - Every run stores `summary.md`, `callback.json` and a standalone `report.html`.
 - `agencast serve` accepts webhooks and offers a GUI for registered projects.
@@ -128,13 +132,22 @@ grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env
 
 Never print the token value.
 
+The GUI shows MCP servers read-only: `workflows/mcp.yaml` is edited by the project owner on the server,
+the API neither reads nor writes it. A project added or created through the GUI or the API uses no MCP
+server until its owner allows it in a terminal:
+
+```bash
+agencast projects trust <name>
+```
+
 The GUI is English by default. The Czech translation is in `ui/src/locales/cs.json`;
 choose the language in the GUI.
 
 ## Status and license
 
 The current framework version is **0.17.0** (the 0.17.x line); the history of changes is in
-the [changelog](framework/CHANGELOG.md). The project is available under the
+the [changelog](framework/CHANGELOG.md). Image inputs and the MCP hardening (owner-only `mcp.yaml`,
+project trust) are on `main` and listed there under *Unreleased* (0.18.0). The project is available under the
 [WTFPL version 2](LICENSE) license.
 
 This program comes without any warranty, to the extent permitted by applicable law.
