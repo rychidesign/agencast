@@ -252,6 +252,11 @@ def test_callback_failed_after_three_attempts(wf, server):
     events = [json.loads(x) for x in (hook.runs / run_id / "events.jsonl").read_text().splitlines()]
     assert [e["attempt"] for e in events if e["type"] == "callback_sent"] == [1, 2, 3]
     assert events[-1]["type"] == "callback_failed" and events[-1]["attempts"] == 3
+    # sent again after a restart and refused again: only a delivered attempt clears the flag, as in `runs`
+    log = hook.runs / run_id / "events.jsonl"
+    log.write_text(log.read_text() + log.read_text().splitlines()[-2] + "\n")
+    assert client.get(f"/runs/{run_id}").json()["callback_failed"] is True
+    assert api.runs_list(wf.parent)[0]["callback"] == "callback not delivered"
 
 
 def test_queue_survives_restart(wf, env):
@@ -289,6 +294,53 @@ def test_queue_survives_restart(wf, env):
     assert detail["state"] == "interrupted" and detail["started_at"] == prior[0]["ts"]
     assert detail["steps"][0]["status"] == "interrupted"
     assert cbs[1]["status"] == "succeeded"
+
+
+def test_restart_sends_the_callback_a_stop_cut_short(wf, env, monkeypatch):
+    """`serve` stopped while a finished run's callback was being retried: the restart used to run a 'did not start'
+    stub over the record — status failed, outputs null, cost 0 in callback.json, summary.md and the callback of a
+    run that had succeeded."""
+    from agencast import engine
+    monkeypatch.setattr(engine, "_STOPPING", None)  # restored after the test: stop_runs sets it for good
+    monkeypatch.setattr(engine, "CALLBACK_DELAYS", (30, 30))
+    rcv = Receiver(status=500)
+    hook, srv, client = start(wf)
+    try:
+        run_id = client.post("/runs", json=req(rcv)).json()["run_id"]
+        d = hook.runs / run_id
+        rcv.wait(1)  # attempt 1 was refused; the run waits before attempt 2
+        end = time.monotonic() + 10
+        while '"callback_sent"' not in (d / "events.jsonl").read_text():  # the receiver has it before the record does
+            assert time.monotonic() < end, "attempt 1 was not recorded"
+            time.sleep(0.02)
+        assert engine.stop_runs() is True
+        types = [json.loads(x)["type"] for x in (d / "events.jsonl").read_text().splitlines()]
+        assert types[-3:] == ["run_finished", "callback_sent", "callback_failed"]
+        assert (hook.qdir / f"{run_id}.json").exists()  # kept for the restart
+        assert client.get(f"/runs/{run_id}").json()["callback_failed"] is True
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        client.close()
+    stored, summary = (d / "callback.json").read_bytes(), (d / "summary.md").read_bytes()
+    monkeypatch.setattr(engine, "_STOPPING", None)  # the next `agencast serve`
+    rcv.status = 200
+    hook, srv, client = start(wf)
+    try:
+        finished(hook, run_id)
+        (_, first), (headers, again) = rcv.got
+        assert again == first and json.loads(again)["status"] == "succeeded"  # the run's own result, not a stub
+        assert headers["x-signature"] == "sha256=" + hmac.new(SECRET.encode(), again, hashlib.sha256).hexdigest()
+        assert ((d / "callback.json").read_bytes(), (d / "summary.md").read_bytes()) == (stored, summary)
+        after = [json.loads(x)["type"] for x in (d / "events.jsonl").read_text().splitlines()]
+        assert after == types + ["callback_sent"]  # no second run_started/run_finished over the record
+        st = client.get(f"/runs/{run_id}").json()
+        assert st["status"] == "succeeded" and st["callback_failed"] is False  # delivered after all
+        assert api.runs_list(wf.parent)[0]["callback"] == ""
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        client.close()
 
 
 def test_server_needs_token_env(wf, monkeypatch):

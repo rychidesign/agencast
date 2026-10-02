@@ -7,6 +7,7 @@ the effective tool set (step ⊆ agent ⊆ mcp.yaml), `load_skill` and, at the
 `tool_wrapper` cascade level, `_submit_output`, which ends the loop and never goes
 to an MCP server.
 """
+import asyncio
 import base64
 import fcntl
 import hashlib
@@ -19,7 +20,7 @@ from typing import Any
 from . import AgencastError
 from .mcp_client import Pool, api_name, arg_errors, provider_schema
 from .providers import (LEVELS, SUBMIT_TOOL, assistant_message, image_size, json_schema, parse_task,
-                        prompt_level_suffix, task_body)
+                        prompt_level_suffix, schema_feedback, task_body)
 from .record import redact
 from .validate import DEFAULT_TIMEOUT, StepInfo, effective_tools, seconds
 
@@ -225,11 +226,12 @@ class _Loop:
         self.routes: dict = {}   # API name → (Server, mcp Tool)
         self.notes: dict = {}    # image data URL → record text
         self.tool_calls = 0
+        self.ran = False         # a call went to an MCP server: a schema retry must not run tools again
 
     async def tools(self) -> list:
         out = []
         for s, names in effective_tools(self.agent.data, self.t).items():
-            srv = await self.run.mcp.get(s)
+            srv = await self.run.mcp_server(self.info, s)
             for n in names:
                 tool = srv.tools.get(n)
                 if tool is None:
@@ -259,7 +261,8 @@ class _Loop:
         messages = [{"role": "user", "content": [{"type": "text", "text": prompt}, *parts] if parts else prompt}]
         # always start with tool_wrapper regardless of alias: native schema on each turn tempts the model (Haiku)
         # to answer with JSON without calling tools (BUGS 7, ISSUES 36); alias applies only to ask
-        st = {"level": "tool_wrapper" if self.schema else None, "feedback": [], "prev": None, "turn": 0}
+        st = {"level": "tool_wrapper" if self.schema else None, "feedback": [], "prev": None, "turn": 0,
+              "answer_only": False}
         run.rec.write(f"{info.folder}/prompt.md", "# System prompt\n\n" + system + "\n\n# Message\n\n" + prompt
                       + images_md(lines))
 
@@ -267,18 +270,23 @@ class _Loop:
             if last and last.cls == "schema":  # cascade one level down + feedback (as with ask)
                 if st["level"] != "prompt":
                     st["level"] = LEVELS[LEVELS.index(st["level"]) + 1]
-                prev = st["prev"]
-                st["feedback"] = ([assistant_message(prev)] if prev and prev.get("content") and not prev.get("tool_calls")
-                                  else []) + [{"role": "user", "content": f"The previous response was invalid: "
-                                               f"{last.message}\nRespond again, exactly in the required format."}]
+                # tools that already ran must not run again (side effects, §5.2): from now on only the answer.
+                # Before the first call to a server there is nothing to repeat and the model still needs its tools.
+                st["answer_only"] = self.ran
+                st["feedback"] = schema_feedback(
+                    st["prev"], last.message, st["level"],
+                    (f" Call only {SUBMIT_TOOL}." if st["level"] == "tool_wrapper" else " Do not call tools.")
+                    + " The tool calls above already ran — use their results." if st["answer_only"] else "")
             sysp = system + (prompt_level_suffix(self.schema) if st["level"] == "prompt" else "")
             return task_body(self.m["id"], sysp, messages + st["feedback"], tools, st["level"], self.schema,
-                             self.m.get("max_tokens")), \
+                             self.m.get("max_tokens"), st["answer_only"]), \
                 {"turn": st["turn"], "alias": self.alias, "model": self.m["id"], "structured_output": st["level"]}
 
         def parse(status, body, headers):
             meta, value, err = parse_task(status, body, headers, st["level"], self.schema)
             st["prev"] = meta.pop("message")
+            if st["answer_only"] and value and "calls" in value:  # `tool_choice` ignored: a retry never runs tools
+                value, err = None, AgencastError("schema", "model called tools instead of answering")
             return meta, value, err
 
         scopes = run.leaf_budgets(info, self.ctx, self.agent.data["limits"]["budget_usd"])
@@ -326,6 +334,13 @@ class _Loop:
             server, tool = (name.split("__", 1) if "__" in name else (None, name))
         flags = {"allowed": bool(route) or server == SKILLS_SERVER, "invalid_args": False, "is_error": False}
         t0, files = time.monotonic(), []
+
+        def record(text, **error):
+            call_file = run.rec.write(f"{info.folder}/calls/{n:02d}.tool.json", {
+                "turn": turn, "name": name, "server": server, "tool": tool, "arguments": args, **flags,
+                "result": text, "files": files, **error})
+            run.rec.event("tool_call", step=info.id, turn=turn, server=server, tool=tool, **flags, **error,
+                          duration_s=round(time.monotonic() - t0, 3), call_file=call_file)
         try:
             args = json.loads(raw)
         except ValueError as e:
@@ -345,21 +360,25 @@ class _Loop:
             if self.dedupe and not self.started:  # started before the first tool call (§5.2)
                 run.dedupe.claim(self.dedupe, run.run_id)
                 self.started = True
-            res = await Pool.call(route[0], tool, args)
+            self.ran = True
+            try:
+                res = await Pool.call(route[0], tool, args)
+            except BaseException as e:  # timeout, dead server, cancellation (deadline, interrupt): it may have run
+                flags["is_error"] = True
+                record(None, error=e.message if isinstance(e, AgencastError) else "cancelled before the tool answered "
+                       "(may have run)" if isinstance(e, asyncio.CancelledError) else f"{type(e).__name__}: {e}")
+                raise
             flags["is_error"] = res.is_error
             text = ("Tool error: " if res.is_error else "") + res.text
             for k, (data, media) in enumerate(res.images, 1):
                 rel = run.rec.write_bytes(f"{info.folder}/tool-{n:02d}-{k}.{IMAGE_EXT.get(media, 'bin')}", data)
                 w, h = image_size(data)
-                run.rec.event("image_saved", step=info.id, path=rel, media_type=media, bytes=len(data), width=w, height=h)
+                size = run.rec.size(rel)
+                run.rec.event("image_saved", step=info.id, path=rel, media_type=media, bytes=size, width=w, height=h)
                 url = f"data:{media};base64,{base64.b64encode(data).decode()}"
-                self.notes.setdefault(url, f"<file: {rel}, {len(data)} B>")  # same bytes as an input image: first wins
+                self.notes.setdefault(url, f"<file: {rel}, {size} B>")  # same bytes as an input image: first wins
                 images.append({"type": "image_url", "image_url": {"url": url}})
                 files.append(rel)
                 text += f"\nimage in the next message: {rel.rsplit('/', 1)[1]}"
-        call_file = run.rec.write(f"{info.folder}/calls/{n:02d}.tool.json", {
-            "turn": turn, "name": name, "server": server, "tool": tool, "arguments": args, **flags,
-            "result": text, "files": files})
-        run.rec.event("tool_call", step=info.id, turn=turn, server=server, tool=tool, **flags,
-                      duration_s=round(time.monotonic() - t0, 3), call_file=call_file)
+        record(text)
         return {"role": "tool", "tool_call_id": call.get("id"), "content": text}

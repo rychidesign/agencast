@@ -1,12 +1,13 @@
 // §2.8 Config: form for models, limits, storage, webhook, callback and openrouter.api_key_env
-// (`PUT …/config`, merge patch); YAML mode = config.yaml and mcp.yaml as text (`files/`).
+// (`PUT …/config`, merge patch); YAML mode = config.yaml as text (`files/`). MCP servers are read-only cards:
+// mcp.yaml is the project owner's and the API neither returns nor writes it (api.md "MCP servers are the owner's").
 // Environment variables only as ✓/✗, never the value.
 import { CodeXml, Plus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { enc } from "../api";
 import { FormField, inputCls, Modal, slugify } from "../components/form";
 import { YamlEditor } from "../components/YamlEditor";
-import { btn, ErrorList, ErrorText, Loading, StatusBadge, Toggle } from "../components/ui";
+import { btn, ErrorList, ErrorText, Loading, StatusBadge, Toggle, UntrustedNotice } from "../components/ui";
 import { KeyInput } from "../components/StepPanel";
 import { isObj, mergePatch } from "../edit";
 import { t } from "../i18n";
@@ -57,20 +58,15 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
     },
   }, "config");
   const config = useTextFile(name, mode === "yaml" ? "config.yaml" : null);
-  const mcp = useTextFile(name, mode === "yaml" ? "mcp.yaml" : null);
   const formUi = useConflictUi(form, () => form.doc?.text ?? "");
   const configUi = useConflictUi(config, () => config.doc?.text ?? "");
-  const mcpUi = useConflictUi(mcp, () => mcp.doc?.text ?? "");
-  useLeaveGuard(form.dirty || config.dirty || mcp.dirty);
-  const texts = [config, mcp].filter((f) => f.dirty);
-  const dirty = mode === "form" ? form.dirty : texts.length > 0;
-  const syntax = [...config.errors, ...mcp.errors].find((e) => e.line);
-  const canSave = mode === "form" ? form.dirty && !form.conflict
-    : texts.length > 0 && !syntax && texts.every((f) => !f.validating && !f.conflict);
+  useLeaveGuard(form.dirty || config.dirty);
+  const dirty = mode === "form" ? form.dirty : config.dirty;
+  const syntax = config.errors.find((e) => e.line);
+  const canSave = mode === "form" ? form.dirty && !form.conflict : config.dirty && !syntax && !config.validating && !config.conflict;
 
   const save = async () => {
-    const ok = mode === "form" ? await formUi.save()
-      : (await Promise.all([config.dirty ? configUi.save() : true, mcp.dirty ? mcpUi.save() : true])).every(Boolean);
+    const ok = await (mode === "form" ? formUi : configUi).save();
     if (ok) onChanged?.();
     return ok;
   };
@@ -80,12 +76,12 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
     formUi.setModal(
       <Modal title={t("mode.title")} onCancel={formUi.close} actions={[
         { label: t("mode.save"), primary: true, onSelect: async () => (formUi.close(), (await save()) && setMode(m)) },
-        { label: t("mode.discard"), danger: true, onSelect: () => (formUi.close(), form.discard(), config.discard(), mcp.discard(), setMode(m)) },
+        { label: t("mode.discard"), danger: true, onSelect: () => (formUi.close(), form.discard(), config.discard(), setMode(m)) },
       ]}><p>{t("mode.fileDirty")}</p></Modal>,
     );
   };
-  const state = mode === "form" ? form.state : (config.state.kind !== "idle" ? config.state : mcp.state);
-  const errors = mode === "form" ? form.errors : [...config.errors, ...mcp.errors];
+  const state = mode === "form" ? form.state : config.state;
+  const errors = mode === "form" ? form.errors : config.errors;
 
   return (
     <div className="space-y-5" onKeyDown={(e) => {
@@ -119,11 +115,8 @@ export function ConfigTab({ name, project, header, onChanged }: { name: string; 
           {configUi.bar}
           {config.doc ? <YamlEditor text={config.text} onChange={config.setText} file="config.yaml" errors={config.errors} />
             : config.loadError ? <ErrorText error={config.loadError} /> : <Loading rows={8} />}
-          {mcpUi.bar}
-          {mcp.doc ? <YamlEditor text={mcp.text} onChange={mcp.setText} file="mcp.yaml" errors={mcp.errors} />
-            : mcp.loadError?.status === 404 ? <p className="text-sm text-fg-muted">{t("config.noMcp")}</p>
-            : mcp.loadError ? <ErrorText error={mcp.loadError} /> : <Loading rows={4} />}
-          {formUi.modal}{configUi.modal}{mcpUi.modal}
+          {project && <McpServers project={project} />}
+          {formUi.modal}{configUi.modal}
         </div>
       )}
       </div>
@@ -293,23 +286,39 @@ function ConfigFields({ project, value, onChange, errors, jev }: {
         </ul>
       </Section>
       </div>
-      <Section title={t("config.mcp")}>
-        <ul className="space-y-2">
-          {project?.mcp_servers.map((s) => (
-            <li key={s.name} className="space-y-3 rounded-[10px] bg-nested p-4">
-              <div className="flex items-center justify-between gap-3"><span className="text-[15px] font-semibold">{s.name}</span><span className="shrink-0 rounded-full bg-surface px-2.5 py-1 font-mono text-xs text-fg-secondary">{t("code.readOnly")}</span></div>
-              <div className="grid gap-3 font-mono text-xs text-fg-muted sm:grid-cols-3">
-                <p>{t("config.transport")}<br /><span className="text-fg-secondary">{s.type}</span></p>
-                <p>{t("config.mcpAgents")}<br /><span className="text-fg-secondary">{s.agents?.join(", ") || "–"}</span></p>
-                <p>{t("config.mcpTools")}<br /><span className="text-fg-secondary">{s.tools?.join(", ") || "–"}</span></p>
-              </div>
-              {s.scenarios?.length ? <p className="font-mono text-xs text-fg-muted">{t("config.mcpScenarios")}: {s.scenarios.join(", ")}</p> : null}
-              <p className="border-t border-line pt-3 text-xs text-fg-muted">{t("config.mcpYaml")}</p>
-            </li>
-          ))}
-          {!project?.mcp_servers.length && <li className="text-sm text-fg-muted">{t("config.noMcp")}</li>}
-        </ul>
-      </Section>
+      {project && <McpServers project={project} />}
     </div>
+  );
+}
+
+/** MCP servers, read-only in both modes: the cards come from `mcp_servers` and the file's errors from the
+ *  project-level `errors` of `GET /projects/<p>`; the file itself never reaches the GUI. */
+function McpServers({ project }: { project: Project }) {
+  const errors = project.errors.filter((e) => e.file === "mcp.yaml");
+  return (
+    <Section title={t("config.mcp")}>
+      <p className="text-xs text-fg-muted">{t("config.mcpOwner")}</p>
+      {project.mcp_servers.length > 0 && <UntrustedNotice project={project} text={t("trust.config")} />}
+      <ErrorList errors={errors} />
+      <ul className="space-y-2">
+        {project.mcp_servers.map((s) => (
+          <li key={s.name} className="space-y-3 rounded-[10px] bg-nested p-4">
+            <div className="flex items-center justify-between gap-3"><span className="text-[15px] font-semibold">{s.name}</span><span className="shrink-0 rounded-full bg-surface px-2.5 py-1 font-mono text-xs text-fg-secondary">{t("code.readOnly")}</span></div>
+            {s.description && <p className="text-sm text-fg-secondary">{s.description}</p>}
+            <div className="grid gap-3 font-mono text-xs text-fg-muted sm:grid-cols-3">
+              <p>{t("config.transport")}<br /><span className="text-fg-secondary">{s.transport ?? s.type}</span></p>
+              <p>{t("config.mcpAgents")}<br /><span className="text-fg-secondary">{s.agents?.join(", ") || "–"}</span></p>
+              <p>{t("config.mcpTools")}<br /><span className="text-fg-secondary">{s.tools ? s.tools.join(", ") : t("mcp.unrestricted")}</span></p>
+            </div>
+            {s.scenarios?.length ? <p className="font-mono text-xs text-fg-muted">{t("config.mcpScenarios")}: {s.scenarios.join(", ")}</p> : null}
+            {/* a server without its token or variable cannot start: the same flag as in Variables, on its card */}
+            {s.env_missing?.map((v) => (
+              <p key={v} className="flex flex-wrap items-center gap-x-3 gap-y-1"><span className="break-all font-mono text-[13px]">{v}</span><EnvVar name={v} env={project.env} /></p>
+            ))}
+          </li>
+        ))}
+        {!project.mcp_servers.length && !errors.length && <li className="text-sm text-fg-muted">{t("config.noMcp")}</li>}
+      </ul>
+    </Section>
   );
 }

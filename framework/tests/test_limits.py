@@ -1,6 +1,8 @@
 """limits.max_parallel_runs and daily_budget_usd (ISSUES 40): slots `_slots/`, daily ledger `_ledger/`."""
 import json
+import signal
 import threading
+import time
 from datetime import datetime, timezone
 
 import pytest
@@ -82,6 +84,29 @@ def test_slot_wait_over_run_timeout_is_timeout(wf, capsys):
     assert json.loads((r.rec.dir / "callback.json").read_text())["error"]["class"] == "timeout"
     r2, _ = run(path)                           # slot is free again (released even after an error)
     assert r2.status == "succeeded" and events(r2, "run_waiting") == []
+
+
+def test_waiting_run_does_not_start_once_serve_is_stopping(wf, monkeypatch):
+    """`stop_runs` interrupts a run in flight, which frees its slot: a request waiting for that slot must not take
+    it and start — it stays queued for the next `serve` (no run directory)."""
+    limits(wf, "max_parallel_runs: 1", run_timeout="30s")
+    path = scenario(wf, SC)
+    slots = local_slots(wf.parent / "runs", 1)
+    held, got = slots.acquire(), []
+
+    def waiting():
+        try:
+            run(path)
+        except BaseException as e:  # noqa: BLE001 — Interrupted is a KeyboardInterrupt
+            got.append(e)
+    t = threading.Thread(target=waiting)
+    t.start()
+    time.sleep(0.5)  # waits for the slot
+    monkeypatch.setattr(engine, "_STOPPING", signal.SIGTERM)  # stop_runs
+    slots.release(held)                                       # … and the run it interrupted
+    t.join(10)
+    assert [type(e) for e in got] == [engine.Interrupted]
+    assert not list((wf.parent / "runs").glob("2*")) and slots.acquire() is not None  # nothing started, slot given back
 
 
 def test_daily_budget_exhausted_before_any_call(wf, capsys):

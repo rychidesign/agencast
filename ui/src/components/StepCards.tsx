@@ -136,7 +136,8 @@ export function StepCard({ step, ctx, shape = "pill", above }: CardProps) {
             {errors.length > 0 && <span className="size-1.5 shrink-0 rounded-full bg-error" aria-hidden />}
           </span>
           <span className={`block truncate text-[15px] leading-[22px] font-semibold in-data-branch:text-[13px] in-data-branch:leading-[19px] ${dim ? "text-fg-muted" : "text-fg"}`}>
-            <span className="font-medium text-fg-muted tabular-nums">{step.nn}.</span> {step.id}
+            {/* on the selected fill `fg-muted` is 3.9:1 (WCAG AA wants 4.5:1), as for the status on the right */}
+            <span className={`font-medium tabular-nums ${selected && !dim ? "text-fg-secondary" : "text-fg-muted"}`}>{step.nn}.</span> {step.id}
           </span>
           {value && (
             <span className={`line-clamp-2 text-[13px] leading-[19px] [overflow-wrap:anywhere] in-data-branch:line-clamp-1 ${dim ? "text-fg-muted" : "text-fg-secondary"}`} title={value}>

@@ -8,8 +8,8 @@ from pathlib import Path
 
 from . import ConfigErrors, AgencastError
 from .expressions import ExprError, FileRef, infer, kind, parse, template_type, tkind
-from .loader import (LoadError, load_yaml, nested_lists, read_frontmatter, read_yaml, scenario_schema_errors,
-                     schema_errors, seconds, step_kind, version_error)
+from .loader import (LoadError, load_yaml, nested_lists, read_frontmatter, read_text, read_yaml,
+                     scenario_schema_errors, schema_errors, seconds, step_kind, version_error)
 from .mcp_client import api_name, load_mcp, secret_names
 from .providers import DEFAULT_BASE_URL, list_image_models, list_models, probe_image, shape_type
 
@@ -109,7 +109,7 @@ def load_config(workflows: Path, errs: list) -> dict | None:
         errs.append(f"{p}: missing — copy workflows/config.example.yaml to config.yaml and edit it (project owner only)")
         return None
     try:
-        text = p.read_text(encoding="utf-8")
+        text = read_text(p, "config.yaml")
         c = load_yaml(text, "config.yaml")
     except LoadError as e:
         errs.append(str(e))
@@ -204,8 +204,9 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
     for srv in fm.get("mcp", []):  # the project owner controls permissions in mcp.yaml (config.md, §5.2)
         s = servers.get(srv)
         if s is None:
-            errs.append(f"{where}: MCP server '{srv}' is not in workflows/mcp.yaml (only the project owner can edit the registry, "
-                        "see mcp.example.yaml)")
+            if servers.missing(srv):  # not a server hidden by an error in mcp.yaml (reported there)
+                errs.append(f"{where}: MCP server '{srv}' is not in workflows/mcp.yaml (only the project owner can edit "
+                            "the registry, see mcp.example.yaml)")
         elif name not in s["agents"]:
             errs.append(f"{where}: the project owner has not allowed server '{srv}' for agent '{name}' "
                         f"(mcp.yaml → servers.{srv}.agents: {', '.join(s['agents'])})")
@@ -325,8 +326,15 @@ def _input_files(name: str, t: str, v, from_text: bool, errs: list, uploads: Pat
 
 # --- scenario -----------------------------------------------------------------------
 
-def validate(scenario_path, *, transport=None, check_models: bool = True) -> Project:
-    """Load and validate a scenario, config, agents and skills. Errors → ConfigErrors."""
+MCP_DISABLED = "are disabled —"  # the error of an untrusted project; edit.py tells it from the errors a change adds
+
+
+def validate(scenario_path, *, transport=None, check_models: bool = True, registered: Path | None = None,
+             listed: bool = False) -> Project:
+    """Load and validate a scenario, config, agents and skills. Errors → ConfigErrors.
+    `registered` = the registry root these files stand for when they are a copy (edit.py validates a change in a
+    temporary copy); default = where the scenario is. `listed` = the caller serves registered projects only
+    (`projects.untrusted`)."""
     path = Path(scenario_path).resolve()
     where = path.name
     if not path.is_file():
@@ -343,6 +351,14 @@ def validate(scenario_path, *, transport=None, check_models: bool = True) -> Pro
     chk = _Checker(sc, config, wf, where)
     chk.run()
     errs += chk.errs
+    # The one gate in front of every MCP server start (validate, run, dry run; CLI and serve): a project registered
+    # through the API (`trusted: false`, projects.md) uses none. Looked up now, by the root as addressed and as
+    # resolved — a symlinked scenarios/ or workflows/ must not lead to files outside the registry.
+    if not errs and (used := mcp_servers_used(chk.project(path))):
+        from .projects import untrusted  # the registry lives there; projects imports this module
+        roots = [registered] if registered else [wf.parent, Path(scenario_path).absolute().parent.parent.parent]
+        if why := untrusted(*roots, listed=listed):
+            errs.append(f"{where}: MCP servers ({', '.join(sorted(used))}) {MCP_DISABLED} {why}")
     image_models = []
     if not errs and check_models:
         try:

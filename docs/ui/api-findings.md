@@ -38,7 +38,7 @@ of impact.
    the old runs of such a project cannot be read. *Needed:* `errors` as objects
    (`file`, `field`, `line`) in `files/config.yaml` and in 422 responses too;
    reading runs independent of a valid config (`runs_dir` is enough).
-   **Resolved (0.7.0):** done — `files/config.yaml` and `mcp.yaml` return all errors as objects (`line` only for syntax and duplicate keys; `field` for schema errors); the 422 from `GET /projects/<p>` also has `errors`; `…/runs`, `…/runs/<id>` and `…/spend` work with an invalid config (`runs_dir`, otherwise `./runs`).
+   **Resolved (0.7.0):** done — `files/config.yaml` and `mcp.yaml` (since 0.18.0 `mcp.yaml` is no longer served: its errors are the project-level `errors` of `GET /projects/<p>`) return all errors as objects (`line` only for syntax and duplicate keys; `field` for schema errors); the 422 from `GET /projects/<p>` also has `errors`; `…/runs`, `…/runs/<id>` and `…/spend` work with an invalid config (`runs_dir`, otherwise `./runs`).
 
 5. **`GET /projects/<p>/runs` — data for the list row is missing (§2.6).**
    Missing are `fake` (the design shows “fake run”; the GUI can only get it in the detail

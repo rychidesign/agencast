@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { AGENCAST, countRequests, expect, readYaml, test, TOKEN } from "./fixtures";
 
-type Registry = { projects: { name: string; root: string }[] };
+type Registry = { projects: { name: string; root: string; trusted?: boolean }[] };
 
 test.describe("without a token", () => {
   test.use({ token: null });
@@ -92,7 +92,8 @@ test("C2 creating a project from the GUI", async ({ page, project, server }) => 
   const root = path.join(server.projectsRoot, name);
   for (const f of ["workflows/config.yaml", "workflows/agents/writer.md", "workflows/scenarios/demo.yaml", ".env.example", ".gitignore"])
     expect(fs.existsSync(path.join(root, f)), f).toBe(true);
-  expect(readYaml<Registry>(path.join(server.cfg, "projects.yaml")).projects).toContainEqual({ name, root });
+  // registered over HTTP = not trusted to run MCP servers until `agencast projects trust` (projects.md, journey C21)
+  expect(readYaml<Registry>(path.join(server.cfg, "projects.yaml")).projects).toContainEqual({ name, root, trusted: false });
 
   await page.goto("/");
   await expect(page.getByTestId(`project-card-${name}`)).toBeVisible();
@@ -125,7 +126,7 @@ test("C13 adding an existing project", async ({ page, project, server }) => {
   await expect(dialog).toBeHidden();
   const card = page.getByTestId(`project-card-${project.name}-foreign`);
   await expect(card).toContainText(/1 scenario\s*1 agent/); // count chips (fidelity §4)
-  expect(readYaml<Registry>(path.join(server.cfg, "projects.yaml")).projects).toContainEqual({ name: `${project.name}-foreign`, root: foreign });
+  expect(readYaml<Registry>(path.join(server.cfg, "projects.yaml")).projects).toContainEqual({ name: `${project.name}-foreign`, root: foreign, trusted: false });
   expect(files()).toEqual(before);
 
   // a path without workflows/config.yaml → API error, nothing was written

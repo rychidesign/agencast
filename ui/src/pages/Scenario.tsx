@@ -358,7 +358,7 @@ export function ScenarioPage({ project, scenario }: { project: string; scenario:
             </section>
             {running && p && (
               <PanelSlot>
-                <RunPanel project={p} scenario={scenario} inputs={form.server?.draft.header.inputs ?? null} dirty={form.dirty} onClose={() => setRunning(false)} />
+                <RunPanel project={p} scenario={scenario} inputs={form.server?.draft.header.inputs ?? null} errors={fileErrors} dirty={form.dirty} onClose={() => setRunning(false)} />
               </PanelSlot>
             )}
             {!running && selected === HEADER_KEY && (

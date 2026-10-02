@@ -194,7 +194,9 @@ def test_broken_config_errors_and_runs_still_readable(registry_server):
     assert [x["run_id"] for x in client.get("/projects/alpha/runs").json()["runs"]] == [run_id]  # runs_dir from config
 
     (a / "workflows" / "mcp.yaml").write_text("version: 1\nservers:\n  web: { url: https://x.example.com }\n")
-    assert client.get("/projects/alpha/files/mcp.yaml").json()["errors"][0]["file"] == "mcp.yaml"
+    assert client.get("/projects/alpha/files/mcp.yaml").status_code == 404  # owner-only: not served (api.md)
+    cfg.write_text(text)
+    assert client.get("/projects/alpha").json()["errors"][0]["file"] == "mcp.yaml"  # its errors are the project's
 
 
 def test_frontmatter_duplicate_key_first_line(tmp_path):

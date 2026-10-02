@@ -16,9 +16,9 @@ def test_registry_mode_read_api(registry_server):
     projects, client, a, b = registry_server
     assert client.get("/projects", headers={"Authorization": "Bearer wrong"}).status_code == 401
     assert client.get("/projects").json() == {"projects": [
-        {"name": "alpha", "root": str(a), "available": True, "last_run": None,
+        {"name": "alpha", "root": str(a), "available": True, "trusted": True, "last_run": None,
          "counts": {"scenarios": 1, "agents": 1}, "spend_today_usd": 0},
-        {"name": "beta", "root": str(b), "available": True, "last_run": None,
+        {"name": "beta", "root": str(b), "available": True, "trusted": True, "last_run": None,
          "counts": {"scenarios": 1, "agents": 1}, "spend_today_usd": 0}],
         "registry": str(a.parent / "agencast-config" / "projects.yaml"),
         "projects_root": str(api.projects_root()), "writable": True}
@@ -80,7 +80,7 @@ def test_single_project_mode(wf, monkeypatch):
                   "agents": sum(1 for _ in (wf / "agents").glob("*.md"))}
         (p,) = client.get("/projects").json()["projects"]
         assert p == {"name": default_name(wf.parent), "root": str(wf.parent.resolve()), "available": True,
-                     "last_run": None, "counts": counts, "spend_today_usd": 0}
+                     "trusted": True, "last_run": None, "counts": counts, "spend_today_usd": 0}
         listing = client.get("/projects").json()
         assert listing["writable"] is False and listing["projects_root"] == str(api.projects_root())
         api.add_project(wf.parent, "mine")
@@ -125,7 +125,9 @@ def test_registry_project_create_register_remove(tmp_path, registry, monkeypatch
         assert {Path(path).relative_to(root).as_posix() for path in body["created"]} == {
             ".env.example", ".gitignore", "workflows/config.yaml", "workflows/agents/writer.md",
             "workflows/scenarios/demo.yaml"}
-        assert [p["name"] for p in client.get("/projects").json()["projects"]] == ["fresh"]
+        assert body["trusted"] is False  # every registration over HTTP: no MCP servers until `projects trust`
+        assert [(p["name"], p["trusted"]) for p in client.get("/projects").json()["projects"]] == [("fresh", False)]
+        assert client.get("/projects/fresh").json()["trusted"] is False
         assert "projects_root:" in registry.read_text()
         assert client.post("/projects/new", json={"name": "fresh"}).status_code == 409
         exists = client.post("/projects/new", json={"name": "another", "root": str(root)})
@@ -135,7 +137,8 @@ def test_registry_project_create_register_remove(tmp_path, registry, monkeypatch
         api.new_project(imported, "detached")
         api.remove_project("detached")
         registered = client.post("/projects", json={"root": "imported", "name": "import"})
-        assert registered.status_code == 201 and registered.json() == {"name": "import", "root": str(imported)}
+        assert registered.status_code == 201
+        assert registered.json() == {"name": "import", "root": str(imported), "trusted": False}
         assert client.post("/projects", json={"root": str(imported)}).status_code == 409
         assert client.post("/projects", json={"root": "../outside"}).status_code == 422
         assert client.post("/projects", json={"root": str(tmp_path / "missing")}).status_code == 422

@@ -331,6 +331,19 @@ function AgentEditor({ project, name, header, sheet, onNew, onChanged }: {
   );
 }
 
+/** Tool names for a server the owner does not restrict (nothing to tick from): comma-separated text → list. The text
+ *  being typed stays as typed (a trailing comma would vanish if it were rebuilt from the list); on blur the list shows. */
+function ToolNames({ server, value, onChange }: { server: string; value: string[]; onChange: (list: string[]) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  return (
+    <FormField label={t("mcp.toolsOf", { server })} help={t("agent.toolsFree")} required>
+      {(a) => <input {...a} className={`${inputCls} font-mono`} placeholder="read_text_file, write_file" value={text ?? value.join(", ")}
+        onBlur={() => setText(null)}
+        onChange={(e) => (setText(e.target.value), onChange([...new Set(e.target.value.split(",").map((x) => x.trim()).filter(Boolean))]))} />}
+    </FormField>
+  );
+}
+
 function AgentFields({ project, name, value, onChange, errors, usedBy }: {
   project: Project; name: string; value: AgentForm; onChange: (v: AgentForm) => void; errors: ErrorItem[]; usedBy: [string, string, string][];
 }) {
@@ -351,7 +364,8 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
   const toggleServer = (srv: string, on: boolean, all: string[] | null) => {
     const nextMcp = on ? [...mcp, srv] : mcp.filter((x) => x !== srv);
     const nextTools = { ...tools };
-    if (on) nextTools[srv] = all ?? [];
+    // a server the owner does not restrict gets its entry once tool names are typed (an empty list is not a valid file)
+    if (on && all?.length) nextTools[srv] = all;
     else delete nextTools[srv];
     const next = { ...fm };
     for (const [k, v] of [["mcp", nextMcp], ["tools", nextTools]] as const) {
@@ -359,6 +373,11 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
       else delete next[k];
     }
     onChange({ ...value, fm: next });
+  };
+  /** The agent's tools on one server; no tool left = no entry (the schema wants at least one name). */
+  const setTools = (srv: string, list: string[]) => {
+    const { [srv]: _drop, ...rest } = tools;
+    setFm("tools", list.length ? { ...tools, [srv]: list } : rest);
   };
   const known = ["description", "model", "skills", "mcp", "tools", "limits"];
   return (
@@ -401,29 +420,30 @@ function AgentFields({ project, name, value, onChange, errors, usedBy }: {
             {project.mcp_servers.map((s) => {
               const allowed = !!s.agents?.includes(name);
               const on = mcp.includes(s.name);
+              const cur = Array.isArray(tools[s.name]) ? tools[s.name] : [];
               return (
                 <li key={s.name}>
                   <label className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
                     <input type="checkbox" checked={on} disabled={!allowed && !on} onChange={(e) => toggleServer(s.name, e.target.checked, s.tools)} />
                     <span className="min-w-0 flex-1 truncate">{s.name}</span>
                     {!allowed && <span className="font-sans text-xs text-fg-muted">{t("agent.mcpNotAllowed")}</span>}
-                    <span className="font-mono text-[11px] text-fg-muted">{s.tools?.length ?? 0} {t("agent.toolsCount")}</span>
+                    <span className="font-mono text-[11px] text-fg-muted">{s.tools ? t("agent.toolsCount", { n: s.tools.length }) : t("mcp.unrestricted")}</span>
                   </label>
-                  {on && (
-                    <div className="ml-7">
-                      {(s.tools ?? tools[s.name] ?? []).map((tool) => {
-                        const cur = tools[s.name] ?? [];
-                        return (
-                          <label key={tool} className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
-                            <input type="checkbox" checked={cur.includes(tool)}
-                              onChange={(e) => setFm("tools", { ...tools, [s.name]: e.target.checked ? [...cur, tool] : cur.filter((x) => x !== tool) })} />
-                            <span className="min-w-0 flex-1 truncate">{tool}</span>
-                          </label>
-                        );
-                      })}
-                      {!s.tools && <span className="text-xs text-fg-muted">{t("agent.toolsFree")}</span>}
+                  {on && (s.tools ? (
+                    <div className="ml-7" role="group" aria-label={t("mcp.toolsOf", { server: s.name })}>
+                      {/* a name outside the owner's list stays visible (ticked) so that it can be removed */}
+                      {[...s.tools, ...cur.filter((x) => !s.tools!.includes(x))].map((tool) => (
+                        <label key={tool} className="flex min-h-10 items-center gap-2.5 text-[13px] hover:text-fg">
+                          <input type="checkbox" checked={cur.includes(tool)}
+                            onChange={(e) => setTools(s.name, e.target.checked ? [...cur, tool] : cur.filter((x) => x !== tool))} />
+                          <span className="min-w-0 flex-1 truncate">{tool}</span>
+                          {!s.tools!.includes(tool) && <span className="font-sans text-xs text-error">{t("agent.mcpNotAllowed")}</span>}
+                        </label>
+                      ))}
                     </div>
-                  )}
+                  ) : (
+                    <div className="mb-2 ml-7"><ToolNames server={s.name} value={cur} onChange={(list) => setTools(s.name, list)} /></div>
+                  ))}
                 </li>
               );
             })}

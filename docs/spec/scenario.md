@@ -178,7 +178,7 @@ step type key (`ask:`, `jev:`, …) and optionally common properties:
 | `when` | no | Condition (an [expression](#expressions)). `false` → the step is skipped and the record has the reason `when: <expression> → false`. The result must be `true`/`false`, not text or a number. An error in `when` is an error of the step — the step's `on_error` covers it. | The step always runs. | `when: inputs.language == "en"` |
 | `timeout` | no | Maximum step duration, format `<number>s`, `m`, `h`. Exceeding it → error of class `timeout`. For `parallel` and `call` = time from the start to the end of the last step inside. | Default: `ask` 2m, `task` 15m, `jev` 30s, `image` 3m (**proposal**); for an agent at most its `limits.timeout`. The limit of the whole run always applies too. | `timeout: 90s` |
 | `budget_usd` | no | How many USD the step may cost (all calls including retries). For `parallel` and `call` = the sum of all steps inside. Checking rules: see [Budget](#budget). Exceeding it → error of class `budget`. | For `ask`/`task` the agent's budget; otherwise only the run budget. | `budget_usd: 0.10` |
-| `retry` | no | How many times **one API call** is retried on a `transient` or `schema` error (§5.1). For `task` it applies to each turn separately; retries do not count towards `max_turns`, only towards `budget_usd`. Delay 2 s, 4 s, 8 s…, or according to the `Retry-After` header. | `2` (**proposal**). | `retry: 0` |
+| `retry` | no | How many times **one API call** is retried on a `transient` or `schema` error (§5.1). For `task` it applies to each turn separately, and to the start of each MCP server (a `transient` handshake failure, same delay); retries do not count towards `max_turns`, only towards `budget_usd`. Delay 2 s, 4 s, 8 s…, or according to the `Retry-After` header. | `2` (**proposal**). | `retry: 0` |
 | `on_error` | no | `fail` = a step error ends the run. `continue` = the run continues, the step has the output `default` and the run summary has a **warning** (§5.1 item 4). | `fail`. | `on_error: continue` |
 | `default` | see text | Output of the step in case the step does not run (skipped via `when`, a `switch` branch not taken, failed with `on_error: continue`). Must contain **all** output fields of the step (for `jev` all questions; `details` is filled in as `{}` automatically); a missing field is a `validate` error. | If another step refers to the output of a step that might not run, it is a `validate` error (§5.4). | `default: { on_brand: 0 }` |
 | `dedupe_key` | no | Only for `task` (a step with a side effect, e.g. publishing). A template that produces text. Ensures the side effect happens at most once, even when n8n repeats the run — see [dedupe](#dedupe_key--once-and-only-once). (§5.2) | The step runs every time. | `dedupe_key: "ig-{{ inputs.post_id }}"` |
@@ -221,6 +221,11 @@ like `state`; OPEN-QUESTIONS 12):
 - A fake run (`--fake`) uses the same structure in `<runs>/_dedupe-fake/`;
   live and fake runs never read each other's records — a fabricated output
   must not skip a live side effect (since framework 0.2.2).
+- **`--fake` fakes only the model; MCP servers stay real.** A tool call
+  scripted in a fake run really runs (a remote server gets the real
+  token), and its side effect is recorded only in `_dedupe-fake/`, so a
+  later live run with the same key repeats it. Do not script `tool_calls`
+  to a server with side effects (publishing, payments) in a fake run.
 
 ---
 
@@ -276,6 +281,18 @@ should contain belongs in the `prompt` or the agent's instructions.
   `_submit_output` with arguments according to `schema` (`finish_reason:
   tool_calls`). In `task` this call ends the loop. `_submit_output` is
   never sent to an MCP server and is not subject to the tool allowlist.
+- In `task`, once the step has called a tool of an MCP server, the retry
+  after a `schema` error **only allows the answer**: the tools already
+  ran and must not run again (a side effect would repeat inside one
+  step). Before the first such call the retry keeps the tools. The
+  request keeps the tool definitions (providers reject tool history
+  without them) and sets `tool_choice`: `none` where the answer is text
+  or JSON, the `_submit_output` tool at the `tool_wrapper` level. The
+  feedback says so and does not name a tool the level no longer offers.
+  A model that calls tools anyway gets another `schema` error (“model
+  called tools instead of answering”); the calls are not executed. A
+  provider that rejects `tool_choice` answers with HTTP 4xx → `config`
+  with the provider's message.
 
 When `ask` succeeds (§5.1 item 8 — **HTTP 200 is not enough**): the
 response has `finish_reason: stop` (at the `tool_wrapper` level
@@ -322,17 +339,44 @@ MCP servers and tool errors (DESIGN §5.8):
 
 - Stdio servers start **once per run**, at the first `task` that needs
   them, and `parallel` branches share them. They are shut down at the end
-  of the run.
+  of the run — also when `agencast run` gets SIGINT (Ctrl-C) or SIGTERM:
+  the first signal cancels the run once, the servers are stopped (stdin
+  closed, then SIGTERM and SIGKILL for the whole process tree), further
+  signals are ignored meanwhile, and the command exits with code 130
+  (SIGINT) or 143 (SIGTERM). A server that is still starting is stopped
+  the same way, without waiting for its handshake limit — as it is at the
+  end of a run whose step or run `timeout` ran out during the handshake.
+  A remote server has no process to stop: its session is ended with one
+  request (DELETE), which gets 5 s as a whole — a server that does not
+  answer it, or answers it slowly, holds neither the end of the run nor a
+  signal for longer. The same limit ends the session of a server whose
+  start failed; the step gets that failure (and retries) before the
+  request, not after it.
+  The record is that of an interrupted run
+  ([run-record.md](run-record.md)): no `run_finished`, no callback. A
+  signal that arrives after `run_finished`, while the callback is being
+  sent, gives the callback up: the run stays finished, with
+  `callback_failed` and its `summary.md`.
+  `agencast serve` does the same for its runs in flight when it is stopped
+  (SIGTERM or Ctrl-C); there the next start of the server reports the run
+  and sends its callback ([api.md](api.md#stopping-serve)).
 - A tool returns `isError` → the result goes to the model, the step
   continues.
 - Arguments from the model do not match the tool schema → the tool does
   not run, the model gets the validation error as the result (the turn
   counts).
 - Tool call timeout (`mcp.yaml` → `timeouts.call`) → the step fails, class
-  `timeout` (the tool may have run — hence `dedupe_key`).
+  `timeout` (the tool may have run — hence `dedupe_key`). The call is in
+  the record with its arguments and an `error` (`tool_call` event,
+  `calls/NN.tool.json`) — also when the server dropped the connection or
+  the step was cancelled (step `timeout`, interrupt) during the call.
 - Failure to start the server or of the handshake → `transient` (network,
   5xx), otherwise `config` (the process is not running, 401, unknown
-  command).
+  command). A `transient` failure is retried according to the step's
+  `retry` (delay 2 s, 4 s, 8 s…, or what the server's `Retry-After` header
+  says; every attempt has an `error` event with
+  `will_retry` and its own `mcp_server` `failed` event); `parallel`
+  branches waiting for the same server share each attempt.
 - An image in a tool result is saved as a file
   (`steps/<nn>-<id>/tool-<NN>-<k>.png`) and goes to the model in a user
   message right after the tool message; the tool message contains only
@@ -493,7 +537,10 @@ Named branches that run concurrently within one run (D1d).
   branches are cancelled and the run ends `failed` (**proposal**). A
   started step cancelled this way gets `step_finished` with
   `status: cancelled` and the cost of the calls so far; a step that had
-  not started gets `step_skipped` with the reason `cancelled`.
+  not started gets `step_skipped` with the reason `cancelled`. A
+  cancelled branch never goes on: not past a `call` step with
+  `on_error: continue` either, whose own `parallel` was already failing
+  when the cancellation came.
 - When `parallel` is skipped (`when`), every step inside gets
   `step_skipped` with the same reason.
 - There must be no `output` inside a branch.
@@ -991,6 +1038,10 @@ class `config`:
   not list it in `agents`; a scenario outside the server's `scenarios`; a
   tool outside the server's `tools` → error (see
   [config.md](config.md#mcpyaml--registry-of-mcp-servers)),
+- since 0.18.0: a scenario whose `task` steps would use an MCP server, in
+  a project that was registered through the API and not yet trusted by its
+  owner → error naming `agencast projects trust <name>`
+  ([projects.md](projects.md#trust-projects-registered-through-the-api)),
 - `id` is unique; expressions and templates according to the table “When
   an expression error is detected” in [§5](#when-an-expression-error-is-detected)
   (syntax, forbidden constructs, functions, limits, references only to
@@ -1012,4 +1063,11 @@ class `config`:
 
 `--dry-run` additionally prints the plan: the step order, the effective
 tools of each `task`, the tools each MCP server offers (so that the
-`tools` list can be written), and the limits.
+`tools` list can be written), and the limits. For that it starts the MCP
+servers the run may start (no model call). An allowed tool that the
+server does not offer is marked `(NOT OFFERED by the server)` in the step
+row and listed after the server's offer (`allowed but NOT OFFERED: …`) —
+the run would fail at that step with `config`. A server that does not
+start is listed with the reason: a missing variable (“missing environment
+variable X (MCP server s in mcp.yaml)”), or the error with the last lines
+of a local server's stderr.

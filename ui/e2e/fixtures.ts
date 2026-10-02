@@ -9,14 +9,15 @@ import path from "node:path";
 
 export { expect };
 export const TOKEN = "test-token";
-const REPO = path.resolve(import.meta.dirname, "../..");
-const VENV = path.join(REPO, "framework/.venv/bin");
+export const REPO = path.resolve(import.meta.dirname, "../..");
+export const VENV = path.join(REPO, "framework/.venv/bin");
 export const AGENCAST = process.env.AGENCAST_BIN ?? path.join(VENV, "agencast");
 const PORT = Number(process.env.E2E_PORT ?? 18700);
 
 /** Fake provider (fake.py): step id → responses. Steps with different behaviour have different ids. */
 export const FAKE = `write: [{text: "Two sentences."}]
 slowly: [{text: "Slow answer.", sleep: 4}]
+probe: [{tool_calls: [{name: fs__red_pixel, arguments: {}}]}, {tool_calls: [{name: fs__slow, arguments: {seconds: 60}}]}]
 `;
 
 type Json = Record<string, unknown>;

@@ -1,5 +1,6 @@
 """Editing operations (edit.py, api.md “Editing”): round-trip YAML, step address, hash, validation before writing."""
 import difflib
+import json
 import re
 from pathlib import Path
 
@@ -261,8 +262,8 @@ def test_rename_agent_updates_task_and_mcp(wf):
     assert new_agent["body"] == before["body"]
     task = api.read_file(proj, "scenarios/demo-task.yaml")["data"]["steps"][0]["task"]
     assert task["agent"] == "archivist"
-    assert "archivist" in api.read_file(proj, "mcp.yaml")["data"]["servers"]["filesystem"]["agents"]
-    assert "# preserved permission" in api.read_file(proj, "mcp.yaml")["text"]
+    assert "archivist" in load_yaml(mcp_path.read_text(), "mcp.yaml")["servers"]["filesystem"]["agents"]
+    assert "# preserved permission" in mcp_path.read_text()
     links = api.describe_project(proj)["links"]
     assert ["demo-task", "catalog", "archivist"] in links["scenario_step_agent"]
     assert ["archivist", "filesystem"] in links["agent_server"]
@@ -409,6 +410,244 @@ def test_merge_new_map_matches_sibling_style():
     mixed = flow.replace("limits:", "  model-1:\n    id: openai/gpt-image-2\nlimits:")
     out = yaml_edit(mixed, lambda d: merge(d, {"models": {"gpt-image": {"id": "openai/gpt-image-2"}, "model-1": None}}), "config.yaml")
     assert "model-1" not in out and "  gpt-image: {id: openai/gpt-image-2}\n" in out
+
+
+def test_merge_keeps_what_separates_steps():
+    """A key added to (or removed from) the end of a step leaves the blank line and comment before the next step
+    where they were — ruamel hangs them on the step's last value (api.md “Editing”: blank lines are preserved)."""
+    src = ("steps:\n  - id: probe\n    task:\n      agent: tester\n      schema:\n        summary: string  # one line\n"
+           "\n  # publish\n  - id: out\n    fail: no\n")
+    out = yaml_edit(src, lambda d: merge(d["steps"][0], {"task": {"tools": {"testkit": ["red_pixel"]}}, "retry": 2}), "t")
+    assert out == src.replace("# one line\n", "# one line\n      tools:\n        testkit:\n          - red_pixel\n    retry: 2\n")
+    out = yaml_edit(src, lambda d: merge(d["steps"][0], {"task": {"schema": None, "prompt": "a\nb\n"}}), "t")
+    assert out == src.replace("      schema:\n        summary: string  # one line\n", "      prompt: |\n        a\n        b\n")
+
+
+def test_replace_step_keeps_what_separates_steps():
+    """The blank line and the comment before the next step are not part of the replaced step (they used to be dropped)."""
+    src = ("steps:\n  - id: a\n    task:\n      agent: x\n      prompt: p  # inside: goes with the step\n"
+           "\n  # about b\n  - id: b\n    fail: no\n\n  - id: c\n    fail: no\n")
+    out = yaml_edit(src, lambda d: edit._replace_step(d, ["steps", 0], {"id": "a", "fail": "x"}), "t")
+    assert out == src.replace("    task:\n      agent: x\n      prompt: p  # inside: goes with the step\n", "    fail: x\n")
+    out = yaml_edit(src, lambda d: edit._replace_step(d, ["steps", 2], {"id": "c", "fail": "yes"}), "t")  # the last step
+    assert out == src.replace("  - id: c\n    fail: no\n", "  - id: c\n    fail: yes\n")
+
+
+# A blank line and a comment directly above a step are its header (the examples number and describe their steps there).
+# ruamel keeps them in different places: after a scalar (a, c, d), after a flow value (b) and at the end of a block (p).
+HEADERS = """steps:
+  # 1. first
+  - id: a
+    fail: no
+
+  # 2. second
+  - id: b
+    set: { x: "1" }
+
+  # 3. parallel
+  - id: p
+    parallel:
+      left:
+        # 3a. inner
+        - id: l
+          set: { y: "1" }
+
+  # 4. text
+  - id: c
+    ask:
+      agent: w
+      prompt: |
+        Hello
+
+  # 5. last
+  - id: d
+    fail: no
+
+# after the steps
+outputs:
+  x: { type: string }
+"""
+A, B, P, C, D = ("  # 1. first\n  - id: a\n    fail: no\n", "  # 2. second\n  - id: b\n    set: { x: \"1\" }\n",
+                 "  # 3. parallel\n  - id: p\n    parallel:\n      left:\n        # 3a. inner\n        - id: l\n"
+                 "          set: { y: \"1\" }\n",
+                 "  # 4. text\n  - id: c\n    ask:\n      agent: w\n      prompt: |\n        Hello\n",
+                 "  # 5. last\n  - id: d\n    fail: no\n")
+END = "\n# after the steps\noutputs:\n  x: { type: string }\n"
+NEW = "  - id: n\n    fail: x\n"
+
+
+def test_headers_fixture_is_what_the_tests_take_it_for():
+    assert HEADERS == "steps:\n" + "\n".join([A, B, P, C, D]) + END
+
+
+@pytest.mark.parametrize("i, left", [(0, [B, P, C, D]), (1, [A, P, C, D]), (2, [A, B, C, D]), (3, [A, B, P, D]),
+                                     (4, [A, B, P, C])])
+def test_delete_step_removes_its_header_and_keeps_the_next_one(i, left):
+    out = yaml_edit(HEADERS, lambda d: edit._delete_step(d, ["steps", i]), "t")
+    # the first step's header has no blank line above it; the one that takes its place keeps its own
+    assert out == "steps:\n" + ("\n" if i == 0 else "") + "\n".join(left) + END
+
+
+def test_delete_last_step_of_a_branch_keeps_what_follows_the_branch():
+    out = yaml_edit(HEADERS, lambda d: edit._delete_step(d, ["steps", 2, "parallel", "left", 0]), "t")
+    assert out == "steps:\n" + "\n".join([A, B, "  # 3. parallel\n  - id: p\n    parallel: {}\n", C, D]) + END
+    two = ("steps:\n  - id: p\n    parallel:\n      left:\n        - id: l\n          fail: no\n\n      # the other\n"
+           "      right:\n        - id: r\n          set: { y: \"1\" }\n\n  # next\n  - id: c\n    fail: no\n")
+    out = yaml_edit(two, lambda d: edit._delete_step(d, ["steps", 0, "parallel", "left", 0]), "t")
+    assert out == two.replace("      left:\n        - id: l\n          fail: no\n", "")
+    out = yaml_edit(two, lambda d: edit._delete_step(d, ["steps", 0, "parallel", "right", 0]), "t")
+    assert out == two.replace("      right:\n        - id: r\n          set: { y: \"1\" }\n", "")  # "# next" stays
+
+
+@pytest.mark.parametrize("after, want", [
+    (None, "steps:\n" + NEW + "\n".join([A, B, P, C, D]) + END),            # the old first step keeps its header
+    (["steps", 0], "steps:\n" + "\n".join([A + NEW, B, P, C, D]) + END),
+    (["steps", 1], "steps:\n" + "\n".join([A, B + NEW, P, C, D]) + END),    # after a flow value
+    (["steps", 2], "steps:\n" + "\n".join([A, B, P + NEW, C, D]) + END),    # after a block that ends in one
+    (["steps", 3], "steps:\n" + "\n".join([A, B, P, C + NEW, D]) + END),    # after a `|` text
+    (["steps", 4], "steps:\n" + "\n".join([A, B, P, C, D + NEW]) + END),    # what follows the steps stays below
+])
+def test_add_step_goes_below_the_step_before_and_above_the_next_header(after, want):
+    assert yaml_edit(HEADERS, lambda d: edit._add_step(d, {"id": "n", "fail": "x"}, after), "t") == want
+
+
+def test_move_step_carries_its_header():
+    def moved(address, to):
+        return yaml_edit(HEADERS, lambda d: edit._move_step(d, address, to), "t")
+    flow = B.replace('{ x: "1" }', '{x: "1"}')  # moved lines are ruamel's
+    assert moved(["steps", 0], ["steps", 3]) == "steps:\n\n" + "\n".join([B, P, C + A, D]) + END
+    assert moved(["steps", 4], ["steps", 0]) == "steps:\n" + "\n".join([A, D, B, P, C]) + END
+    assert moved(["steps", 1], ["steps", 2]) == "steps:\n" + "\n".join([A, P, flow, C, D]) + END
+    assert moved(["steps", 3], ["steps"]) == "steps:\n\n" + C + "\n".join([A, B, P, D]) + END
+    # into a branch and out of it: the header is indented like its new list — left deeper, below `prompt: |`, it
+    # would become a part of that text
+    assert moved(["steps", 4], ["steps", 2, "parallel", "left", 0]) == "steps:\n" + "\n".join(
+        [A, B, P + "\n        # 5. last\n        - id: d\n          fail: no\n", C]) + END
+    out = moved(["steps", 2, "parallel", "left", 0], ["steps", 3])
+    assert out == "steps:\n" + "\n".join([A, B, "  # 3. parallel\n  - id: p\n    parallel: {}\n",
+                                           C + "  # 3a. inner\n  - id: l\n    set: {y: \"1\"}\n", D]) + END
+    assert load_yaml(out, "t")["steps"][3]["ask"]["prompt"] == "Hello\n"
+
+
+@pytest.mark.parametrize("i, old, new", [(0, "    fail: no\n\n  # 2.", "    fail: x\n\n  # 2."),
+                                         (1, '    set: { x: "1" }\n', "    fail: x\n"),
+                                         (2, P.split("# 3. parallel\n")[1], "  - id: p\n    fail: x\n"),
+                                         (3, C.split("# 4. text\n")[1], "  - id: c\n    fail: x\n"),
+                                         (4, "    fail: no\n\n# after", "    fail: x\n\n# after")])
+def test_replace_step_keeps_its_header_and_the_next_one(i, old, new):
+    ids = "abpcd"
+    out = yaml_edit(HEADERS, lambda d: edit._replace_step(d, ["steps", i], {"id": ids[i], "fail": "x"}), "t")
+    assert old in HEADERS and out == HEADERS.replace(old, new)
+
+
+@pytest.mark.parametrize("path", example_files("scenarios/*.yaml"), ids=lambda p: p.stem)
+def test_step_operations_on_the_examples_keep_the_data_and_every_comment(path):
+    """Headers travel as text: wherever one lands, it must stay a comment (not a line of a `|` text above it)."""
+    src = path.read_text()
+    steps = load_yaml(src, "t")["steps"]
+
+    def comments(text):
+        return sorted(ln.strip() for ln in text.splitlines() if ln.strip().startswith("#"))
+    for i in range(len(steps)):
+        rest = steps[:i] + steps[i + 1:]
+        out = yaml_edit(src, lambda d: edit._delete_step(d, ["steps", i]), "t")
+        assert load_yaml(out, "t")["steps"] == rest
+        for j in range(len(steps)):
+            if j != i:
+                out = yaml_edit(src, lambda d: edit._move_step(d, ["steps", i], ["steps", j]), "t")
+                at = rest.index(steps[j]) + 1
+                assert load_yaml(out, "t")["steps"] == rest[:at] + [steps[i]] + rest[at:], (i, j)
+                assert comments(out) == comments(src), (i, j)
+        out = yaml_edit(src, lambda d: edit._add_step(d, {"id": "added_here", "fail": "x"}, ["steps", i]), "t")
+        assert load_yaml(out, "t")["steps"] == steps[:i + 1] + [{"id": "added_here", "fail": "x"}] + steps[i + 1:]
+        assert comments(out) == comments(src)
+
+
+def test_update_step_keeps_the_next_header_after_a_block_that_ends_in_a_flow_value():
+    out = yaml_edit(HEADERS, lambda d: edit._update_step(d, ["steps", 2], {"retry": 2}), "t")
+    assert out == HEADERS.replace(P, P + "    retry: 2\n")
+
+
+def test_step_operations_keep_a_header_directly_below_a_block_text():
+    """ruamel keeps the indentation of a comment right below a `|` or `>` text apart from the comment's text: the
+    header of the next step used to be written back at column 0."""
+    src = ("steps:\n  - id: a\n    ask:\n      agent: w\n      prompt: |\n        Hello\n  # about b\n  - id: b\n"
+           "    parallel:\n      left:\n        - id: l\n          ask:\n            agent: w\n            prompt: >\n"
+           "              Hi\n        # about m\n        - id: m\n          fail: no\n")
+    out = yaml_edit(src, lambda d: edit._add_step(d, {"id": "n", "fail": "x"}), "t")
+    assert out == src.replace("steps:\n", "steps:\n" + NEW)
+    out = yaml_edit(src, lambda d: edit._update_step(d, ["steps", 0], {"retry": 2}), "t")
+    assert out == src.replace("  # about b\n", "    retry: 2\n  # about b\n")
+    out = yaml_edit(src, lambda d: edit._delete_step(d, ["steps", 1, "parallel", "left", 0]), "t")
+    assert out == src.replace(src[src.index("        - id: l"):src.index("        # about m")], "")
+    out = yaml_edit(src, lambda d: edit._add_step(d, {"id": "n", "fail": "x"}, ["steps", 1, "parallel", "left"]), "t")
+    assert out == src.replace("      left:\n", "      left:\n        - id: n\n          fail: x\n")
+
+
+def test_step_operations_keep_what_follows_a_list_whose_last_step_cannot_carry_it():
+    for one in ("steps:\n  - id: a\n    fail: no\n" + END, "steps:\n  # the only\n  - id: a\n    fail: no\n" + END):
+        assert yaml_edit(one, lambda d: edit._move_step(d, ["steps", 0], ["steps"]), "t") == one  # the list is empty meanwhile
+    flow = "steps:\n  - { id: a, fail: no }\n  - id: b\n    fail: no\n" + END
+    out = yaml_edit(flow, lambda d: edit._delete_step(d, ["steps", 1]), "t")  # a flow step is the last one now
+    assert out == flow.replace("  - id: b\n    fail: no\n", "")
+
+
+def test_comment_below_a_block_text_never_becomes_a_part_of_it():
+    """A comment written at the column of a `|` text, or deeper, is read as its next line — of a prompt. What followed
+    a list (here the comment that ends its last step, deeper than the steps) landed there after a step operation
+    that left a `|` text as the last value of the list."""
+    src = ("steps:\n  - id: p\n    parallel:\n      one:\n        - id: deep\n          ask:\n            agent: w\n"
+           "            prompt: |\n              Deep\n        - id: k\n          fail: no\n"
+           "  - id: a\n    ask:\n      agent: w\n      prompt: |\n        Hello\n"
+           "  - id: b\n    ask:\n      agent: w\n      prompt: \"Check\"\n      schema:\n        answer: string\n"
+           "        # details: string\n")
+    text = {"id": "c", "ask": {"agent": "w", "prompt": "One\nTwo\n"}}
+    for op in (lambda d: edit._delete_step(d, ["steps", 2]),
+               lambda d: edit._move_step(d, ["steps", 2], ["steps"]),
+               lambda d: edit._add_step(d, text, ["steps", 2]),
+               lambda d: edit._replace_step(d, ["steps", 2], text),
+               lambda d: edit._update_step(d, ["steps", 2], {"ask": {"schema": None, "prompt": "One\nTwo\n"}}),
+               lambda d: edit._move_step(d, ["steps", 0, "parallel", "one", 0], ["steps", 2])):  # from a deeper list
+        out = yaml_edit(src, op, "t")
+        prompts = re.findall(r'"prompt": "(.*?)"', json.dumps(load_yaml(out, "t")))
+        assert set(prompts) <= {"Deep\\n", "Hello\\n", "Check", "One\\nTwo\\n"}, out
+        assert "      # details: string\n" in out, out  # kept, at the column of the key that holds the text
+    # a file indented wider than the editor writes: the comment below the blank line kept the column of the wider text
+    wide = ("steps:\n    - id: a\n      ask:\n          agent: w\n          prompt: |\n              Hello\n\n"
+            "          # about b\n    - id: b\n      fail: no\n")
+    out = yaml_edit(wide, lambda d: edit._update_step(d, ["steps", 1], {"retry": 2}), "t")
+    assert load_yaml(out, "t")["steps"][0]["ask"]["prompt"] == "Hello\n" and "\n      # about b\n" in out, out
+
+
+def test_step_header_below_a_block_text_never_becomes_a_part_of_it():
+    """A step's header holds what followed the step above it — at that step's depth (the disabled last step of a
+    parallel branch). Written as it was above another step, it became the last line of that step's `|` prompt:
+    after deleting the step between them, adding or moving a step with a text there, or emptying a branch."""
+    src = ("steps:\n  - id: a\n    ask:\n      agent: w\n      prompt: |\n        Hello\n"
+           "  - id: p\n    parallel:\n      one:\n        - id: k\n          fail: |\n            Deep\n"
+           "      two:\n        - id: m\n          set:\n            v: 1\n            # w: 2   (off)\n"
+           "      three:\n        - id: n\n          fail: no\n          # - id: o   (off)\n"
+           "  - id: z\n    fail: no\n")
+    text = {"id": "c", "ask": {"agent": "w", "prompt": "One\nTwo"}}
+    for op, kept in ((lambda d: edit._delete_step(d, ["steps", 1]), "      # - id: o   (off)\n"),
+                     (lambda d: edit._add_step(d, text, ["steps", 1]), "      # - id: o   (off)\n"),
+                     (lambda d: edit._move_step(d, ["steps", 0], ["steps", 1]), "      # - id: o   (off)\n"),
+                     (lambda d: edit._delete_step(d, ["steps", 1, "parallel", "two", 0]), "          # w: 2   (off)\n"),
+                     (lambda d: edit._move_step(d, ["steps", 1, "parallel", "two", 0], ["steps"]), "          # w: 2   (off)\n")):
+        out = yaml_edit(src, op, "t")
+        texts = re.findall(r'"(?:prompt|fail)": "(.*?)"', json.dumps(load_yaml(out, "t")))
+        assert set(texts) <= {"Hello\\n", "Deep\\n", "One\\nTwo", "no"}, out
+        assert "\n" + kept in out, out  # kept, at the column of the key that holds the text above it
+
+
+def test_emptied_branch_leaves_its_tail_below_the_tail_of_a_flow_list():
+    """The last step of a branch moves into a list of flow steps, which keeps its own tail at its end: the header of
+    the step after the parallel used to be written above that tail — two untouched comments swapped."""
+    src = ("steps:\n  - id: p\n    parallel:\n      one:\n        - {id: f, fail: no}\n      # between branches\n"
+           "      two:\n        - {id: g, fail: no}\n  # about z\n  - id: z\n    fail: no\n")
+    out = yaml_edit(src, lambda d: edit._move_step(d, ["steps", 0, "parallel", "two", 0], ["steps", 0, "parallel", "one", 0]), "t")
+    assert out == src.replace("      # between branches\n      two:\n        - {id: g, fail: no}\n",
+                              "        - {id: g, fail: no}\n      # between branches\n")
 
 
 def test_set_config_new_alias_flow_style(proj):

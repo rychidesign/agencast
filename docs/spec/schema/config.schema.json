@@ -30,7 +30,7 @@
         },
         "base_url": {
           "type": "string",
-          "pattern": "^(https://openrouter\\.ai/|http://(127\\.0\\.0\\.1|localhost)[:/])"
+          "pattern": "^(https://openrouter\\.ai/|http://(127\\.0\\.0\\.1|localhost)(:[0-9]+)?(/|$))"
         },
         "jev_model": {
           "type": "string",

@@ -37,13 +37,13 @@ plus `"details": [...]` (for editing operations `"errors": [...]`, section
 
 | Method and path | Response |
 |---|---|
-| `GET /projects` | `{"projects": [{"name", "root", "available"}]}`; since 0.7.0 `reason` for `available: false`, `last_run` and `registry`; since 0.9.0 `projects_root` and `writable`; since 0.10.0 `counts` and `spend_today_usd` |
-| `POST /projects/new` | `{name, root?}` — creates a project and registers it; 201 `{name, root, created}` |
-| `POST /projects` | `{root, name?}` — registers an existing project with `workflows/config.yaml`; 201 `{name, root}` |
+| `GET /projects` | `{"projects": [{"name", "root", "available"}]}`; since 0.7.0 `reason` for `available: false`, `last_run` and `registry`; since 0.9.0 `projects_root` and `writable`; since 0.10.0 `counts` and `spend_today_usd`; since 0.18.0 `trusted` |
+| `POST /projects/new` | `{name, root?}` — creates a project and registers it; 201 `{name, root, created}`; since 0.18.0 also `trusted: false` ([MCP servers are the owner's](#mcp-servers-are-the-owners-since-0180)) |
+| `POST /projects` | `{root, name?}` — registers an existing project with `workflows/config.yaml`; 201 `{name, root}`; since 0.18.0 also `trusted: false` |
 | `DELETE /projects/<p>` | Removes the project from the registry; 200 `{name, removed: true, files_deleted: false, message}`; the files stay |
 | `GET /projects/<p>` | project description (below) |
 | `GET /projects/<p>/scenarios/<s>` | scenario with the step tree (below) |
-| `GET /projects/<p>/files/<path>` | a file from `workflows/` as text with a fingerprint (section [Editing](#editing-since-050)); since 0.8.0 `errors` = the file's `validate` errors and `?etag_only=1` → only `{"etag"}` ([Additions 0.8.0](#batch-preview-and-additions-from-gui-findings-part-2-since-080)) |
+| `GET /projects/<p>/files/<path>` | a file from `workflows/` as text with a fingerprint (section [Editing](#editing-since-050); not `mcp.yaml`); since 0.8.0 `errors` = the file's `validate` errors and `?etag_only=1` → only `{"etag"}` ([Additions 0.8.0](#batch-preview-and-additions-from-gui-findings-part-2-since-080)) |
 | `HEAD /projects/<p>/files/<path>` | since 0.8.0: only the fingerprint in the `ETag` header ([Additions 0.8.0](#batch-preview-and-additions-from-gui-findings-part-2-since-080)) |
 | `GET /projects/<p>/runs` | `{"runs": [...]}` — items as in `agencast runs list`: queued `{"run_id", "status": "queued"}`, then `{"run_id", "status", "cost_usd", "duration_s", "callback", "scenario", "started_at", "finished_at", "current_step", "steps_total"}` (fields from `scenario` on since 0.6.0, [Runs for the GUI](#runs-for-the-gui-since-060)), newest first; since 0.7.0 `state`, `fake`, `current_nn`, `steps_done`, `queue_position` and `?scenario=&limit=`; since 0.10.0 `before` and `next_before` |
 | `GET /projects/<p>/runs/<id>` | run status + steps + files (below); a run waiting in the queue `{"run_id", "status": "queued"}` (since 0.7.0 also `state`, `scenario`, `queue_position`); since 0.7.0 the step tree `tree` |
@@ -83,7 +83,7 @@ plus `"details": [...]` (for editing operations `"errors": [...]`, section
 
 ```json
 {
-  "name": "lumen", "root": "~/projects/lumen",
+  "name": "lumen", "root": "~/projects/lumen", "trusted": true,
   "models": {"smart": "anthropic/claude-haiku-4.5"},
   "limits": {"run_budget_usd": 1.0, "run_timeout": "1h", "max_call_depth": 3},
   "scenarios": [{"name": "ig-post", "etag": "9f2c…", "description": "…", "inputs": {…}, "outputs": {…},
@@ -95,8 +95,9 @@ plus `"details": [...]` (for editing operations `"errors": [...]`, section
               "model_id": "anthropic/claude-haiku-4.5", "skills": ["lumen-voice"], "mcp": [], "tools": {},
               "errors": []}],
   "skills": [{"name": "lumen-voice", "etag": "…", "description": "…", "errors": []}],
-  "mcp_servers": [{"name": "filesystem", "type": "stdio", "agents": ["librarian"],
-                   "tools": ["read_text_file"], "scenarios": null}],
+  "mcp_servers": [{"name": "filesystem", "type": "stdio", "description": "Reading and writing in the run workspace",
+                   "transport": "stdio", "agents": ["librarian"], "tools": ["read_text_file"], "scenarios": null,
+                   "env_missing": []}],
   "links": {"scenario_agent": [["ig-post", "copywriter"]], "scenario_step_agent": [["ig-post", "copy", "copywriter"]],
             "scenario_scenario": [["demo-call", "tone-check"]],
             "agent_skill": [["copywriter", "lumen-voice"]], "agent_server": [["librarian", "filesystem"]]},
@@ -110,10 +111,20 @@ plus `"details": [...]` (for editing operations `"errors": [...]`, section
   shown, as far as it can be read. The project-level `errors` = errors of `mcp.yaml`.
 - `steps_count` = all steps, including those nested in branches.
 - `etag` (since 0.5.0) = the fingerprint of the scenario, agent or skill file (`SKILL.md`)
-  for editing operations.
+  for editing operations. A file that cannot be read (a link that leads nowhere, a directory
+  under that name, no permission) is listed with that error and `etag: ""`.
+- `trusted` (since 0.18.0, read-only) = `false` when the project was registered through the API
+  and its owner has not run `agencast projects trust <p>` yet: its scenarios cannot use MCP
+  servers ([MCP servers are the owner's](#mcp-servers-are-the-owners-since-0180)). The same field
+  is in every item of `GET /projects`.
 - MCP servers without secrets: only the name, `type` (`stdio`/`http`) and the permissions
-  from `mcp.yaml` (`agents`, `tools`, `scenarios`) — no `command`, `args`,
-  `url`, `env` or `bearer_token_env`.
+  from `mcp.yaml` (`agents`, `tools`, `scenarios`; `tools: null` = the owner does not restrict
+  the tools) — no `command`, `args`, `url`, `env` or `bearer_token_env`. This list is all the API
+  tells about `mcp.yaml`; the file itself is not served (since 0.18.0). Since 0.18.0 also
+  `description`, `transport` (`stdio`, `streamable-http` or `sse`; `type` stays for older clients)
+  and `env_missing` = the names (never the values) of the server's variables (`env`,
+  `bearer_token_env`) that are not set in the environment of `agencast serve` (the same check as
+  the project-level `env`); `[]` = none missing.
 - `links` = sorted [from, to] pairs: an `ask`/`task` step → agent,
   a `call` step → scenario, agent → skill, agent → MCP server. Since 0.7.0
   `scenario_step_agent` = [scenario, step id, agent] triples (including steps in
@@ -184,9 +195,14 @@ The GUI changes files only through these operations; **the file is the truth** (
 3. validates a copy of `workflows/` with the change exactly like `agencast validate`
    (without checking models against `GET /models`). The change must not add a
    **new** error to the project — errors that were already in the project do not
-   block it (two broken files can be fixed one after the other).
+   block it (two broken files can be fixed one after the other). The error of an
+   untrusted project (“MCP servers (…) are disabled”, see
+   [MCP servers are the owner's](#mcp-servers-are-the-owners-since-0180)) names the servers and shows
+   only when its scenario has no other error; in a scenario that already had an error it is
+   not new — such a scenario can still be given fewer servers or have its other error fixed.
    A new error → **422** and nothing is written;
-4. writes atomically (temporary file + rename).
+4. writes atomically (temporary file + rename); the replaced file keeps its
+   permission bits (an owner's `chmod 600` on `mcp.yaml` survives an agent rename).
 
 The request body is a JSON object with an `etag` field. Responses:
 
@@ -232,7 +248,7 @@ lines as a `|` block; replaced quoted text keeps its style.
 | `POST /projects/<p>/scenarios` | `{"name", "description"?}` | a new scenario from the template (`agencast new scenario`); 200 `{"name", "etag"}`, an existing one → 422; `description` since 0.8.0 |
 | `POST /projects/<p>/agents` | `{"name", "description"?, "model"?}` | a new agent from the template (`agencast new agent`); 200 `{"name", "etag"}`; since 0.8.0 `description` and `model` (an alias from `config.yaml`, any other → 422) |
 | `POST /projects/<p>/scenarios/<s>/rename` | `{"name"}` | renames the scenario, the file and the `call.scenario` references; 200 `{"name", "etag", "changed", "errors"}` |
-| `POST /projects/<p>/agents/<a>/rename` | `{"name"}` | renames the agent, the file and the references in `ask`/`task` steps and in the `agents` lists in `mcp.yaml`; 200 `{"name", "etag", "changed", "errors"}` |
+| `POST /projects/<p>/agents/<a>/rename` | `{"name"}` | renames the agent, the file and the references in `ask`/`task` steps and in the `agents` lists in `mcp.yaml` — the only change the API ever makes to that file, and only this name in those lists; 200 `{"name", "etag", "changed", "errors"}` |
 | `PUT /projects/<p>/scenarios/<s>` | `{"fields": {…}}` | header: only `description`, `inputs`, `outputs`, `callable` (any other field → 422) |
 | `DELETE /projects/<p>/scenarios/<s>` | — | deletes the scenario; when another one calls it through `call` → 422 |
 | `POST /projects/<p>/scenarios/<s>/steps` | `{"after": address, "step": {…}}` | inserts a step (whole, as in the file) after the step `after`; a list address = at its start; without `after` at the start of `steps` |
@@ -246,6 +262,16 @@ lines as a `|` block; replaced quoted text keeps its style.
 | `DELETE /projects/<p>/agents/<a>` | — | deletes the agent; when a scenario uses it (`ask`/`task`) → 422 |
 | `PUT /projects/<p>/skills/<n>` | `{"text"}` | the whole `SKILL.md`; creates a new skill |
 | `DELETE /projects/<p>/skills/<n>` | — | deletes `SKILL.md` (and the folder if empty); when an agent uses it → 422 |
+
+**Step headers.** The blank lines and comments directly above a step are its header —
+they belong to the step below them (the examples number and describe their steps there).
+The step operations treat them alike: deleting a step removes its header and leaves the
+header of the next step; moving a step takes its header along (indented like the list it
+lands in); a new step is inserted below the step before it and above the header of the
+step after it; replacing a step keeps both its header and the next one. What follows the
+last step of a list (a blank line and a comment before `outputs:`) stays below the list.
+A comment never becomes a part of a `|` or `>` text: one that an operation leaves below such
+a text is written at the column of the key that holds the text, left of the text.
 | `PUT /projects/<p>/config` | `{"fields": {…}}` | `config.yaml`: only `models`, `limits`, `storage`, `webhook`, `callback` and `openrouter.api_key_env`; since 0.8.0 also `runs_dir` and `openrouter.jev_model` ([why not more](#put-config-since-080)) |
 | `GET /projects/<p>/files/<path>` | — | `{"path", "etag", "text", "errors"}` and the parsed content: for `.yaml` `data`, for `.md` `frontmatter` and `body` (the GUI does not parse by itself) |
 | `PUT /projects/<p>/files/<path>` | `{"text"}` | the whole text of the file (fallback text editor); a new file with `etag: null` |
@@ -259,12 +285,21 @@ lines as a `|` block; replaced quoted text keeps its style.
   since 0.8.0 replaced whole through `PUT …/steps/<address>`, or edited as
   text through `files/`.
 - **`files/<path>`** (a different family from `…/runs/<id>/files/`) lets through only
-  `agents/<name>.md`, `scenarios/<name>.yaml`, `skills/<name>/SKILL.md`,
-  `config.yaml` and `mcp.yaml` inside the project's `workflows/`; anything else
-  (`..`, an absolute path, a symlink pointing out, `.env`, `commands.yaml`, subfolders)
-  = 404. **`.env` is never read or written.**
-- **Secrets:** `config.yaml` and `mcp.yaml` contain only variable names
-  (`*_env`, `env`); the values live in the environment/`.env`. A value instead of a name
+  `agents/<name>.md`, `scenarios/<name>.yaml`, `skills/<name>/SKILL.md` and
+  `config.yaml` inside the project's `workflows/`; anything else
+  (`..`, an absolute path, a symlink pointing out or at a file that is not one of these,
+  `.env`, `mcp.yaml`, `commands.yaml`, subfolders) = 404. A write replaces the file and
+  follows no link, not at the name of its temporary file either; a file in a linked
+  directory (`skills/<name>` → another skill) can be read, a write to it = 404. The same
+  holds for every editing route, and for the files the API creates from templates
+  (`POST …/scenarios`, `POST …/agents`, `POST /projects/new`): a link waiting at the new
+  name — also one whose target does not exist yet — is never written through; the answer is
+  404, or 422/409 `already exists`, and nothing is created. **`.env` is never read or
+  written.** Up to 0.17 `mcp.yaml` was among the allowed files; since 0.18.0 it is the owner's
+  file on disk
+  ([below](#mcp-servers-are-the-owners-since-0180)).
+- **Secrets:** `config.yaml` contains only variable names
+  (`*_env`); the values live in the environment/`.env`. A value instead of a name
   (say an `sk-or-…` key in `api_key_env`) does not pass the schema → 422 and
   the message does not print the value.
 - Operations within one `serve` process run one at a time (a lock). A manual edit
@@ -495,9 +530,11 @@ through `call` in `<run>/scenario/<name>.yaml`
 
 ### `config.yaml` and `mcp.yaml` errors
 
-- `GET …/files/config.yaml` and `…/files/mcp.yaml` return in `errors` all
+- `GET …/files/config.yaml` returns in `errors` all
   errors of the file (syntax, schema, variables), not only syntax; `line` where
-  the loader knows it (YAML syntax, a duplicate key).
+  the loader knows it (YAML syntax, a duplicate key). Up to 0.17 the same held for
+  `…/files/mcp.yaml`; since 0.18.0 that file is not served and its errors are the
+  project-level `errors` of `GET /projects/<p>` (`file: "mcp.yaml"`, with `line` and `field`).
 - The 422 from `GET /projects/<p>` carries `errors` (objects) next to `details` (texts).
 - `…/runs`, `…/runs/<id>…` and `spend` need only `runs_dir` from `config.yaml`;
   when even that cannot be read, the default `./runs` applies.
@@ -588,7 +625,7 @@ shape for a scenario text.
 ### The whole step: `PUT …/scenarios/<s>/steps/<address>`
 
 The body `{"etag", "step": {…}}` — the step is replaced whole (comments inside the
-step disappear), `null` is written as `null` (`default: { file: null }`).
+step disappear; its header above it and the header of the next step stay), `null` is written as `null` (`default: { file: null }`).
 Responses as for the other operations.
 
 ### Lightweight file change detection
@@ -614,7 +651,7 @@ For a scenario, agent and skill = the `validate` errors of that file, **the same
 as `errors` of the item in `GET /projects/<p>` (previously only loader
 errors). When the file cannot be read, the loader errors remain (with
 `line`). With an invalid `config.yaml` (the project cannot be validated) the
-`errors` are those of `config.yaml`. `config.yaml` and `mcp.yaml` unchanged
+`errors` are those of `config.yaml`. `config.yaml` unchanged
 (since 0.7.0 all errors of the file).
 
 ### State of a fresh run
@@ -685,3 +722,64 @@ restart `serve`, otherwise the GUI will not see waiting runs from the old folder
   mode; registry mode verifies the server token.
 
 The `POST /runs` contract, the callback and the v1 formats do not change.
+
+## MCP servers are the owner's (since 0.18.0)
+
+`workflows/mcp.yaml` decides which programs the framework starts on the host and which
+remote servers get a token from its environment. The API token is not the owner
+(DESIGN §5.2, [config.md](config.md#mcpyaml--registry-of-mcp-servers)):
+
+- **No route creates, replaces, deletes or returns `mcp.yaml`.** `GET`, `HEAD` and
+  `PUT …/files/mcp.yaml` and `POST …/validate` with `path: "mcp.yaml"` → **404**
+  (`mcp.yaml: only the project owner reads and edits this file, on disk — not through the
+  API`). The GUI shows the servers from `mcp_servers` in `GET /projects/<p>` (no `command`,
+  `args`, `url`, `env`, `bearer_token_env`) and the file's errors from the project-level
+  `errors`, which name an argument by its place (`servers.<name>.args[1]`) and never quote
+  it. The one write that remains: `POST …/agents/<a>/rename` replaces the old agent
+  name with the new one in the `agents` lists, so that the renamed agent keeps its servers;
+  the operation verifies that nothing else in the file changes, otherwise it leaves the file
+  alone (and the rename fails validation with 422). A `mcp.yaml` that is a link (the
+  owner's file kept elsewhere) is left alone too: the owner renames the agent there. A
+  file the rename would rewrite (`mcp.yaml`, a scenario that refers to the agent) that
+  changed on disk while the rename was being validated → **409** and nothing is written:
+  the owner's edit is never overwritten from the older text; the same request can be sent
+  again.
+- **A project registered over HTTP is not trusted.** `POST /projects` and
+  `POST /projects/new` write `trusted: false` into the registry entry
+  ([projects.md](projects.md#trust-projects-registered-through-the-api)) and return it in the
+  201 body. `GET /projects` (every item) and `GET /projects/<p>` carry `trusted`
+  (read-only). No route sets the flag — not `PUT …/config`, not a `trusted` field in a body
+  (an unknown field → 422) — and `DELETE /projects/<p>` followed by `POST /projects` yields
+  `trusted: false` again. Only `agencast projects trust <p>` in a terminal clears it.
+- **An untrusted project starts no MCP server.** A scenario whose `task` steps would use one
+  fails validation with one `config` error, on every path:
+  `POST …/runs` (also `dry_run: true`, also with `serve --fake`) → **422** with the message in
+  `details`; `GET /projects/<p>` and `GET …/scenarios/<s>` list it in the scenario's `errors`;
+  `POST …/validate` and `render` return it too. A run that was queued while the project was
+  trusted and starts after it stopped being so (removed and registered again, or removed —
+  `serve` in registry mode runs registered projects only) does not start: its record and
+  callback carry the `config` error. Scenarios without such a step are unaffected.
+
+  ```json
+  {"error": "scenario 'catalog' or its inputs failed validation",
+   "details": ["catalog.yaml: MCP servers (filesystem) are disabled — project 'from-gui' (/srv/projects/from-gui) was registered through the API and is not trusted to run them (trusted: false in the project registry). The project owner allows them in a terminal: agencast projects trust from-gui"]}
+  ```
+
+- `callback_url` (`POST /runs`, `POST …/runs`) must match `https://…` or
+  `http://127.0.0.1[:port]/…` (tests); `http://127.0.0.1:1@example.com/…` — userinfo, the
+  host is `example.com` — is a 422 on acceptance, as it already was when the run started.
+
+### Stopping `serve`
+
+On SIGTERM (`systemctl stop`) or Ctrl-C — from the moment the workers start, also while
+the server is still starting — the server stops accepting requests and interrupts
+the runs in flight the way a signal interrupts `agencast run` (scenario.md, the `task` step):
+each run is cancelled once, stops its MCP servers, also those still starting (stdin closed, then SIGTERM and SIGKILL
+for the process tree; the server waits up to 15 s for that) and keeps its queue entry
+without `run_finished`. Further signals are ignored meanwhile. The next start reports such a
+run as before — `run interrupted by server restart`, with the callback
+([run-record.md](run-record.md)); requests that had not started — also one that was
+waiting for a `max_parallel_runs` slot — stay queued and run then. A run that had already
+finished and was only sending its callback keeps its record and its queue entry too
+(`callback_failed`); the next start sends that callback — the run's own result — again.
+A dry run in flight answers **503** `{"error": "server is stopping"}`.

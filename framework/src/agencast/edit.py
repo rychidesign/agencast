@@ -26,17 +26,19 @@ from typing import Any
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
-from ruamel.yaml.error import YAMLError
-from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarString, SingleQuotedScalarString
+from ruamel.yaml.error import CommentMark, YAMLError
+from ruamel.yaml.scalarstring import DoubleQuotedScalarString, FoldedScalarString, LiteralScalarString, SingleQuotedScalarString
+from ruamel.yaml.tokens import CommentToken
 
 from . import ConfigErrors
 from .loader import LoadError, load_yaml, nested_lists
-from .mcp_client import load_mcp
 from .projects import NAME, _check_name, describe_project, etag, text_tree
-from .validate import load_config
+from .validate import MCP_DISABLED, load_config
 
 _N = NAME.pattern
-FILES = re.compile(rf"agents/{_N}\.md|scenarios/{_N}\.yaml|skills/{_N}/SKILL\.md|config\.yaml|mcp\.yaml")
+# No mcp.yaml: which programs and remote servers exist is the owner's decision, made on disk (config.md, DESIGN §5.2).
+# The API neither serves nor writes it; the one exception is `_rename`, which follows an agent's new name in `agents:`.
+FILES = re.compile(rf"agents/{_N}\.md|scenarios/{_N}\.yaml|skills/{_N}/SKILL\.md|config\.yaml")
 FRONTMATTER = re.compile(r"(---\n)(.*?\n)(---\n)(.*)", re.S)  # same as loader.read_frontmatter
 HEADER = ("description", "inputs", "outputs", "callable")  # name and version = file name and format; steps = step operations
 CONFIG = ("models", "limits", "storage", "webhook", "callback", "openrouter", "runs_dir")
@@ -59,12 +61,18 @@ class NotFound(Exception):
 
 # --- core: hash → change → validate copy → atomic write -------------------------
 
-def _path(root: Path, rel: str) -> Path:
+def _path(root: Path, rel: str, write: bool = False) -> Path:
     wf = root / "workflows"
     p = wf / rel
-    if not FILES.fullmatch(rel) or not p.resolve().is_relative_to(wf.resolve()):
+    if rel == "mcp.yaml":
+        raise NotFound("mcp.yaml: only the project owner reads and edits this file, on disk — not through the API")
+    real, top = p.resolve(), wf.resolve()
+    # a link leads only to a file the API serves under its own name: not out of workflows/, and not to mcp.yaml;
+    # a write replaces the name itself (`_write`), in a directory that is no link to another one
+    if not (FILES.fullmatch(rel) and real.is_relative_to(top) and FILES.fullmatch(real.relative_to(top).as_posix())
+            and (not write or p.parent.resolve() == (top / rel).parent)):
         raise NotFound(f"{rel}: only these files can be edited: agents/<name>.md, scenarios/<name>.yaml, "
-                       "skills/<name>/SKILL.md, config.yaml and mcp.yaml")
+                       "skills/<name>/SKILL.md and config.yaml")
     return p
 
 
@@ -85,38 +93,65 @@ def _write(p: Path, text: str | None, tag: str | None = None, *, check: bool = F
         return
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_name(f".{p.name}.tmp")
-    tmp.write_bytes(text.encode())
+    tmp.unlink(missing_ok=True)  # whatever is there — a leftover, or a link planted in a directory others write to —
+    with open(tmp, "xb") as f:   # is not written through: "x" creates the file and never follows a link
+        try:  # the replaced file keeps its mode (an owner's 0600 on a file with keys), set before the content is there
+            os.fchmod(f.fileno(), p.stat().st_mode & 0o7777)
+        except FileNotFoundError:
+            pass
+        f.write(text.encode())
     if check and (current := etag(_read(p))) != tag:
         tmp.unlink(missing_ok=True)
         raise Conflict(current)
     os.replace(tmp, p)
 
 
-def _errors(root: Path) -> list[str]:
-    """All project errors known to `validate` (config, mcp.yaml, scenarios, agents, skills)."""
+def _errors(root: Path, registered: Path | None = None) -> list[str]:
+    """All project errors known to `validate` (config, mcp.yaml, scenarios, agents, skills).
+    `registered` = the project `root` is a copy of (its registry entry decides about MCP servers)."""
     try:
-        d = describe_project(root)
+        d = describe_project(root, registered)
     except ConfigErrors as e:
         return e.errors
     return list(dict.fromkeys(d["errors"] + [e for k in ("scenarios", "agents", "skills") for x in d[k]
                                              for e in x["errors"]]))
 
 
+def _copy(root: Path, tmp: str) -> Path:
+    """A copy of `workflows/` in `tmp` to validate a change in. An entry that cannot be read (a link that leads
+    nowhere, no permission) is left out: `_errors` of the project itself names it, so it is no new error."""
+    t = Path(tmp).resolve()
+    try:
+        shutil.copytree(root / "workflows", t / "workflows")
+    except shutil.Error:  # raised after everything else was copied
+        pass
+    return t
+
+
 def _errors_with(root: Path, rel: str, text: str | None) -> list[str]:
     """Project errors if file `rel` contained `text` (None = deleted); leave the project on disk unchanged."""
     # ponytail: copy all workflows/ on each change (ms for typical projects); large skills → copy only YAML/MD
     with tempfile.TemporaryDirectory() as tmp:
-        t = Path(tmp).resolve()
-        shutil.copytree(root / "workflows", t / "workflows")
+        t = _copy(root, tmp)
         _write(t / "workflows" / rel, text)
-        return [e.replace(str(t), str(root)) for e in _errors(t)]
+        return [e.replace(str(t), str(root)) for e in _errors(t, root)]
+
+
+def _added(before, after: list[str]) -> list[str]:
+    """Errors a change adds. The error of an untrusted project (`validate`: MCP servers … are disabled) names the
+    servers and shows only once its scenario has no other error, so using fewer servers or fixing that other error
+    rewords or reveals it: it is not new in a scenario that had an error before."""
+    def old(e):
+        where = e.split(": ", 1)[0]
+        return MCP_DISABLED in e and any(b.startswith((where + ": ", where + ", ")) for b in before)
+    return [e for e in after if e not in before and not old(e)]
 
 
 def _check(root: Path, rel: str, text: str | None) -> list[str]:
     """Project errors after a change; new errors → ConfigErrors (nothing is written)."""
     before = _errors(root)
     after = _errors_with(root, rel, text)
-    if new := [e for e in after if e not in before]:
+    if new := _added(before, after):
         raise ConfigErrors(new)
     return after
 
@@ -124,18 +159,17 @@ def _check(root: Path, rel: str, text: str | None) -> list[str]:
 def _errors_with_many(root: Path, changes: dict[str, str | None]) -> list[str]:
     """Project errors after multiple simultaneous changes (None = deleted file)."""
     with tempfile.TemporaryDirectory() as tmp:
-        t = Path(tmp).resolve()
-        shutil.copytree(root / "workflows", t / "workflows")
+        t = _copy(root, tmp)
         for rel, text in changes.items():
             _write(t / "workflows" / rel, text)
-        return [e.replace(str(t), str(root)) for e in _errors(t)]
+        return [e.replace(str(t), str(root)) for e in _errors(t, root)]
 
 
 def _check_many(root: Path, changes: dict[str, str | None], old_name: str, new_name: str) -> list[str]:
     """Validate a rename as one change; existing errors with the new path/name do not block it."""
     before = {re.sub(rf"(?<![a-z0-9-]){re.escape(old_name)}(?![a-z0-9-])", new_name, e) for e in _errors(root)}
     after = _errors_with_many(root, changes)
-    if new := [e for e in after if e not in before]:
+    if new := _added(before, after):
         raise ConfigErrors(new)
     return after
 
@@ -155,7 +189,7 @@ def _save(root, rel: str, tag: str | None, change: Callable[[str | None], str | 
           create: bool = False) -> dict[str, Any]:
     """`change(old text | None)` → new text, None = delete. Return `{etag, errors}` (remaining project errors)."""
     root = Path(root).resolve()
-    p = _path(root, rel)
+    p = _path(root, rel, True)
     with _lock:
         old = _read(p)
         if old is None and not create:
@@ -168,6 +202,15 @@ def _save(root, rel: str, tag: str | None, change: Callable[[str | None], str | 
     return {"etag": etag(new), "errors": errors}
 
 
+def create_path(root, folder: str, name: str) -> str:
+    """Path of the file `POST …/scenarios` or `…/agents` creates from its template (projects.py): a valid name, at a
+    place a write may reach — not through a linked `scenarios/` or `agents/`, and not a link waiting at the name."""
+    _check_name(name, folder[:-1])
+    rel = f"{folder}/{name}.{'yaml' if folder == 'scenarios' else 'md'}"
+    _path(Path(root).resolve(), rel, True)
+    return rel
+
+
 # --- round-trip YAML ------------------------------------------------------------------
 
 def _yaml() -> YAML:
@@ -178,7 +221,31 @@ def _yaml() -> YAML:
     return y
 
 
+def _free_texts(node, col: int = 0):
+    """Keep every comment below a `|` or `>` text left of the text: written at the text's column or beyond, it is
+    read as a part of it — of a prompt. That is where a comment lands that followed a deeper step before a step
+    operation, or one below a blank line in a file indented wider than `_yaml` writes. It hangs on the text itself,
+    or above the next entry: a step header that holds the tail of the step above (`_heads`), below another step now.
+    `col` = the column of the keys (dashes) of block `node`, at least; each level adds two or more."""
+    def left(tokens, col):
+        for tok in tokens:
+            tok.value = re.sub(rf"(?m)^[ \t]{{{col + 1},}}(?=#)", " " * col, tok.value)
+    seq, above = isinstance(node, CommentedSeq), None
+    for k, v in enumerate(node) if seq else node.items():
+        c, at = node.ca.items.get(k) or [None] * 3, col
+        while c[1] and isinstance(above, (CommentedMap, CommentedSeq)) and above and not above.fa.flow_style():
+            above, at = above[next(reversed(above)) if isinstance(above, CommentedMap) else len(above) - 1], at + 2
+        if c[1] and _own_line(above):  # the entry above ends with a text: left of the key that holds it
+            left(c[1], at)
+        if isinstance(v, (CommentedMap, CommentedSeq)) and not v.fa.flow_style():
+            _free_texts(v, col + 2)
+        elif _own_line(v) and c[0 if seq else 2]:
+            left([c[0 if seq else 2]], col)
+        above = v
+
+
 def _dump(y: YAML, data) -> str:
+    _free_texts(data)
     out = io.StringIO()
     y.dump(data, out)
     return out.getvalue()
@@ -235,9 +302,66 @@ def _flow_siblings(node) -> bool:
     return bool(maps) and all(x.fa.flow_style() for x in maps)
 
 
+def _tail(node):
+    """(holder, key, comment slot) of the deepest last entry of block `node`: ruamel hangs the blank lines and
+    comments that follow the block there. None = an empty or flow node (then they hang on the next sibling)."""
+    while isinstance(node, (CommentedMap, CommentedSeq)) and node and not node.fa.flow_style():
+        k = next(reversed(node)) if isinstance(node, CommentedMap) else len(node) - 1
+        v = node[k]
+        if not (isinstance(v, (CommentedMap, CommentedSeq)) and v and not v.fa.flow_style()):
+            return node, k, 2 if isinstance(node, CommentedMap) else 0
+        node = v
+    return None
+
+
+def _own_line(v) -> bool:
+    return isinstance(v, (LiteralScalarString, FoldedScalarString))  # `|` and `>` end their line, a comment token after other values does
+
+
+def _lines(tokens) -> str:
+    """Comment tokens that stand on lines of their own, as the text of those lines."""
+    return "".join(t.value if not t.value.strip() else " " * t.start_mark.column + t.value for t in tokens or ())
+
+
+def _take_tail(node) -> str:
+    """Detach the blank lines and comments that follow block `node` (an end-of-line comment stays on its line).
+    ruamel hangs them on the last value, or — when that is a flow value — on the end of a block around it."""
+    ends, n = "", node
+    while isinstance(n, (CommentedMap, CommentedSeq)) and n and not n.fa.flow_style():
+        ends, n.ca.end = _lines(n.ca.end) + ends, []  # the innermost block ends first
+        n = n[next(reversed(n)) if isinstance(n, CommentedMap) else len(n) - 1]
+    t = _tail(node)
+    c = t and t[0].ca.items.get(t[1])
+    if not (c and c[t[2]]):
+        return ends
+    tok = c[t[2]]
+    # after a `|` or `>` text the token is whole lines, its first one indented only by the token's column
+    eol, _, rest = ("", "", _lines([tok])) if _own_line(t[0][t[1]]) else tok.value.partition("\n")
+    tok.value, c[t[2]] = eol + "\n", tok if eol else None
+    return rest + ends
+
+
+def _put_tail(node, rest: str):
+    """Attach `rest` (from `_take_tail`) behind the last entry `node` has now."""
+    t = _tail(node)
+    if not (rest and t):
+        return
+    if not t[0][t[1]] and isinstance(t[0][t[1]], (CommentedMap, CommentedSeq)):
+        t[0][t[1]].fa.set_flow_style()  # emptied: written as `{}` — as a flow value, or the comment would precede it
+    if isinstance(t[0], CommentedSeq) and t[0].ca.end:  # a step list that keeps its own tail there (`_set_heads`):
+        t[0].ca.end.append(CommentToken(rest, CommentMark(0), None))  # below it — the item's comment is written above
+        return
+    c = t[0].ca.items.setdefault(t[1], [None] * 4)
+    if c[t[2]]:
+        c[t[2]].value += rest
+    else:
+        c[t[2]] = CommentToken(rest if _own_line(t[0][t[1]]) else "\n" + rest, CommentMark(0), None)
+
+
 def merge(node, patch: dict[str, Any]):
     """JSON Merge Patch (RFC 7396) into a ruamel mapping: null deletes, mappings merge, other values replace.
     Delete first so renames (`{"old": null, "new": {…}}`) determine style without the old mapping."""
+    tail = _take_tail(node)  # a key appended to a step must not land below the blank line that separates the steps
     for k, v in sorted(patch.items(), key=lambda kv: kv[1] is not None):
         if v is None:
             node.pop(k, None)
@@ -250,6 +374,7 @@ def merge(node, patch: dict[str, Any]):
             merge(node[k], v)
         else:
             node[k] = _new(v, node.get(k))
+    _put_tail(node, tail)
 
 
 def _obj(v, what: str) -> dict[str, Any]:
@@ -317,17 +442,85 @@ def _step(data, address) -> tuple[list[Any], int]:
     return lst, i
 
 
-def _drop_empty(steps, target: list[Any]):
-    """Remove a branch/case/default after its last step is removed (the schema disallows empty lists)."""
-    for st in steps if isinstance(steps, list) else []:
-        for p, lst in nested_lists(st):
-            if lst is target and not lst:
-                holder = st
-                for k in p[:-1]:
-                    holder = holder[k]
-                del holder[p[-1]]
-                return
-            _drop_empty(lst, target)
+def _holder(d, target: list[Any], key="steps", step=None):
+    """(mapping, key, step) holding step list `target`: the scenario and "steps" (no step), or a parallel/switch,
+    its branch and the step it is in."""
+    if d.get(key) is target:
+        return d, key, step
+    for st in d.get(key) if isinstance(d.get(key), list) else []:
+        for p, _ in nested_lists(st):
+            holder = st
+            for k in p[:-1]:
+                holder = holder[k]
+            if hit := _holder(holder, target, p[-1], st):
+                return hit
+    return None
+
+
+def _drop_empty(d, target: list[Any], tail: str = ""):
+    """Remove a branch/case/default after its last step is removed (the schema disallows empty lists). `tail` =
+    what followed its list (the header of the step after the parallel/switch) stays where the list was."""
+    holder, key, step = _holder(d, target)
+    if target or step is None:
+        return
+    after = list(holder)[list(holder).index(key) + 1:]
+    del holder[key]
+    if tail and after:  # above the next branch
+        c = holder.ca.items.setdefault(after[0], [None] * 4)
+        c[1] = [CommentToken(tail, CommentMark(0), None), *(c[1] or [])]
+    else:
+        _put_tail(holder or step, tail)
+
+
+# A step's header = the blank lines and comments directly above it (the examples number and describe their steps
+# there): it belongs to the step below. ruamel keeps it in one of several places — after the last value of the step
+# above or at the end of a block inside that step (`_take_tail`), in the item's own pre-comment, or, for the first
+# step, in the pre-comment of the list (owned by the key that holds it). Step operations detach all of them
+# (`_heads`), edit steps and headers side by side and attach them again (`_set_heads`).
+
+def _heads(d, lst) -> list[str]:
+    """Detach the header of each step of `lst` and what follows the last step: len(lst) + 1 texts of whole lines."""
+    holder, key, _ = _holder(d, lst)
+    above, first = holder.ca.items.get(key), lst.ca.comment
+    heads = [_lines(above[3] if above and above[3] else first and first[1])]
+    if above:
+        above[3] = None
+    if first:
+        first[1] = None
+    for i in range(1, len(lst)):
+        own = lst.ca.items.get(i)
+        heads.append(_take_tail(lst[i - 1]) + _lines(own and own[1]))
+        if own:
+            own[1] = None
+    heads.append((_take_tail(lst[-1]) if lst else "") + _lines(lst.ca.end))
+    lst.ca.end = []
+    return heads
+
+
+def _set_heads(d, lst, heads: list[str]):
+    """Attach `heads` (from `_heads`, edited along with the steps) to the steps `lst` has now."""
+    holder, key, _ = _holder(d, lst)
+    for i, text in enumerate(heads[:len(lst)]):
+        if text:  # one token of whole lines, written as it is
+            tokens = [CommentToken(text, CommentMark(0), None)]
+            if i:
+                lst.ca.items.setdefault(i, [None] * 4)[1] = tokens
+            else:
+                holder.ca.items.setdefault(key, [None] * 4)[3] = tokens
+    if lst and _tail(lst[-1]):
+        _put_tail(lst[-1], heads[-1])
+    elif heads[-1]:  # a flow last step or an emptied list: where ruamel keeps it then (`_heads` reads it back) —
+        lst.ca.end = [CommentToken(heads[-1], CommentMark(0), None)]  # and writes it only for a list that has
+        lst.ca.comment = lst.ca.comment or [None, None]               # a comment slot of its own
+
+
+def _col(address) -> int:
+    """Column of the `- ` of the step list at `address` (a list or one of its steps) as `_yaml` writes it."""
+    rest, col = list(address[1:]), 2
+    while rest[1:]:
+        n = 3 if rest[1:3] == ["switch", "cases"] else 2
+        rest, col = rest[1 + n:], col + 2 * n + 2
+    return col
 
 
 def _scenario(root, name: str, tag, change: Callable[[Any], None]) -> dict[str, Any]:
@@ -344,7 +537,10 @@ def _set_header(d, fields):
 
 def _add_step(d, step, after=None):
     lst, i = resolve(d, ["steps"] if after is None else after)
-    lst.insert(0 if i is None else i + 1, _new(_obj(step, "step")))
+    new, heads, at = _new(_obj(step, "step")), _heads(d, lst), 0 if i is None else i + 1
+    lst.insert(at, new)
+    heads.insert(at, "")  # below the step before it and above the header of the step after it
+    _set_heads(d, lst, heads)
 
 
 def _update_step(d, address, fields):
@@ -354,7 +550,9 @@ def _update_step(d, address, fields):
 
 def _replace_step(d, address, step):
     lst, i = _step(d, address)
-    lst[i] = _new(_obj(step, "step"))
+    new, heads = _new(_obj(step, "step")), _heads(d, lst)  # its header and the next step's are not part of the step
+    lst[i] = new
+    _set_heads(d, lst, heads)
 
 
 def _move_step(d, address, to):
@@ -365,15 +563,24 @@ def _move_step(d, address, to):
         raise ConfigErrors([f"step {address!r} cannot be moved into its own branch"])
     dst, j = resolve(d, to)
     anchor = None if j is None else dst[j]
-    st = src.pop(i)
-    dst.insert(0 if anchor is None else next(n for n, x in enumerate(dst) if x is anchor) + 1, st)
-    _drop_empty(d["steps"], src)
+    heads = _heads(d, src)
+    st, head = src.pop(i), heads.pop(i)  # the header moves with its step; the next step's stays where it is
+    _set_heads(d, src, heads)
+    tail = heads[-1]
+    heads, at = _heads(d, dst), 0 if anchor is None else next(n for n, x in enumerate(dst) if x is anchor) + 1
+    dst.insert(at, st)
+    # at the indentation of its new list: left deeper, a comment below a `|` text would become a part of that text
+    heads.insert(at, re.sub(r"(?m)^[ \t]+(?=\S)|^(?=\S)", " " * _col(to), head))
+    _set_heads(d, dst, heads)
+    _drop_empty(d, src, tail)
 
 
 def _delete_step(d, address):
     lst, i = _step(d, address)
-    del lst[i]
-    _drop_empty(d["steps"], lst)
+    heads = _heads(d, lst)
+    del lst[i], heads[i]  # its own header goes with it; the next step keeps its header
+    _set_heads(d, lst, heads)
+    _drop_empty(d, lst, heads[-1])
 
 
 TEMPLATE = re.compile(r"\{\{.*?\}\}", re.S)
@@ -414,6 +621,8 @@ def _add_branch(d, address, name, steps=()):
         raise ConfigErrors([f"name: {name!r} — must be a string and no branch/case with this name may already exist"])
     if not isinstance(steps, (list, tuple)):
         raise ConfigErrors(["steps: must be a list of steps"])
+    if not holder:
+        holder.fa.set_block_style()  # see _put_tail
     holder[name] = _new(list(steps))
 
 
@@ -578,7 +787,7 @@ def _rename(root, kind: str, name: str, tag, new_name: str) -> dict[str, Any]:
     ext = "yaml" if kind == "scenario" else "md"
     folder = "scenarios" if kind == "scenario" else "agents"
     old_rel, new_rel = f"{folder}/{name}.{ext}", f"{folder}/{new_name}.{ext}"
-    old_path = _path(root, old_rel)
+    old_path = _path(root, old_rel, True)
     with _lock:
         old_text = _read(old_path)
         if old_text is None:
@@ -588,10 +797,10 @@ def _rename(root, kind: str, name: str, tag, new_name: str) -> dict[str, Any]:
         if not isinstance(new_name, str):
             raise ConfigErrors(["name: must be a string"])
         _check_name(new_name, "scenario" if kind == "scenario" else "agent")
-        new_path = _path(root, new_rel)
+        new_path = _path(root, new_rel, True)
         if new_name == name:
             return {"name": name, "etag": etag(old_text), "changed": [], "errors": _errors(root)}
-        if new_path.exists():
+        if os.path.lexists(new_path):
             raise ConfigErrors([f"{new_path}: already exists — refusing to overwrite"])
 
         if kind == "scenario":
@@ -604,6 +813,7 @@ def _rename(root, kind: str, name: str, tag, new_name: str) -> dict[str, Any]:
             new_text = match[1] + frontmatter + match[3] + match[4]
 
         references: dict[str, str] = {}
+        bases: dict[str, str] = {}  # the text each reference was computed from
         for path in sorted((root / "workflows" / "scenarios").glob("*.yaml")):
             rel = path.relative_to(root / "workflows").as_posix()
             if rel == old_rel:
@@ -623,11 +833,13 @@ def _rename(root, kind: str, name: str, tag, new_name: str) -> dict[str, Any]:
             except ConfigErrors:  # existing broken files remain errors, but renaming does not rewrite them
                 continue
             if found and updated != text:
-                references[rel] = updated
+                references[rel], bases[rel] = updated, text
 
         if kind == "agent":
             path = root / "workflows" / "mcp.yaml"
-            text = _read(path)
+            # a linked mcp.yaml is the owner's file elsewhere (one registry for several projects): the write would put
+            # a copy in its place, which the owner's later edits — a revoked grant — no longer reach
+            text = None if path.is_symlink() else _read(path)
             if text is not None:
                 found = False
 
@@ -642,13 +854,18 @@ def _rename(root, kind: str, name: str, tag, new_name: str) -> dict[str, Any]:
                                     agents[i] = new_name
                                     found = True
 
+                # The only write the API makes to the owner's mcp.yaml: the renamed agent keeps its servers. It must
+                # change nothing else — the file as the loader reads it is compared with the same substitution.
                 try:
                     updated = yaml_edit(text, edit_mcp, "mcp.yaml")
-                except ConfigErrors:
+                    expected = load_yaml(text, "mcp.yaml")
+                    edit_mcp(expected)
+                    same = load_yaml(updated, "mcp.yaml") == expected
+                except (ConfigErrors, LoadError):  # a file that cannot be read stays as it is (and stays an error)
                     pass
                 else:
-                    if found and updated != text:
-                        references["mcp.yaml"] = updated
+                    if found and same and updated != text:
+                        references["mcp.yaml"], bases["mcp.yaml"] = updated, text
 
         changes = {old_rel: None, new_rel: new_text, **references}
         errors = _check_many(root, changes, name, new_name)
@@ -656,15 +873,18 @@ def _rename(root, kind: str, name: str, tag, new_name: str) -> dict[str, Any]:
         # Write updated files first; create the new path only after the final conflict check.
         if etag(_read(old_path)) != tag:
             raise Conflict(etag(_read(old_path)))
-        for rel, updated in sorted(references.items()):
-            path = _path(root, rel)
-            original = _read(path)
-            if original is None:
-                raise Conflict(None)
-            _write(path, updated, etag(original), check=True)
+        paths = {rel: root / "workflows" / rel if rel == "mcp.yaml" else _path(root, rel, True)  # mcp.yaml is not in FILES
+                 for rel in sorted(references)}
+        # Files edited on disk are not under `_lock`: one that changed since it was read (the owner revoking a grant
+        # in mcp.yaml while the rename was validated) must not be written back from the old text. Nothing is written
+        # yet; a retry with the same fingerprint works from the current files.
+        if any(_read(path) != bases[rel] for rel, path in paths.items()):
+            raise Conflict(tag)
+        for rel, path in paths.items():
+            _write(path, references[rel], etag(bases[rel]), check=True)
         if _read(old_path) is None or etag(_read(old_path)) != tag:
             raise Conflict(etag(_read(old_path)))
-        if new_path.exists():
+        if os.path.lexists(new_path):
             raise ConfigErrors([f"{new_path}: already exists — refusing to overwrite"])
         _write(new_path, new_text)
         _write(old_path, None, tag, check=True)
@@ -752,8 +972,8 @@ def read_file(root, rel: str) -> dict[str, Any]:
             out["data"] = load_yaml(text, rel)
     except LoadError as e:
         out["errors"] = [str(e)]
-    if rel in ("config.yaml", "mcp.yaml") and not out["errors"]:  # schema and variables as well as syntax (0.7.0)
-        (load_config if rel == "config.yaml" else load_mcp)(p.parent, out["errors"])
+    if rel == "config.yaml" and not out["errors"]:  # schema and variables as well as syntax (0.7.0)
+        load_config(p.parent, out["errors"])
     elif not out["errors"]:  # 0.8.0: validation errors as for a file in GET /projects/<p>
         out["errors"] = _file_errors(Path(root).resolve(), rel)
     return out

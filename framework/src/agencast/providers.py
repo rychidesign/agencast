@@ -244,6 +244,16 @@ def assistant_message(msg: dict) -> dict:
     return {k: msg[k] for k in ("role", "content", "tool_calls", "reasoning_details") if msg.get(k) is not None}
 
 
+def schema_feedback(prev: dict | None, message: str, level: str, note: str = "") -> list:
+    """Messages for the retry after a `schema` error: the previous text answer (if any) and what was wrong.
+    `level` = the level the retry uses: a tool the cascade no longer offers is not named. `note` = `task` addition."""
+    if SUBMIT_TOOL in message and level != "tool_wrapper":
+        message = "the answer was not in the required format"
+    return ([assistant_message(prev)] if prev and prev.get("content") and not prev.get("tool_calls") else []) + [
+        {"role": "user", "content": f"The previous response was invalid: {message}\n"
+                                    f"Respond again, exactly in the required format.{note}"}]
+
+
 def parse_chat(status, body, headers, level: str | None, schema: dict | None):
     """(meta, output, error). Success only after checking finish_reason, content, schema and cost (§5.1 item 8)."""
     meta = _meta(status, body)
@@ -287,13 +297,19 @@ def parse_chat(status, body, headers, level: str | None, schema: dict | None):
 # --- task -----------------------------------------------------------------------------
 
 def task_body(model: str, system: str, messages: list, tools: list, level: str | None, schema: dict | None,
-              max_tokens: int | None) -> dict:
+              max_tokens: int | None, answer_only: bool = False) -> dict:
     """Turn of a `task` step: MCP tools (+ load_skill); cascade like `ask`, but `_submit_output`
-    is not forced (the model calls other tools in between) and ends the loop (scenario.md task)."""
+    is not forced (the model calls other tools in between) and ends the loop (scenario.md task).
+    `answer_only` = retry after a `schema` error: the tools already ran, the request allows only the answer —
+    `_submit_output` forced at `tool_wrapper`, otherwise `tool_choice: none`. The definitions stay in the request:
+    providers reject tool history without them."""
     body = chat_body(model, system, messages, level if level != "tool_wrapper" else None, schema, max_tokens)
     tools = tools + ([submit_tool(schema)] if schema and level == "tool_wrapper" else [])
     if tools:
         body["tools"] = tools
+        if answer_only:
+            body["tool_choice"] = ({"type": "function", "function": {"name": SUBMIT_TOOL}}
+                                   if schema and level == "tool_wrapper" else "none")
     return body
 
 

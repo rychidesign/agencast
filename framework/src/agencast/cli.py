@@ -9,7 +9,7 @@
     agencast docs [show <path>]
     agencast new project <path> [--example showcase|tutorial] [--name N] | agent <name> | scenario <name>
     agencast rename scenario <old> <new> | agent <old> <new>
-    agencast projects list | add <path> [--name N] | rm <name>
+    agencast projects list | add <path> [--name N] | rm <name> | trust <name> [--yes]
 
 <scenario> is a name (ig-post) or a path to .yaml. Project root = the first directory
 containing workflows/ searching upward from cwd, or --project <path> (for each command).
@@ -18,14 +18,18 @@ containing workflows/ searching upward from cwd, or --project <path> (for each c
 """
 import argparse
 import difflib
+import shlex
 import shutil
 import os
+import signal
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from . import ConfigErrors, __version__, api, projects as _projects
+from . import ConfigErrors, __version__, api, engine, projects as _projects
 from .loader import LoadError, load_dotenv, read_frontmatter, read_yaml, version_error
 from .fake import Fake
+from .mcp_client import load_mcp
 from .record import count, format_number, format_usd
 from .resources import resource_dir
 from .validate import require_config, resolve_inputs
@@ -40,6 +44,8 @@ def _fail_config(errors: list[str]) -> int:
 def _fake(arg: str | None, config_models: dict, root: Path | None = None):
     if arg and root and not Path(arg).is_absolute() and not Path(arg).exists():
         arg = str(root / arg)
+    if arg and not Path(arg).is_file():
+        raise ConfigErrors([f"--fake {arg}: file does not exist"])
     script = read_yaml(Path(arg), arg) if arg else None
     return Fake(script, [m["id"] for m in config_models.values() if m.get("api", "chat") == "chat"],
                 [m["id"] for m in config_models.values() if m.get("api", "chat") == "images"])
@@ -50,9 +56,9 @@ def _root(a) -> Path:
 
 
 def _project(a, *, offline=False, register=False):
-    """Validate a scenario; with --fake, check models against fake catalogs. `register` = successful `run`
-    adds the project to the registry (not validate since 0.15.1: it has no side effects and is also called
-    by tools and tests from other project copies); registry errors do not stop the command."""
+    """Validate a scenario; with --fake, check models against fake catalogs. `register` = a validated `run`
+    adds the project to the registry (not validate since 0.15.1 and not `--dry-run`: they have no side effects
+    and are also called by tools and tests from other project copies); registry errors do not stop the command."""
     arg = getattr(a, "fake", None)
     fake = _fake(arg, {}, _root(a)) if arg is not None else None  # api.load populates models from config.yaml
     p = api.load(a.scenario, project_root=a.project, fake=fake, offline=offline)
@@ -85,7 +91,7 @@ def cmd_run(a) -> int:
             return _fail_config([f"input '{item}' must use key=value format"])
         raw[key] = value
     try:
-        p, fake = _project(a, register=True)
+        p, fake = _project(a, register=not a.dry_run)
         inputs = resolve_inputs(p.scenario, raw, from_text=True)
         if a.dry_run:
             rec = api.dry_run(p, inputs)
@@ -95,6 +101,10 @@ def cmd_run(a) -> int:
         run = api.run(p, inputs, fake=fake, callback_url=a.callback_url, request_key=a.request_key)
     except (ConfigErrors, LoadError) as e:
         return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
+    except api.Interrupted as e:  # SIGINT/SIGTERM: the run was cancelled and has stopped its MCP servers
+        print(f"{e} — MCP servers were stopped; " + ("no plan was written" if a.dry_run else
+              "agencast runs list shows the run: interrupted, or finished without its callback"), file=sys.stderr)
+        return 128 + e.signum
     ok = run.status == "succeeded"
     print(f"run {run.run_id}: {'succeeded' if ok else 'failed'} · {format_number(run.duration, 1)} s · {format_usd(run.cost)} USD")
     if run.error:
@@ -171,26 +181,43 @@ def cmd_serve(a) -> int:
             hook = Webhook(wf, fake=_fake(a.fake, cfg["models"], wf.parent) if a.fake is not None else None, workers=a.workers)
             projects = Projects(hook)
         srv = Server(hook, a.host, a.port, projects, cors=a.cors)
-        if not hook:
-            projects.start()
     except (ConfigErrors, LoadError) as e:
         return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
     except OSError as e:
         return _fail_config([f"cannot start server at {a.host}:{a.port}: {e.strerror}"])
     url = f"agencast serve: http://{a.host}:{srv.server_address[1]}"
     fake = " · fake provider" if a.fake is not None else ""
-    if hook:
-        hook.start()
-        print(f"{url} — POST /runs, POST /uploads, GET /runs/<run_id>, GET /projects/… · workers {hook.workers} · "
-              f"queued {count(hook.q.qsize(), 'run', 'runs')} · run records {hook.runs}{fake}", flush=True)
-    else:
-        print(f"{url} — registry mode ({_projects.registry_path()}): GET /projects/…, "
-              f"POST /projects/<project>/runs, POST /projects/<project>/uploads · workers per project {a.workers}{fake}",
-              flush=True)
+    caught, failed = [signal.SIGINT], []  # Ctrl-C raises KeyboardInterrupt by itself
+
+    def stop(signum, _):
+        caught[0] = signum
+        raise KeyboardInterrupt
     try:
+        # systemctl stop = Ctrl-C: both end the runs in flight below. Installed before the workers start — they run
+        # the restored queue at once, and a signal during startup must not leave their MCP servers behind
+        signal.signal(signal.SIGTERM, stop)
+        if hook:
+            hook.start()
+            print(f"{url} — POST /runs, POST /uploads, GET /runs/<run_id>, GET /projects/… · workers {hook.workers} · "
+                  f"queued {count(hook.q.qsize(), 'run', 'runs')} · run records {hook.runs}{fake}", flush=True)
+        else:
+            projects.start()
+            print(f"{url} — registry mode ({_projects.registry_path()}): GET /projects/…, "
+                  f"POST /projects/<project>/runs, POST /projects/<project>/uploads · workers per project {a.workers}{fake}",
+                  flush=True)
         srv.serve_forever()
     except KeyboardInterrupt:
-        print("stopped (unfinished requests remain in _queue/ and will be processed on startup)")
+        pass
+    except (ConfigErrors, LoadError) as e:  # registry mode: the registry cannot be read
+        failed = e.errors if isinstance(e, ConfigErrors) else [str(e)]
+    for sig in (signal.SIGINT, signal.SIGTERM):  # a second signal must not cut the shutdown short (orphaned servers)
+        signal.signal(sig, signal.SIG_IGN)
+    # runs execute in worker threads, which the exiting process drops: without this their MCP servers would live on
+    if not engine.stop_runs(caught[0]):
+        print("some runs did not stop in time — their MCP servers may still be running", file=sys.stderr)
+    if failed:
+        return _fail_config(failed)
+    print("stopped (unfinished requests remain in _queue/ and will be processed on startup)")
     return 0
 
 
@@ -318,6 +345,43 @@ def cmd_rename(a) -> int:
     return 0
 
 
+def _shown(value) -> str:
+    """A value from the registry or a project file as one line a terminal shows as it is: control and format
+    characters (`\\r`, ESC, newline, bidi marks) are escaped — raw, they would redraw the line the owner decides by."""
+    return "".join(c if c.isprintable() else repr(c)[1:-1] for c in str(value))
+
+
+def _trust(a) -> int:
+    """Show what would be trusted — the root and the programs and hosts of its mcp.yaml — and trust that root only:
+    the name alone may point elsewhere by the time the owner has read the file (projects.md)."""
+    if not (hit := next((x for x in api.projects() if x["name"] == a.name), None)):
+        raise ConfigErrors([f"project '{a.name}' is not in the registry ({_projects.registry_path()})"])
+    root, errs = Path(hit["root"]), []
+    servers = load_mcp(root / "workflows", errs)
+    print(f"project {a.name}: {_shown(root)}\nMCP servers in {_shown(root / 'workflows' / 'mcp.yaml')}:")
+    for name, s in servers.items():
+        print(_shown(f"  {name}: " + (shlex.join([s["command"], *s.get("args", [])]) if "command" in s
+                                      else f"remote server {urlsplit(s['url']).hostname}")))
+    for e in errs:
+        print(_shown(f"  {e}"))
+    if not servers and not errs:
+        print("  none")
+    if not a.yes:
+        if not sys.stdin.isatty():
+            return _fail_config([f"agencast projects trust {a.name}: not a terminal — check the list above and "
+                                 "confirm with --yes"])
+        try:
+            answer = input("Allow this project to start these servers? [y/N] ")
+        except EOFError:
+            answer = ""
+        if answer.strip().lower() not in ("y", "yes"):
+            print("nothing was changed")
+            return 1
+    api.trust_project(a.name, root)
+    print(f"project {a.name} ({_shown(root)}) is trusted: its scenarios may use the MCP servers in its workflows/mcp.yaml")
+    return 0
+
+
 def cmd_projects(a) -> int:
     try:
         if a.projects_cmd == "add":
@@ -325,14 +389,17 @@ def cmd_projects(a) -> int:
         elif a.projects_cmd == "rm":
             api.remove_project(a.name)
             print(f"project {a.name} removed from the registry (files are kept)")
+        elif a.projects_cmd == "trust":
+            return _trust(a)
         else:
             items = api.projects()
             for x in items:
-                print(f"{x['name']:30} {x['root']}{'' if x['available'] else '  (unavailable: missing workflows/config.yaml)'}")
+                print(f"{x['name']:30} {_shown(x['root'])}{'' if x['available'] else '  (unavailable: missing workflows/config.yaml)'}"
+                      + ("" if x["trusted"] else f"  (not trusted: no MCP servers — agencast projects trust {x['name']})"))
             if not items:
                 print("registry is empty — agencast projects add <path> or agencast new project <path>")
     except ConfigErrors as e:
-        return _fail_config(e.errors)
+        return _fail_config([_shown(x) for x in e.errors])  # they quote registry roots
     return 0
 
 
@@ -367,9 +434,10 @@ def main(argv=None) -> int:
     r.add_argument("-i", "--input", action="append", default=[], metavar="KEY=VALUE",
                    help="scenario input; numbers, true/false, lists and objects as JSON; "
                         "file/files = a path (or a JSON list of paths)")
-    r.add_argument("--dry-run", action="store_true", help="generate a plan without making calls")
+    r.add_argument("--dry-run", action="store_true", help="generate a plan without model calls (MCP servers are started to list their tools)")
     r.add_argument("--fake", nargs="?", const="", metavar="SCRIPT",
-                   help="fake provider without network access; optional YAML with scripted responses")
+                   help="fake model provider (no model calls, no key); optional YAML with scripted responses. "
+                        "MCP servers and the callback stay real")
     r.add_argument("--callback-url", help="send the result after the run (https only, HMAC signature)")
     r.add_argument("--request-key", help="idempotency key (recorded only in the run record and callback)")
     rs = sub.add_parser("runs", parents=[common], help="run records")
@@ -385,7 +453,8 @@ def main(argv=None) -> int:
                    help="port (AGENCAST_PORT; default 8080; range 1–65535)")
     s.add_argument("--workers", type=int, default=1, metavar="N",
                    help="concurrent runs (default 1 = sequential; more = completion order is not guaranteed)")
-    s.add_argument("--fake", nargs="?", const="", metavar="SCRIPT", help="fake provider without network access")
+    s.add_argument("--fake", nargs="?", const="", metavar="SCRIPT",
+                   help="fake model provider (no model calls, no key); MCP servers and callbacks stay real")
     s.add_argument("--cors", metavar="ORIGIN", help="CORS for GUI development, e.g. http://localhost:5173 (vite dev)")
     m = sub.add_parser("migrate", parents=[common], help="convert a file to the current format version")
     m.add_argument("file", help="scenario, config or agent (.md)")
@@ -402,6 +471,10 @@ def main(argv=None) -> int:
     pa.add_argument("path", metavar="path", help="project root (directory containing workflows/)")
     pa.add_argument("--name", dest="as_name", metavar="NAME", help="registry name (default: directory name)")
     prs.add_parser("rm", help="remove a project from the registry (keep files)").add_argument("name", metavar="name")
+    pt = prs.add_parser("trust", help="allow MCP servers in a project that was registered through the API: shows "
+                                      "its root and servers and asks (read its workflows/mcp.yaml first)")
+    pt.add_argument("name", metavar="name")
+    pt.add_argument("--yes", action="store_true", help="do not ask (required when not run in a terminal)")
     for what, help_ in (("agent", "workflows/agents/<name>.md"), ("scenario", "workflows/scenarios/<name>.yaml")):
         ns.add_parser(what, parents=[common], help=help_).add_argument("name", metavar="name")
     rn = sub.add_parser("rename", help="rename a scenario or agent and update references")

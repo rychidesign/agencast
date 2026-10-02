@@ -52,7 +52,7 @@ States: default, hover, focus, disabled, invalid, with help, with an error, requ
 - Number (max_turns, budget, limits).
 - Select (agent, model/alias, API chat/images, quality, storage type, scenario filter, status filter, input type).
 - Checkbox standalone and in a list (MCP servers and their tools; disabled with the note “not allowed by the owner”).
-- A radio with two lines (name + explanation): “Dry run: plan only, free” / “Live run: calls models and costs money”.
+- A radio with two lines (name + explanation): “Dry run: plan only, no model calls; starts the MCP servers to list their tools” / “Live run: calls models and costs money”.
 - Password (server token).
 - A chip with removal (agent skills) + a select “add skill”.
 - Inline editing of a key (name of an input, output, question, model alias): states valid, invalid format, “already exists”; confirmed by leaving the field.
@@ -168,7 +168,7 @@ Frame: eyebrow, title, a close button, optional actions. Contents:
 ### 20. Agent, skill and config forms
 
 - Agent: description, model (an alias select + the help “An alias from config.yaml, never a concrete model id.”), skills (chips + add), MCP (a server checkbox and tool checkboxes under it; notes “(not allowed by the owner)”, “the server doesn't restrict tools”), limits (max_turns conditionally required with the text “Required: the agent has an MCP server.”, budget_usd, timeout), Instructions (a large textarea), the “Used by” list (links to scenarios). Skill: Markdown + “used by”.
-- Config: the Models section (alias rows: alias inline, model id, API select chat/images, quality select only for images, structured_output, max_tokens, delete alias disabled with the reason “The alias is used by writer — it can't be deleted.”, a note “used by 2 agents”; “+ alias”), Jev model, Storage (type select + fields; *_env fields with the indicator “set on the server” / “missing on the server” / “the server doesn't know this variable yet”), Limits, Variables, MCP servers read-only (agents, scenarios, tools; “edit in YAML mode”, “The project has no mcp.yaml.”), the state “config.yaml failed validation — fix it in YAML”.
+- Config: the Models section (alias rows: alias inline, model id, API select chat/images, quality select only for images, structured_output, max_tokens, delete alias disabled with the reason “The alias is used by writer — it can't be deleted.”, a note “used by 2 agents”; “+ alias”), Jev model, Storage (type select + fields; *_env fields with the indicator “set on the server” / “missing on the server” / “the server doesn't know this variable yet”), Limits, Variables, MCP servers read-only (description, transport, agents, scenarios, tools; one note “MCP servers are set up by the project owner in workflows/mcp.yaml on the server. This page only shows them.”, “This project has no MCP servers.”, and for a project added through the GUI a warning with the command `agencast projects trust <name>` — a command line with Copy, no button that changes trust), the state “config.yaml failed validation — fix it in YAML”.
 
 ## Overall frame (screens)
 

@@ -11,7 +11,8 @@ Notation: **proposal** = not covered by DESIGN.md; proposed default behavior.
 
 ```
 runs/20260925-140311-ig-post-a1b2/
-  plan.md              plan from validate: step order, tools, limits
+  plan.md              plan from validate: step order, tools, limits; for --dry-run also what each
+                       MCP server offers and allowed tools it does not offer (scenario.md §7)
   inputs.json          run inputs (after filling in defaults); images as paths inputs/…
   inputs/              copies of file/files inputs: <name>.<ext>, <name>-1.<ext>, … (since 0.18.0;
                        a dry run only plans the paths); the record never holds the caller's path
@@ -22,7 +23,8 @@ runs/20260925-140311-ig-post-a1b2/
   run.lock             lock of a live run (since framework 0.7.0), empty
   scenario/            snapshot of the scenarios at start (since framework 0.7.0)
     ig-post.yaml
-  mcp/                 stderr of MCP servers: <server>.stderr.log
+  mcp/                 stderr of local MCP servers: <server>.stderr.log (secret values masked;
+                       written when the server stops, absent after a killed run)
   steps/
     01-copy/
       prompt.md        system prompt + message, exactly as the model received them
@@ -74,7 +76,8 @@ runs/20260925-140311-ig-post-a1b2/
   it is only in `events.jsonl` and in `summary.md` with a reason.
 - **`calls/`** — every API call separately (retries and `task` turns too),
   number = order of the call within the step. For `task` also
-  `calls/NN.tool.json` (tool arguments and result) and images from tools
+  `calls/NN.tool.json` (tool arguments and result; a call that did not
+  return has `result: null` and an `error`) and images from tools
   `tool-<NN>-<k>.png` in the step directory.
 - **`call`** — the step directory contains the called scenario's own
   `steps/`: `steps/03-propose/steps/01-copy/…`. Events go into the single
@@ -86,7 +89,14 @@ runs/20260925-140311-ig-post-a1b2/
   the file stays empty. A reader (`runs list`, `serve`) tries a shared lock
   without waiting: cannot get it = the run is alive (`state: running`),
   can get it and `run_finished` is missing = the run was interrupted
-  (`interrupted`, [api.md](api.md)). On Modal the wrapper substitutes its
+  (`interrupted`, [api.md](api.md)) — a killed process, or `agencast run`
+  stopped by SIGINT/SIGTERM (it stops its MCP servers first: started steps
+  have `step_finished` with `status: cancelled`, steps that had not started
+  `step_skipped` with the reason `cancelled — the run was interrupted
+  (SIGTERM)`, the servers `mcp_server` `stopped` — also one that was still
+  starting; exit code 130/143), or a
+  run in flight when `agencast serve` was stopped (the same record; the
+  next start of the server finishes it, see `run_finished` below). On Modal the wrapper substitutes its
   own mechanism (like the `max_parallel_runs` slots). A dry run has no
   lock — since framework 0.8.0 this is how it is recognized: `plan.md`
   without `events.jsonl` and without `run.lock` = dry run; a live run
@@ -115,8 +125,34 @@ runs/20260925-140311-ig-post-a1b2/
   callback, the framework replaces every occurrence of the value of any
   variable from `*_env` fields (config.yaml, mcp.yaml) and from `env` in
   `mcp.yaml` (values of 8 characters or more) with the text
-  `<secret: NAME>` and writes a warning. An MCP tool can return a key in
-  its result (spike (d): `get-env`; DESIGN §5.2).
+  `<secret: NAME>` and writes a warning. Longer values are replaced first:
+  a value that contains another one (a connection URL and its user name)
+  is replaced whole. An MCP tool can return a key in
+  its result (spike (d): `get-env`; DESIGN §5.2). The escaped forms of a
+  value are replaced too: JSON-escaped once or twice (a value with `"` or
+  `\` inside JSON text; twice when a tool result is itself JSON) — also
+  as other encoders write JSON: `/` as `\/` (PHP); `&`, `<`, `>`, U+2028
+  and U+2029 as `\u0026`, `\u003c`, `\u003e`, `\u2028`, `\u2029` (Go);
+  `\uXXXX` with uppercase hex, also for `"`, `'`, `+`, `` ` `` and every
+  non-ASCII character (`\u002B`, `\u0022`, `\u00E9`; .NET's
+  System.Text.Json) — and HTML-escaped (`report.html`). These are the
+  default encoders of the languages with an MCP SDK; any other escaping
+  of a value is not recognised.
+  The bytes of a saved file (a tool's image block, whatever its
+  `mimeType`) are replaced the same way; the model gets them as the tool
+  sent them, and `image_saved.bytes` and the `<file: …, N B>` text give
+  the size of the file as it is stored. In JSON files, `events.jsonl` and the
+  callback the replacement is made in each string (keys too) before the
+  JSON is written, so the result is always valid JSON; a number whose
+  digits contain a value becomes the replaced string
+  (`12345678` → `"<secret: NAME>"`).
+- **What an MCP server sent that the framework could not read:** an error
+  of the MCP library is quoted without the server's input values (a long
+  value would be quoted cut to its start and end — part of a secret, which
+  the replacement above cannot find), and every URL in it without userinfo
+  and query (a key there is literal text in `mcp.yaml`, not an environment
+  value). A stdout line that is no protocol message is quoted whole, after
+  the replacement above.
 - Only `scheme://host/path` without the query is logged from the callback URL.
 
 ## `events.jsonl`
@@ -206,7 +242,7 @@ stderr and exits with code 1.
 | Field | What it is |
 |---|---|
 | `kind` | step type |
-| `reason_code` | `when`, `switch`, `dedupe`, `cancelled` (a step that had not started, cancelled because another `parallel` branch failed). Steps inside a skipped `parallel`/`switch` each get the same reason. |
+| `reason_code` | `when`, `switch`, `dedupe`, `cancelled` (a step that had not started, cancelled because another `parallel` branch failed or because the run was interrupted — `reason` says which: `cancelled — another parallel branch failed`, `cancelled — the run was interrupted (SIGTERM)`). Steps inside a skipped `parallel`/`switch` each get the same reason. |
 | `reason` | a sentence for humans, e.g. `when: steps.tone_check.on_brand < 0.7 → false` |
 | `default_used` | `true` if `default` was used as the output |
 | `nn` | step number as in `step_started` (since framework 0.7.0) |
@@ -216,7 +252,7 @@ stderr and exits with code 1.
 | Field | What it is |
 |---|---|
 | `kind` | step type |
-| `status` | `succeeded`, `failed`, or `cancelled` (a started step cancelled because another `parallel` branch failed; `cost_usd` = the calls so far) |
+| `status` | `succeeded`, `failed`, or `cancelled` (a started step cancelled because another `parallel` branch failed or the run was interrupted; `cost_usd` = the calls so far) |
 | `continued` | `true` when it failed with `on_error: continue` (→ warning) |
 | `default_used` | only with `continued: true`: `true` when `default` was used as the output (since framework 0.7.0) |
 | `duration_s` | duration |
@@ -248,9 +284,10 @@ stderr and exits with code 1.
 | `server`, `tool` | MCP server and tool; for skills `server: "_skills"`, `tool: "load_skill"` |
 | `allowed` | `false` when the tool was not allowed (it did not run, the model got an error) |
 | `invalid_args` | `true` when the arguments did not pass validation against the tool schema (it did not run, the model got an error) |
-| `is_error` | the tool returned an error (passed to the model, the step continues) |
+| `is_error` | the tool returned an error (passed to the model, the step continues); also `true` for a call with `error` |
+| `error` | only for a call that did not return (the step fails or was cancelled; the tool may have run): the timeout or dropped-connection message, or `cancelled before the tool answered (may have run)` when the step was cancelled during the call (step `timeout`, a failed `parallel` branch, an interrupt) |
 | `duration_s` | duration |
-| `call_file` | `calls/NN.tool.json` with arguments and result |
+| `call_file` | `calls/NN.tool.json` with arguments and result (for a call with `error`: `result: null` and `error`) |
 
 **`jev_call`** — one Jev call.
 
@@ -269,7 +306,7 @@ stderr and exits with code 1.
 | Field | What it is |
 |---|---|
 | `path` | path relative to the run directory |
-| `media_type`, `bytes` | file type and size |
+| `media_type`, `bytes` | file type and size of the file as stored (after a secret value in it was replaced) |
 | `width`, `height` | dimensions from the file header |
 
 **`error`** — an error (also one that will still be retried).
@@ -278,7 +315,7 @@ stderr and exits with code 1.
 |---|---|
 | `class` | error class (scenario.md §6): `transient`, `schema`, `content`, `budget`, `timeout`, `config`, `expression`, `fail`, `internal` |
 | `message` | the exact message (for the API including the provider's `error.message`) |
-| `attempt` | attempt in which the error occurred |
+| `attempt` | attempt in which the error occurred (API call or MCP server start; `null` for other errors) |
 | `will_retry` | `true` when another attempt follows |
 | `http_status` | status, if it is HTTP |
 
@@ -287,10 +324,10 @@ stderr and exits with code 1.
 | Field | What it is |
 |---|---|
 | `server` | name from `mcp.yaml` |
-| `action` | `started`, `stopped`, `failed` |
+| `action` | `started`, `stopped`, `failed` — `failed` for every failed start attempt, and at the end of the run for a server that dropped the connection during a tool call (instead of `stopped`). `stopped` without `started` = the run ended (interrupt, step or run `timeout`) while the server was still starting |
 | `duration_s` | for `started` the handshake duration |
 | `error` | message for `failed` |
-| `stderr_file` | `mcp/<server>.stderr.log` |
+| `stderr_file` | `mcp/<server>.stderr.log` — local (stdio) servers only; the file exists once the server has stopped. A server started more than once in a run (a retried or a later start after a failed one) appends to it |
 
 **`file_uploaded`** — a file from `output` was uploaded to storage.
 
@@ -331,10 +368,22 @@ one event).
 | `error` | message, if delivery failed |
 
 **`callback_failed`** — after the third failed attempt (the last line of
-the file). The run status **does not change**; `callback.json` stays in the
+the file), or when SIGINT/SIGTERM arrived while the callback was being sent
+(`error`: `interrupted by SIGINT`, `attempts` = those made).
+The run status **does not change**; `callback.json` stays in the
 run directory. The CLI (`runs`) shows “callback not delivered” and
 `summary.md` shows “Callback not delivered”. Recovery is handled by the
 timeout in n8n (§5.1 item 7).
+
+A callback given up because `agencast serve` was stopped is sent again
+at the next start of the server: the same body, from `callback.json`,
+with new `callback_sent` events after the `callback_failed` (and a new
+`callback_failed` when these attempts fail too). Nothing else in the
+record changes — no second `run_started` or `run_finished`, and
+`summary.md` keeps its note. Once an attempt is delivered, `runs` and
+`callback_failed` in `GET /runs/<run_id>` no longer report the callback
+as not delivered: the last `callback_failed` or delivered `callback_sent`
+decides, a refused attempt changes nothing.
 
 | Field | What it is |
 |---|---|

@@ -41,7 +41,7 @@ def test_registry_add_list_rm(tmp_path, registry, capsys):
     root = tmp_path / "My Project"
     assert main(["new", "project", str(root)]) == 0
     assert "project my-project added to the registry" in capsys.readouterr().out
-    assert api.projects() == [{"name": "my-project", "root": str(root), "available": True}]
+    assert api.projects() == [{"name": "my-project", "root": str(root), "available": True, "trusted": True}]
     assert "projects:" in registry.read_text() and "KEY" not in registry.read_text()
     other = tmp_path / "elsewhere" / "my-project"
     api.new_project(other, "second")
@@ -78,6 +78,8 @@ def test_run_adds_project_once_validate_never(tmp_path, registry, capsys):
     api.new_project(root)
     registry.unlink()
     assert main(["--project", str(root), "validate", "demo", "--offline"]) == 0  # 0.15.1: validate without side effects
+    assert not registry.exists() and "registry" not in capsys.readouterr().err
+    assert main(["--project", str(root), "run", "demo", "--dry-run"]) == 0  # a plan is not a run either
     assert not registry.exists() and "registry" not in capsys.readouterr().err
     assert main(["--project", str(root), "run", "demo", "--fake"]) == 0
     assert f"project p added to the registry ({registry})" in capsys.readouterr().err

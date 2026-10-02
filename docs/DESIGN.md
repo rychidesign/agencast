@@ -259,9 +259,11 @@ are **thin wrappers over `agencast.api`** (`load`, `run`, `dry_run`,
     earlier errors do not block it; then an atomic write (temp + `os.replace`);
   - the write preserves comments, key order, blank lines and quotes
     (`ruamel.yaml`, D4); unchanged lines stay verbatim;
-  - the owner's rules apply: `config.yaml` and `mcp.yaml` only as a
-    form without secrets (variable names), `.env` is never read or
-    written; raw text only for files of the formats inside `workflows/`.
+  - the owner's rules apply: `config.yaml` as a form without secrets
+    (variable names) or as raw text; `mcp.yaml` is neither served nor
+    written by the API — the GUI does not configure MCP servers (§5.2);
+    `.env` is never read or written; raw text only for the other files of
+    the formats inside `workflows/`.
 - Projects are **not scanned**, a registry
   `~/.config/agencast/projects.yaml` is kept ([spec/projects.md](spec/projects.md));
   `agencast serve` outside a project serves all projects from the registry
@@ -333,6 +335,20 @@ Everything else can be written by other people and agents.
   restrictions cannot live there. A scenario is callable via `call` only with
   `callable: true` (default `false`), so that part 1 cannot bypass an approval
   in n8n by calling part 2.
+- **`mcp.yaml` is the owner's alone, also towards the API** (since 0.18.0).
+  A `command` in it is a program started on the host; a `url` with
+  `bearer_token_env` hands a host variable to a remote server. The token of
+  `agencast serve` is held by more than the owner (the GUI, n8n), so no HTTP
+  route creates, replaces, deletes or returns `mcp.yaml`; the one change
+  the API makes is the new name of a renamed agent in the `agents` lists.
+  For the same reason a project registered through the API — an existing
+  directory, which an agent with a filesystem server may have written, or a
+  new one, into which it may write later — is recorded as `trusted: false`
+  and uses **no** MCP server until the owner runs
+  `agencast projects trust <name>` in a terminal
+  ([spec/projects.md](spec/projects.md)). The check sits in `validate`, the
+  one place every run, dry run and fake run passes — CLI and `serve` alike —
+  and reads the registry each time.
 - Secret values (variables from `*_env` and `env`) are replaced by the framework before writing every
   record file and callback with the text `<secret: NAME>` — an MCP
   tool may return them in a result (spike (d): `get-env`).

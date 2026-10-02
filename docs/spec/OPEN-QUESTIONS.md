@@ -60,7 +60,7 @@ The original recommendation (“all tools”) contradicted DESIGN §5.8 (an allo
 by name; a new tool that the server adds must not be seen by the agent).
 **Decided per DESIGN §5.8 (coordinator, 2026-09-25):** every server
 from an agent's `mcp` must have an explicit list in `tools`; a server without an entry is
-a `config` error; `validate --dry-run` prints the tools the server
+a `config` error; `run --dry-run` prints the tools the server
 offers. In addition the owner in `mcp.yaml` determines `agents`, `scenarios` and the upper
 `tools` of the server.
 

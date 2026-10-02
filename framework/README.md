@@ -24,7 +24,7 @@ uv run --project framework agencast new project ~/my-project [--example showcase
 uv run --project framework agencast new agent reviewer | new scenario check [--project <path>]
 uv run --project framework agencast skills list | path | install [--to all] [--prefix DIR] [--copy] [--force]
 uv run --project framework agencast docs [show spec/scenario.md]
-uv run --project framework agencast projects list | add <path> [--name N] | rm <name>
+uv run --project framework agencast projects list | add <path> [--name N] | rm <name> | trust <name> [--yes]
 ```
 
 - A scenario can be given by name (`ig-post`) or by the path to its `.yaml`. The project
@@ -34,7 +34,7 @@ uv run --project framework agencast projects list | add <path> [--name N] | rm <
 
 - Configuration `workflows/config.yaml` (template `config.example.yaml`) and the
   MCP server registry `workflows/mcp.yaml` (template `mcp.example.yaml`; only the
-  owner changes both). Keys only from the environment or from `.env` in the project
+  owner changes both — `mcp.yaml` only on disk, the API and the GUI neither show nor write it). Keys only from the environment or from `.env` in the project
   root.
 - A `task` step starts the MCP servers from `mcp.yaml` once per run (stdio via
   `npx` needs Node; on Modal, preinstall the package). The servers' stderr
@@ -59,7 +59,9 @@ uv run --project framework agencast projects list | add <path> [--name N] | rm <
 - The project registry `~/.config/agencast/projects.yaml` (`AGENCAST_CONFIG_DIR`)
   is filled by `new project`, `projects add` and a successful `run` (since 0.15.1 `validate` does not
   change the registry); the GUI can
-  write in registry mode. `projects_root` sets the default folder for
+  write in registry mode — its entries are `trusted: false`: such a project uses no MCP server
+  until `agencast projects trust <name>`, which shows the project root and its servers and asks first
+  (`--yes` outside a terminal; docs/spec/projects.md). `projects_root` sets the default folder for
   new projects (default `~/workspace`).
 - `migrate`: there is nothing to convert in v1; an unknown version = `config` error.
 - Exit code: 0 success, 1 the run ended with an error, 2 `config` error

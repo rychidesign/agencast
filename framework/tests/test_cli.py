@@ -1,4 +1,7 @@
 """CLI from any directory: project root found by searching upward for workflows/ or via --project; migrate."""
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from agencast import api
@@ -126,3 +129,27 @@ def test_fake_cli_runs_images_api(wf, capsys):
     assert "succeeded" in out and "0.0400 USD" in out
     run_id = out.split("run ", 1)[1].split(":", 1)[0]
     assert (wf.parent / "runs" / run_id / "steps/01-photo/image.png").is_file()
+
+
+def test_fake_script_missing_is_a_config_error(wf, capsys):
+    """`--fake <missing file>` used to end in a Python traceback (FileNotFoundError)."""
+    root = str(wf.parent)
+    assert main(["--project", root, "run", "tone-check", "-i", "text=Hi", "--fake", "no-such-script.yaml"]) == 2
+    assert main(["--project", root, "serve", "--port", "0", "--fake", "no-such-script.yaml"]) == 2
+    err = capsys.readouterr().err
+    assert err.count("no-such-script.yaml: file does not exist") == 2 and "cannot start server" not in err, err
+    script = wf.parent / "script.yaml"
+    script.write_bytes(b"\xff\xfe\x00bin")  # exists, cannot be read: also a config error, not a traceback
+    assert main(["--project", root, "run", "tone-check", "-i", "text=Hi", "--fake", str(script)]) == 2
+    assert f"config: {script}: cannot read the file (not UTF-8 text)" in capsys.readouterr().err
+
+
+def test_serve_signal_during_startup_takes_the_shutdown_path(tmp_path):
+    """Workers run the restored queue as soon as they start: a SIGTERM while `serve` is still starting used to kill
+    the process (default disposition) and leave their MCP servers running — it must end in `stop_runs`."""
+    code = ("import os, signal, sys\nfrom agencast import cli, server\n"
+            "server.Projects.start = lambda self: os.kill(os.getpid(), signal.SIGTERM)\n"
+            "sys.exit(cli.main(['serve', '--port', '0']))")
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60, cwd=tmp_path,
+                       env={**os.environ, "AGENCAST_TOKEN": "token-123", "AGENCAST_CONFIG_DIR": str(tmp_path / "cfg")})
+    assert r.returncode == 0 and "stopped (unfinished requests remain" in r.stdout and "Traceback" not in r.stderr, r

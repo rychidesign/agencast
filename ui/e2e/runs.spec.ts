@@ -19,7 +19,7 @@ test("C6 starting a run with the inputs form (dry run, live, following)", async 
   await expect(panel.getByRole("textbox", { name: "topic" })).toHaveValue("coffee");
   await expect(panel.getByText("string · What to write about")).toBeVisible();
   await expect(panel.getByRole("radio", { name: /Dry run/ })).toBeChecked();
-  await expect(panel.getByText("Plan only (plan.md); nothing is called, free.")).toBeVisible();
+  await expect(panel.getByText("Plan only (plan.md): no model calls; starts the MCP servers to list their tools.")).toBeVisible();
 
   // a required input without a default: nothing is sent without a value
   await page.goto(`/#/p/${project.name}/scenarios/required`);
@@ -41,7 +41,7 @@ test("C6 starting a run with the inputs form (dry run, live, following)", async 
   await expect(page).toHaveURL(/#\/p\/[^/]+\/runs\/[^?]+$/);
   const dryId = runIdFromUrl(page);
   await expect(page.getByTestId("run-state")).toHaveText("plan only (dry run)");
-  await expect(page.getByText("This is only a plan (dry run) — nothing was executed.")).toBeVisible();
+  await expect(page.getByText(/This is only a plan \(dry run\) — no step ran and no model was called/)).toBeVisible();
   await expect(page.locator("main h1, main h2").filter({ hasText: /plan|Plan|demo/ }).first()).toBeVisible();
   const dryDir = path.join(project.runsDir, dryId);
   expect(fs.existsSync(path.join(dryDir, "plan.md"))).toBe(true);

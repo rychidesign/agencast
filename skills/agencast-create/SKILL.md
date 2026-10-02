@@ -156,8 +156,12 @@ edits the same files and shows **registered projects only**
 (`~/.config/agencast/projects.yaml`, `agencast projects list`). `new project`
 registers; an existing folder: `agencast projects add <root> [--name <name>]`;
 `projects rm <name>` removes from the registry only. `validate` never
-registers; a successful `run` does as a fallback. The GUI picks up a new
-registration on the next request. Keep the GUI on a private network. Its
+registers; a `run` (not `--dry-run`) does as a fallback. The GUI picks up a new
+registration on the next request. The GUI and its API never show or write
+`mcp.yaml`, and a project created or added from the GUI is not trusted
+(`agencast projects list` says so): its `task` steps with MCP servers fail
+`validate` until the owner runs `agencast projects trust <name>` — that is the
+owner's decision, ask before running it. Keep the GUI on a private network. Its
 address comes from `AGENCAST_HOST` and `AGENCAST_PORT` in
 `~/.config/agencast/serve.env`; read only those lines with
 `grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env`. The token

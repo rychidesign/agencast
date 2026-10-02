@@ -31,14 +31,13 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import ConfigErrors, AgencastError, api
-from .engine import IMAGE_EXT, RUN_ID, RUN_ID_TRIES, new_run_id
+from .engine import CALLBACK_URL, IMAGE_EXT, RUN_ID, RUN_ID_TRIES, new_run_id, resend_callback
 from .projects import NAME, default_name, error_fields, registry_path
 from .providers import probe_image
-from .record import INTERRUPTED_BY_RESTART, _events
+from .record import INTERRUPTED_BY_RESTART, _events, run_status
 from .validate import IMAGE_FORMATS, MAX_FILE_BYTES, UPLOAD_ID, Project, require_config, resolve_inputs
 
 FIELDS = ("scenario", "inputs", "callback_url", "request_key")
-CALLBACK_PREFIXES = ("https://", "http://127.0.0.1:", "http://127.0.0.1/")  # 127.0.0.1 for tests only (ISSUES)
 MAX_BODY = 1_000_000
 UPLOAD_TTL_S = 24 * 3600  # uploads nobody queued are deleted after this (lazily, on the next upload)
 UNAUTHORIZED = {"error": "missing or invalid token (Authorization: Bearer … header)"}
@@ -59,6 +58,7 @@ class Webhook:
         if missing := [n for n in need if not os.environ.get(n)]:
             raise ConfigErrors([f"missing environment variable {n} (.env or environment)" for n in missing])
         self.token = token or os.environ[c["webhook"]["token_env"]]
+        self.listed = bool(token)  # registry mode: a project removed from the registry gets no MCP servers
         self.wf, self.fake, self.callback_transport, self.workers = workflows, fake, callback_transport, workers
         self.runs = workflows.parent / c["runs_dir"]
         self.qdir = self.runs / "_queue"
@@ -111,9 +111,9 @@ class Webhook:
             errs.append("scenario: missing or invalid scenario name (lowercase letters, digits, hyphens)")
         if not isinstance(inputs, dict):
             errs.append("inputs: must be an object")
-        if not (gui and url is None) and (not isinstance(url, str) or not url.startswith(CALLBACK_PREFIXES)):
+        if not (gui and url is None) and (not isinstance(url, str) or not CALLBACK_URL.match(url)):
             errs.append("callback_url: does not start with https://" if gui else "callback_url: missing or does not start with https://")
-        if not dry and isinstance(url, str) and url.startswith(CALLBACK_PREFIXES):
+        if not dry and isinstance(url, str) and CALLBACK_URL.match(url):
             secret = self.config["callback"]["secret_env"]
             if not os.environ.get(secret):
                 errs.append(f"missing environment variable {secret} (callback signature)")
@@ -138,7 +138,7 @@ class Webhook:
                 return 422, {"error": f"scenario '{name}' or its inputs failed validation", "details": errs}
             if not dry:
                 return self.enqueue(name, inputs, url, key)  # the queue keeps the request as sent (upload ids)
-            p = api.load(path, fake=self.fake)
+            p = api.load(path, fake=self.fake, listed=self.listed)
         # outside the lock: a dry run starts MCP servers to list tools (takes seconds)
         return 200, {"run_id": api.dry_run(p, resolved).dir.name, "dry_run": True}
 
@@ -164,7 +164,8 @@ class Webhook:
     def check(self, path: Path, inputs: dict) -> tuple[list[str], dict]:
         """(errors, resolved inputs) — upload ids become paths in `_uploads/` (never a client path)."""
         try:
-            return [], resolve_inputs(api.load(path, fake=self.fake).scenario, inputs, uploads=self.uploads)
+            p = api.load(path, fake=self.fake, listed=self.listed)
+            return [], resolve_inputs(p.scenario, inputs, uploads=self.uploads)
         except ConfigErrors as e:
             return e.errors, {}
 
@@ -207,8 +208,8 @@ class Webhook:
             return 404, {"error": f"run {run_id} does not exist"}
         if (d / "callback.json").is_file():
             body = json.loads((d / "callback.json").read_text(encoding="utf-8"))
-            events = (d / "events.jsonl").read_text(encoding="utf-8")
-            return 200, {**body, "callback_failed": '"type":"callback_failed"' in events}
+            # as `runs` reports it: a callback delivered after a restart follows its callback_failed (run-record.md)
+            return 200, {**body, "callback_failed": bool(run_status(d)["callback"])}
         if d.is_dir():
             return 200, {"run_id": run_id, "status": "running"}
         mine = next((e for e in self.entries() if e["run_id"] == run_id), None)
@@ -225,8 +226,9 @@ class Webhook:
                 self.execute(entry)
             except Exception:  # error outside a run (e.g. an environment variable disappeared): log it and keep processing the queue
                 print(f"run {entry['run_id']} did not start:\n{traceback.format_exc()}", file=sys.stderr)
-            finally:
-                (self.qdir / f"{entry['run_id']}.json").unlink(missing_ok=True)
+            except api.Interrupted:  # serve is stopping (engine.stop_runs): the entry stays, so the next start
+                return               # reports the interrupted run and sends its callback (`execute`)
+            (self.qdir / f"{entry['run_id']}.json").unlink(missing_ok=True)
 
     def execute(self, entry: dict):
         """One queued run. A callback is always sent once run_id is assigned (webhook.md)."""
@@ -244,12 +246,19 @@ class Webhook:
                 step = next((e.get("step") for e in reversed(events) if e.get("type") == "step_started"), None)
                 return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
                     "internal", INTERRUPTED_BY_RESTART, step=step), resume=True, **kw)
+            if (run_dir / "callback.json").is_file():
+                # The run finished and the stop only cut its callback short (scenario.md): the record stays the
+                # run's own — no second run over it — and the callback that was not delivered is sent again.
+                sent = [e for e in events if e.get("type") == "callback_sent"]
+                if entry["callback_url"] and (not sent or sent[-1].get("error")):
+                    resend_callback(self.stub(path, entry), entry["run_id"], entry["callback_url"], self.callback_transport)
+                return
             # ponytail: report interrupted runs without retrying (side effects); a run may have finished without a callback
             return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
                 "internal", "run interrupted — server stopped during the run; completed work is in the run record (check manually)"), **kw)
         try:
             with self.lock:
-                p = api.load(path, fake=self.fake)
+                p = api.load(path, fake=self.fake, listed=self.listed)
             inputs = resolve_inputs(p.scenario, entry["inputs"], uploads=self.uploads)
         except ConfigErrors as e:
             return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
@@ -346,13 +355,13 @@ class Projects:
             return 409, {"error": f"project '{name}' is already in the registry"}
         if any(Path(str(p["root"])).resolve() == root for p in registered):
             return 409, {"error": f"{root}: already in the registry — add the existing project via POST /projects"}
-        try:
-            created = api.new_project(root, name)
+        try:  # untrusted like every registration over HTTP: files that appear in the new tree later are not the owner's
+            created = api.new_project(root, name, trusted=False)
         except api.ProjectConflict as e:
             return 409, {"error": str(e), "hint": "add the existing project via POST /projects"}
         except ConfigErrors as e:
             return 422, {"error": "cannot create the project", "details": e.errors}
-        return 201, {"name": name, "root": str(root), "created": [str(p) for p in created]}
+        return 201, {"name": name, "root": str(root), "trusted": False, "created": [str(p) for p in created]}
 
     def add_project(self, auth: str | None, raw: bytes) -> tuple[int, dict[str, Any]]:
         if result := self._registry_write(auth):
@@ -382,13 +391,13 @@ class Projects:
         candidate_name = name or default_name(root)
         if any(p["name"] == candidate_name for p in registered):
             return 409, {"error": f"project '{candidate_name}' is already in the registry"}
-        try:
-            saved_name = api.add_project(root / "workflows", name)
+        try:  # the token holder vouches for nothing in that directory: no MCP servers until the owner trusts it
+            saved_name = api.add_project(root / "workflows", name, trusted=False)
         except api.ProjectConflict as e:
             return 409, {"error": str(e)}
         except ConfigErrors as e:
             return 422, {"error": "cannot register the project", "details": e.errors}
-        return 201, {"name": saved_name, "root": str(root)}
+        return 201, {"name": saved_name, "root": str(root), "trusted": False}
 
     def remove_project(self, auth: str | None, name: str) -> tuple[int, dict[str, Any]]:
         if result := self._registry_write(auth):
@@ -407,10 +416,11 @@ class Projects:
             return api.projects()
         root = self.hook.wf.parent.resolve()
         try:
-            name = next((x["name"] for x in api.projects() if Path(str(x["root"])) == root), default_name(root))
-        except ConfigErrors:  # a broken registry does not prevent single-project mode
-            name = default_name(root)
-        return [{"name": name, "root": str(root), "available": True}]
+            mine = next((x for x in api.projects() if Path(str(x["root"])) == root), {})
+        except ConfigErrors:  # a broken registry does not prevent single-project mode (unknown = not trusted)
+            mine = {"trusted": False}
+        return [{"name": mine.get("name", default_name(root)), "root": str(root), "available": True,
+                 "trusted": mine.get("trusted", True)}]
 
     def project(self, name: str) -> tuple[Path | None, dict[str, Any]]:
         """(root, None) or (None, 404 body)."""
@@ -543,11 +553,11 @@ class Projects:
                 name = g("name")
                 if not isinstance(name, str):
                     return 422, {"error": "name: missing name", "errors": []}
+                rel = api.create_path(root, kind, name)  # 404 before anything is written through a link
                 if kind == "scenarios":
                     api.new_scenario(root, name, g("description"))
                 else:
                     api.new_agent(root, name, g("description"), g("model"))
-                rel = f"{kind}/{name}.{'yaml' if kind == 'scenarios' else 'md'}"
                 return 200, {"name": name, "etag": api.read_file(root, rel)["etag"]}
             case "POST", ["scenarios", s, "rename"]:
                 return 200, api.rename_scenario(root, s, tag, g("name"))
@@ -731,6 +741,8 @@ class Handler(BaseHTTPRequestHandler):
     def safe(self, fn, *args):
         try:
             status, body = fn(*args)
+        except api.Interrupted:  # a dry run in flight when serve stops (engine.stop_runs)
+            status, body = 503, {"error": "server is stopping"}
         except Exception as e:
             traceback.print_exc()
             status, body = 500, {"error": f"server error: {type(e).__name__}: {e}"}

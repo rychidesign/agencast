@@ -113,7 +113,9 @@ export function FilesTab({ project, runId, files, current }: { project: string; 
               options={[{ key: "preview", label: t("files.preview") }, { key: "code", label: t("files.code") }]} />}
           </div>
           <FileViewer project={project} runId={runId} path={shown} preview={mode === "preview"} />
-        </> : <p className="text-sm text-fg-muted">{current ? t("run.noFile") : t("run.pickFile")}</p>}
+        </> : <p className="text-sm text-fg-muted">
+          {!current ? t("run.pickFile") : /^mcp\/[^/]+\.stderr\.log$/.test(current) ? t("run.logPending") : t("run.noFile")}
+        </p>}
       </div>
     </div>
   );

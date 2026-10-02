@@ -163,7 +163,7 @@ export function RunPage({ project, runId }: { project: string; runId: string }) 
               </section>
               {selected && sel && (
                 <PanelSlot wide>
-                  <RunStepPanel key={`${selected}:${sel.rs?.status}`} project={project} runId={runId} path={selected} rs={sel.rs}
+                  <RunStepPanel key={`${selected}:${sel.rs?.status}`} project={project} runId={runId} path={selected} rs={sel.rs} runFiles={run.files} live={live}
                     kind={sel.step?.type ?? sel.rs?.kind ?? null} onClose={() => setQuery({ step: undefined })} />
                 </PanelSlot>
               )}

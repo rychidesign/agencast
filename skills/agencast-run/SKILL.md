@@ -29,7 +29,7 @@ then `cd <dir>`; its scripted answers are in `fake/<scenario>.yaml`.
 
 ```bash
 agencast validate ig-post                            # files, agents, aliases (GET /models); --offline skips models
-agencast run ig-post -i topic="new coffee" --dry-run   # plan only: steps, models, tools, limits; no calls
+agencast run ig-post -i topic="new coffee" --dry-run   # plan only: steps, models, tools, limits; no model calls (starts MCP servers to list their tools)
 agencast run ig-post -i topic="new coffee" --fake fake/ig-post.yaml
 agencast run ig-post -i topic="new coffee"             # live: real models, real money
 ```
@@ -47,8 +47,15 @@ agencast run ig-post -i topic="new coffee"             # live: real models, real
 - Go live only after validate + dry-run + fake pass, and ask the user first if
   the run could cost more than ~1 USD (dry-run shows per-step budgets; run cap
   is `limits.run_budget_usd` in `config.yaml`).
-- A successful `run` in a project that is not registered yet registers it for
-  the GUI and prints one stderr line about it — not an error.
+- A `run` (not `--dry-run`) in a project that is not registered yet registers
+  it for the GUI and prints one stderr line about it — not an error.
+- `config: … MCP servers (…) are disabled — project '<name>' (<root>) was
+  registered through the API …`: the project came from the GUI and its owner
+  has not allowed MCP servers yet. The fix is `agencast projects trust <name>`
+  — the owner's decision (every `command` in `workflows/mcp.yaml` then runs on
+  this machine): show them the message and ask, do not run it on your own. The
+  command lists the root and the servers and asks for confirmation; it needs a
+  terminal, or `--yes`.
 - `--callback-url https://…` (HMAC-signed result) and `--request-key` are for
   webhook integrations; not needed from a terminal.
 

@@ -27,7 +27,8 @@ const project: Project = {
     { name: "publisher", etag: "a1", description: "Publishes", model: "smart", model_id: null, skills: [], mcp: [], tools: {}, errors: [] },
   ],
   skills: [], errors: [],
-  mcp_servers: [{ name: "instagram", type: "http", agents: ["publisher"], tools: ["publish_media"], scenarios: null }],
+  mcp_servers: [{ name: "instagram", type: "http", agents: ["publisher"], tools: ["publish_media"], scenarios: null },
+    { name: "weather", type: "http", agents: ["publisher"], tools: null, scenarios: null }],
   links: { scenario_agent: [["s", "copywriter"]], scenario_step_agent: [["s", "copy", "copywriter"]], scenario_scenario: [], agent_skill: [], agent_server: [] },
   env: { OPENROUTER_API_KEY: true },
 };
@@ -343,6 +344,27 @@ describe("agent form", () => {
     expect(calls).toEqual([{
       method: "PUT", url: "/projects/p/agents/publisher",
       body: { etag: "a1", frontmatter: { mcp: ["instagram"], tools: { instagram: ["publish_media"] }, limits: { max_turns: 6 } } },
+    }]);
+  });
+
+  // a server without an owner allowlist has nothing to tick: ticking it must not write `tools.<server>: []`
+  it.each([["", undefined], ["forecast, alerts, ", ["forecast", "alerts"]]])("an unrestricted server: tool names typed as %j", async (typed, list) => {
+    location.hash = "#/p/p/agents/publisher";
+    await act(async () => void render(<App />));
+    const weather = await screen.findByRole("checkbox", { name: /weather/ });
+    expect(weather.closest("label")!.textContent).toContain("not restricted by the owner");
+    expect(screen.getByRole("checkbox", { name: /instagram/ }).closest("label")!.textContent).toContain("1 tool");
+    fireEvent.click(weather);
+    fireEvent.change(screen.getByRole("spinbutton", { name: /max_turns/ }), { target: { value: "4" } });
+    const names = screen.getByRole("textbox", { name: /Tools of weather/ }) as HTMLInputElement;
+    fireEvent.change(names, { target: { value: "x" } });
+    fireEvent.change(names, { target: { value: typed } });
+    expect(names.value).toBe(typed);  // the text stays as typed (trailing comma) until the field is left
+    extra = (m) => (m === "PUT" ? [200, { etag: "a2", errors: [] }] : undefined);
+    await save();
+    expect(calls).toEqual([{
+      method: "PUT", url: "/projects/p/agents/publisher",
+      body: { etag: "a1", frontmatter: { mcp: ["weather"], ...(list && { tools: { weather: list } }), limits: { max_turns: 4 } } },
     }]);
   });
 });

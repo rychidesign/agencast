@@ -43,7 +43,8 @@ TOOLS = {
     "red_pixel": ("Return a red 2×2 image.", obj({})),
     "broken": ("Always return an error (isError).", obj({})),
     "slow": ("Wait for the given number of seconds.", obj({"seconds": {"type": "number"}}, ["seconds"])),
-    "get_env": ("Return an environment variable value.", obj({"name": {"type": "string"}}, ["name"])),
+    "get_env": ("Return an environment variable value.",
+                obj({"name": {"type": "string"}, "file": {"type": "boolean"}}, ["name"])),
     "complex": ("Schema with $ref, const and numeric enum.", {
         "type": "object", "$defs": {"Tag": {"type": "object", "properties": {"label": {"type": "string"}},
                                             "required": ["label"]}},
@@ -82,7 +83,10 @@ def call(name: str, args: dict):
             time.sleep(args["seconds"])
             return text("done")
         case "get_env":
-            return text(os.environ.get(args["name"], ""))
+            value = os.environ.get(args["name"], "")
+            if args.get("file"):  # an image block is whatever bytes the server sends
+                return [{"type": "image", "mimeType": "text/plain", "data": base64.b64encode(f"key={value}\n".encode()).decode()}]
+            return text(value)
         case "complex":
             return text(json.dumps(args, ensure_ascii=False))
     raise KeyError(name)

@@ -48,39 +48,94 @@ def redact(obj, notes: dict):
     return scrub(walk(obj))
 
 
+GO_ESCAPES = str.maketrans({"&": "\\u0026", "<": "\\u003c", ">": "\\u003e", "\u2028": "\\u2028", "\u2029": "\\u2029"})
+
+
+def _net(value: str) -> str:
+    """`value` inside a JSON string as System.Text.Json (.NET) writes it by default: Python's ASCII-only form with
+    uppercase hex, and `\\uXXXX` also for `"`, `&`, `'`, `+`, `<`, `>`, `` ` `` and DEL."""
+    def esc(m):
+        t = m[0]
+        return t[:2] + t[2:].upper() if len(t) == 6 else t if t[0] == "\\" and t != '\\"' else f"\\u{ord(t[-1]):04X}"
+    return re.sub(r"\\u[0-9a-f]{4}|\\.|[&'+<>`\x7f]", esc, json.dumps(value)[1:-1])
+
+
+def _forms(value: str) -> list[str]:
+    """A secret as it can appear in record text: raw and JSON-escaped once or twice (a value with `"`, `\\` or a
+    non-ASCII character inside a JSON string; twice = tool text that is itself JSON, dumped again by the record),
+    each also HTML-escaped (report.html). A server need not write JSON as Python does: `/` as `\\/` (PHP's
+    default), `&`, `<`, `>`, U+2028, U+2029 as `\\u0026`, `\\u003c`, `\\u003e`, `\\u2028`, `\\u2029` (Go's) and
+    `_net` are the same value — with these, the default encoders of the languages that have an MCP SDK."""
+    forms = [value]
+    for ascii_ in (False, True):
+        once = json.dumps(value, ensure_ascii=ascii_)[1:-1]
+        for enc in (once, once.translate(GO_ESCAPES), _net(value)):
+            for o in (enc, enc.replace("/", "\\/")):
+                forms += [json.dumps(o, ensure_ascii=ascii_)[1:-1], o]
+    forms += [html.escape(f) for f in forms]
+    return sorted(dict.fromkeys(forms), key=len, reverse=True)  # longest first: an inner form never hides an outer one
+
+
 class Record:
     def __init__(self, directory: Path, secrets: dict[str, str], exist_ok: bool = False):
         self.dir = directory
-        self.secrets = {n: v for n, v in secrets.items() if v and len(v) >= MIN_SECRET_LEN}
+        # longest first across all secrets: a value that contains another one (a connection URL and its user name)
+        # is replaced whole, before the shorter one could take a piece out of it
+        self.forms = sorted(((f, n) for n, v in secrets.items() if v and len(v) >= MIN_SECRET_LEN for f in _forms(v)),
+                            key=lambda x: len(x[0]), reverse=True)
         self.masked: set[str] = set()
         self.events: list[dict] = list(_events(directory)) if exist_ok else []
         directory.mkdir(parents=True, exist_ok=exist_ok)  # exist_ok: interrupted run after server restart
 
     def mask(self, text: str) -> str:
-        for name, value in self.secrets.items():
-            if value in text:
-                text = text.replace(value, f"<secret: {name}>")
+        for form, name in self.forms:
+            if form in text:
+                text = text.replace(form, f"<secret: {name}>")
                 self.masked.add(name)
         return text
+
+    def mask_json(self, obj):
+        """`obj` as plain JSON data with every string (keys too) masked, and a number whose digits hold a secret
+        replaced by the masked string. JSON is masked here, before it is dumped: in the dumped text a match could
+        begin inside an escape (`\\\\` + a secret starting with `\\`) and leave a lone backslash — a line no reader
+        can parse."""
+        def walk(o):
+            if isinstance(o, dict):
+                return {walk(k): walk(v) for k, v in o.items()}
+            if isinstance(o, list):
+                return [walk(v) for v in o]
+            if isinstance(o, (int, float)) and not isinstance(o, bool):
+                return o if (m := self.mask(text := json.dumps(o))) == text else m
+            return self.mask(o) if isinstance(o, str) else o
+        return walk(json.loads(_dump(obj)))
 
     def write(self, rel: str, content) -> str:
         p = self.dir / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(self.mask(content if isinstance(content, str) else _dump(content, 2)) + "\n", encoding="utf-8")
+        p.write_text((self.mask(content) if isinstance(content, str) else _dump(self.mask_json(content), 2)) + "\n",
+                     encoding="utf-8")
         return rel
 
     def write_bytes(self, rel: str, data: bytes) -> str:
+        for form, name in self.forms:  # a tool's image block is any bytes the server likes: its key as text
+            if (b := form.encode()) in data:
+                data = data.replace(b, f"<secret: {name}>".encode())
+                self.masked.add(name)
         p = self.dir / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(data)
         return rel
 
+    def size(self, rel: str) -> int:
+        """Bytes of a file as it is in the record — after masking, not as the tool or the model sent it."""
+        return (self.dir / rel).stat().st_size
+
     def event(self, type_: str, **fields) -> dict:
         ev = {"ts": now_iso(), "type": type_, **fields}
-        line = self.mask(_dump(ev))
+        masked = self.mask_json(ev)
         with open(self.dir / "events.jsonl", "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-        self.events.append(json.loads(line))
+            f.write(_dump(masked) + "\n")
+        self.events.append(masked)
         return ev
 
 
@@ -144,6 +199,17 @@ def plan_md(p: Project, offers: dict | None = None) -> str:
              + f", time {lim['run_timeout']}. Jev: {cfg['openrouter']['jev_model']}.", "",
              "| # | Step | Type | Condition | Action | Limits |", "|---|---|---|---|---|---|"]
 
+    # dry run: server → allowed tools it does not offer (the step would fail with `config`), called scenarios included
+    missing, todo = {}, [p] if offers else []
+    while todo:
+        q = todo.pop()
+        todo += q.callees.values()
+        for x in q.steps.values():
+            if x.kind == "task":
+                for s, ts in effective_tools(q.agents[x.data["task"]["agent"]].data, x.data["task"]).items():
+                    if isinstance(offers.get(s), list):
+                        missing.setdefault(s, set()).update(set(ts) - set(offers[s]))
+
     def rows(steps, indent):
         for st in steps:
             info = p.steps[st["id"]]
@@ -179,7 +245,8 @@ def plan_md(p: Project, offers: dict | None = None) -> str:
                 alias = agent.data["model"]
                 tools = effective_tools(agent.data, t)
                 what = (f"agent {t['agent']} → {alias} ({models[alias]['id']}); tools: "
-                        + ("; ".join(f"{s}: {', '.join(ts)}" for s, ts in tools.items()) or "none")
+                        + ("; ".join(f"{s}: " + ", ".join(n + " (NOT OFFERED by the server)" * (n in missing.get(s, ())) for n in ts)
+                                     for s, ts in tools.items()) or "none")
                         + (f"; skills: {', '.join(n for n, _, _ in agent.skills)}" if agent.skills else "")
                         + f"; max_turns {t.get('max_turns', agent.data['limits'].get('max_turns'))}"
                         + (f"; schema: {', '.join(t['schema'])} (cascade from tool_wrapper)" if "schema" in t else "; text")
@@ -194,7 +261,8 @@ def plan_md(p: Project, offers: dict | None = None) -> str:
         lines += ["", "## MCP servers", ""]
         for s, got in sorted(offers.items()):
             lines.append(f"- **{s}** ({p.mcp[s]['description']}): "
-                         + (f"offers {', '.join(got)}" if isinstance(got, list) else f"failed to start — {got}"))
+                         + (f"offers {', '.join(got)}" if isinstance(got, list) else f"failed to start — {got}")
+                         + (f"; allowed but NOT OFFERED: {', '.join(sorted(missing[s]))}" if missing.get(s) else ""))
     return "\n".join(lines)
 
 
@@ -303,6 +371,8 @@ def run_status(run_dir: Path) -> dict:
                     info["state"] = "interrupted"
         elif e["type"] == "callback_failed":
             info["callback"] = "callback not delivered"
+        elif e["type"] == "callback_sent" and not e.get("error"):  # delivered after a `serve` restart
+            info["callback"] = ""
     if info["finished_at"] is None and running:
         info["current_step"] = list(running)[-1]
     if info["finished_at"] is None and live:

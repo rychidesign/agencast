@@ -31,7 +31,9 @@ api_key_env: OPENROUTER_API_KEY     # correct: the variable name
 The value of `_env` fields must look like a variable name
 (`UPPERCASE_AND_DIGITS`). When someone pastes the key itself there by
 mistake (`sk-or-…`), `validate` rejects it — and does **not print** the key
-in the error message. Two different `_env` fields with the same value
+in the error message (also not when it stands where the name of a variable
+belongs in `mcp.yaml` `env`, e.g. a pasted `NAME=key`: the message says
+`servers.<name>.env: variable name does not match pattern …`). Two different `_env` fields with the same value
 (e.g. webhook token = OpenRouter key) are a `config` error — otherwise n8n
 would get the OpenRouter key.
 
@@ -92,7 +94,7 @@ callback:
 | Field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
 | `api_key_env` | yes | Variable with the OpenRouter API key (R4). | `config` error. | `api_key_env: OPENROUTER_API_KEY` |
-| `base_url` | no | API address. Changed only for conformance tests with a fake provider (§5.6). Only `https://openrouter.ai/…` or `http://127.0.0.1` / `http://localhost` is allowed — anywhere else the key would leak. | `https://openrouter.ai/api/v1` | `base_url: http://127.0.0.1:8765/api/v1` |
+| `base_url` | no | API address. Changed only for conformance tests with a fake provider (§5.6). Only `https://openrouter.ai/…` or `http://127.0.0.1` / `http://localhost`, optionally with a port, is allowed — anywhere else the key would leak. Plain `http://` with userinfo is rejected (`http://127.0.0.1:1@example.com/` — the host would be `example.com`). | `https://openrouter.ai/api/v1` | `base_url: http://127.0.0.1:8765/api/v1` |
 | `jev_model` | no | Model for `jev` steps. Jev is not in `GET /models` (§5.5), hence set separately, not as an alias. The run record stores the actual dated version from the response. | `jev-1.13` (**proposal**) | `jev_model: jev-1.13` |
 
 ### `models` — aliases (§5.5)
@@ -188,7 +190,20 @@ n8n sends the callback address with every request to start a run
 An agent may use only a server that is listed here, and only when the
 project owner allowed it here. **Permissions are held by the project
 owner** (DESIGN §5.2): agents and scenarios are files that others write
-too, so "who may do what" restrictions cannot live in them. Transport types
+too, so "who may do what" restrictions cannot live in them.
+
+**The owner edits this file on disk.** A `command` is a program started on
+the host and a `url` with `bearer_token_env` sends a variable of the host
+to a remote server, so since 0.18.0 the HTTP API of `agencast serve` (and
+with it the GUI) neither returns nor writes `mcp.yaml`
+([api.md](api.md#editing-since-050)): the project description lists the
+servers without `command`, `args`, `url`, `env` and `bearer_token_env`, and
+the only change the API makes is the new name of a renamed agent in the
+`agents` lists. A project that was registered through the API uses no MCP
+server until its owner runs `agencast projects trust <name>`
+([projects.md](projects.md#trust-projects-registered-through-the-api)).
+
+Transport types
 per the MCP specification (stdio, Streamable HTTP, SSE;
 <https://modelcontextprotocol.io/specification/latest/basic/transports>,
 retrieved 2026-09-25; DESIGN §5.8):
@@ -223,16 +238,46 @@ servers:
 | `command` | either `command` or `url` | Program of a local server (stdio). Started without a shell, **once per run** (at the first `task` that needs it). On Modal the package must be preinstalled in the image (D5: 0.7 s vs. 3.8 s). | — | `command: npx` |
 | `args` | no | Program arguments, a list of strings. The only allowed substitution is `{run_dir}` = absolute path to the current run directory (so the server does not see other runs or `_dedupe`). Any other `{…}` is a `config` error. The root the server gets is the second permission layer (§5.8). | None. | `["…", "{run_dir}/work"]` |
 | `env` | no | Variables for the server process: `NAME_FOR_SERVER: NAME_ON_HOST`. The value is taken from the framework's environment. The server gets only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER` (the default set of the `mcp` SDK, DESIGN §5.8) and the variables from `env` — nothing else. The names `PATH`, `HOME`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `NODE_OPTIONS`, `PYTHONPATH` are not allowed in `env`. | The server gets no secret. | `env: { GITHUB_TOKEN: GH_TOKEN }` |
-| `url` | either `command` or `url` | Address of a remote server: `https://…`, or `http://127.0.0.1` / `http://localhost` (a sidecar in the same container). | — | |
+| `url` | either `command` or `url` | Address of a remote server: `https://…`, or `http://127.0.0.1` / `http://localhost` (a sidecar in the same container), optionally with a port. Plain `http://` with userinfo is rejected (`http://127.0.0.1:1@example.com/` — the host would be `example.com`). | — | |
 | `transport` | no | Only with `url`: `streamable-http` or `sse`. | `streamable-http` | `transport: sse` |
 | `bearer_token_env` | no | Variable with a token; sent as `Authorization: Bearer …`. Only with `url`. | No authorization. | `bearer_token_env: IG_MCP_TOKEN` |
-| `timeouts.handshake` | no | Maximum duration of server start and handshake. Exceeding it → `transient` (network) or `config`. | `10s` | `handshake: 20s` |
+| `timeouts.handshake` | no | Maximum duration of server start and handshake. Exceeding it → `transient` (remote server) or `config` (local server). | `10s` | `handshake: 20s` |
 | `timeouts.call` | no | Maximum duration of one tool call. Exceeding it → the step fails, class `timeout` (the tool may have run). | `60s` | `call: 120s` |
 
 Timeouts are always explicit — without them the `mcp` SDK waits
-indefinitely (DESIGN §5.8). The `stderr` of every server goes to the run
-record (`mcp/<server>.stderr.log`). Fixed (non-secret) server settings
-belong in `args`, not in `env`.
+indefinitely (DESIGN §5.8). Fixed (non-secret) server settings belong in
+`args`, not in `env`.
+
+An error in one server entry is reported with its field and line. The other
+servers stay valid for the checks of agents and scenarios, but nothing runs
+until the file is fixed.
+
+The `stderr` of a local server goes to the run record
+(`mcp/<server>.stderr.log`) with secret values masked. The file is written
+when the server stops: until then the raw output stays outside the run
+directory, because a server may print a variable it got through `env`. A
+run that is killed before it stops its servers has no stderr log.
+
+A server that does not start or does not answer the handshake fails the
+step — a `transient` failure only after it was retried according to the
+step's `retry` ([scenario.md](scenario.md), the `task` step; a remote
+server's `Retry-After` header sets the delay). Network
+errors (connection refused, reset or closed without an answer, a timeout)
+and HTTP 408, 429 and 5xx are `transient`; everything
+else is `config`: a local server that exits, HTTP 401 and 403 (check
+`bearer_token_env`), any other status. The message names the HTTP status
+(`http_status` in the `error` event) for both remote transports, quotes the last lines of a local
+server's stderr, and says when a local server wrote something other than
+JSON-RPC to its stdout — stdout carries only the protocol, logs belong on
+stderr. A remote server's `url` is quoted without userinfo and query —
+either may carry a key ([run-record.md](run-record.md)). A server that drops the connection during a tool call, or
+answers it with something that is not a tool result, fails the
+step with `config`; the `mcp_server` event of a dropped connection at the end of the run is
+`failed`, not `stopped`.
+
+A `mcp.yaml` or `config.yaml` that cannot be read (permissions, not UTF-8
+text) is a `config` error like any other: `mcp.yaml: cannot read the file
+(Permission denied)`.
 
 ## `commands.yaml` — commands for the future `run` step
 

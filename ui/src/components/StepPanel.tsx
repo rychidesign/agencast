@@ -287,7 +287,6 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
     case "ask":
     case "task": {
       const agent = project.agents.find((x) => x.name === body.agent);
-      const servers = Array.isArray(agent?.mcp) ? (agent!.mcp as string[]) : [];
       return (
         <div className="space-y-4">
           {agentSelect}
@@ -298,28 +297,7 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
               <FormField label={t("field.max_turns")} help={t("help.max_turns")} errors={errors("task.max_turns")}>
                 {(a) => <NumberInput a11y={a} min={1} value={body.max_turns} onChange={(v) => setBody("max_turns", v)} />}
               </FormField>
-              {servers.length > 0 && (
-                <FormField label={t("field.mcp")} help={t("help.mcpStep")} errors={errors("task.mcp")}>
-                  {() => (
-                    <div className="space-y-1">
-                      {servers.map((srv) => {
-                        const on = Array.isArray(body.mcp) && (body.mcp as string[]).includes(srv);
-                        return (
-                          <label key={srv} className="flex items-center gap-2 font-mono text-sm">
-                            <input type="checkbox" checked={on} onChange={() => {
-                              const cur = Array.isArray(body.mcp) ? (body.mcp as string[]) : [];
-                              const next = on ? cur.filter((x) => x !== srv) : [...cur, srv];
-                              setBody("mcp", next.length ? next : undefined);
-                            }} />
-                            {srv}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </FormField>
-              )}
-              {json("tools", t("field.tools"), t("help.tools", { ex: '{"instagram": ["publish_media"]}' }))}
+              <TaskMcp ctx={ctx} body={body} agentMcp={agent?.mcp} agentTools={agent?.tools} />
             </>
           )}
           {json("schema", t("field.schema"), t("help.schema", { ex: '{"caption": "string", "hashtags": ["string"]}' }))}
@@ -442,6 +420,68 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
     case "parallel":
       return <p className="text-sm text-fg-muted">{t("panel.branches", { names: Object.keys(step.branches ?? {}).join(", ") })}</p>;
   }
+}
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+
+/** `mcp` and `tools` of a task step (scenario.md): the step can only narrow what its agent allows. Without `mcp` /
+ *  `tools.<server>` in the file the step has everything the agent has, so those boxes show ticked and the file keeps
+ *  its shape (a full selection is not written). A name the agent does not have stays visible, to be unticked. */
+function TaskMcp({ ctx, body, agentMcp, agentTools }: { ctx: FormCtx; body: Obj; agentMcp: unknown; agentTools: unknown }) {
+  const servers = strings(agentMcp);
+  const allowed: Obj = isObj(agentTools) ? agentTools : {};
+  const stepTools: Obj = isObj(body.tools) ? body.tools : {};
+  const used = Array.isArray(body.mcp) ? strings(body.mcp) : servers;
+  const rows = [...new Set([...servers, ...used, ...Object.keys(stepTools)])];
+  if (!rows.length) return null;
+  const same = (a: string[], b: string[]) => a.length === b.length && b.every((x) => a.includes(x));
+  /** One undo step per click: unticking a server changes `mcp` and `tools` together; a tool click leaves `mcp` as written. */
+  const write = (tools: Obj, mcp?: string[]) => ctx.change((s) => {
+    const b: Obj = isObj(s.fields.task) ? s.fields.task : {};
+    return { ...s, fields: { ...s.fields, task: set(mcp ? set(b, "mcp", same(mcp, servers) ? undefined : mcp) : b, "tools", Object.keys(tools).length ? tools : undefined) } };
+  });
+  const without = (srv: string) => Object.fromEntries(Object.entries(stepTools).filter(([k]) => k !== srv));
+  const row = "flex min-h-9 items-center gap-2 font-mono text-sm pointer-coarse:min-h-11";
+  const stray = <span className="font-sans text-xs text-error">{t("mcp.notOnAgent")}</span>;
+  return (
+    <FormField label={t("field.mcp")} help={t("help.mcpStep")} errors={[...ctx.errors("task.mcp"), ...ctx.errors("task.tools")]}>
+      {(a) => (
+        <div id={a.id} role="group" aria-label={t("field.mcp")} aria-describedby={a["aria-describedby"]}>
+          {rows.map((srv) => {
+            const on = used.includes(srv);
+            const mine = strings(allowed[srv]);
+            const cur = srv in stepTools ? strings(stepTools[srv]) : mine;
+            return (
+              <div key={srv}>
+                <label className={row}>
+                  {/* unticking a server also drops its narrowed tools (they would point to a server the step no longer uses) */}
+                  <input type="checkbox" checked={on} onChange={() => write(on ? without(srv) : stepTools, on ? used.filter((x) => x !== srv) : [...used, srv])} />
+                  {srv}{!servers.includes(srv) && stray}
+                </label>
+                {(on || srv in stepTools) && (
+                  <div className="ml-6" role="group" aria-label={t("mcp.toolsOf", { server: srv })}>
+                    {[...new Set([...mine, ...cur])].map((tool, _i, names) => {
+                      const ticked = cur.includes(tool);
+                      // no tool left would read as "all of the agent's tools" — a name the agent does not have can always go
+                      const last = on && ticked && cur.length === 1 && mine.includes(tool);
+                      const next = names.filter((x) => (x === tool ? !ticked : cur.includes(x)));
+                      return (
+                        <label key={tool} className={row} title={last ? t("mcp.lastTool") : undefined}>
+                          <input type="checkbox" checked={ticked} disabled={last} aria-description={last ? t("mcp.lastTool") : undefined}
+                            onChange={() => write(!next.length || same(next, mine) ? without(srv) : { ...stepTools, [srv]: next })} />
+                          {tool}{!mine.includes(tool) && stray}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </FormField>
+  );
 }
 
 /** Map name → value (Jev questions, `set` values); `k` = key in the type body, "" = the whole body. */

@@ -72,7 +72,7 @@ def test_env_flags_never_values(registry_server, monkeypatch):
     _, client, a, _ = registry_server
     (a / "workflows" / "mcp.yaml").write_text(
         "version: 1\nservers:\n  web:\n    description: Web\n    url: https://mcp.example.com\n"
-        "    bearer_token_env: WEB_TOKEN\n    agents: [writer]\n")
+        "    transport: sse\n    bearer_token_env: WEB_TOKEN\n    agents: [writer]\n")
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-secret-value")
     monkeypatch.delenv("WEBHOOK_TOKEN", raising=False)
     monkeypatch.delenv("WEB_TOKEN", raising=False)
@@ -80,6 +80,10 @@ def test_env_flags_never_values(registry_server, monkeypatch):
     assert r.json()["env"] == {"CALLBACK_SECRET": True, "OPENROUTER_API_KEY": True, "WEBHOOK_TOKEN": False,
                                "WEB_TOKEN": False}
     assert "sk-or-secret-value" not in r.text and SECRET not in r.text
+    # the server card: what it is for, the real transport and which of its variables is missing — never the address
+    assert r.json()["mcp_servers"] == [{"name": "web", "type": "http", "description": "Web", "transport": "sse", "agents": ["writer"],
+                                        "tools": None, "scenarios": None, "env_missing": ["WEB_TOKEN"]}]
+    assert "mcp.example.com" not in r.text
 
 
 def test_config_schema_errors_have_key_lines(registry_server):

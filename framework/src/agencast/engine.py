@@ -17,8 +17,10 @@ import os
 import re
 import secrets
 import shutil
+import signal
 import sys
 import tempfile
+import threading
 import time
 import traceback
 from dataclasses import dataclass, replace
@@ -32,9 +34,9 @@ from . import ConfigErrors, AgencastError, __version__
 from .expressions import ExprError, FileRef, evaluate, kind, path_step, render, to_json, to_text
 from .loader import nested_lists
 from .mcp_client import Pool, _leaves, secret_names  # 3a
-from .providers import (LEVELS, Client, assistant_message, chat_body, image_body, images_body, image_media_type,
+from .providers import (LEVELS, Client, chat_body, image_body, images_body, image_media_type,
                         image_size, json_schema, http_error, parse_chat, parse_image, parse_images, parse_jev,
-                        probe_image, prompt_level_suffix)
+                        probe_image, prompt_level_suffix, schema_feedback)
 from .record import (SUM_DIGITS, Record, count, format_number, format_usd, now_iso, plan_md, redact,
                      report_html, scrub, summary_md)
 from .task import dedupe_skip, hold_run_lock, images_md, local_dedupe, local_ledger, local_slots, run_task  # 3a
@@ -54,6 +56,9 @@ MODEL_IMAGE_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
 # aspect ratios to snap a reference image to when the Images API catalog is not available (offline validate)
 DEFAULT_RATIOS = ("1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9")
 RATIO_RE = re.compile(r"[1-9][0-9]*:[1-9][0-9]*")
+# 3b: plain http to 127.0.0.1 for tests — not `http://127.0.0.1:1@example.com/` (userinfo: host = example.com)
+CALLBACK_URL = re.compile(r"https://|http://127\.0\.0\.1(:[0-9]+)?(/|$)")
+INTERRUPT = contextvars.ContextVar("interrupt", default=())  # signals that cancelled this run (run_interruptible)
 
 
 def snap_ratio(ref: FileRef, values) -> str | None:
@@ -136,7 +141,7 @@ def preflight(p: Project, *, fake: bool, callback_url: str | None) -> str | None
         if not key:
             errs.append(f"missing environment variable {name} (OpenRouter key; .env or environment)")
     if callback_url:
-        if not callback_url.startswith(("https://", "http://127.0.0.1:", "http://127.0.0.1/")):  # 3b: 127.0.0.1 for tests
+        if not CALLBACK_URL.match(callback_url):
             errs.append("callback URL must start with https://")
         if not os.environ.get(p.config["callback"]["secret_env"]):
             errs.append(f"missing environment variable {p.config['callback']['secret_env']} (callback signature)")
@@ -236,18 +241,21 @@ class Run:
                 "status": self.status, "outputs": self.outputs if self.status == "succeeded" else None,
                 "error": self.error, "warnings": self.warnings, "cost_usd": round(self.cost, SUM_DIGITS),
                 "duration_s": self.duration, "report_url": self.report_url, "sent_at": now_iso()}
-        data = self.rec.mask(to_json(body)).encode()  # a file inside a list/object output = its path (scenario.md Type file)
-        self.rec.write("callback.json", json.loads(data))
-        if self.callback_url:
-            self.callback_failed = not await self.send_callback(data)
-        self.rec.write("summary.md", summary_md(self.p, self))
-        finished = now_iso()
-        try:  # after the callback: a ledger error must not prevent the callback or record
-            self.ledger.add(finished[:10], {"run_id": self.run_id, "cost_usd": round(self.cost, SUM_DIGITS),
-                                            "finished_at": finished})
-        except OSError as e:
-            print(f"writing to the daily spend ledger failed ({e}) — run {self.run_id} will not count toward daily_budget_usd "
-                  "accounting", file=sys.stderr)
+        body = self.rec.mask_json(body)  # a file inside a list/object output = its path (scenario.md Type file)
+        data = to_json(body).encode()
+        self.rec.write("callback.json", body)
+        try:
+            if self.callback_url:
+                self.callback_failed = not await self.send_callback(data)
+        finally:  # also when a signal ends the callback retries: the run has finished — its summary and its spend stay
+            self.rec.write("summary.md", summary_md(self.p, self))
+            finished = now_iso()
+            try:  # after the callback: a ledger error must not prevent the callback or record
+                self.ledger.add(finished[:10], {"run_id": self.run_id, "cost_usd": round(self.cost, SUM_DIGITS),
+                                                "finished_at": finished})
+            except OSError as e:
+                print(f"writing to the daily spend ledger failed ({e}) — run {self.run_id} will not count toward "
+                      "daily_budget_usd accounting", file=sys.stderr)
         return self.status
 
     def tokens(self) -> dict:
@@ -263,8 +271,10 @@ class Run:
             try:
                 await self.run_step(st, ctx)
             except asyncio.CancelledError:
+                why = (f"the run was interrupted ({signal.Signals(got[0]).name})" if (got := INTERRUPT.get())
+                       else "another parallel branch failed")
                 for rest in steps[i + 1:]:
-                    self.skip(rest, "cancelled", "cancelled — another parallel branch failed")
+                    self.skip(rest, "cancelled", f"cancelled — {why}")
                 raise
 
     async def run_step(self, st: dict, ctx: Ctx):
@@ -473,6 +483,26 @@ class Run:
                 await asyncio.sleep(err.retry_after if err.retry_after is not None
                                     else RETRY_BASE_S * 2 ** (attempt - 1))
 
+    async def mcp_server(self, info, name: str):
+        """Running MCP server for a `task`. A `transient` start failure (network, 5xx) is retried per the step's
+        `retry` with the delay of a model call (`Retry-After` of a remote server included); `Pool` does not cache
+        a failed start and `parallel` branches share the new attempt."""
+        retries, attempt = info.data.get("retry", 2), 0
+        while True:
+            attempt += 1
+            try:
+                return await self.mcp.get(name)
+            except AgencastError as err:
+                retry = err.cls == "transient" and attempt <= retries
+                self.rec.event("error", step=info.id, **{"class": err.cls}, message=err.message, attempt=attempt,
+                               will_retry=retry, http_status=err.http_status)
+                if not retry:
+                    e = AgencastError(err.cls, err.message, http_status=err.http_status)  # own copy: branches share `err`
+                    e.logged = True
+                    raise e from None
+                await asyncio.sleep(err.retry_after if err.retry_after is not None
+                                    else RETRY_BASE_S * 2 ** (attempt - 1))
+
     def add_cost(self, info, ctx, scopes, cost, image=False):
         if cost is None:
             return None
@@ -505,10 +535,7 @@ class Run:
             if last and last.cls == "schema":
                 if st["level"] != "prompt":
                     st["level"] = LEVELS[LEVELS.index(st["level"]) + 1]
-                prev = st["prev"]
-                st["feedback"] = ([assistant_message(prev)] if prev and prev.get("content") and not prev.get("tool_calls")
-                                  else []) + [{"role": "user", "content": f"The previous response was invalid: "
-                                               f"{last.message}\nRespond again, exactly in the required format."}]
+                st["feedback"] = schema_feedback(st["prev"], last.message, st["level"])
             system = base + (prompt_level_suffix(schema) if st["level"] == "prompt" else "")
             msgs = [{"role": "user", "content": [{"type": "text", "text": prompt}, *parts] if parts else prompt},
                     *st["feedback"]]
@@ -606,7 +633,8 @@ class Run:
             data, media = v
             rel = self.rec.write_bytes(f"{info.folder}/image.{IMAGE_EXT.get(media, 'bin')}", data)
             w, h = image_size(data)
-            self.rec.event("image_saved", step=info.id, path=rel, media_type=media, bytes=len(data), width=w, height=h)
+            size = self.rec.size(rel)
+            self.rec.event("image_saved", step=info.id, path=rel, media_type=media, bytes=size, width=w, height=h)
             self.rows[info.id]["note"] = f"{rel.rsplit('/', 1)[1]}, {w}×{h}"
             if ratio:
                 a, b = map(int, ratio.split(":"))
@@ -619,7 +647,7 @@ class Run:
                     if not derived:
                         raise AgencastError("config", msg)
                     self.warnings.append(f"step {info.id}: {msg} (aspect_ratio {derived})")  # our guess, not a config
-            return {"file": FileRef(rel, w, h, media.split("/")[1])}, f"<file: {rel}, {len(data)} B>"
+            return {"file": FileRef(rel, w, h, media.split("/")[1])}, f"<file: {rel}, {size} B>"
 
         t0 = time.monotonic()
         try:
@@ -679,12 +707,19 @@ class Run:
         return url
 
     async def step_parallel(self, info: StepInfo, ctx: Ctx):
-        inner = ctx.inner(info)
+        inner, task = ctx.inner(info), asyncio.current_task()
+        cancels = task.cancelling()
         try:
             async with asyncio.TaskGroup() as tg:
                 for b, lst in info.data["parallel"].items():
                     tg.create_task(self.run_list(lst, replace(inner, branch=b)))
         except BaseExceptionGroup as eg:
+            # TaskGroup gives the errors of its branches priority over a cancellation of this step: one that arrives
+            # while a failed branch cancels the others — a signal, or a failed branch of a parallel around this one —
+            # would be lost, and `on_error: continue` on a `call` around it would run the next steps. Python 3.12's
+            # group never takes back the cancel it requests itself (gh-116720): one beyond it came from outside.
+            if INTERRUPT.get() or task.cancelling() > cancels + tg._parent_cancel_requested:
+                raise asyncio.CancelledError from None
             errs = _leaves(eg)
             raise next((e for e in errs if isinstance(e, AgencastError)), errs[0]) from None
         return None
@@ -754,28 +789,107 @@ class Run:
         secret = os.environ[self.p.config["callback"]["secret_env"]].encode()
         headers = {"Content-Type": "application/json", "X-Run-Id": self.run_id,
                    "X-Signature": "sha256=" + hmac.new(secret, data, hashlib.sha256).hexdigest()}
-        url, error = safe_url(self.callback_url), None
-        async with httpx.AsyncClient(timeout=30, transport=self.callback_transport) as http:
-            for attempt in (1, 2, 3):
-                try:
-                    r = await http.post(self.callback_url, content=data, headers=headers)
-                    status, error = r.status_code, None if r.is_success else f"HTTP {r.status_code}"
-                except httpx.HTTPError as e:
-                    status, error = None, f"{type(e).__name__}: {e}"
-                self.rec.event("callback_sent", url=url, attempt=attempt, http_status=status,
-                               **({"error": error} if error else {}))
-                if not error:
-                    return True
-                if attempt < 3:
-                    await asyncio.sleep(CALLBACK_DELAYS[attempt - 1])
+        url, error, attempt = safe_url(self.callback_url), None, 0
+        try:
+            async with httpx.AsyncClient(timeout=30, transport=self.callback_transport) as http:
+                for attempt in (1, 2, 3):
+                    try:
+                        r = await http.post(self.callback_url, content=data, headers=headers)
+                        status, error = r.status_code, None if r.is_success else f"HTTP {r.status_code}"
+                    except httpx.HTTPError as e:
+                        status, error = None, f"{type(e).__name__}: {e}"
+                    self.rec.event("callback_sent", url=url, attempt=attempt, http_status=status,
+                                   **({"error": error} if error else {}))
+                    if not error:
+                        return True
+                    if attempt < 3:
+                        await asyncio.sleep(CALLBACK_DELAYS[attempt - 1])
+        except asyncio.CancelledError:  # a signal during the attempts: the run has finished, its callback is given up
+            got = INTERRUPT.get()
+            self.rec.event("callback_failed", url=url, attempts=attempt,
+                           error=f"interrupted by {signal.Signals(got[0]).name}" if got else "cancelled")
+            self.callback_failed = True
+            raise
         self.rec.event("callback_failed", url=url, attempts=3, error=error)
         return False
+
+
+class Interrupted(KeyboardInterrupt):
+    """The run was cancelled by SIGINT/SIGTERM (`signum`) and has stopped its MCP servers. The record is the one
+    of an interrupted run: no `run_finished`, no callback (run-record.md) — or, when the signal came while the
+    callback of a finished run was being sent, a finished run with `callback_failed`."""
+
+    def __init__(self, signum: int):
+        super().__init__(f"interrupted by {signal.Signals(signum).name}")
+        self.signum = signum
+
+
+_LIVE: dict = {}   # event loop of a run in flight → its `interrupt` (run_interruptible); read by stop_runs
+_STOPPING = None   # signal number once stop_runs was called: no run starts any more
+
+
+def run_interruptible(coro):
+    """`asyncio.run` for a run. SIGINT/SIGTERM cancels it **once**, so that the `finally` of the run stops the MCP
+    servers with the SDK's kill escalation; signals that arrive while it is closing are ignored — a second
+    cancellation would skip the escalation and leave the servers running. Raises `Interrupted` then.
+    The signal handlers are installed in the main thread only: in `serve` runs execute in worker threads, where
+    no signal arrives — `stop_runs` interrupts those."""
+    got = []
+
+    async def main():
+        loop, task = asyncio.get_running_loop(), asyncio.current_task()
+
+        def interrupt(signum):
+            if not got:  # say so: closing takes seconds, and a kill -9 out of impatience would orphan the servers
+                print(f"{signal.Signals(signum).name}: stopping the run and its MCP servers…", file=sys.stderr, flush=True)
+                task.cancel()
+            got.append(signum)
+        signals = (signal.SIGINT, signal.SIGTERM) if threading.current_thread() is threading.main_thread() else ()
+        previous = {sig: signal.getsignal(sig) for sig in signals}
+        for sig in signals:
+            loop.add_signal_handler(sig, interrupt, sig)
+        INTERRUPT.set(got)  # skipped steps name the cause (Run.run_list)
+        _LIVE[loop] = interrupt
+        if _STOPPING:  # stop_runs may have looked at _LIVE for the last time: this run (or dry run) starts no server
+            interrupt(_STOPPING)
+        try:
+            return await coro
+        finally:
+            del _LIVE[loop]
+            for sig, handler in previous.items():  # give the caller's handlers back (remove_ resets to the default)
+                loop.remove_signal_handler(sig)
+                if handler is not None:
+                    signal.signal(sig, handler)
+    try:
+        return asyncio.run(main())
+    except asyncio.CancelledError:
+        if not got:
+            raise
+        raise Interrupted(got[0]) from None
+
+
+def stop_runs(signum: int = signal.SIGTERM, timeout: float = 15.0) -> bool:
+    """`serve` is stopping: interrupt every run in flight — worker threads and dry runs get no signal — exactly as
+    a signal interrupts `agencast run`, and wait until they have stopped their MCP servers (the SDK escalates to
+    SIGKILL within seconds). No run starts afterwards (`run_scenario`). False = some run was still closing after
+    `timeout`."""
+    global _STOPPING
+    _STOPPING = signum
+    end = time.monotonic() + timeout
+    while _LIVE and time.monotonic() < end:
+        for loop, interrupt in list(_LIVE.items()):  # again on every round: a run may have just begun
+            try:
+                loop.call_soon_threadsafe(interrupt, signum)
+            except RuntimeError:  # the loop closed in the meantime
+                pass
+        time.sleep(0.05)
+    return not _LIVE
 
 
 def dry_run(p: Project, inputs: dict) -> Record:
     """Directory with only plan.md and inputs.json (run-record.md); for task, also tools offered by MCP servers."""
     servers = mcp_servers_used(p)
-    offers = asyncio.run(mcp_offers(p, servers)) if servers else None
+    offers = run_interruptible(mcp_offers(p, servers)) if servers else None
     rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
     rec.write("plan.md", plan_md(p, offers))
     rec.write("inputs.json", stage_inputs(rec, inputs, copy=False))
@@ -814,8 +928,8 @@ async def mcp_offers(p: Project, servers: set) -> dict:
             for s in sorted(servers):
                 try:
                     offers[s] = sorted((await pool.get(s)).tools)
-                except AgencastError as e:
-                    offers[s] = e.message
+                except AgencastError as e:  # the stderr log dies with the temporary directory: its last lines are in the message
+                    offers[s] = e.message.replace(f" (stderr: mcp/{s}.stderr.log)", "")
         finally:
             await pool.close()
     return offers
@@ -829,6 +943,8 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
     and callback (validate failed after dequeuing, run interrupted by server restart).
     ISSUES 40: acquire a `max_parallel_runs` slot before creating the run directory; unavailable slots and exhausted
     `daily_budget_usd` follow the same path as `error`."""
+    if _STOPPING:  # before anything is created: the request stays in the `serve` queue and runs after the restart
+        raise Interrupted(_STOPPING)
     key = preflight(p, fake=fake is not None or error is not None, callback_url=callback_url)
     lim, held, waited, lock = p.config["limits"], None, None, None
     slots = local_slots(p.runs_dir, lim["max_parallel_runs"]) if error is None and "max_parallel_runs" in lim else None
@@ -855,13 +971,25 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
         run = Run(p, inputs, rec, client, run_id, callback_url=callback_url, request_key=request_key,
                   callback_transport=callback_transport, fake=fake is not None)
         run.waited_s = waited
-        asyncio.run(run.execute(error, resume=resume))
+        run_interruptible(run.execute(error, resume=resume))
         return run
     finally:
         if lock is not None:
             os.close(lock)
         if held is not None:
             slots.release(held)
+
+
+def resend_callback(p: Project, run_id: str, callback_url: str, callback_transport=None):
+    """`serve` after a restart: the callback of a finished run that the stop cut short (`callback_failed`) is sent
+    again as it is stored. The record stays the run's own and only gains the new `callback_sent` events."""
+    if _STOPPING:
+        raise Interrupted(_STOPPING)
+    preflight(p, fake=True, callback_url=callback_url)
+    rec = Record(p.runs_dir / run_id, secret_values(p), exist_ok=True)
+    run = Run(p, {}, rec, None, run_id, callback_url=callback_url, callback_transport=callback_transport)
+    body = json.loads((rec.dir / "callback.json").read_text(encoding="utf-8"))
+    run_interruptible(run.send_callback(to_json(body).encode()))  # the bytes of the first attempts
 
 
 def snapshot(p: Project, rec: Record):
@@ -883,8 +1011,12 @@ def take_slot(slots, run_timeout: str) -> tuple[int | None, float | None]:
     if (held := slots.acquire()) is not None:
         return held, None
     print(f"waiting for a free slot (max_parallel_runs={slots.size})", file=sys.stderr, flush=True)
-    while (held := slots.acquire()) is None and time.monotonic() - t0 < seconds(run_timeout):
+    while (held := slots.acquire()) is None and not _STOPPING and time.monotonic() - t0 < seconds(run_timeout):
         time.sleep(SLOT_POLL_S)
+    if _STOPPING:  # `serve` is stopping: a slot freed by an interrupted run starts nothing — the request stays queued
+        if held is not None:
+            slots.release(held)
+        raise Interrupted(_STOPPING)
     return held, round(time.monotonic() - t0, 3)
 
 

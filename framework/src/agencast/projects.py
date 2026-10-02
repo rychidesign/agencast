@@ -2,7 +2,8 @@
 (`agencast projects`, `new`, `GET /projects/...`; projects.md, api.md).
 
 Registry = `<AGENCAST_CONFIG_DIR, default ~/.config/agencast>/projects.yaml`,
-`projects: [{name, root}]`, without secrets; projects are not scanned.
+`projects: [{name, root, trusted?}]`, without secrets; projects are not scanned.
+`trusted: false` = registered through the API: no MCP servers until `agencast projects trust` (`untrusted`).
 Templates are strings here, not copies from workflows/ — those are golden tests
 and change with them. Never overwrite: existing file = `config` error.
 """
@@ -107,7 +108,10 @@ def etag(text: str | None) -> str | None:
 
 
 def _etag(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:  # a link that leads nowhere, a directory, no permission: listed with its read error, no version
+        return ""
 
 
 def _check_name(name: str, what: str):
@@ -116,11 +120,15 @@ def _check_name(name: str, what: str):
 
 
 def _write(files: dict[Path, str]) -> list[Path]:
-    if taken := [p for p in files if p.exists()]:
+    if taken := [p for p in files if os.path.lexists(p)]:  # a link too, also one that leads nowhere yet
         raise ConfigErrors([f"{p}: already exists — refusing to overwrite" for p in taken])
     for p, text in files.items():
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(text, encoding="utf-8")
+        try:
+            with open(p, "x", encoding="utf-8") as f:  # "x" creates the file and never follows a link planted meanwhile
+                f.write(text)
+        except FileExistsError:
+            raise ConfigErrors([f"{p}: already exists — refusing to overwrite"]) from None
     return list(files)
 
 
@@ -148,13 +156,32 @@ def _read_registry() -> dict[str, Any]:
     if not isinstance(items, list) or not all(
             isinstance(x, dict) and isinstance(x.get("name"), str) and isinstance(x.get("root"), str) for x in items):
         raise ConfigErrors([f"{p}: expected format projects: [{{name, root}}]"])
+    if not all(isinstance(x.get("trusted", True), bool) for x in items):
+        raise ConfigErrors([f"{p}: trusted must be true or false"])
     if "projects_root" in data and not isinstance(data["projects_root"], str):
         raise ConfigErrors([f"{p}: projects_root must be a path string"])
     return data
 
 
-def _read() -> list[dict[str, str]]:
+def _read() -> list[dict[str, Any]]:
     return _read_registry().get("projects", [])
+
+
+def untrusted(*roots: Path, listed: bool = False) -> str | None:
+    """Why the project at `roots` may not use MCP servers (`validate`), or None = it may. An entry with
+    `trusted: false` was registered through the API (projects.md), where anyone holding the token may point at a
+    directory someone else wrote. A project without an entry is the terminal user's own — except for `serve` in
+    registry mode (`listed`), which serves only registered projects: one removed while its run was queued must
+    not become trusted by that. Read on every call: the answer is the registry's now, not the one at registration."""
+    at = {r.resolve() for r in roots}
+    mine = [x for x in _read() if Path(x["root"]).expanduser().resolve() in at]
+    if hit := next((x for x in mine if x.get("trusted", True) is not True), None):
+        return (f"project '{hit['name']}' ({hit['root']}) was registered through the API and is not trusted to run "
+                "them (trusted: false in the project registry). The project owner allows them in a terminal: "
+                f"agencast projects trust {hit['name']}")
+    if listed and not mine:
+        return "the project is no longer in the project registry (agencast projects add <path>)"
+    return None
 
 
 def projects_root() -> Path:
@@ -214,11 +241,12 @@ def _save(change: Callable[[list[dict[str, str]]], Any]):
 
 
 def list_projects() -> list[dict[str, str | bool]]:
-    """Registry projects; `available: false` = missing workflows/config.yaml (keep the entry, with `reason`)."""
+    """Registry projects; `available: false` = missing workflows/config.yaml (keep the entry, with `reason`);
+    `trusted: false` = may not use MCP servers (`untrusted`)."""
     out: list[dict[str, str | bool]] = []
     for x in _read():
         cfg = Path(x["root"]) / "workflows" / "config.yaml"
-        out.append({"name": x["name"], "root": x["root"], "available": cfg.is_file()}
+        out.append({"name": x["name"], "root": x["root"], "available": cfg.is_file(), "trusted": x.get("trusted", True)}
                    | ({} if cfg.is_file() else {"reason": f"missing {cfg}"}))
     return out
 
@@ -238,15 +266,30 @@ def _checked_name(root: Path, name: str | None, items: list[dict[str, str]]) -> 
     return name
 
 
-def add(root: Path, name: str | None = None) -> str:
-    """Add a project to the registry; default name = folder (kebab-case). Return the name."""
+def add(root: Path, name: str | None = None, trusted: bool = True) -> str:
+    """Add a project to the registry; default name = folder (kebab-case). Return the name.
+    `trusted=False` (the API) writes `trusted: false`; a trusted entry has no such key."""
     def append(items):
         if hit := next((x for x in items if Path(x["root"]) == root), None):
             raise ProjectConflict([f"{root}: already in the registry as '{hit['name']}'"])
         checked_name = _checked_name(root, name, items)
-        items.append({"name": checked_name, "root": str(root)})
+        items.append({"name": checked_name, "root": str(root)} | ({} if trusted else {"trusted": False}))
         return checked_name
     return _save(append)
+
+
+def trust(name: str, root: Path | None = None):
+    """`agencast projects trust`: the owner allows MCP servers in a project registered through the API. `root` =
+    the root the owner was shown: a name that points elsewhere by now (removed and added again through the API
+    while the owner was reading its mcp.yaml) is not trusted."""
+    def allow(items):
+        if not (hit := next((x for x in items if x["name"] == name), None)):
+            raise ConfigErrors([f"project '{name}' is not in the registry ({registry_path()})"])
+        if root is not None and Path(hit["root"]) != root:
+            raise ConfigErrors([f"project '{name}' now points to {hit['root']}, not to {root} — it was registered "
+                                "again in the meantime; nothing was trusted (agencast projects list)"])
+        hit.pop("trusted", None)
+    _save(allow)
 
 
 def remove(name: str):
@@ -258,7 +301,8 @@ def remove(name: str):
 
 
 def ensure(root: Path) -> str | None:
-    """After a successful run, register the project if absent. Return a message for stderr."""
+    """Before a validated `agencast run` (not `--dry-run`, not `validate`), register the project if absent.
+    Return a message for stderr."""
     if any(Path(x["root"]) == root for x in _read()):
         return None
     return f"project {add(root)} added to the registry ({registry_path()})"
@@ -266,12 +310,12 @@ def ensure(root: Path) -> str | None:
 
 # --- templates ------------------------------------------------------------------------
 
-def new_project(root, name: str | None = None, *, example: str | None = None) -> list[Path]:
+def new_project(root, name: str | None = None, *, example: str | None = None, trusted: bool = True) -> list[Path]:
     """Project skeleton with one agent and scenario that pass both `validate --offline` and `--fake`;
-    register it immediately (check the name before creating files)."""
+    register it immediately (check the name before creating files). `trusted` as in `add`."""
     root = Path(root).resolve()
     wf = root / "workflows"
-    if wf.exists():
+    if os.path.lexists(wf):
         raise ProjectConflict([f"{wf}: already exists — add an existing project with agencast projects add"])
     items = _read()
     if hit := next((x for x in items if Path(x["root"]) == root), None):
@@ -297,10 +341,10 @@ def new_project(root, name: str | None = None, *, example: str | None = None) ->
             for path in sorted(item.rglob("*")) if item.is_dir() else [item]:
                 if path.is_file():
                     files[root / path.relative_to(source)] = path.read_text(encoding="utf-8")
-    if not (root / ".gitignore").exists():
+    if not os.path.lexists(root / ".gitignore"):
         files[root / ".gitignore"] = GITIGNORE
     made = _write(files)
-    add(root, name)
+    add(root, name, trusted)
     return made
 
 
@@ -422,8 +466,8 @@ def error_fields(message: str, root: Path) -> dict[str, Any]:
     return out
 
 
-def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """(scenario description with step tree and validation errors, all steps)."""
+def _scenario(path: Path, registered: Path | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """(scenario description with step tree and validation errors, all steps). `registered` as in `validate`."""
     info: dict[str, Any] = {"name": path.stem, "etag": _etag(path), "description": None, "inputs": {}, "outputs": {}, "callable": False}
     try:
         sc = read_yaml(path, path.name)
@@ -433,7 +477,7 @@ def _scenario(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     flat: list[dict[str, Any]] = []
     tree = _steps(sc.get("steps"), flat)
     try:
-        validate(path, check_models=False)
+        validate(path, check_models=False, registered=registered)
         errors = []
     except ConfigErrors as e:
         errors = e.errors
@@ -449,16 +493,21 @@ def describe_scenario(root: Path, name: str) -> dict[str, Any] | None:
     return _scenario(path)[0] if NAME.fullmatch(name) and path.is_file() else None
 
 
-def describe_project(root: Path) -> dict[str, Any]:
-    """Scenarios, agents, skills, MCP servers (without secrets), aliases, limits and their links."""
+def describe_project(root: Path, registered: Path | None = None) -> dict[str, Any]:
+    """Scenarios, agents, skills, MCP servers (without secrets), aliases, limits and their links.
+    `registered` = the registry root these files stand for, when `root` is a copy (edit.py); default `root`."""
     wf, cfg = _workflows(root)
     errs = []
     mcp = load_mcp(wf, errs)
+    try:
+        trusted = untrusted(registered or root) is None
+    except ConfigErrors as e:  # unreadable registry: unknown = not trusted, as `validate` treats it
+        trusted, errs = False, errs + e.errors
     links = {"scenario_agent": set(), "scenario_step_agent": set(), "scenario_scenario": set(), "agent_skill": set(),
              "agent_server": set(), "scenario_model": set()}
     scenarios = []
     for path in sorted((wf / "scenarios").glob("*.yaml")):
-        info, flat = _scenario(path)
+        info, flat = _scenario(path, registered)
         del info["steps"]
         scenarios.append(info)
         links["scenario_agent"] |= {(info["name"], s["agent"]) for s in flat if isinstance(s.get("agent"), str)}
@@ -490,8 +539,11 @@ def describe_project(root: Path) -> dict[str, Any]:
         s_errs = []
         s = load_skill(wf, path.parent.name, s_errs, "skills")
         skills.append({"name": path.parent.name, "etag": _etag(path), "description": s[1] if s else None, "errors": s_errs})
-    servers = [{"name": n, "type": "stdio" if "command" in s else "http", "agents": s["agents"],
-                "tools": s.get("tools"), "scenarios": s.get("scenarios")} for n, s in mcp.items()]
+    # non-secret fields only: no command, args, url, env or bearer_token_env; `env_missing` = names, never values
+    servers = [{"name": n, "type": "stdio" if "command" in s else "http", "description": s.get("description"),
+                "transport": "stdio" if "command" in s else s.get("transport", "streamable-http"),
+                "agents": s.get("agents"), "tools": s.get("tools"), "scenarios": s.get("scenarios"),
+                "env_missing": [v for v in secret_names({n: s}) if not os.environ.get(v)]} for n, s in mcp.items()]
     # variables from config.yaml (*_env) and mcp.yaml (env, bearer_token_env): presence only, never values
     env = {n: bool(os.environ.get(n)) for n in sorted({n for _, n in env_fields(cfg)} | set(secret_names(mcp)))}
     # 0.8.0: alias → files using it (agent via model, scenario via image.model); [] = unused
@@ -501,7 +553,8 @@ def describe_project(root: Path) -> dict[str, Any]:
             used.setdefault(a["model"], []).append(f"agents/{a['name']}.md")
     for sc, m in sorted(links["scenario_model"]):
         used.setdefault(m, []).append(f"scenarios/{sc}.yaml")
-    return {"root": str(root), "models": {a: m["id"] for a, m in cfg["models"].items()}, "limits": cfg["limits"], "env": env,
+    return {"root": str(root), "trusted": trusted,
+            "models": {a: m["id"] for a, m in cfg["models"].items()}, "limits": cfg["limits"], "env": env,
             "scenarios": scenarios, "agents": agents, "skills": skills, "mcp_servers": servers,
             "links": {k: sorted(map(list, v)) for k, v in links.items()}, "models_used": used, "errors": errs}
 

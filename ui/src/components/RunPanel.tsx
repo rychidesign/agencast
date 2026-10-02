@@ -6,10 +6,10 @@ import { ApiError, enc, send, upload, useApi } from "../api";
 import { formatMoney, formatSpend } from "../format";
 import { t } from "../i18n";
 import { href, navigate } from "../router";
-import type { IoSpec, Project, Spend } from "../types";
+import type { ErrorItem, IoSpec, Project, Spend } from "../types";
 import { FormField, ValueInput, type ImageValue } from "./form";
 import { PanelShell } from "./StepPanel";
-import { btn, ErrorText } from "./ui";
+import { btn, ErrorText, trustCommand, UntrustedNotice } from "./ui";
 
 const uploadRef = (v: unknown) => ({ upload_id: (v as ImageValue).upload_id });
 
@@ -42,8 +42,9 @@ const Limit = ({ label, children }: { label: string; children: ReactNode }) => (
   </div>
 );
 
-export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
-  project: Project; scenario: string; inputs: Record<string, IoSpec> | null; dirty: boolean; onClose: () => void;
+export function RunPanel({ project, scenario, inputs, errors, dirty, onClose }: {
+  project: Project; scenario: string; inputs: Record<string, IoSpec> | null; /** Validation errors of the scenario. */ errors: ErrorItem[];
+  dirty: boolean; onClose: () => void;
 }) {
   const specs = inputs ?? {};
   const [values, setValues] = useState<Record<string, unknown>>(() =>
@@ -120,6 +121,8 @@ export function RunPanel({ project, scenario, inputs, dirty, onClose }: {
             </dl>
           </div>
         )}
+        {/* an untrusted project (registered through the API): the server refuses the run of a scenario with MCP servers (422) */}
+        {errors.some((e) => e.message.includes(trustCommand(project.name))) && <UntrustedNotice project={project} text={t("trust.run")} />}
         {dirty && <Warning text={t("runForm.dirty")} />}
         {error && (
           <div className="space-y-1">

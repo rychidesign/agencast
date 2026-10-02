@@ -95,32 +95,43 @@ function Calls({ events }: { events: RunEvent[] }) {
   );
 }
 
-function Tools({ events }: { events: RunEvent[] }) {
+function Tools({ events, files, live }: { events: RunEvent[]; files: string[]; live: boolean }) {
   const calls = events.filter((e) => e.type === "tool_call");
   if (!calls.length) return <Empty />;
+  // `mcp/<server>.stderr.log` (run-record.md) is written when a local server stops, i.e. when the run ends: while the
+  // run is alive the link is offered for a file that may not exist yet — Files then says so instead of fetching a 404.
+  // After the run only existing logs are linked (a remote server and the skills pseudo-server have none).
+  const logs = [...new Set(calls.filter((e) => e.server !== "_skills").map((e) => `mcp/${String(e.server)}.stderr.log`))]
+    .filter((f) => live || files.includes(f));
+  const open = (file: string) => <button type="button" className="underline" onClick={() => setQuery({ tab: "files", file })}>{file}</button>;
   return (
-    <ol className="space-y-2 text-[13px]">
-      {calls.map((e, i) => {
-        const flag = e.allowed === false ? t("rpanel.toolDenied") : e.invalid_args ? t("rpanel.toolInvalid") : e.is_error ? t("rpanel.toolError") : "";
-        return (
-          <li key={i} className={`rounded-control px-3 py-2 ${flag ? "bg-error/10" : "bg-nested"}`}>
-            <p className="font-mono">{t("rpanel.turn", { n: String(e.turn) })} · {String(e.server)}.{String(e.tool)}</p>
-            <p className="text-fg-muted">
-              {flag && <span className="text-error">{flag} · </span>}
-              {formatDuration(e.duration_s as number)}
-              {typeof e.call_file === "string" && (
-                <> · <button type="button" className="underline" onClick={() => setQuery({ tab: "files", file: e.call_file as string })}>{e.call_file}</button></>
-              )}
-            </p>
-          </li>
-        );
-      })}
-    </ol>
+    <div className="space-y-3 text-[13px]">
+      <ol className="space-y-2">
+        {calls.map((e, i) => {
+          // `error` = the call did not return (timed out, the server dropped the connection, cancelled); the tool may have run
+          const flag = e.allowed === false ? t("rpanel.toolDenied") : e.invalid_args ? t("rpanel.toolInvalid")
+            : typeof e.error === "string" && e.error ? e.error : e.is_error ? t("rpanel.toolError") : "";
+          return (
+            <li key={i} className={`rounded-control px-3 py-2 ${flag ? "bg-error/10" : "bg-nested"}`}>
+              <p className="font-mono">{t("rpanel.turn", { n: String(e.turn) })} · {String(e.server)}.{String(e.tool)}</p>
+              <p className="break-words text-fg-muted">
+                {flag && <span className="text-error">{flag} · </span>}
+                {formatDuration(e.duration_s as number)}
+                {typeof e.call_file === "string" && <> · {open(e.call_file)}</>}
+              </p>
+            </li>
+          );
+        })}
+      </ol>
+      {logs.map((f) => <p key={f} className="break-words text-fg-muted">{t("rpanel.serverLog")}: {open(f)}</p>)}
+    </div>
   );
 }
 
-export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
-  project: string; runId: string; path: string; kind: StepType | null; rs?: RunStep; onClose: () => void;
+export function RunStepPanel({ project, runId, path, kind, rs, runFiles = [], live = false, onClose }: {
+  project: string; runId: string; path: string; kind: StepType | null; rs?: RunStep;
+  /** `files` of the whole run and whether it is still queued or running (for the server logs in Tools). */
+  runFiles?: string[]; live?: boolean; onClose: () => void;
 }) {
   const [tab, setTab] = useState<PanelTab>();
   // Events, output and files of one step; a running step is re-read (the panel is keyed by the step status).
@@ -143,7 +154,7 @@ export function RunStepPanel({ project, runId, path, kind, rs, onClose }: {
     body = kind === "jev" ? <JevAnswers answers={rs?.answers} />
       : responses.length ? <ResponseView path={runFilePath(project, runId, responses.at(-1)!)} name={responses.at(-1)!.slice(dir.length)} /> : <Empty />;
   if (active === "calls") body = <Calls events={own} />;
-  if (active === "tools") body = <Tools events={own} />;
+  if (active === "tools") body = <Tools events={own} files={runFiles} live={live} />;
   if (active === "image") {
     const imgs = files.filter((f) => /\.(png|jpe?g|webp|gif|avif)$/i.test(f));
     body = imgs.length ? <div className="space-y-3">{imgs.map((f) => <FileViewer key={f} project={project} runId={runId} path={f} />)}</div> : <Empty />;

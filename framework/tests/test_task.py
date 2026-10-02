@@ -112,7 +112,9 @@ def test_mcp_yaml_checks(wf):
     assert "OPENROUTER_API_KEY is already used in config.yaml" in errors(task_sc(wf))  # the OpenRouter key would be sent to the server
     setup(wf)
     (wf / "mcp.yaml").write_text((wf / "mcp.yaml").read_text().replace("{run_dir}/work", "{home}/work"))
-    assert "{home} — the only allowed substitution is {run_dir}" in errors(task_sc(wf))
+    # named by its place: the API serves a project's errors, and nothing of `args` (config.md: a key may be pasted there)
+    assert "mcp.yaml: servers.fs.args[1]: the only allowed substitution in braces is {run_dir}" in errors(task_sc(wf))
+    assert "{home}" not in errors(task_sc(wf))
 
 
 def test_tool_name_collision_after_normalization(wf):
@@ -251,6 +253,19 @@ def test_secret_from_tool_is_masked(wf, monkeypatch):
         if f.is_file() and f.suffix in (".json", ".jsonl", ".md", ".log"):
             assert "very-secret-value-42" not in f.read_text(), f
     assert "<secret: AGENCAST_TEST_MCP_SECRET>" in (r.rec.dir / "steps/01-t/calls/02.tool.json").read_text()
+
+
+def test_saved_file_size_is_that_of_the_masked_file(wf, monkeypatch):
+    """`image_saved.bytes` and the `<file: …, N B>` note gave the size the tool sent: with a secret masked in the
+    bytes the file in the record has another size (and the difference told the length of the secret)."""
+    monkeypatch.setenv("AGENCAST_TEST_MCP_SECRET", "very-secret-value-42")
+    setup(wf, env="    env: { SERVER_SECRET: AGENCAST_TEST_MCP_SECRET }\n")
+    r, _ = run(task_sc(wf), script={"t": [calls(("fs__get_env", {"name": "SERVER_SECRET", "file": True})), {"text": "ok"}]})
+    assert r.status == "succeeded", r.error
+    saved = events(r, "image_saved")[0]
+    stored = (r.rec.dir / saved["path"]).read_bytes()
+    assert stored == b"key=<secret: AGENCAST_TEST_MCP_SECRET>\n" and saved["bytes"] == len(stored), saved
+    assert f"<file: {saved['path']}, {len(stored)} B>" in (r.rec.dir / "steps/01-t/calls/03.request.json").read_text()
 
 
 def test_missing_server_env_is_config_before_run(wf, monkeypatch):

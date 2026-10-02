@@ -32,6 +32,101 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
 - Run `status` text is now English; clients should read the machine-readable `state` field. The restart message is now `run interrupted by server restart`; runs interrupted by a restart under agencast ≤ 0.17 show as `failed` instead of `interrupted`.
 - Numbers use a decimal point, dates use ISO `YYYY-MM-DD`, and times use `HH:MM`.
 - Old Czech GUI URLs no longer resolve.
+- `workflows/mcp.yaml` is the project owner's file (0.18.0, api.md “MCP servers are the owner's”): the HTTP API no
+  longer returns or writes it — `GET`, `HEAD` and `PUT …/files/mcp.yaml` and `POST …/validate` with `path: mcp.yaml`
+  answer 404. **Changed for existing users: the GUI can no longer edit `mcp.yaml`; edit it on disk.** Until now a
+  holder of the API token could write the file, and a run — a dry run was enough — started the `command` in it.
+  `GET /projects/<p>` still lists the servers (without `command`, `args`, `url`, `env`, `bearer_token_env`), now with
+  `description`, `transport` and `env_missing` (names of the server's unset variables), and carries the file's errors
+  in the project-level `errors`. The one write left is an agent rename: it changes only the agent's name in the
+  `agents` lists, keeps the file's permission bits, answers 409 when the file changed on disk meanwhile and leaves a
+  `mcp.yaml` that is a symlink alone.
+- Trust (projects.md “Trust”): a project added or created over HTTP (`POST /projects`, `POST /projects/new`, the GUI)
+  is written to the registry with `trusted: false` and uses no MCP server, local or remote — `validate`, `run`,
+  `--dry-run`, `--fake` and the same requests over HTTP end with one `config` error — until its owner runs the new
+  `agencast projects trust <name>` in a terminal (it shows the project root and every server's command line or remote
+  host and asks; outside a terminal it needs `--yes`). **Changed for existing users: projects added or created
+  through the API need `agencast projects trust` before their scenarios can use MCP servers.** Entries already in the
+  registry and everything registered from a terminal stay trusted; scenarios without MCP servers are unaffected.
+  `agencast projects list` marks untrusted entries; the API carries `trusted` (read-only) in `GET /projects`,
+  `GET /projects/<p>` and the 201 bodies, and no route sets it.
+- **Changed: `agencast run --dry-run` no longer adds the project to the registry**; a real run still does, right
+  after validation.
+- `agencast run` (also `--dry-run`) handles SIGINT and SIGTERM: the first signal cancels the run once and stops its
+  MCP servers with the full kill escalation — also one still in its handshake — further signals are ignored
+  meanwhile, and the command exits with 130 / 143 and two stderr lines instead of a traceback: one at the signal
+  (`SIGTERM: stopping the run and its MCP servers…`), one when it has stopped. The record is that of
+  an interrupted run; skipped steps say `cancelled — the run was interrupted (SIGTERM)`; a signal during the callback
+  retries leaves a finished run with `callback_failed`.
+- `agencast serve` stopped by SIGTERM or Ctrl-C interrupts its runs in flight the same way (their MCP servers used
+  to be orphaned): the queue entries stay, the next start reports each run with its callback, and sends again the
+  callback of a run that had finished and was cut short while sending it. Waiting requests stay queued; a dry run in
+  flight answers 503.
+- MCP server start: a failure names its cause — the HTTP status for both remote transports (401/403 with a hint to
+  check `bearer_token_env`), the last stderr lines of a local server, a stdout line that is not JSON-RPC instead of a
+  handshake timeout. Network errors (also a connection reset or closed without an answer) and HTTP 408, 429 and 5xx
+  are `transient` and retried according to the step's `retry` (2 s, 4 s, 8 s… or the server's `Retry-After`),
+  everything else is `config`; every failed attempt has an `error` event and its own `mcp_server` `failed` event, and
+  is not cached for the run. The SSE handshake limit is `timeouts.handshake` (was + 5 s). A server still starting
+  when the run ends (interrupt, step or run `timeout`) is stopped at once and recorded as `stopped`; one that dropped
+  the connection during a tool call is recorded as `failed`. A remote server's session is ended within 5 s as a
+  whole, and a failed start reaches the step before that request, not after it.
+- A tool call that did not return (timeout, dropped connection, cancelled step) is in the record: `tool_call` event
+  and `calls/NN.tool.json` with the arguments, `is_error: true`, `result: null` and the new field `error`. A tool
+  answer that is no tool result, or an image that is not base64, fails the step as `config` instead of `internal`.
+- `task`: once the step has called an MCP tool, the retry after a `schema` error only allows the answer
+  (`tool_choice`, tool definitions kept); tool calls in such a retry are not executed and count as another `schema`
+  error.
+- `parallel`: a cancellation that arrives while a failed branch is still cancelling the others is no longer lost — a
+  signal (the run used to go on to `run_finished`), or a failed branch of an outer `parallel` (a branch used to go on
+  past a `call` step with `on_error: continue`).
+- Secrets in the run record: `mcp/<server>.stderr.log` is written with secret values masked when the server stops
+  (never raw in the run directory; a later start in the same run appends; a killed run has no log). Masking replaces
+  longer values first (a connection URL before its user name), the JSON-escaped forms of a value once or twice —
+  also as PHP (`\/`), Go (`\u0026`, `\u003c`, `\u003e`, `\u2028`, `\u2029`) and .NET's System.Text.Json (uppercase
+  hex, also for `"`, `&`, `'`, `+`, `<`, `>` and `` ` ``: `\u002B`, `\u0022`, `\u00E9`) write them — and the
+  HTML-escaped ones, a JSON number whose digits hold a value, and the bytes of a saved file (a tool's image block;
+  `image_saved.bytes` and the `<file: …, N B>` note give the size of the file as it is stored, after masking);
+  JSON files, `events.jsonl` and the callback are masked per string, so they stay valid JSON. Error messages quote a remote server's URL without
+  userinfo and query and the MCP library's errors without the server's input values; the SDK's log no longer prints
+  tracebacks that quote server output. `agencast projects trust` and `projects list` show control characters escaped.
+- `mcp.yaml` and `config.yaml` validation: schema errors name the field and the line, and one broken server entry
+  no longer makes `validate` report every server as “not in mcp.yaml”; a value pasted where a variable name belongs
+  (`*_env`, `env`) is never printed; braces in `args` are named by place (`servers.<name>.args[1]`), not quoted.
+  Plain `http://` in a server `url` and in `openrouter.base_url` is accepted only for `127.0.0.1`/`localhost` with an
+  optional port — `http://127.0.0.1:1@example.com/` (userinfo) is rejected, also as a `callback_url` (422 when the
+  run is accepted). **Changed for existing files: a plain `http://` URL that goes on after the host with anything
+  but a numeric port and `/` — the userinfo form above, `http://localhost:abc`, `http://localhost:8080?x=1` — was
+  valid until now and fails validation (`value does not match pattern …`);** `http://localhost` without a `/` is
+  accepted now. An unreadable or non-UTF-8 `mcp.yaml`, `config.yaml` or `--fake` script and a missing `--fake`
+  file are `config` errors (exit code 2), not tracebacks.
+- Dry run: `plan.md` marks allowed tools a server does not offer (`(NOT OFFERED by the server)`, `allowed but NOT
+  OFFERED: …`) and lists a server that does not start with the reason (`missing environment variable X (MCP server s
+  in mcp.yaml)`). The help of `--dry-run` says that MCP servers are started to list their tools, the help of `--fake`
+  that only the model is faked — MCP servers and callbacks stay real.
+- `callback_failed` in `GET /runs/<run_id>` and the callback note in `agencast runs` follow the callback events:
+  only a delivered attempt clears it, also one sent after a `serve` restart.
+- Editing API: the blank lines and comments directly above a step are its header — deleting a step removes it and
+  keeps the next step's, moving carries it along (re-indented), a new step goes above the next step's header,
+  replacing keeps both; what follows a block or a step list stays in place when a key or a step is added or removed
+  at its end; a comment never becomes a part of a `|` or `>` text. Writes keep the permission bits of the replaced
+  file and follow no symlink — not at the name of the temporary file, not through a linked directory, and not when
+  `POST …/scenarios`, `POST …/agents` or `POST /projects/new` create a file from a template; `files/` follows a link
+  only to a file it serves under its own name. In an untrusted project a scenario that already has an error can
+  still be given fewer MCP servers or have its other error fixed.
+- A scenario, agent or skill file that cannot be read — a link that leads nowhere, a directory under that name, no
+  permission — no longer fails `GET /projects/<p>` and every edit of the project (500, also before this release):
+  the entry is listed with its read error and `etag: ""`.
+- GUI: MCP servers in Config are read-only cards (description, transport, “not restricted by the owner”, variables
+  missing on the server, the file's errors); the `mcp.yaml` text block in YAML mode is gone. An untrusted project
+  shows the `agencast projects trust <name>` command in Config and in the run form of a scenario that uses an MCP
+  server. Agent editor: a server whose tools the owner does not restrict has a field for tool names, and ticking a
+  server no longer writes an empty `tools.<server>` list. Step panel (`task`): servers and tools are one checkbox
+  tree built from the agent's permissions (the raw JSON `tools` field is gone; the YAML is unchanged). Run viewer,
+  Tools tab: a call that did not return shows its error, and each server called links to its stderr log. The dry-run
+  texts say that MCP servers are started; the step number on a selected card is readable again.
+- Docs: agent.md names `agencast run <scenario> --dry-run` (there is no `validate --dry-run`); scenario.md warns
+  that tool calls scripted in a `--fake` run are real.
 
 ## 0.17.0 — 2026-09-28
 

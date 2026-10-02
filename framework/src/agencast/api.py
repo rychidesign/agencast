@@ -9,14 +9,15 @@ from pathlib import Path
 from typing import Any
 
 from . import ConfigErrors, projects as _projects
-# Project registry re-exported from projects.py (projects.md): new_project, projects = [{name, root, available}],
-# projects_root (default ~/workspace), normalize_project_root (expands ~, rejects .., relative paths under base).
+# Project registry re-exported from projects.py (projects.md): new_project, projects = [{name, root, available, trusted}],
+# projects_root (default ~/workspace), normalize_project_root (expands ~, rejects .., relative paths under base),
+# trust_project (`agencast projects trust` — the owner's terminal only, never an HTTP route).
 from .projects import (ProjectConflict, list_projects as projects, new_project, normalize_root as normalize_project_root,
-                       projects_root, registry_writable, remove as remove_project)
+                       projects_root, registry_writable, remove as remove_project, trust as trust_project)
 from .edit import (Conflict, NotFound, OpError, add_step, batch, delete_agent, delete_scenario, delete_skill, delete_step,
-                   file_etag, move_step, read_file, rename_agent, rename_scenario, render, replace_step, set_agent,
+                   create_path, file_etag, move_step, read_file, rename_agent, rename_scenario, render, replace_step, set_agent,
                    set_config, set_header, set_skill, render_text as _render_text, update_step, validate_text, write_file)
-from .engine import RUN_ID, Run, dry_run as _dry_run, run_scenario
+from .engine import RUN_ID, Interrupted, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import LoadError, load_dotenv, read_yaml
 from .record import Record, run_detail as _run_detail, run_status, step_detail as _step_detail
@@ -25,16 +26,16 @@ from .validate import Project, require_config, resolve_inputs, validate
 
 __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
            "new_scenario", "projects", "projects_root", "normalize_project_root", "registry_writable",
-           "ProjectConflict", "add_project", "remove_project", "ensure_project", "describe_project", "describe_scenario", "run_detail", "run_file",
+           "ProjectConflict", "add_project", "remove_project", "trust_project", "ensure_project", "describe_project", "describe_scenario", "run_detail", "run_file",
            "last_run", "step_detail",
-           "spend", "Project", "Run", "Fake",
+           "spend", "Project", "Run", "Fake", "Interrupted",
            # GUI editing operations (edit.py, api.md “Editing”): files are the source of truth, fingerprints, validation before writes
            "Conflict", "NotFound", "set_header", "add_step", "update_step", "move_step", "delete_step",
            "delete_scenario", "rename_scenario", "set_agent", "delete_agent", "rename_agent", "set_skill",
            "delete_skill", "set_config", "read_file",
            "write_file", "validate_text",
            # 0.8.0: batch and preview without writes, whole step, lightweight file fingerprint
-           "OpError", "batch", "render", "render_text", "replace_step", "file_etag"]
+           "OpError", "batch", "render", "render_text", "replace_step", "file_etag", "create_path"]
 
 
 def find_root(project_root=None) -> Path:
@@ -51,10 +52,12 @@ def find_root(project_root=None) -> Path:
     raise ConfigErrors(["no workflows/ directory in the current directory or its parents — use --project <path>"])
 
 
-def load(scenario_path, *, project_root=None, fake: Fake | None = None, offline: bool = False) -> Project:
+def load(scenario_path, *, project_root=None, fake: Fake | None = None, offline: bool = False,
+         listed: bool = False) -> Project:
     """Validated scenario. `scenario_path` = name (ig-post → workflows/scenarios/ig-post.yaml at the
     project root) or path to .yaml. Load `.env` from the project root and current directory. With `fake`,
-    validate models against its fake catalogs (if empty, populate them from config.yaml aliases)."""
+    validate models against its fake catalogs (if empty, populate them from config.yaml aliases).
+    `listed` = for a server of registered projects: one that left the registry uses no MCP servers (projects.md)."""
     s = str(scenario_path)
     if not s.endswith((".yaml", ".yml")) and "/" not in s:
         s = str(find_root(project_root) / "workflows" / "scenarios" / f"{s}.yaml")
@@ -65,7 +68,7 @@ def load(scenario_path, *, project_root=None, fake: Fake | None = None, offline:
         models = require_config(wf)["models"]
         fake.models = [m["id"] for m in models.values() if m.get("api", "chat") == "chat"]
         fake.image_models = [m["id"] for m in models.values() if m.get("api", "chat") == "images"]
-    return validate(s, transport=fake.transport() if fake else None, check_models=not offline)
+    return validate(s, transport=fake.transport() if fake else None, check_models=not offline, listed=listed)
 
 
 def run(project: Project, inputs: dict, *, fake: Fake | None = None, callback_url=None, request_key=None,
@@ -150,13 +153,14 @@ def new_scenario(project_root, name: str, description: str | None = None) -> lis
     return _projects.new_scenario(find_root(project_root), name, description)
 
 
-def add_project(path, name: str | None = None) -> str:
-    """Add a project (root containing workflows/) to the registry; return its name."""
-    return _projects.add(find_root(path), name)
+def add_project(path, name: str | None = None, *, trusted: bool = True) -> str:
+    """Add a project (root containing workflows/) to the registry; return its name. `trusted=False` = on behalf of
+    an HTTP client: the project may not use MCP servers until `trust_project` (projects.md)."""
+    return _projects.add(find_root(path), name, trusted)
 
 
 def ensure_project(root) -> str | None:
-    """After a successful run (also validate until 0.15.0): register unlisted projects; return a stderr message (or None)."""
+    """For a validated `run` (not `--dry-run`; also validate until 0.15.0): register unlisted projects; return a stderr message (or None)."""
     return _projects.ensure(Path(root).resolve())
 
 

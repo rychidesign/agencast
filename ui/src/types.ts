@@ -14,6 +14,8 @@ export interface ProjectRef {
   available: boolean;
   counts: { scenarios: number; agents: number };
   spend_today_usd: number;
+  /** Since 0.18.0, read-only: `false` = registered through the API, no MCP servers until `agencast projects trust`. */
+  trusted?: boolean;
   /** Only for `available: false`. */
   reason?: string;
   last_run?: LastRunRef | null;
@@ -81,14 +83,23 @@ export interface SkillSummary {
 export interface McpServer {
   name: string;
   type: string;
+  /** Since 0.18.0 (an older server does not send them): what the server is for, `stdio` / `streamable-http` / `sse`. */
+  description?: string | null;
+  transport?: string;
   agents: string[] | null;
+  /** `null` = the owner does not restrict the tools. */
   tools: string[] | null;
   scenarios: string[] | null;
+  /** Since 0.18.0: names of the server's variables that are not set on the server (never values). */
+  env_missing?: string[];
 }
 
 export interface Project {
   name: string;
   root: string;
+  /** Since 0.18.0, read-only (no route sets it): `false` = registered through the API; scenarios that would use an
+   *  MCP server fail validation until the owner runs `agencast projects trust <name>` in a terminal. */
+  trusted?: boolean;
   models: Record<string, string>;
   limits: Record<string, number | string | null>;
   scenarios: ScenarioSummary[];

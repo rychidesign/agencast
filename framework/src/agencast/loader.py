@@ -57,6 +57,9 @@ def _int12(loader, node):
 Yaml12Loader.add_constructor("tag:yaml.org,2002:int", _int12)
 
 
+ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]*")  # as in the schemas: a name outside it may be a pasted key
+
+
 class LoadError(Exception):
     """The file cannot be read (error class `config`)."""
 
@@ -78,13 +81,21 @@ def load_yaml(text: str, where: str, line_offset: int = 0):
         loader.dispose()
 
 
+def read_text(path: Path, where: str) -> str:
+    """Text of a project file; one that cannot be read (permissions, not UTF-8) is a `config` error, not a traceback."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        raise LoadError(f"{where}: cannot read the file ({getattr(e, 'strerror', None) or 'not UTF-8 text'})") from None
+
+
 def read_yaml(path: Path, where: str | None = None):
-    return load_yaml(path.read_text(encoding="utf-8"), where or str(path))
+    return load_yaml(read_text(path, where or str(path)), where or str(path))
 
 
 def read_frontmatter(path: Path, where: str):
     """(frontmatter, body) of a Markdown file with YAML between `---` lines."""
-    m = re.match(r"---\n(.*?)\n---\n(.*)", path.read_text(encoding="utf-8").replace("\r\n", "\n"), re.S)
+    m = re.match(r"---\n(.*?)\n---\n(.*)", read_text(path, where).replace("\r\n", "\n"), re.S)
     if not m:
         raise LoadError(f"{where}: missing frontmatter between --- lines")
     return load_yaml(m.group(1), where, line_offset=1), m.group(2)
@@ -168,8 +179,13 @@ def describe_error(e) -> str:
             return "allowed values: " + ", ".join(json.dumps(x, ensure_ascii=False) for x in val)
         case "pattern":
             if "propertyNames" in e.relative_schema_path:
+                if list(e.absolute_path)[-1:] == ["env"]:  # mcp.yaml: a pasted `NAME=key` or the key itself as the name
+                    return f"variable name does not match pattern {val} (expected NAME_FOR_SERVER: NAME_ON_HOST)"
                 return f"name '{inst}' does not match pattern {val}"
-            return f"value does not match pattern {val}"
+            p = [str(x) for x in e.absolute_path]  # `*_env` field or a value in mcp.yaml `env`: likely a pasted key
+            env = " — expected the NAME of an environment variable, not its value" \
+                if p and (p[-1].endswith("_env") or p[-2:-1] == ["env"]) else ""
+            return f"value does not match pattern {val}{env}"
         case "minItems" | "minProperties":
             return f"must contain at least {val} item{'' if val == 1 else 's'}"
         case "maxItems":
@@ -183,6 +199,9 @@ def describe_error(e) -> str:
         case "uniqueItems":
             return "duplicate items"
         case "not":
+            if isinstance(inst, str) and isinstance(val, dict) and "enum" in val \
+                    and list(e.absolute_path)[-1:] == ["env"]:  # mcp.yaml env: names the server process must keep
+                return f"variable '{inst}' must not be set for a server (not allowed: {', '.join(val['enum'])})"
             return f"'{inst}' is a reserved word" if isinstance(inst, str) else "disallowed value"
         case "dependentRequired":
             if "mcp" in inst and "tools" not in inst and isinstance(inst["mcp"], list):  # BUGS 9
@@ -209,7 +228,29 @@ def _one_of(e) -> str:
                          for c in e.context if c.schema_path and c.schema_path[0] == i)
     if e.schema.get("description", "").startswith("Shorthand schema"):
         return "schema format: string, number, integer, boolean, [type] or a field: type mapping"
+    if (keys := _form_keys(e)) and sum(k in inst for k in keys) != 1:  # with one, schema_errors reports that form
+        return "server must have either command or url (exactly one)"
     return "value does not match any allowed form"
+
+
+def _form_keys(e) -> list[str]:
+    """mcp.yaml server = oneOf of a `command` (stdio) and a `url` (remote) form: the key of each form;
+    [] for any other error."""
+    if e.validator != "oneOf" or not isinstance(e.instance, dict):
+        return []
+    keys = [next((k for k in ("command", "url") if k in b.get("required", ())), None) for b in e.validator_value]
+    return keys if all(keys) else []
+
+
+def _form_errors(errors):
+    """A server with exactly one of command/url: the errors of that form, each with its own field and line,
+    instead of one 'does not match any allowed form' for the whole server."""
+    for e in errors:
+        used = [i for i, k in enumerate(_form_keys(e)) if k in e.instance]
+        if len(used) == 1:
+            yield from (c for c in e.context if c.schema_path[0] == used[0])
+        else:
+            yield e
 
 
 def _yaml_line(data, path) -> int | None:
@@ -242,14 +283,22 @@ def schema_errors(kind: str, data, where: str, ref: str | None = None, skip=(), 
         line = _yaml_line(line_data, p) if line_data is not None else None
         return f"{where}, line {line}: " if line else f"{where}: "
 
-    for e in sorted(_validator(kind, ref).iter_errors(data), key=lambda e: list(map(str, e.absolute_path))):
+    for e in sorted(_form_errors(_validator(kind, ref).iter_errors(data)),
+                    key=lambda e: list(map(str, e.absolute_path))):
         p = tuple(e.absolute_path)
         if any(p[:len(s)] == s and len(p) > len(s) for s in skip):
             continue
+        if len(p) >= 2 and p[-2] == "env" and not ENV_NAME.fullmatch(str(p[-1])):
+            continue  # the path would quote the bad name (a pasted key); the name itself is reported, unquoted
         if e.validator == "additionalProperties" and isinstance(e.instance, dict):
             known = e.schema.get("properties", {})
             if extra := [k for k in e.instance if k not in known]:
-                out += [f"{at(p + (key,))}{path_str(p + (key,))}: unknown field '{key}' (typo?)" for key in extra]
+                # a field of the other server form (env with url, transport with command) is not a typo
+                other = dict(zip(_form_keys(e.parent), e.parent.validator_value)) if e.parent is not None else {}
+                for key in extra:
+                    only = next((k for k, b in other.items() if key in b.get("properties", {})), None)
+                    out.append(f"{at(p + (key,))}{path_str(p + (key,))}: " + (
+                        f"field '{key}' is only allowed with {only}" if only else f"unknown field '{key}' (typo?)"))
                 continue
         out.append(f"{at(p)}{path_str(p) + ': ' if p else ''}{describe_error(e)}")
     return out

@@ -302,3 +302,105 @@ the names in the examples are English now:
   labelled `Image <k> (<path>, <W>×<H>)` (for `image` in a legend at the top of
   the prompt), the path a template renders — a prompt names an image with
   `{{ inputs.shirt }}`.
+
+## version 1 — backward-compatible addition (framework 0.18.0, MCP servers are the owner's)
+
+The agent and scenario formats are unchanged, and `config.yaml` and `mcp.yaml`
+have no new or changed key; existing files keep their meaning, with one
+exception: the pattern of a plain `http://` URL is narrower, so a file that used
+what it no longer admits fails validation. Additions are optional. Four
+behaviours change for existing users and are marked **changed**.
+
+- **Changed — the files API no longer serves or writes `mcp.yaml`** (api.md “MCP
+  servers are the owner's”, config.md): `GET`, `HEAD` and `PUT …/files/mcp.yaml`
+  and `POST …/validate` with `path: "mcp.yaml"` → 404; the GUI can no longer edit
+  the file, its owner edits it on disk. `GET /projects/<p>` lists the servers
+  without `command`, `args`, `url`, `env` and `bearer_token_env` and carries the
+  file's errors in the project-level `errors` (`file: "mcp.yaml"`, `line`,
+  `field`; an argument is named by its place, `servers.<name>.args[1]`, never
+  quoted). The one write left is `POST …/agents/<a>/rename`: only the agent's
+  name in the `agents` lists, the file's permission bits kept, 409 when the file
+  changed on disk meanwhile, a `mcp.yaml` that is a link left alone.
+- **Changed — projects registered through the API need trust** (projects.md
+  “Trust”): new optional registry key `projects[].trusted`. `POST /projects` and
+  `POST /projects/new` write `trusted: false`; without the key — every entry from
+  a terminal and every existing entry — the project is trusted. An untrusted
+  project uses no MCP server: `validate`, `run`, `--dry-run`, `--fake` and the
+  same requests over HTTP (422) end with one `config` error that names the new
+  command `agencast projects trust <name>` (terminal only; shows the root and the
+  servers, asks, `--yes` outside a terminal). No HTTP route sets the key.
+- **Changed — `agencast run --dry-run` no longer adds the project to the
+  registry** (projects.md); a `run` that passes validation still does.
+- API fields (api.md): `trusted` (read-only) in every item of `GET /projects`, in
+  `GET /projects/<p>` and in the 201 bodies of `POST /projects` and
+  `POST /projects/new`; `mcp_servers[]` in `GET /projects/<p>` gains
+  `description`, `transport` (`stdio`, `streamable-http`, `sse`; `type` stays)
+  and `env_missing` (names of the server's variables that are not set). A
+  scenario, agent or skill file that cannot be read (a link that leads nowhere)
+  is listed with that error and `etag: ""` instead of failing the request.
+- Run record (run-record.md): `tool_call` and `calls/NN.tool.json` gain `error`
+  for a call that did not return (timeout, dropped connection, cancelled step;
+  `result: null`, `is_error: true`). `mcp_server` `failed` is written for every
+  failed start attempt and, at the end of the run, for a server that dropped the
+  connection during a tool call (instead of `stopped`); `stopped` without
+  `started` = the run ended while the server was starting. `stderr_file` exists
+  for local servers only, once the server has stopped, and a later start in the
+  same run appends to it. `error.attempt` also counts MCP server starts.
+  `image_saved.bytes` and the `<file: …, N B>` note are the size of the file as
+  stored (after masking).
+  `step_skipped.reason` names an interrupt (`cancelled — the run was interrupted
+  (SIGTERM)`; `reason_code` unchanged).
+- Handshake retry (scenario.md `retry`, the `task` step; config.md): a
+  `transient` failure to start an MCP server — a network error, HTTP 408, 429 or
+  5xx — is retried according to the step's `retry`, with the delay 2 s, 4 s,
+  8 s… or the server's `Retry-After`; everything else is `config`. The message
+  names the HTTP status (`http_status` in the `error` event), the last stderr
+  lines of a local server, or a stdout line that is not JSON-RPC. A remote
+  server's session is ended with one request that gets 5 s as a whole; a failed
+  start reaches the step before it.
+- `task` (scenario.md): once the step has called an MCP tool, the retry after a
+  `schema` error only allows the answer (`tool_choice`); tool calls in it are
+  not executed. `--fake` fakes only the model: scripted tool calls are real.
+- Signals (scenario.md, api.md “Stopping `serve`”): SIGINT/SIGTERM cancel
+  `agencast run` once, stop its MCP servers and exit with 130/143; the record is
+  that of an interrupted run. A stopped `agencast serve` does the same for its
+  runs in flight; the next start reports them and sends again a callback that
+  was cut short (new `callback_sent` events after `callback_failed`; only a
+  delivered attempt clears `callback_failed` in `GET /runs/<run_id>`). A
+  cancellation that arrives while a failed `parallel` branch cancels the others
+  is not lost: a cancelled branch never goes on past a `call` step with
+  `on_error: continue`.
+- Masking rules (run-record.md): longer values are replaced first; the escaped
+  forms of a value too — JSON-escaped once or twice, also `/` as `\/` (PHP),
+  `&`, `<`, `>`, U+2028, U+2029 as `\u0026`, `\u003c`, `\u003e`, `\u2028`,
+  `\u2029` (Go) and with uppercase hex, `"`, `'`, `+` and `` ` `` included
+  (`\u002B`, `\u0022`; .NET), and HTML-escaped; JSON is masked per
+  string before it is written (always valid JSON); a number whose digits hold a
+  value becomes the replaced string; the bytes of a saved file (a tool's image
+  block) are masked; `mcp/<server>.stderr.log` is masked and never raw in the
+  run directory. Errors quote a remote server's URL without userinfo and query
+  and the MCP library's errors without the server's input values.
+- **Changed — the pattern of plain `http://` URLs is narrower**
+  (`config.schema.json` `openrouter.base_url`, `mcp.schema.json` `url`; was
+  `http://(127.0.0.1|localhost)[:/]`): plain `http://` only for `127.0.0.1` or
+  `localhost`, an optional numeric port, then `/` or the end. A file with
+  `http://127.0.0.1:1@example.com/` (userinfo — the host is `example.com`),
+  `http://localhost:abc` or `http://localhost:8080?x=1` was valid and now fails
+  validation (`servers.<name>.url: value does not match pattern …`);
+  `http://localhost` without a `/` is accepted now. `callback_url` gets the
+  same shape check already when the run is accepted (422), with plain `http://`
+  only for `127.0.0.1` (not `localhost`), as before.
+- `mcp.yaml` errors (config.md) name the field and the line; an error in one
+  server entry leaves the others known to the checks of agents and scenarios; a
+  value pasted where a variable name belongs is never printed; a file that
+  cannot be read is a `config` error.
+- Editing rule for step headers (api.md): the blank lines and comments directly
+  above a step belong to it — deleted with it, moved with it (re-indented), kept
+  by a replacement; a new step goes above the header of the next one. A comment
+  never becomes a part of a `|` or `>` text. Writes keep the permission bits of
+  the replaced file and follow no link, also when `POST …/scenarios`,
+  `POST …/agents` and `POST /projects/new` create files; `files/` follows a link
+  only to a file it serves under its own name.
+- Dry run (scenario.md §7): `plan.md` marks an allowed tool the server does not
+  offer (`(NOT OFFERED by the server)`) and lists a server that does not start
+  with the reason.

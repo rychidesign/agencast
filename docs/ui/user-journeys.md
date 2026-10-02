@@ -14,7 +14,7 @@ export AGENCAST_CONFIG_DIR=$TMP/cfg AGENCAST_TOKEN=test-token
 agencast new project $TMP/demo          # registry “demo”: agents/writer.md, scenarios/demo.yaml (write → result, input topic default “coffee”)
 agencast serve --fake $TMP/fake.yaml --port 8787   # outside a project = registry mode; GUI = the built ui/ (npm run build) at http://127.0.0.1:8787/
 ```
-- `fake.yaml` = a map `step id: [response…]` (fake.py): `write: [{text: "Two sentences."}]`, for a live run `slowly: [{text: "…", sleep: 4}]` (step `slowly` in the fixture `slow.yaml`). One script per `serve` process → steps with different behaviour must have different ids.
+- `fake.yaml` = a map `step id: [response…]` (fake.py): `write: [{text: "Two sentences."}]`, for a live run `slowly: [{text: "…", sleep: 4}]` (step `slowly` in the fixture `slow.yaml`), for tool calls `probe` (C21). One script per `serve` process → steps with different behaviour must have different ids.
 - Playwright `storageState`: `localStorage["agencast.token"]="test-token"` (except C1). Files are verified through `fs` + a YAML parser; the GUI writes only through the API and parses nothing itself.
 - Hash paths: `#/` · `#/p/demo` (= scenarios) · `#/p/demo/{agents|config|skills|runs}[/item]` · `#/p/demo/scenarios/<s>?step=<id|_header>&mode=yaml&from=…` · `#/p/demo/runs/<run_id>?tab=…&step=…`.
 - Stable hooks that already exist: a step card `button[data-step-card="<id>"]` with `aria-label="Step n: <type> <id>[ — status][ — cut]"` and `aria-pressed`; the header `[data-step-card=""]`; the panel `role=complementary` (an aside with `aria-labelledby=step-panel-title` / `run-panel-title`); the toggle `radiogroup "View"` with `radio "Form"` / `"YAML"` / `"Markdown"`; the ⋯ menu `button "Actions for <name>"` → `menuitem`; the TypePicker `listbox "New step type"` → `option` (text `ask single agent call`); YAML `textbox "scenarios/<s>.yaml"`; the column `section "Scenario steps"`; the tabs `nav "Project sections"` / `nav "Run sections"` with `aria-current=page`.
@@ -47,7 +47,7 @@ Playwright: `localStorage.agencast.token === "test-token"`; `Authorization: Bear
 Goal: a new project without a terminal. State: the registry has only `demo`.
 1. `#/` → click “Add project” (a button in the header; the dashed card only for an empty list) → a dialog (`role=dialog`) “New project”: `textbox "Name"` (a slug; the typed name is corrected while typing — `Café Crème` → `cafe-creme`; error ““demo” already exists.”), `textbox "Path"`, `button "Create"`.
 2. `my-web` + `$TMP/my-web`, Create → `#/p/my-web`, `h1 "Scenarios"`, the name “my-web” and `nav "Project sections"` in the sidebar (the project path is not on the page, G5), the scenario card `demo` with the subtitle “Write a short text on a given topic” and the meta “2 steps · writer” (without the number of inputs/outputs and without “demo.yaml”, G7).
-3. Disk: `my-web/workflows/config.yaml`, `agents/writer.md`, `scenarios/demo.yaml`, `.env.example`, `.gitignore`; `cfg/projects.yaml` has `name: my-web, root: …`.
+3. Disk: `my-web/workflows/config.yaml`, `agents/writer.md`, `scenarios/demo.yaml`, `.env.example`, `.gitignore`; `cfg/projects.yaml` has `name: my-web, root: …, trusted: false` (registered over HTTP = no MCP servers until `agencast projects trust`, C21).
 4. Back to `#/` → two cards. A name/path collision → an API error in the dialog (`role=alert`), nothing was created.
 
 ### C3 New agent **[done; the dialog has no description or model although API 0.8.0 supports them — the template writes `description: TODO`]**
@@ -81,9 +81,9 @@ Goal: understand what is wrong and fix it without a terminal. State: `demo/demo`
 
 ### C6 Starting a run with an input form (dry run, live, in-progress) **[done; after 202 the GUI also reads the `dry_run` state for 15 s (the URL-flag hack, finding 15 — no longer needed since 0.8.0 and gone from the GUI)]**
 Goal: start a scenario and see that it is running. State: `demo` + the fixture `slow.yaml` (step `slowly` with `sleep: 4`).
-1. The `demo` editor → `button "Run"` → a panel with the eyebrow “START RUN”, `textbox "topic"` prefilled with `coffee`, the help “string · What to write about”, `group "Run mode"` with two cards (a radio inside, a click anywhere on the card selects, the selected one has a ring), `radio "Dry run"` checked (help “Plan only (plan.md); nothing is called, free.”), on the right `button "Cancel"` (closes the panel like ✕ and Esc) and `button "Start dry run"`; limits only for a live run (PN2).
+1. The `demo` editor → `button "Run"` → a panel with the eyebrow “START RUN”, `textbox "topic"` prefilled with `coffee`, the help “string · What to write about”, `group "Run mode"` with two cards (a radio inside, a click anywhere on the card selects, the selected one has a ring), `radio "Dry run"` checked (help “Plan only (plan.md): no model calls; starts the MCP servers to list their tools.”), on the right `button "Cancel"` (closes the panel like ✕ and Esc) and `button "Start dry run"`; limits only for a live run (PN2).
 2. Clear topic, `checkbox "required"` is on in the fixture (a scenario variant without a default) → submit → below the field “Required input.”, no POST.
-3. `topic` = “new coffee”, Start dry run → `POST /projects/demo/runs {dry_run: true}` 200 → `#/p/demo/runs/<run_id>`, `run-state` “plan only (dry run)”, the text “This is only a plan (dry run) — nothing was executed.”, the rendered `plan.md`. Disk: `demo/runs/<run_id>/plan.md`, `inputs.json` (`{"topic":"new coffee"}`), no `events.jsonl`.
+3. `topic` = “new coffee”, Start dry run → `POST /projects/demo/runs {dry_run: true}` 200 → `#/p/demo/runs/<run_id>`, `run-state` “plan only (dry run)”, the text “This is only a plan (dry run) — no step ran and no model was called; MCP servers the scenario uses were started only to list their tools.”, the rendered `plan.md`. Disk: `demo/runs/<run_id>/plan.md`, `inputs.json` (`{"topic":"new coffee"}`), no `events.jsonl`.
 4. Start again, `radio "Live run"` → `dl "Run limits"`: “per run 1.00 USD”, “run timeout 1h”, “spent today 0 / 5.00 USD” (spend ignores fake runs); with an unsaved change also a warning with an icon “You have unsaved changes — the run will use the version on disk.” → `button "Start live run"` → 202 → `#/p/demo/runs/<run_id>`.
 5. On `slow`: the header “running”, the chip “fake run”, the card `[data-step-card="slowly"]` `aria-label` “… — running” (pulse), the time ticks, `aria-live` “step slowly running”, `checkbox "follow run"`; after ≈ 4 s `role=status` “Run finished: succeeded”, the card “— succeeded”, the checkbox disappears, polling ends (no further GET within 6 s).
 6. The `Runs` tab: a `run-row` with an icon + sr “running”, “step 1/2 · slowly” (the status is not repeated in the row), “fake run”, on the right “1 running · 0 queued”; two starts at once → the second “queued (#2)”. Disk: `runs/<run_id>/{run.lock, events.jsonl, scenario/slow.yaml, steps/01-slowly/…, summary.md, report.html}`.
@@ -135,7 +135,7 @@ Goal: rename `write` to `article_text` and break nothing. State: `demo` (`result
 ### C13 Adding an existing project **[done]**
 State: the folder `$TMP/foreign` created by `agencast new project` **without** the registry (a different `AGENCAST_CONFIG_DIR` at creation), then removed from the registry.
 1. `#/` → “Add project” → a dialog with the toggle “Create new” / “Add existing” (or a second button) → `textbox "Path"` = `$TMP/foreign`, the name prefilled `foreign` → Create/Add.
-2. → the card `foreign` with counts; `cfg/projects.yaml` has a second entry; on disk `foreign/` is unchanged (no new files). A path without `workflows/config.yaml` → an error in the dialog `role=alert` (the API text), nothing written. The same path a second time → a collision error with the `--name` hint.
+2. → the card `foreign` with counts; `cfg/projects.yaml` has a second entry (with `trusted: false`); on disk `foreign/` is unchanged (no new files). A path without `workflows/config.yaml` → an error in the dialog `role=alert` (the API text), nothing written. The same path a second time → a collision error with the `--name` hint.
 
 ### C14 Removing a project from the registry **[done]**
 1. `#/` → `button "Actions for foreign"` → `menuitem "Remove from registry"` → the dialog “Remove “foreign” from the registry?” with a sentence that the files stay → confirm.
@@ -180,7 +180,7 @@ Viewport 375×667 (iPhone SE emulation, `pointer: coarse`).
 2. The confirmation sends `POST …/scenarios/<old>/rename` or
    `POST …/agents/<old>/rename` with `{etag, name}`. A scenario also rewrites
    `call.scenario`; an agent rewrites references in `ask`/`task` and the `agents`
-   lists in `mcp.yaml`. Comments stay.
+   lists in `mcp.yaml` (the only change the API makes to that file). Comments stay.
 3. On success the draft of the old path disappears, the list refreshes and the editor moves to
    the new name. When several files changed, their paths are shown.
    `runs/` does not change; older runs still show the original name.
@@ -208,6 +208,30 @@ Viewport 375×667 (iPhone SE emulation, `pointer: coarse`).
    E2E: `redesign-shell.spec.ts` R1–R3, `redesign-panels.spec.ts` PN3–PN4, `redesign-integration.spec.ts` IC1–IC2, `projects.spec.ts` N2
    (Reload via ⋯), vitest `editor.test.tsx` (a single `h1 "Agents"`).
 
+### C21 MCP servers are the owner's (0.18.0)
+
+State: a project created by `POST /projects/new` (`trusted: false` in the registry, like every project of the fixture);
+on disk the owner's `workflows/mcp.yaml` with the framework's fake stdio server `fs` (`framework/tests/fake_mcp_server.py`,
+`timeouts: { call: 6s }`), the agent `tester` and the scenario `tools` with one `task` step `probe`.
+1. Config → the section “MCP servers”: once the sentence “MCP servers are set up by the project owner in
+   workflows/mcp.yaml on the server. This page only shows them.”, the card `fs` (description, `stdio`, `tester`,
+   a “Read-only” chip) and `untrusted-notice` with `agencast projects trust <name>`; its only button is “Copy command”.
+   `radio "YAML"` → one `textbox "config.yaml"` and the same card below it. No request contains `mcp.yaml`
+   (`GET …/files/mcp.yaml` is a 404).
+2. Agents → `tester`: tick `fs`, “Tools of fs” = `red_pixel, slow`, Save → “The change failed validation …”, the
+   message “… MCP servers (fs) are disabled — … agencast projects trust <name>”; the file on disk is unchanged.
+   The owner then writes `mcp: [fs]` into the agent by hand.
+3. The `tools` editor → Run: `untrusted-notice` with the command in the panel; “Start dry run” → `role=alert`
+   “scenario 'tools' or its inputs failed validation” with the same message, the address does not change. The
+   `demo` scenario (no MCP) has no notice.
+4. `agencast projects trust <name>` in a terminal → after loading again neither Config nor the Run panel shows the notice.
+5. A live run of `tools` (fake: `fs.red_pixel`, then `fs.slow` for 60 s): the step panel → Tools shows `fs.red_pixel`
+   and “Server log (stderr): mcp/fs.stderr.log”; the link → Files with “The stderr log of a local MCP server is written
+   when the server stops …” and no 404 request. After 6 s the call times out, the run fails, the server stops and the
+   same page shows the log (“fake-mcp: root …”). Tools: the row `fs.slow` in `bg-error/10` with “tool fs.slow did not
+   respond within 6 s (may have run)”.
+   E2E: `mcp.spec.ts` “C21”; vitest `mcp.test.tsx` (read-only section, notice, Tools, pending log).
+
 ## Negative and edge states
 
 - **N1 Server not responding** — State: `page.route("**/projects*", r => r.abort())` or a stopped `serve`. Expectation: `server-bar` `role=alert` at the bottom of the sidebar (in the top bar below 1024 px) “The agencast server is not responding (127.0.0.1:8787), retrying…”, the content stays (the last data), no extra error message; after the route is restored the bar disappears on its own within 5 s. In an editor with a change in progress “Unsaved” stays and the draft in `localStorage` (`agencast.draft.*`). **[done]**
@@ -220,7 +244,7 @@ Viewport 375×667 (iPhone SE emulation, `pointer: coarse`).
 ## What a test will not capture
 - The Buzz look: the surface ladder, the selected card's ring, the pulse, hover states, `prefers-reduced-motion` — only screenshots (a screenshot diff) with a tolerance, not asserts.
 - Performance (LCP, bundle size 96 kB gz, 20 cards × N+1 for projects — finding 24) and behaviour with hundreds of runs (the cursor, finding 25).
-- Real models, costs and `spend` (the fake ledger is separate → “today 0 USD” always), callbacks, R2 storage, MCP servers.
+- Real models, costs and `spend` (the fake ledger is separate → “today 0 USD” always), callbacks, R2 storage, real MCP servers (C21 uses the framework's fake stdio server).
 - The iframe in Skynet Soul (`postMessage` with the path), CORS with `vite dev`, real screen readers (only the ARIA structure), the system clipboard (“Copy” only with `clipboard-read` permissions).
 - Time captions (“3 min ago”, “yesterday 2:03 PM”) and the `title` with UTC — test with a regex, not by value.
 

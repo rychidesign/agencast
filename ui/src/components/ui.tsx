@@ -235,6 +235,21 @@ export function CliLine({ cmd, className = "" }: { cmd: string; className?: stri
   );
 }
 
+/** The command that lifts `trusted: false` (projects.md "Trust"); the server's error for a blocked scenario names it too. */
+export const trustCommand = (project: string) => `agencast projects trust ${project}`;
+
+/** A project registered through the API starts no MCP server until its owner trusts it in a terminal. No route sets
+ *  the flag (api.md "MCP servers are the owner's"), so this is a notice with the command — never a control. */
+export function UntrustedNotice({ project, text }: { project: { name: string; trusted?: boolean }; text: string }) {
+  if (project.trusted !== false) return null;
+  return (
+    <div data-testid="untrusted-notice" className="space-y-2 rounded-control bg-warning/10 p-3">
+      <p className="flex items-start gap-3 text-xs leading-[19px] text-warning"><TriangleAlert className="size-4 shrink-0" aria-hidden />{text}</p>
+      <CliLine cmd={trustCommand(project.name)} />
+    </div>
+  );
+}
+
 /** Copy in the code block footer: transparent with an outline (design 12 "Code actions"). */
 export const copyBtn = "inline-flex h-9 shrink-0 items-center gap-2 rounded-[var(--radius-button)] px-3.5 text-sm font-semibold text-fg ring-1 pointer-coarse:h-11 ring-fg-muted/70 hover:bg-control";
 

@@ -1,10 +1,13 @@
 """Run with a fake provider: error classes and their behavior (scenario.md §6),
 steps, run record (run-record.md), callback."""
+import asyncio
 import hashlib
+import html
 import hmac
 import json
 import re
 import base64
+import signal
 from datetime import datetime
 from pathlib import Path
 
@@ -15,6 +18,7 @@ from conftest import add_image_model, events, model_ids, run, scenario
 from agencast import AgencastError, engine, providers
 from agencast.engine import dry_run, run_scenario
 from agencast.fake import Fake
+from agencast.record import Record
 from agencast.validate import validate
 
 HEAD = "version: 1\nname: NAME\ndescription: Test scenario\n"
@@ -532,6 +536,82 @@ def test_parallel_failure_cancels_other_branch(wf):
     assert "z" not in r.values["steps"]
 
 
+def test_signal_while_a_failed_branch_cancels_the_others_interrupts_the_run(wf, monkeypatch):
+    """TaskGroup drops a cancellation that arrives while it is cancelling the other branches (a remote tool call takes
+    seconds to cancel): the run went on to `run_finished` and its callback — past a `call` step with `on_error:
+    continue` also to its next steps — and every later signal was ignored."""
+    ask = engine.Run.step_ask
+
+    async def step_ask(self, info, ctx):
+        try:
+            return await ask(self, info, ctx)
+        except asyncio.CancelledError:  # s1, cancelled because r1 failed: the signal arrives before it has ended
+            engine._LIVE[asyncio.get_running_loop()](signal.SIGTERM)
+            await asyncio.sleep(0.05)
+            raise
+    monkeypatch.setattr(engine.Run, "step_ask", step_ask)
+    with pytest.raises(engine.Interrupted):
+        run(scenario(wf, PARALLEL), script={"r1": {"status": 400}, "s1": {"sleep": 5, "text": "B"}})
+    (rec,) = (wf.parent / "runs").glob("2*")
+    evs = [json.loads(line) for line in (rec / "events.jsonl").read_text().splitlines()]
+    assert "run_finished" not in [e["type"] for e in evs]
+    assert {e["step"]: e["status"] for e in evs if e["type"] == "step_finished"} == {"r1": "failed", "s1": "cancelled",
+                                                                                     "p": "cancelled"}
+    assert [(e["step"], e["reason"]) for e in evs if e["type"] == "step_skipped"] == [
+        ("s2", "cancelled — the run was interrupted (SIGTERM)"), ("z", "cancelled — the run was interrupted (SIGTERM)")]
+
+
+NESTED = HEAD + """
+steps:
+  - id: o
+    parallel:
+      x:
+        - { id: c, on_error: continue, call: { scenario: inner } }
+        - { id: d, set: { v: 1 } }
+      y:
+        - { id: y1, ask: { agent: copywriter, prompt: later } }
+"""
+INNER = HEAD + """
+callable: true
+steps:
+  - id: p
+    parallel:
+      a:
+        - { id: ia, ask: { agent: copywriter, prompt: fails } }
+      b:
+        - { id: ib, ask: { agent: copywriter, prompt: slow to cancel } }
+"""
+
+
+@pytest.mark.parametrize("y1, status", [({"status": 400}, "failed"), ({"text": "ok"}, "succeeded")])
+def test_outer_branch_failure_while_an_inner_parallel_cancels_its_branches(wf, monkeypatch, y1, status):
+    """TaskGroup drops the cancellation of an outer parallel too: branch x, cancelled because y1 failed while the
+    parallel inside its `call` was still cancelling `ib`, went on past `on_error: continue` and ran `d` in a run
+    that had already failed. Without the outer failure the continued call still lets `d` run."""
+    ask, gate = engine.Run.step_ask, asyncio.Event()
+
+    async def step_ask(self, info, ctx):
+        if info.id == "y1":  # fails (or answers) only once the inner parallel is cancelling `ib`
+            await gate.wait()
+        try:
+            return await ask(self, info, ctx)
+        except asyncio.CancelledError:  # c/ib: slow to cancel, like a remote tool call
+            gate.set()
+            await asyncio.sleep(0.05)
+            raise
+    monkeypatch.setattr(engine.Run, "step_ask", step_ask)
+    scenario(wf, INNER, "inner")
+    r, _ = run(scenario(wf, NESTED), script={"c/ia": {"status": 400}, "c/ib": {"sleep": 5}, "y1": y1})
+    fin = {e["step"]: e["status"] for e in events(r, "step_finished")}
+    assert r.status == status and (fin["c/ia"], fin["c/ib"]) == ("failed", "cancelled"), (r.error, fin)
+    if status == "succeeded":
+        assert (fin["c"], fin["d"], r.values["steps"]["d"]) == ("failed", "succeeded", {"v": 1})
+    else:
+        assert r.error["step"] == "y1" and (fin["c/p"], fin["c"], fin["o"]) == ("cancelled", "cancelled", "failed"), fin
+        assert [(e["step"], e["reason"]) for e in events(r, "step_skipped")] == [
+            ("d", "cancelled — another parallel branch failed")]
+
+
 def test_parallel_skipped_with_when(wf):
     r, fake = run(scenario(wf, PARALLEL.replace("  - id: p\n", "  - id: p\n    when: 1 > 2\n")
                            .replace("  - id: z\n    set: { v: 'steps.r1.text + steps.s2.v' }\n", "")))
@@ -550,6 +630,97 @@ def test_secrets_masked_everywhere(wf, monkeypatch):
             assert "super-secret-password-123" not in f.read_text(), f
     assert "<secret: CALLBACK_SECRET>" in (r.rec.dir / "callback.json").read_text()
     assert any("CALLBACK_SECRET" in w for w in r.warnings)
+
+
+def test_secret_with_quote_or_backslash_is_masked_in_json(tmp_path):
+    """The record is JSON: a `"` or `\\` in the value is escaped there, twice when a tool result is itself JSON."""
+    secret = 'pass"word\\with-quote-123'
+    rec = Record(tmp_path / "run", {"KEY": secret})
+    rec.write("tool.json", {"plain": secret, "result": json.dumps({"value": secret})})
+    rec.event("tool_call", result=json.dumps({"value": secret}))
+    rec.write("report.html", html.escape(json.dumps({"value": secret})))
+    for name in ("tool.json", "events.jsonl", "report.html"):
+        text = (rec.dir / name).read_text()
+        assert "with-quote-123" not in text and "<secret: KEY>" in text, text
+    assert json.loads((rec.dir / "tool.json").read_text())["plain"] == "<secret: KEY>" and rec.masked == {"KEY"}
+
+
+def test_secret_in_json_written_by_another_encoder_is_masked(tmp_path):
+    """`\\/` (PHP's json_encode) and `\\u0026`, `\\u003c`, `\\u003e` (Go's encoding/json) are JSON escapes Python
+    never writes: a server's stderr line or tool result in that JSON kept a connection URL and a token readable."""
+    dsn, token = "postgres://app:Pw-secret-1@db.local/prod", "tok&R4<abcdef>1234"
+    rec = Record(tmp_path / "run", {"DSN": dsn, "TOKEN": token})
+    php = json.dumps({"dsn": dsn, "token": token}).replace("/", "\\/")
+    go = json.dumps({"dsn": dsn, "token": token}).translate({ord(c): f"\\u{ord(c):04x}" for c in "&<>"})
+    assert "\\/\\/app" in php and "tok\\u0026R4\\u003c" in go
+    rec.write("mcp/db.stderr.log", f"{php}\n{go}")
+    rec.event("tool_call", result=f"Tool error: {php} {go}")
+    rec.write("report.html", html.escape(json.dumps({"result": php + go})))
+    for name in ("mcp/db.stderr.log", "events.jsonl", "report.html"):
+        text = (rec.dir / name).read_text()
+        assert "Pw-secret-1" not in text and "abcdef" not in text and text.count("<secret: ") == 4, text
+
+
+def test_secret_in_json_written_by_dotnet_is_masked(tmp_path):
+    """System.Text.Json — the encoder of the C# MCP SDK — writes `"`, `&`, `'`, `+`, `<`, `>`, `` ` `` and every
+    non-ASCII character as `\\uXXXX` with uppercase hex: a base64 key with a `+` stayed readable in a tool result or
+    a stderr line in that JSON. Go escapes U+2028 and U+2029 in a value it otherwise writes as it is."""
+    key, word = "wJalr+XUtnFEMI/K7MDENG+bPxRfiCY", 'Pa\'ss"wörd<1>\N{LINE SEPARATOR}é'
+    rec = Record(tmp_path / "run", {"KEY": key, "WORD": word})
+    net = r'{"k":"wJalr\u002BXUtnFEMI/K7MDENG\u002BbPxRfiCY","w":"Pa\u0027ss\u0022w\u00F6rd\u003C1\u003E\u2028\u00E9"}'
+    go = r'{"w":"Pa\'ss\"wörd\u003c1\u003e\u2028é"}'.replace("\\'", "'")
+    assert json.loads(net) == {"k": key, "w": word} and json.loads(go) == {"w": word}
+    rec.write("mcp/db.stderr.log", f"{net}\n{go}")
+    rec.event("tool_call", result=f"Tool error: {net} {go}")
+    rec.write("report.html", html.escape(json.dumps({"result": net + go}, ensure_ascii=False)))  # as the record dumps
+    for name in ("mcp/db.stderr.log", "events.jsonl", "report.html"):
+        text = (rec.dir / name).read_text()
+        assert "FEMI" not in text and "Pa" not in text and text.count("<secret: ") == 3, text
+
+
+def test_secret_in_the_bytes_of_a_saved_file_is_masked(tmp_path):
+    """A tool's image block is whatever bytes the server sends (`mimeType: text/plain`, its environment inside):
+    they were written to steps/…/tool-NN-k.bin as they came, and the API serves run files."""
+    rec = Record(tmp_path / "run", {"API_TOKEN": "tok-SUPERSECRET-0042"})
+    rec.write_bytes("steps/01-t/tool-02-1.bin", b"\xff\x00api_token=tok-SUPERSECRET-0042\n")
+    assert (rec.dir / "steps/01-t/tool-02-1.bin").read_bytes() == b"\xff\x00api_token=<secret: API_TOKEN>\n"
+    assert rec.masked == {"API_TOKEN"}
+
+
+@pytest.mark.parametrize("secret, value", [
+    ('\\pa"ss-word1', '<input value="{html}">'),  # the HTML form starts with a backslash …
+    ("\tabcdefgh", "\\{raw}"),                    # … or the JSON form does, right after an escaped backslash
+    ('ab"cdefgh\\', '<input value="{html}">'),
+])
+def test_masking_never_breaks_the_json_of_the_record(tmp_path, secret, value):
+    """Masking the dumped text could match from the second character of an escaped `\\\\`: the lone backslash left
+    made a line that no reader of events.jsonl can parse (and the callback was never sent)."""
+    rec = Record(tmp_path / "run", {"PW": secret})
+    value = value.format(html=html.escape(secret), raw=secret)
+    rec.event("tool_call", result=value)
+    rec.write("tool.json", {"result": value, secret: 1})
+    (line,) = (rec.dir / "events.jsonl").read_text().splitlines()
+    assert json.loads(line)["result"] == rec.events[0]["result"] == value.replace(html.escape(secret), "<secret: PW>").replace(secret, "<secret: PW>")
+    assert json.loads((rec.dir / "tool.json").read_text()) == {"result": rec.events[0]["result"], "<secret: PW>": 1}
+
+
+def test_longer_secret_is_masked_before_one_it_contains(tmp_path):
+    """Secret by secret, the user name was replaced inside the connection URL first — and the URL, password
+    included, never matched again."""
+    url = "postgres://report_admin:Tr0ub4dor@db.internal/app"
+    rec = Record(tmp_path / "run", {"PG_USER": "report_admin", "PG_URL": url})
+    assert rec.mask(f"connecting to {url} as report_admin") == "connecting to <secret: PG_URL> as <secret: PG_USER>"
+
+
+def test_secret_in_a_json_number_is_masked(tmp_path):
+    """A secret of digits that a model or a tool returns as a number is no string leaf: it passed unmasked into
+    output.json, events and the callback."""
+    rec = Record(tmp_path / "run", {"PIN": "12345678"})
+    rec.event("x", n=12345678, s="code 12345678", other=[1.5, True, 1234567])
+    rec.write("callback.json", {"outputs": {"pin": 12345678}})
+    assert "12345678" not in (rec.dir / "events.jsonl").read_text() + (rec.dir / "callback.json").read_text()
+    assert json.loads((rec.dir / "callback.json").read_text()) == {"outputs": {"pin": "<secret: PIN>"}}
+    assert rec.events[0]["n"] == "<secret: PIN>" and rec.events[0]["other"] == [1.5, True, 1234567]
 
 
 def test_callback_signed(wf, monkeypatch):
@@ -583,12 +754,38 @@ def test_callback_failure_does_not_change_status(wf, monkeypatch):
     assert "Callback not delivered" in (r.rec.dir / "summary.md").read_text()
 
 
+def test_interrupt_during_the_callback_leaves_a_finished_run(wf, monkeypatch):
+    """Ctrl-C while the callback is retried: the run has finished (run_finished is written) — it keeps its summary
+    and its spend, and the record says that the callback was given up."""
+    import signal
+    monkeypatch.setenv("CALLBACK_SECRET", "signature-123456")
+
+    def handler(req):
+        next(iter(engine._LIVE.values()))(signal.SIGINT)  # as the signal handler of `agencast run` does
+        return httpx.Response(500)
+    fake = Fake(None, model_ids(wf))
+    p = validate(ask_scenario(wf), transport=fake.transport())
+    with pytest.raises(engine.Interrupted):
+        run_scenario(p, {"topic": "x"}, fake=fake, callback_url="https://n8n.example.com/w",
+                     callback_transport=httpx.MockTransport(handler))
+    (run_dir,) = (wf.parent / "runs").glob("2*")
+    evs = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines()]
+    assert [e["type"] for e in evs][-3:] == ["run_finished", "callback_sent", "callback_failed"]
+    assert (evs[-1]["attempts"], evs[-1]["error"]) == (1, "interrupted by SIGINT")
+    assert "Callback not delivered" in (run_dir / "summary.md").read_text()
+    assert run_dir.name in "".join(f.read_text() for f in (wf.parent / "runs" / "_ledger-fake").glob("*.jsonl"))
+
+
 def test_callback_requires_https_and_secret(wf, monkeypatch):
     from agencast import ConfigErrors
     monkeypatch.delenv("CALLBACK_SECRET", raising=False)
     with pytest.raises(ConfigErrors) as e:
         run(ask_scenario(wf), callback_url="http://n8n.example.com/w")
     assert "https://" in str(e.value) and "CALLBACK_SECRET" in str(e.value)
+    monkeypatch.setenv("CALLBACK_SECRET", "signature-123456")
+    for url in ("http://127.0.0.1:1@example.com/w", "http://127.0.0.1@example.com/w", "http://127.0.0.1.example.com/w"):
+        with pytest.raises(ConfigErrors, match="callback URL must start with https://"):  # the host is example.com
+            run(ask_scenario(wf), callback_url=url)
 
 
 # --- concurrent runs (ISSUES 39) ------------------------------------------------------------

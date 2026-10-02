@@ -112,10 +112,14 @@ the coordinator or the user decides.
 25. **The last turn of `max_turns`:** when the model in the last allowed turn
     wants more tools, the framework **does not run** them (the model would not
     see the result, a side effect without control) and the step ends with `budget`.
-26. **An MCP handshake failure** is not retried (the step's `retry` applies to
-    API calls): the step fails with class `transient` (a remote server: network, 5xx,
-    timeout) or `config` (stdio: an unknown command, the process exited, did not answer
-    the handshake; remote: 4xx). Retrying the run is up to n8n.
+26. **An MCP handshake failure**: the step fails with class `transient` (a remote server:
+    network, 408, 429, 5xx, timeout) or `config` (stdio: an unknown command, the process
+    exited, did not answer the handshake; remote: any other 4xx). *(Changed in 0.18.0:
+    a `transient` failure is first retried according to the step's `retry`, like a model
+    call, `Retry-After` included — scenario.md, the `task` step; before that it was not
+    retried and retrying the run was up to n8n. Network errors after the connection was
+    made — a reset, a server that closes without an answer — are `transient` too, and an
+    HTTP status of the SSE message POST is reported as that status, not as a timeout.)*
 27. **A JSON-RPC error on `tools/call`** (not `isError`, e.g. an unknown tool
     −32602) goes to the model as a tool error (`is_error: true`, the step
     continues) — the server rejected the call. A dropped connection = `config`, a timeout
@@ -140,7 +144,9 @@ the coordinator or the user decides.
     `--dry-run` to show it: `agencast run … --dry-run` starts the servers the run may
     start, because of `tools/list`, in a temporary folder (the plan folder
     keeps only `plan.md`) and `plan.md` lists what they offer and the resulting
-    tool set of each `task` (added when merging 3a + 3b).
+    tool set of each `task` (added when merging 3a + 3b). *(Since 0.18.0 the plan
+    marks such a tool `(NOT OFFERED by the server)` in the step row and lists it after
+    the server's offer as `allowed but NOT OFFERED: …`.)*
 33. **Contents of a tool result:** text and image are passed on, other types
     (`resource`, `audio`, …) as the text `[content of type X is not forwarded
     by the framework]`; `structuredContent` is not passed on (the text usually carries it).
@@ -306,7 +312,8 @@ the coordinator or the user decides.
     `agents/*.md`, `scenarios/*.yaml`, `skills/*/SKILL.md`, `config.yaml`,
     `mcp.yaml`; never `.env`. `config` through the form only `models`,
     `limits`, `storage`, `webhook`, `callback` and `openrouter.api_key_env`.
-    v1 formats unchanged.
+    v1 formats unchanged. *(Since 0.18.0 `mcp.yaml` is no longer among the raw-text
+    files — item 49.)*
 44. **API additions for the GUI** (coordinator's assignment 2026-09-26, framework
     0.6.0; [api.md](api.md) “GUI additions”, GUI design
     `docs/ui/gui-design.md` §7.2–7.4, §8.4–8.5). Errors as objects
@@ -387,3 +394,24 @@ the coordinator or the user decides.
     carry the step and field. `callback.secret_env` is checked only with
     a callback and `webhook.token_env` only in single-project mode. Formats
     v1, `POST /runs` and the callback contract do not change.
+49. **`mcp.yaml` is the owner's alone, also towards the API** (decided by the user
+    2026-10-01 — “the GUI does not need to configure MCP servers” —, framework 0.18.0;
+    DESIGN §5.2, [config.md](config.md), [projects.md](projects.md), [api.md](api.md)
+    “MCP servers are the owner's”). Until then the token of `serve` could write
+    `mcp.yaml` as raw text (`PUT …/files/mcp.yaml`) and a run — a dry run was enough —
+    started the `command` written there; a `url` with `bearer_token_env` sent any
+    variable of the host away. The second door: `POST /projects` registered any
+    directory with `workflows/config.yaml`, including a project tree that an agent with a
+    filesystem server had written into its run's `work/` folder. Now no route serves
+    or writes `mcp.yaml` (the exception: an agent rename rewrites that agent's name in
+    the `agents` lists and verifies that nothing else changed), and every entry the API
+    writes into the registry has `trusted: false` — also `POST /projects/new`, although
+    the templates contain no `mcp.yaml`: the new tree can sit where an agent writes
+    later. An untrusted project gets a `config` error from `validate` for every scenario
+    that would use an MCP server, until `agencast projects trust <name>`. The lookup is
+    by the root as addressed and as resolved; a project that is not in the registry is
+    trusted for the CLI and for single-project `serve` (the terminal user's own), but
+    not for `serve` in registry mode, where it can only be a project removed while its
+    run was queued. The registry key is additive (no key = trusted). What the token can
+    still change in `config.yaml` (`*_env` names, `runs_dir`, `storage`, `limits`) is
+    unchanged and left for a later decision.
