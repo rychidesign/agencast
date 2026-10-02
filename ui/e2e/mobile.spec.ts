@@ -26,7 +26,8 @@ test("G1 FAB navigation: menu above the button, Esc, scrim and an item close it"
   await fab.tap();
   const menu = page.getByRole("dialog", { name: "Navigation" });
   await expect(menu).toBeVisible();
-  expect((await menu.boundingBox())!.y + (await menu.boundingBox())!.height).toBeLessThan(f.y);
+  const m = (await menu.boundingBox())!; // one measurement: the menu grows when today's spend arrives
+  expect(m.y + m.height).toBeLessThan(f.y);
   await expect(menu.getByRole("link", { name: "Projects" })).toBeFocused();
   const agents = menu.getByRole("link", { name: "Agents" });
   expect((await agents.boundingBox())!.height).toBeCloseTo(48, 2);
