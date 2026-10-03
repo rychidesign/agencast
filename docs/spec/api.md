@@ -288,8 +288,8 @@ a text is written at the column of the key that holds the text, left of the text
   `agents/<name>.md`, `scenarios/<name>.yaml`, `skills/<name>/SKILL.md` and
   `config.yaml` inside the project's `workflows/`; anything else
   (`..`, an absolute path, a symlink pointing out or at a file that is not one of these,
-  `.env`, `mcp.yaml`, `commands.yaml`, subfolders) = 404. A write replaces the file and
-  follows no link, not at the name of its temporary file either; a file in a linked
+  any file of a linked `workflows/`, `.env`, `mcp.yaml`, `commands.yaml`, subfolders) = 404.
+  A write replaces the file and follows no link, not at the name of its temporary file either; a file in a linked
   directory (`skills/<name>` → another skill) can be read, a write to it = 404. The same
   holds for every editing route, and for the files the API creates from templates
   (`POST …/scenarios`, `POST …/agents`, `POST /projects/new`): a link waiting at the new

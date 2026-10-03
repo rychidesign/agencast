@@ -117,6 +117,19 @@ class SlotStore:
     def release(self, fd: int):
         os.close(fd)  # closing the descriptor releases flock
 
+    def held_ids(self) -> set[str]:
+        """Contents of the held slots — the run ids `agencast mcp` writes into its slots (mcp-server.md). The content
+        is read first: only a non-empty file gets the brief shared-lock test, so free empty slots stay untouched."""
+        ids = set()
+        for f in self.dir.glob("*.lock"):
+            try:
+                text = f.read_text(encoding="utf-8").strip()
+            except (OSError, UnicodeDecodeError):
+                continue
+            if text and run_locked(f.parent, f.name):
+                ids.add(text)
+        return ids
+
 
 class Ledger:
     """Daily spend ledger (DESIGN “Wrappers”): local `<directory>/<YYYY-MM-DD>.jsonl` (UTC), one
@@ -153,10 +166,10 @@ def hold_run_lock(run_dir) -> int:
     return fd
 
 
-def run_locked(run_dir) -> bool:
+def run_locked(run_dir, name: str = "run.lock") -> bool:
     """True = run lock held by a live process (even this one — flock belongs to the open file, not the process)."""
     try:
-        fd = os.open(run_dir / "run.lock", os.O_RDONLY)
+        fd = os.open(run_dir / name, os.O_RDONLY)
     except FileNotFoundError:
         return False
     try:

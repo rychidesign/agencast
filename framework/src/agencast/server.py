@@ -127,7 +127,13 @@ class Webhook:
             if isinstance(key, str) and key and (kf := self.key_file(key)).is_file():
                 return 200, {"run_id": json.loads(kf.read_text(encoding="utf-8"))["run_id"], "queue_position": None}
             path = self.wf / "scenarios" / f"{name}.yaml"
-            known = not any(e.startswith("scenario:") for e in errs) and path.is_file()
+            known = False
+            if not any(e.startswith("scenario:") for e in errs):
+                try:
+                    path = api.scenario_file(self.wf.parent, name)
+                    known = True
+                except api.NotFound:
+                    pass
             if errs:  # BUGS 9: include scenario and input errors so n8n can fix everything in one pass
                 more = self.check(path, inputs)[0] if known and isinstance(inputs, dict) else []
                 return 422, {"error": "invalid request", "details": errs + more}
@@ -258,11 +264,12 @@ class Webhook:
                 "internal", "run interrupted — server stopped during the run; completed work is in the run record (check manually)"), **kw)
         try:
             with self.lock:
-                p = api.load(path, fake=self.fake, listed=self.listed)
+                p = api.load(api.scenario_file(self.wf.parent, entry["scenario"]), fake=self.fake, listed=self.listed)
             inputs = resolve_inputs(p.scenario, entry["inputs"], uploads=self.uploads)
-        except ConfigErrors as e:
+        except (api.NotFound, ConfigErrors) as e:
+            errors = e.errors if isinstance(e, ConfigErrors) else [str(e)]
             return api.run(self.stub(path, entry), entry["inputs"], error=AgencastError(
-                "config", "scenario failed validation after being dequeued:\n" + "\n".join(e.errors)), **kw)
+                "config", "scenario failed validation after being dequeued:\n" + "\n".join(errors)), **kw)
         return api.run(p, inputs, **kw)
 
     def stub(self, path: Path, entry: dict) -> Project:

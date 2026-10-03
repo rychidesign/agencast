@@ -303,6 +303,38 @@ the names in the examples are English now:
   the prompt), the path a template renders — a prompt names an image with
   `{{ inputs.shirt }}`.
 
+## version 1 — no format change (framework 0.19.0, MCP server)
+
+The agent, scenario, skill, `config.yaml`, `mcp.yaml`, registry and run-record formats
+are unchanged; existing files keep their meaning.
+
+- New: [mcp-server.md](mcp-server.md) — `agencast mcp`, AgenCast as an MCP server over
+  stdio or streamable HTTP (`--http`, bearer token `AGENCAST_MCP_TOKEN`): its tools,
+  permission levels, the run object, runs in worker processes that outlive the client
+  and the server, file inputs from `--input-dir`, masking, trust rules and limits. It
+  adds no file format, no record field and no registry key.
+- Run directory (run-record.md): `<runs>/_mcp-slots/<n>.lock`, n = 1..4 — the `flock`
+  locks of runs and dry runs started through MCP, next to `_slots/`; each file holds the
+  `run_id` of the run that holds it (empty for a dry run). Nothing else reads or writes
+  them, and a run's own directory is the same as for any run.
+- Note — YAML aliases are bounded: a workflow file (or a draft sent to `validate` /
+  `write_*`) whose aliases (`*name`) expand to more than 100,000 values is a `config`
+  error (`cannot read YAML — aliases expand to too many values`), in every reader. No
+  sensible file comes near it; a file without aliases is never refused.
+- `agencast serve` refuses a scenario that is a link out of the project's own
+  `workflows/scenarios/` (webhook.md): 422 `unknown scenario`, as for a missing one; a
+  link to another scenario of the same directory still works. The files API
+  (api.md “Editing”) serves no file of a linked `workflows/` (404).
+- An agent, skill or called scenario that is a link out of the project's own
+  `workflows/` (a called scenario: out of its `scenarios/`) does not exist — the
+  validation error of a missing one; a link that stays inside still works.
+- An unquoted `{{ … }}` value in a block mapping is the usual `cannot read YAML … must be
+  quoted` error with its line (`found unhashable key`); 0.18.0 crashed on it.
+- Run lock order (run-record.md): `run.lock` is now taken right after the run
+  directory is created, before input images are staged into `inputs/` — as
+  run-record.md already said; 0.18.0 copied the images first, so a run with images read
+  `interrupted` meanwhile. A run's `scenario/<name>.yaml` is the text the run loaded.
+
 ## version 1 — backward-compatible addition (framework 0.18.0, MCP servers are the owner's)
 
 The agent and scenario formats are unchanged, and `config.yaml` and `mcp.yaml`

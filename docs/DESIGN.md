@@ -212,9 +212,9 @@ Verified by spike (b), Modal SDK 1.5.5:
 
 ### Wrappers (since 0.3.0)
 
-The CLI (`agencast`), the webhook (`agencast serve`), later Modal and an MCP server
-are **thin wrappers over `agencast.api`** (`load`, `run`, `dry_run`,
-`runs_list`, `run_status`):
+The CLI (`agencast`), the webhook (`agencast serve`), the MCP server (`agencast mcp`,
+since 0.19.0) and later Modal are **thin wrappers over `agencast.api`** (`load`, `run`,
+`dry_run`, `runs_list`, `run_status`):
 
 - A wrapper contains no logic — it only converts the input (arguments, HTTP, a tool
   call) into a call to `api` and the result back. Anything with logic goes into the core
@@ -233,9 +233,15 @@ are **thin wrappers over `agencast.api`** (`load`, `run`, `dry_run`,
   Since 0.7.0 also the live-run lock (`hold_run_lock`, `run_locked`; locally
   `flock` on `<run>/run.lock`), by which the API distinguishes a running
   run from an interrupted one — ISSUES 45.
-- The MCP tools will be “start and return the ID”, “status” and “wait” — a run takes
-  minutes and Modal's web endpoint has a 150 s limit (D5), so a tool must not
-  wait for the end of a run in a single call.
+- The MCP tools are “start and return the ID” (`fake_run`, `run_scenario`), “status”
+  and a bounded “wait” (`run_status`, `wait_run`, at most 50 s) — a run takes minutes,
+  MCP clients cut a call after about 60 s and Modal's web endpoint has a 150 s limit
+  (D5), so a tool never waits for the end of a run in a single call. Each run started
+  through MCP executes in a detached worker process, `agencast run --mcp-job <run_id>`
+  (job on stdin, a session of its own), so it outlives the client and the server; the
+  server speaks stdio, or streamable HTTP with a bearer token (`--http`). The run
+  record and the slot files `<runs>/_mcp-slots/` are the only state
+  ([spec/mcp-server.md](spec/mcp-server.md)).
 
 **GUI — decided 2026-09-26 (user + coordinator):**
 

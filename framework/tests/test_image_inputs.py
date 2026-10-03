@@ -8,11 +8,12 @@ import pytest
 from conftest import add_image_model, events, image_model_ids, model_ids, run, scenario
 from test_task import setup
 
-from agencast import ConfigErrors, api
+from agencast import ConfigErrors, api, engine
 from agencast.engine import dry_run, run_scenario, snap_ratio
 from agencast.expressions import ExprError, FileRef, evaluate, infer
 from agencast.fake import Fake, png
 from agencast.providers import image_size, probe_image
+from agencast.task import run_locked
 from agencast.validate import check_models_list, resolve_inputs, validate
 
 HEAD = "version: 1\nname: NAME\ndescription: x\n"
@@ -93,6 +94,7 @@ def photos(tmp_path) -> Path:
     (d / "b.jpg").write_bytes(jpeg(6))
     (d / "c.avif").write_bytes(AVIF)
     (d / "notes.txt").write_text("not an image")
+    (d / "loop.png").symlink_to(d / "loop.png")
     return d
 
 
@@ -113,6 +115,7 @@ def test_resolve_inputs_paths(photos):
     ({"photo": "/etc/passwd"}, False, "pass a path from the CLI"),          # a JSON string is never a path
     ({"photo": {"upload_id": "x"}}, False, "pass a path from the CLI"),
     ({"photo": "missing.png"}, True, "file missing.png does not exist"),
+    ({"photo": "loop.png"}, True, "file loop.png does not exist"),         # a link loop is no file, no RuntimeError
     ({"photo": "notes.txt"}, True, "is not a supported image"),
     ({"photo": ["a.png"]}, True, "must be one image path, got a list of 1"),
     ({"photo": "a.png", "refs": "[]"}, True, "must be 1–16 image paths, got a list of 0"),
@@ -215,6 +218,15 @@ steps:
       raw: "{{ inputs.refs }}"
       wide: "{{ steps.shape.wide }}"
 """
+
+
+def test_run_lock_is_held_while_images_are_staged(wf, photos, monkeypatch):
+    """0.19.0: `run.lock` is taken right after the directory is created, before the images are copied — before,
+    a run reading `interrupted` while it copied them (run-record.md; mcp-server.md “Before the directory exists”)."""
+    seen, stage = [], engine.stage_inputs
+    monkeypatch.setattr(engine, "stage_inputs", lambda rec, *a, **kw: (seen.append(run_locked(rec.dir)), stage(rec, *a, **kw))[1])
+    r, _ = run(scenario(wf, ASK), {"photo": photos / "a.png"}, script={"write": {"text": "A tiny gray image."}})
+    assert r.status == "succeeded" and seen == [True], r.error
 
 
 def test_ask_with_images_staged_sent_and_redacted(wf, photos):

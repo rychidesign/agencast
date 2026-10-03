@@ -28,7 +28,9 @@ class Yaml12Loader(yaml.SafeLoader):
         seen = {}
         for key_node, _ in node.value:
             key = self.construct_object(key_node, deep=deep)
-            if isinstance(key, (str, int, float, bool)) and key in seen:
+            if not isinstance(key, (str, int, float, bool)):  # `{{ x }}` unquoted is a mapping key: SafeLoader
+                continue                                       # reports it as unhashable, with its line
+            if key in seen:
                 raise yaml.constructor.ConstructorError(
                     None, None, f"duplicate key '{key}' (first on line {seen[key]})", key_node.start_mark)
             seen[key] = key_node.start_mark.line + 1 + self.line_offset
@@ -64,16 +66,39 @@ class LoadError(Exception):
     """The file cannot be read (error class `config`)."""
 
 
+MAX_ALIAS_VALUES = 100_000  # values aliases may add to a document when expanded (mcp-server.md "Limits")
+
+
+def _alias_values(node) -> int:
+    """Values the aliases (`*name`) of a composed document add once every reader walks them: an aliased node is
+    one object, so a few lines of nested anchors stand for billions of values. 0 for a document without aliases."""
+    size: dict[int, int] = {}
+
+    def total(n) -> int:
+        if id(n) not in size:
+            size[id(n)] = 1  # an alias to a node that contains it counts once
+            size[id(n)] = 1 + sum(total(c) for item in (n.value if isinstance(n, yaml.CollectionNode) else ())
+                                  for c in (item if isinstance(item, tuple) else (item,)))
+        return size[id(n)]
+    return total(node) - len(size)
+
+
 def load_yaml(text: str, where: str, line_offset: int = 0):
     loader = Yaml12Loader(text)
     loader.line_offset = line_offset
     try:
-        return loader.get_single_data()
+        node = loader.get_single_node()  # = get_single_data, with the bound checked before anything is constructed
+        if node is None:
+            return None
+        if _alias_values(node) > MAX_ALIAS_VALUES:
+            raise LoadError(f"{where}: cannot read YAML — aliases expand to too many values")
+        return loader.construct_document(node)
     except yaml.YAMLError as e:
         mark = getattr(e, "problem_mark", None)
         line = f", line {mark.line + 1 + line_offset}" if mark else ""
         problem = getattr(e, "problem", None) or str(e)
-        if not isinstance(e, yaml.constructor.ConstructorError):  # syntax; duplicate keys have their own message
+        # syntax, or an unquoted `{{ … }}` (a mapping as a key); duplicate keys and tags have their own message
+        if not isinstance(e, yaml.constructor.ConstructorError) or problem == "found unhashable key":
             problem = ("cannot read YAML — a value containing {, [, ': ' or ' #' must be quoted "
                        f"(scenario.md §5 'YAML pitfalls')\n  {problem}")
         raise LoadError(f"{where}{line}: {problem}") from None
@@ -101,10 +126,13 @@ def read_frontmatter(path: Path, where: str):
     return load_yaml(m.group(1), where, line_offset=1), m.group(2)
 
 
-def load_dotenv(path: Path):
-    """Load variables from `.env` (existing environment variables take precedence). Accept CRLF (DESIGN §7 item 8)."""
+def load_dotenv(path: Path, only=None) -> dict[str, str]:
+    """Load variables from `.env` (existing environment variables take precedence). Accept CRLF (DESIGN §7 item 8).
+    `only` = the names to take; every other line is ignored (`api.project_env`). Return what the file defines for
+    them — also where the environment already had a value (masking needs both)."""
+    read = {}
     if not path.is_file():
-        return
+        return read
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
@@ -113,8 +141,10 @@ def load_dotenv(path: Path):
         value = value.strip()
         if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
             value = value[1:-1]
-        if sep:
+        if sep and (only is None or key.strip() in only):
+            read[key.strip()] = value
             os.environ.setdefault(key.strip(), value)
+    return read
 
 
 def seconds(duration: str) -> int:

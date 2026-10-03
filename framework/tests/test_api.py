@@ -1,4 +1,5 @@
 """Read API for `serve` (api.md): registry mode with AGENCAST_TOKEN and single-project mode; fake provider."""
+import os
 from pathlib import Path
 
 from conftest import SECRET, TOKEN, serve
@@ -8,6 +9,7 @@ from agencast import api
 from agencast.cli import main
 from agencast.fake import Fake
 from agencast.projects import default_name
+from agencast.record import Mask
 from agencast.server import Projects, Webhook
 from agencast.task import local_ledger
 
@@ -261,3 +263,43 @@ def test_rename_api_routes(registry_server):
     assert renamed_agent.status_code == 200 and renamed_agent.json()["name"] == "editor"
     assert client.get("/projects/alpha/files/agents/editor.md").json()["frontmatter"]["name"] == "editor"
     assert client.post("/projects/alpha/agents/missing/rename", json={"etag": "x", "name": "other"}).status_code == 404
+
+
+A_KEY, B_KEY = "sk-test-A-0123456789abcdef", "sk-test-B-0123456789abcdef"
+
+
+def test_project_env_masks_with_each_projects_own_value(tmp_path, monkeypatch):
+    """0.19.0, a server of several projects: A's `.env` sets OPENROUTER_API_KEY in the process first; B's results
+    are still masked with B's own value — the one B's runs use (mcp-server.md “Secrets and environment”)."""
+    for name in ("OPENROUTER_API_KEY", "HTTPS_PROXY"):
+        monkeypatch.setenv(name, "")  # recorded, so the values loaded here are removed afterwards
+        monkeypatch.delenv(name)
+    a, b = tmp_path / "a", tmp_path / "b"
+    api.new_project(a)
+    api.new_project(b)
+    (a / ".env").write_text(f"OPENROUTER_API_KEY={A_KEY}\nHTTPS_PROXY=http://127.0.0.1:9\n")
+    (b / ".env").write_text(f"OPENROUTER_API_KEY={B_KEY}\n")
+    assert api.project_env(a) == [("OPENROUTER_API_KEY", A_KEY)]
+    assert api.project_env(b) == [("OPENROUTER_API_KEY", A_KEY), ("OPENROUTER_API_KEY", B_KEY)]
+    assert Mask(api.project_env(b)).mask(f"{B_KEY} {A_KEY}") == "<secret: OPENROUTER_API_KEY> <secret: OPENROUTER_API_KEY>"
+    assert os.environ["OPENROUTER_API_KEY"] == A_KEY and "HTTPS_PROXY" not in os.environ
+
+
+def test_load_without_dotenv_and_runs_dir(tmp_path, monkeypatch):
+    """`api.load(..., dotenv=False)` reads no `.env` — neither the project's nor the current directory's;
+    `api.runs_dir` is `runs_dir` of config.yaml."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    root = tmp_path / "p"
+    api.new_project(root)
+    (root / ".env").write_text(f"OPENROUTER_API_KEY={A_KEY}\n")
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text(f"OPENROUTER_API_KEY={B_KEY}\n")
+    p = api.load(api.scenario_file(root, "demo"), fake=Fake(), dotenv=False)
+    assert p.scenario["name"] == "demo" and "OPENROUTER_API_KEY" not in os.environ
+    api.load(api.scenario_file(root, "demo"), fake=Fake())
+    assert os.environ["OPENROUTER_API_KEY"] == A_KEY
+    assert api.runs_dir(root) == root / "runs"
+    (root / "workflows" / "config.yaml").write_text((root / "workflows" / "config.yaml").read_text().replace(
+        "runs_dir: ./runs", "runs_dir: ./records"))
+    assert api.runs_dir(root) == root / "records"

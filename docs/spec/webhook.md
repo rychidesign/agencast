@@ -32,7 +32,7 @@ Content-Type: application/json
 | Field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
 | `Authorization` header | yes | `Bearer <token>`; the token is the value of the variable named in `webhook.token_env` in `config.yaml` (Modal endpoints are otherwise public, D5). | 401 | |
-| `scenario` | yes | Name of a scenario from `workflows/scenarios/`. | 422 | `"ig-post"` |
+| `scenario` | yes | Name of a scenario from `workflows/scenarios/`. A file there that is a link out of that directory is unknown (since 0.19.0): it would run under another tree's `config.yaml`, `.env` and `mcp.yaml`. | 422 | `"ig-post"` |
 | `inputs` | no | Inputs according to the scenario's `inputs`. For `file`/`files` inputs `{"upload_id": "up_…"}` from `POST /uploads` (since 0.18.0, [api.md Uploads](api.md#uploads-since-0180)) — a JSON string is never a path (422). | `{}` — the scenario gets its `default` values. | `{"topic": "new coffee"}` |
 | `callback_url` | yes | Where to send the result. `https://` only. Typically the resume URL of a waiting n8n workflow. | 422 | |
 | `request_key` | no | Idempotency key (§5.2): a repeated request with the same key does not start a second run. | Every request = a new run. | `"n8n-4711"` |

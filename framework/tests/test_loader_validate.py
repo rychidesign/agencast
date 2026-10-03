@@ -23,6 +23,7 @@ def test_yaml_duplicate_key_has_line():
 @pytest.mark.parametrize("text,line,problem", [
     ("id: a\nwhen: {{ steps.k.x }} < 0.5\n", 2, "expected <block end>, but found '<scalar>'"),
     ("description: Step: check\nx: 1\n", 1, "mapping values are not allowed here"),
+    ("set:\n  v: {{ x }}\n", 2, "found unhashable key"),  # a mapping as a key: was TypeError, no file, no line
 ])
 def test_yaml_syntax_error_english_hint(text, line, problem):
     """BUGS.md #4: English hint with a line number; parser message on the second line."""
@@ -57,6 +58,35 @@ def test_dotenv_crlf(tmp_path, monkeypatch):
     load_dotenv(tmp_path / ".env")
     import os
     assert os.environ["AGENCAST_TEST_X"] == "abc"
+
+
+def test_dotenv_only_named(tmp_path, monkeypatch):
+    """`only` (api.project_env): the named variables, nothing else of the file."""
+    import os
+    for name in ("AGENCAST_TEST_A", "AGENCAST_TEST_B"):
+        monkeypatch.setenv(name, "")  # recorded, so the test leaves no variable behind
+        monkeypatch.delenv(name)
+    (tmp_path / ".env").write_text("AGENCAST_TEST_A=1\nAGENCAST_TEST_B=2\n")
+    load_dotenv(tmp_path / ".env", {"AGENCAST_TEST_B"})
+    assert "AGENCAST_TEST_A" not in os.environ and os.environ["AGENCAST_TEST_B"] == "2"
+
+
+def test_yaml_alias_bound():
+    """A few lines of nested anchors stand for billions of values: refused before anything is built. A document
+    whose aliases stay small, and any document without aliases, loads as before."""
+    import time
+    bomb = "a0: &a0 [x, x, x, x, x, x, x, x, x, x]\n" + "".join(
+        f"a{i}: &a{i} [{', '.join([f'*a{i - 1}'] * 10)}]\n" for i in range(1, 9))  # 9 levels = 10^9 values
+    assert len(bomb) < 1000
+    start = time.monotonic()
+    with pytest.raises(LoadError, match="^f.yaml: cannot read YAML — aliases expand to too many values$"):
+        load_yaml(bomb, "f.yaml")
+    assert time.monotonic() - start < 2
+    assert load_yaml("base: &b {k: [1, 2]}\nx: *b\ny: {<<: *b, z: 3}\n", "f.yaml") == \
+        {"base": {"k": [1, 2]}, "x": {"k": [1, 2]}, "y": {"<<": {"k": [1, 2]}, "z": 3}}
+    big = "items:\n" + "".join(f"  - {{id: {i}, text: some text for item {i}}}\n" for i in range(8000))
+    assert len(big) > 300_000 and len(load_yaml(big, "f.yaml")["items"]) == 8000
+    assert load_yaml("", "f.yaml") is None
 
 
 def test_schemas_come_from_spec():

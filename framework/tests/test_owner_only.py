@@ -501,6 +501,9 @@ def test_work_folder_of_a_run_cannot_become_a_project_with_servers(wf, http, tmp
     for name in ("planted", "created", "linked"):
         for body in ({"scenario": "test"}, {"scenario": "test", "dry_run": True}):
             r = client.post(f"/projects/{name}/runs", json=body)
+            if name == "linked":  # 0.19.0: a scenario that is not really in the project is not one of its scenarios
+                assert r.status_code == 422 and r.json() == {"error": "unknown scenario 'test'", "details": []}
+                continue
             assert r.status_code == 422 and f"agencast projects trust {name}" in r.json()["details"][0], (name, r.text)
     assert not marker.exists()
 

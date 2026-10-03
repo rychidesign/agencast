@@ -12,6 +12,7 @@ blank lines, quotes). ruamel rewrites spacing and alignment in flow mappings
 (`{ a: 1 }` → `{a: 1}`), so unchanged lines are kept verbatim
 from the original file (`_keep_lines`).
 """
+import errno
 import inspect
 import io
 import os
@@ -33,7 +34,7 @@ from ruamel.yaml.tokens import CommentToken
 from . import ConfigErrors
 from .loader import LoadError, load_yaml, nested_lists
 from .projects import NAME, _check_name, describe_project, etag, text_tree
-from .validate import MCP_DISABLED, load_config
+from .validate import MCP_DISABLED, load_config, own_file
 
 _N = NAME.pattern
 # No mcp.yaml: which programs and remote servers exist is the owner's decision, made on disk (config.md, DESIGN §5.2).
@@ -66,18 +67,19 @@ def _path(root: Path, rel: str, write: bool = False) -> Path:
     p = wf / rel
     if rel == "mcp.yaml":
         raise NotFound("mcp.yaml: only the project owner reads and edits this file, on disk — not through the API")
-    real, top = p.resolve(), wf.resolve()
+    # not wf.resolve(): a linked workflows/ is another tree; realpath: Python 3.12's resolve() raises on a link loop
+    real, top = Path(os.path.realpath(p)), root.resolve() / "workflows"
     # a link leads only to a file the API serves under its own name: not out of workflows/, and not to mcp.yaml;
     # a write replaces the name itself (`_write`), in a directory that is no link to another one
     if not (FILES.fullmatch(rel) and real.is_relative_to(top) and FILES.fullmatch(real.relative_to(top).as_posix())
-            and (not write or p.parent.resolve() == (top / rel).parent)):
+            and (not write or Path(os.path.realpath(p.parent)) == (top / rel).parent)):
         raise NotFound(f"{rel}: only these files can be edited: agents/<name>.md, scenarios/<name>.yaml, "
                        "skills/<name>/SKILL.md and config.yaml")
     return p
 
 
-def _read(p: Path) -> str | None:
-    return p.read_bytes().decode() if p.is_file() else None  # no newline conversion — hash = file bytes
+def _read(p: Path) -> str | None:  # isfile: a name too long for the file system is no file either (Path.is_file raises)
+    return p.read_bytes().decode() if os.path.isfile(p) else None  # no newline conversion — hash = file bytes
 
 
 def _write(p: Path, text: str | None, tag: str | None = None, *, check: bool = False):
@@ -119,10 +121,18 @@ def _errors(root: Path, registered: Path | None = None) -> list[str]:
 
 def _copy(root: Path, tmp: str) -> Path:
     """A copy of `workflows/` in `tmp` to validate a change in. An entry that cannot be read (a link that leads
-    nowhere, no permission) is left out: `_errors` of the project itself names it, so it is no new error."""
-    t = Path(tmp).resolve()
+    nowhere, no permission) is left out: `_errors` of the project itself names it, so it is no new error. So is a
+    link of an agent, skill or scenario that `validate.own_file` refuses: copied, it would be a file of this project.
+    `config.yaml` and `mcp.yaml` are the owner's, also as a link to a file shared by several projects."""
+    t, wf = Path(tmp).resolve(), root / "workflows"
+
+    def refused(d, names):
+        rel, top = Path(d).relative_to(wf), Path(os.path.realpath(wf))
+        return [n for n in names if os.path.islink(Path(d) / n) and (rel / n).parts[0] in ("agents", "skills", "scenarios")
+                and not (own_file(wf, (rel / n).as_posix()) if os.path.isfile(Path(d) / n)
+                         else Path(os.path.realpath(Path(d) / n)).is_relative_to(top))]
     try:
-        shutil.copytree(root / "workflows", t / "workflows")
+        shutil.copytree(wf, t / "workflows", ignore=refused)
     except shutil.Error:  # raised after everything else was copied
         pass
     return t
@@ -130,11 +140,7 @@ def _copy(root: Path, tmp: str) -> Path:
 
 def _errors_with(root: Path, rel: str, text: str | None) -> list[str]:
     """Project errors if file `rel` contained `text` (None = deleted); leave the project on disk unchanged."""
-    # ponytail: copy all workflows/ on each change (ms for typical projects); large skills → copy only YAML/MD
-    with tempfile.TemporaryDirectory() as tmp:
-        t = _copy(root, tmp)
-        _write(t / "workflows" / rel, text)
-        return [e.replace(str(t), str(root)) for e in _errors(t, root)]
+    return _errors_with_many(root, {rel: text})
 
 
 def _added(before, after: list[str]) -> list[str]:
@@ -157,11 +163,18 @@ def _check(root: Path, rel: str, text: str | None) -> list[str]:
 
 
 def _errors_with_many(root: Path, changes: dict[str, str | None]) -> list[str]:
-    """Project errors after multiple simultaneous changes (None = deleted file)."""
+    """Project errors after multiple simultaneous changes (None = deleted file). A name too long for the file system
+    can hold no file: NotFound, as when it is read."""
+    # ponytail: copy all workflows/ on each change (ms for typical projects); large skills → copy only YAML/MD
     with tempfile.TemporaryDirectory() as tmp:
         t = _copy(root, tmp)
         for rel, text in changes.items():
-            _write(t / "workflows" / rel, text)
+            try:
+                _write(t / "workflows" / rel, text)
+            except OSError as e:
+                if e.errno != errno.ENAMETOOLONG:
+                    raise
+                raise NotFound(f"{rel}: {e.strerror}") from None
         return [e.replace(str(t), str(root)) for e in _errors(t, root)]
 
 

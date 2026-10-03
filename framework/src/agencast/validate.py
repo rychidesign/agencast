@@ -2,13 +2,14 @@
 and are reported together.
 """
 import ast
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import ConfigErrors, AgencastError
 from .expressions import ExprError, FileRef, infer, kind, parse, template_type, tkind
-from .loader import (LoadError, load_yaml, nested_lists, read_frontmatter, read_text, read_yaml,
+from .loader import (LoadError, load_yaml, nested_lists, read_frontmatter, read_text,
                      scenario_schema_errors, schema_errors, seconds, step_kind, version_error)
 from .mcp_client import api_name, load_mcp, secret_names
 from .providers import DEFAULT_BASE_URL, list_image_models, list_models, probe_image, shape_type
@@ -78,6 +79,7 @@ class Project:
     callees: dict[str, "Project"] = field(default_factory=dict)  # 3b: scenarios invoked by call steps, by name
     mcp: dict = field(default_factory=dict)  # servers from mcp.yaml
     image_models: dict = field(default_factory=dict)  # 0.18.0: GET /images/models by id (online validate; else empty)
+    scenario_text: str = ""  # text parsed at load time: the run snapshot must not reread a later edit
 
     @property
     def base(self) -> Path:
@@ -150,10 +152,20 @@ def in_subdir(wf: Path, d: str, fname: str) -> str:
     return f" (file is in subfolder {d}/{hit.parent.name}/, subfolders are not read)" if hit else ""
 
 
+def own_file(wf: Path, rel: str) -> bool:
+    """`wf/rel` is a regular file that really lies in the project's own workflows/ (a scenario directly in its
+    scenarios/, as `api.scenario_file` requires) — also behind a link that stays there. A link out (the file or a
+    linked folder) is no file: a run would take another tree's text under this project's key and budget
+    (mcp-server.md "Trust rules"). realpath: Python 3.12's resolve() raises RuntimeError on a link loop."""
+    real, top = Path(os.path.realpath(wf / rel)), Path(os.path.realpath(wf))
+    return os.path.isfile(real) and (real.parent == top / "scenarios" if rel.startswith("scenarios/")
+                                     else real.is_relative_to(top))
+
+
 def load_skill(wf: Path, name: str, errs: list, ref: str):
     where = f"skills/{name}/SKILL.md"
     p = wf / where
-    if not p.is_file():
+    if not own_file(wf, where):
         errs.append(f"{ref}: skill '{name}' does not exist ({where})")
         return None
     try:
@@ -175,7 +187,7 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
                mcp: dict | None = None) -> Agent | None:
     where = f"agents/{name}.md"
     p = wf / where
-    if not p.is_file():
+    if not own_file(wf, where):
         errs.append(f"{ref + ': ' if ref else ''}agent '{name}' does not exist ({where})"
                     + in_subdir(wf, "agents", f"{name}.md"))
         return None
@@ -310,7 +322,7 @@ def _input_files(name: str, t: str, v, from_text: bool, errs: list, uploads: Pat
             errs.append(f"input '{name}' has type {t} — pass a path from the CLI (-i {name}=photo.jpg) or a Path "
                         "from Python; over HTTP an upload_id from POST …/uploads")
             return None
-        p = item.expanduser().resolve()
+        p = Path(os.path.realpath(item.expanduser()))  # a link loop is no file (resolve() raises RuntimeError)
         if not p.is_file():
             errs.append(f"input '{name}': file {item} does not exist")
         elif p.stat().st_size > MAX_FILE_BYTES:
@@ -345,10 +357,15 @@ def validate(scenario_path, *, transport=None, check_models: bool = True, regist
     wf = path.parent.parent
     errs = []
     config = load_config(wf, errs)
-    sc = _read_scenario(path, errs)
+    try:
+        text = read_text(path, where)
+        sc = _read_scenario(path, errs, text)
+    except LoadError as e:
+        text, sc = "", None
+        errs.append(str(e))
     if errs or config is None:
         raise ConfigErrors(errs)
-    chk = _Checker(sc, config, wf, where)
+    chk = _Checker(sc, config, wf, where, source=text)
     chk.run()
     errs += chk.errs
     # The one gate in front of every MCP server start (validate, run, dry run; CLI and serve): a project registered
@@ -385,11 +402,11 @@ def validate(scenario_path, *, transport=None, check_models: bool = True, regist
     return project
 
 
-def _read_scenario(path: Path, errs: list) -> dict | None:
+def _read_scenario(path: Path, errs: list, text: str | None = None) -> dict | None:
     """Scenario file: YAML, version, JSON Schema, name = file. Append errors to `errs`."""
     where = path.name
     try:
-        sc = read_yaml(path, where)
+        sc = load_yaml(read_text(path, where) if text is None else text, where)
     except LoadError as e:
         errs.append(str(e))
         return None
@@ -476,7 +493,8 @@ def _template_field(p) -> bool:
 
 
 class _Checker:
-    def __init__(self, sc: dict, config: dict, wf: Path, where: str, stack: tuple = (), model_needs=None):
+    def __init__(self, sc: dict, config: dict, wf: Path, where: str, stack: tuple = (), model_needs=None,
+                 source: str = ""):
         self.sc, self.config, self.wf, self.where = sc, config, wf, where
         self.stack = stack + (sc["name"],)  # 3b: call chain from the top-level scenario (cycles, depth)
         self.errs: list[str] = []
@@ -487,6 +505,7 @@ class _Checker:
         self.model_needs: dict[str, set] = {} if model_needs is None else model_needs
         self.inputs_type = {k: static_type(v["type"]) for k, v in (sc.get("inputs") or {}).items()}
         self.mcp = load_mcp(wf, self.errs)
+        self.source = source
         own = {name: path for path, name in env_fields(config)}
         for name in secret_names(self.mcp):  # a config.yaml key would be sent to an MCP server (e.g. OPENROUTER_API_KEY)
             if name in own:
@@ -494,7 +513,8 @@ class _Checker:
                                  "the MCP server must have its own secret")
 
     def project(self, path: Path) -> Project:
-        return Project(path, self.wf, self.sc, self.config, self.agents, self.steps, self.order, self.callees, self.mcp)
+        return Project(path, self.wf, self.sc, self.config, self.agents, self.steps, self.order, self.callees, self.mcp,
+                       scenario_text=self.source)
 
     def err(self, step, fld, msg):
         prefix = f'{self.where}: step "{step}"' if step else self.where
@@ -795,7 +815,7 @@ class _Checker:
     def callee(self, name: str, info) -> Project | None:
         """Validate a called scenario recursively; cycles and excessive depth are config errors."""
         path = self.wf / "scenarios" / f"{name}.yaml"
-        if not path.is_file():
+        if not own_file(self.wf, f"scenarios/{name}.yaml"):
             self.err(info.id, "call.scenario", f"scenario '{name}' does not exist (scenarios/{name}.yaml)"
                      + in_subdir(self.wf, "scenarios", f"{name}.yaml"))
             return None
@@ -808,7 +828,12 @@ class _Checker:
                                                f"{' → '.join(self.stack + (name,))}")
             return None
         errs = []
-        sc = _read_scenario(path, errs)
+        try:
+            text = read_text(path, path.name)
+        except LoadError as e:
+            self.errs.append(str(e))
+            return None
+        sc = _read_scenario(path, errs, text)
         self.errs += errs
         if sc is None:
             return None
@@ -816,7 +841,7 @@ class _Checker:
             self.err(info.id, "call.scenario", f"scenario '{name}' has no callable: true — it cannot be called "
                                                "(protects approval in n8n, §5.2)")
             return None
-        chk = _Checker(sc, self.config, self.wf, path.name, self.stack, self.model_needs)
+        chk = _Checker(sc, self.config, self.wf, path.name, self.stack, self.model_needs, text)
         chk.run()
         self.errs += chk.errs
         self.callees[name] = chk.project(path)

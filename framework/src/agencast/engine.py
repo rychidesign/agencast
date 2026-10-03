@@ -946,7 +946,9 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
     if _STOPPING:  # before anything is created: the request stays in the `serve` queue and runs after the restart
         raise Interrupted(_STOPPING)
     key = preflight(p, fake=fake is not None or error is not None, callback_url=callback_url)
-    lim, held, waited, lock = p.config["limits"], None, None, None
+    # only the caller's own `error` reuses a directory (serve after a restart): a run that cannot start for want of
+    # a slot or budget never writes into the run of another process that took the same id meanwhile
+    lim, held, waited, lock, reuse = p.config["limits"], None, None, None, error is not None
     slots = local_slots(p.runs_dir, lim["max_parallel_runs"]) if error is None and "max_parallel_runs" in lim else None
     if slots:
         held, waited = take_slot(slots, lim["run_timeout"])
@@ -957,12 +959,14 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
         if error is None and "daily_budget_usd" in lim:
             error = daily_budget_error(p, fake is not None, lim["daily_budget_usd"])
         if run_id:  # webhook: run_id assigned on receipt; exist_ok = interrupted run after server restart
-            rec = Record(p.runs_dir / run_id, secret_values(p), exist_ok=error is not None)
+            rec = Record(p.runs_dir / run_id, secret_values(p), exist_ok=reuse)
         else:
             rec = new_record(p.runs_dir, p.scenario["name"], secret_values(p))
             run_id = rec.dir.name
+        # 0.7.0: running = lock held by a live process (record.run_status) — from creating the directory, before
+        # images are copied: an unlocked directory without plan.md reads `interrupted` meanwhile
+        lock = hold_run_lock(rec.dir)
         inputs = stage_inputs(rec, inputs, copy=error is None)  # 0.18.0
-        lock = hold_run_lock(rec.dir)  # 0.7.0: running = lock held by a live process (record.run_status)
         if error is None:
             rec.write("plan.md", plan_md(p))
             rec.write("inputs.json", inputs)
@@ -1000,7 +1004,7 @@ def snapshot(p: Project, rec: Record):
         q = todo.pop()
         if q.scenario["name"] not in seen:
             seen.add(q.scenario["name"])
-            text = rec.mask(q.scenario_path.read_text(encoding="utf-8"))
+            text = rec.mask(q.scenario_text)
             rec.write_bytes(f"scenario/{q.scenario['name']}.yaml", text.encode())
             todo += q.callees.values()
 

@@ -6,9 +6,10 @@ import os
 from pathlib import Path
 
 import pytest
-from conftest import run
+from conftest import run, scenario
 
 from agencast import api, engine
+from agencast.fake import png
 from agencast.loader import LoadError, read_frontmatter, read_yaml
 from agencast.record import INTERRUPTED_BY_RESTART, run_detail, step_detail
 from agencast.task import hold_run_lock, run_locked
@@ -205,3 +206,36 @@ def test_frontmatter_duplicate_key_first_line(tmp_path):
     with pytest.raises(LoadError) as e:
         read_frontmatter(p, "agents/a.md")
     assert str(e.value) == "agents/a.md, line 4: duplicate key 'name' (first on line 3)"
+
+
+def test_run_output_files(wf, tmp_path):
+    """File and files outputs map uploaded run files, never the report."""
+    images = tmp_path / "images"
+    images.mkdir()
+    for n in ("a.png", "b.png"):
+        (images / n).write_bytes(png(4, 3))
+    p = scenario(wf, """\
+version: 1
+name: picture
+description: output files
+inputs: {refs: {type: files, default: []}}
+outputs: {image: {type: file}, gallery: {type: files}}
+steps:
+  - id: photo
+    image: {model: gemini-image, prompt: a cup}
+  - id: out
+    output: {image: "{{ steps.photo.file }}", gallery: "{{ inputs.refs }}"}
+""", "picture")
+    made, _ = run(p, {"refs": [images / "a.png", images / "b.png"]})
+    paths = api.run_output_files(wf.parent, made.rec.dir.name)
+    assert paths["image"].startswith("steps/") and set(paths) == {"image", "gallery-1", "gallery-2"}
+    assert "report" not in paths
+    plain, _ = run(scenario(wf, """\
+version: 1
+name: plain
+description: no files
+steps: [{id: value, set: {text: "'tea'"}}]
+""", "plain"))
+    assert api.run_output_files(wf.parent, plain.rec.dir.name) == {}
+    assert api.run_output_files(wf.parent, "20261002-101512-demo-0000") == {}
+    assert api.run_output_files(wf.parent, "wrong") == {}

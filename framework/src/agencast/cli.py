@@ -4,6 +4,8 @@
     agencast run <scenario> -i key=value [--dry-run] [--fake [SCRIPT]] [--callback-url URL]
     agencast runs list | show <run_id>
     agencast serve [--host H] [--port P] [--workers N] [--fake [SCRIPT]] [--cors ORIGIN]   (outside a project: registry mode)
+    agencast mcp [--allow read|run|edit] [--input-dir DIR]... [--fake [SCRIPT]] [--http [--host H] [--port P] [--allow-host H]...]
+        (MCP server on stdio, or streamable HTTP with AGENCAST_MCP_TOKEN; registry mode unless --project)
     agencast migrate <file>
     agencast skills list | path | install [--to all] [--prefix DIR] [--copy] [--force]
     agencast docs [show <path>]
@@ -14,14 +16,15 @@
 <scenario> is a name (ig-post) or a path to .yaml. Project root = the first directory
 containing workflows/ searching upward from cwd, or --project <path> (for each command).
 `serve` reads its default address and port from AGENCAST_HOST and AGENCAST_PORT in the process environment;
-.env is loaded after argument parsing.
+.env is loaded after argument parsing. `mcp --http` reads AGENCAST_MCP_TOKEN (required) and the defaults
+AGENCAST_MCP_HOST / AGENCAST_MCP_PORT from the process environment only, never from a .env.
 """
 import argparse
-import difflib
 import shlex
 import shutil
 import os
 import signal
+import socket
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -31,7 +34,7 @@ from .loader import LoadError, load_dotenv, read_frontmatter, read_yaml, version
 from .fake import Fake
 from .mcp_client import load_mcp
 from .record import count, format_number, format_usd
-from .resources import resource_dir
+from .resources import docs_index, read_doc, resource_dir
 from .validate import require_config, resolve_inputs
 
 
@@ -41,9 +44,13 @@ def _fail_config(errors: list[str]) -> int:
     return 2
 
 
+def _script(arg: str | None, root: Path | None = None) -> str | None:
+    """`--fake SCRIPT`: relative to the current directory, otherwise to the project root."""
+    return str(root / arg) if arg and root and not Path(arg).is_absolute() and not Path(arg).exists() else arg
+
+
 def _fake(arg: str | None, config_models: dict, root: Path | None = None):
-    if arg and root and not Path(arg).is_absolute() and not Path(arg).exists():
-        arg = str(root / arg)
+    arg = _script(arg, root)
     if arg and not Path(arg).is_file():
         raise ConfigErrors([f"--fake {arg}: file does not exist"])
     script = read_yaml(Path(arg), arg) if arg else None
@@ -84,6 +91,9 @@ def cmd_validate(a) -> int:
 
 
 def cmd_run(a) -> int:
+    if a.mcp_job:  # a run started through `agencast mcp` (mcp-server.md “The worker”)
+        from .mcp_server import work
+        return work(a)
     raw = {}
     for item in a.input:
         key, sep, value = item.partition("=")
@@ -221,6 +231,84 @@ def cmd_serve(a) -> int:
     return 0
 
 
+STOPPED = "agencast mcp: stopped — runs continue in their own processes"
+
+
+def cmd_mcp(a) -> int:
+    """MCP server on stdio, or on streamable HTTP with --http (mcp-server.md): the projects of the registry, or the one
+    given by --project. The current directory is not searched for a project — an MCP client starts the server in a
+    directory of its own choice. Stdout carries only the protocol (stdio) or nothing (HTTP); the rest goes to stderr."""
+    token = os.environ.pop("AGENCAST_MCP_TOKEN", None)  # before anything copies the environment: no child inherits it
+    try:
+        if not a.http and (given := [o for o, v in (("--host", a.host), ("--port", a.port),
+                                                    ("--allow-host", a.allow_host)) if v is not None]):
+            raise ConfigErrors([f"{', '.join(given)} only with --http"])
+        if a.http:  # AGENCAST_MCP_HOST / _PORT only here: a broken value in a shared environment never stops stdio
+            if len(token or "") < 32:
+                raise ConfigErrors(["--http needs the environment variable AGENCAST_MCP_TOKEN with at least 32 "
+                                    "characters (openssl rand -hex 32)"])
+            host = a.host or os.environ.get("AGENCAST_MCP_HOST") or "127.0.0.1"
+            spelled = a.port if a.port is not None else os.environ.get("AGENCAST_MCP_PORT") or "8765"
+            # ASCII digits only: int() also takes a sign, spaces, underscores and any script's digits
+            port = int(spelled) if spelled.isascii() and spelled.isdigit() else 0
+            if not 1 <= port <= 65535:
+                raise ConfigErrors([f"{'--port' if a.port is not None else 'AGENCAST_MCP_PORT'} must be an integer "
+                                    "in the range 1–65535"])
+        root = _root(a) if a.project else None
+        dirs = [Path(d).expanduser().resolve() for d in a.input_dir]  # resolved once: a path is checked against these
+        if bad := [str(d) for d in dirs if not d.is_dir()]:
+            raise ConfigErrors([f"--input-dir {d}: not an existing directory" for d in bad])
+        # resolved once, at start: run workers have the project root as their current directory
+        fake = a.fake and str(Path(_script(a.fake, root)).absolute())
+        if fake is not None:
+            _fake(fake, {})  # a script that does not exist or cannot be read is a start error, not one of the first run
+        from .mcp_server import OWNED, build, http_app
+        server = build(project=root, allow=a.allow, input_dirs=dirs, fake=fake)
+        if a.http:
+            app, names = http_app(server, token, host, a.allow_host or [])
+            try:  # create_server sets SO_REUSEADDR: a new server takes the port at once after a stop
+                sock = socket.create_server((host, port), family=socket.AF_INET6 if ":" in host else socket.AF_INET)
+            except OSError as e:
+                raise ConfigErrors([f"cannot start server at {host}:{port}: {e.strerror or e}"]) from None
+    except (ConfigErrors, LoadError) as e:
+        return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
+    where, http = "stdio", ""
+    if a.http:
+        where = f"http://{f'[{host}]' if ':' in host else host}:{port}/mcp"
+        http = " · token from AGENCAST_MCP_TOKEN · hosts: " + ", ".join(names)
+    print(f"agencast mcp: {where} — {f'project {root}' if root else f'registry mode ({_projects.registry_path()})'} · "
+          f"allow {a.allow} · input dirs: {', '.join(map(str, dirs)) or 'none'}"
+          f"{' · fake provider' if fake is not None else ''}{http}", file=sys.stderr, flush=True)
+
+    def stop(sig, _):
+        """Runs are other processes and go on; only dry runs in flight are this process's to cancel, with the copies
+        of file inputs it still owns (dry runs, run starts in flight). Then end killed by the signal — also while the
+        SDK's stdin reader waits — which service managers count as a clean stop."""
+        try:
+            engine.stop_runs(sig)
+            for tmp in list(OWNED):
+                shutil.rmtree(tmp, ignore_errors=True)
+            print(STOPPED, file=sys.stderr, flush=True)
+        finally:
+            signal.signal(sig, signal.SIG_DFL)
+            os.kill(os.getpid(), sig)
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, stop)
+    if not a.http:
+        server.run("stdio")  # returns when the client closes stdin; tool calls in flight finish
+    else:  # uvicorn stops gracefully on a signal, then restores `stop` and raises the signal again
+        import uvicorn
+        from sse_starlette.sse import AppStatus
+        # every POST answer is an SSE stream, which sse-starlette would cut the moment uvicorn begins to stop: a
+        # stateless stream ends with its answer, so timeout_graceful_shutdown bounds the stop instead
+        AppStatus.disable_automatic_graceful_drain()
+        # no limit_concurrency: it counts idle connections without the token too, and only answers 503 to everyone
+        uvicorn.Server(uvicorn.Config(app, log_level="warning", ws="none", timeout_graceful_shutdown=5)).run(
+            sockets=[sock])
+    print(STOPPED, file=sys.stderr, flush=True)
+    return 0
+
+
 def cmd_new(a) -> int:
     try:
         if a.what == "project":
@@ -306,21 +394,12 @@ def cmd_skills(a) -> int:
 
 def cmd_docs(a) -> int:
     try:
-        root = resource_dir("docs").resolve()
         if a.docs_cmd == "show":
-            path = (root / a.path).resolve()
-            if Path(a.path).is_absolute() or not path.is_relative_to(root):
-                return _fail_config(["path must be relative and inside docs/"])
-            if not path.is_file():
-                names = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
-                nearest = difflib.get_close_matches(a.path, names, n=5, cutoff=0)
-                return _fail_config([f"document {a.path} does not exist; closest matches: {', '.join(nearest)}"])
-            print(path.read_text(encoding="utf-8"), end="")
+            print(read_doc(a.path), end="")
         else:
-            print(f"documentation: {root}\n  getting-started.md")
-            for section in ("tutorials", "spec"):
-                for path in sorted((root / section).glob("*.md")):
-                    print(f"  {path.relative_to(root)}")
+            print(f"documentation: {resource_dir('docs').resolve()}")
+            for path in docs_index():
+                print(f"  {path}")
             print("read: agencast docs show <path>\nhttps://github.com/rychidesign/agencast")
         return 0
     except ConfigErrors as e:
@@ -440,6 +519,7 @@ def main(argv=None) -> int:
                         "MCP servers and the callback stay real")
     r.add_argument("--callback-url", help="send the result after the run (https only, HMAC signature)")
     r.add_argument("--request-key", help="idempotency key (recorded only in the run record and callback)")
+    r.add_argument("--mcp-job", metavar="RUN_ID", help=argparse.SUPPRESS)  # the worker of `agencast mcp`; job on stdin
     rs = sub.add_parser("runs", parents=[common], help="run records")
     rss = rs.add_subparsers(dest="runs_cmd", required=True)
     rss.add_parser("list", parents=[common], help="list runs")
@@ -456,6 +536,24 @@ def main(argv=None) -> int:
     s.add_argument("--fake", nargs="?", const="", metavar="SCRIPT",
                    help="fake model provider (no model calls, no key); MCP servers and callbacks stay real")
     s.add_argument("--cors", metavar="ORIGIN", help="CORS for GUI development, e.g. http://localhost:5173 (vite dev)")
+    mc = sub.add_parser("mcp", parents=[common], help="MCP server for an MCP client (stdio, or streamable HTTP with "
+                                                      "--http): list projects and scenarios, run them, read results, "
+                                                      "build scenarios; all registry projects, or one with --project")
+    mc.add_argument("--allow", choices=["read", "run", "edit"], default="run",
+                    help="permission level (default run): read = read only; run = also dry, fake and live runs; "
+                         "edit = also write scenarios, agents and skills")
+    mc.add_argument("--input-dir", action="append", default=[], metavar="DIR",
+                    help="directory from which file/files inputs (images) may be read; repeatable; default: none")
+    mc.add_argument("--fake", nargs="?", const="", metavar="SCRIPT",
+                    help="fake-only server: no live runs (no model calls, no key, no cost); optional YAML with "
+                         "scripted responses")
+    mc.add_argument("--http", action="store_true", help="streamable HTTP at http://HOST:PORT/mcp instead of stdio; "
+                                                        "requires AGENCAST_MCP_TOKEN (at least 32 characters)")
+    mc.add_argument("--host", help="with --http: bind address (AGENCAST_MCP_HOST; default 127.0.0.1)")
+    mc.add_argument("--port", help="with --http: port (AGENCAST_MCP_PORT; default 8765; range 1–65535)")
+    mc.add_argument("--allow-host", action="append", metavar="HOST",
+                    help="with --http: another name or address clients reach the server by (their Host header, "
+                         "without a port); repeatable")
     m = sub.add_parser("migrate", parents=[common], help="convert a file to the current format version")
     m.add_argument("file", help="scenario, config or agent (.md)")
     n = sub.add_parser("new", help="create a project, agent or scenario from a template (no overwrites)")
@@ -507,7 +605,8 @@ def main(argv=None) -> int:
                 return _fail_config(["AGENCAST_PORT must be an integer in the range 1–65535"])
     return {"validate": cmd_validate, "run": cmd_run, "runs": cmd_runs, "serve": cmd_serve,
             "migrate": cmd_migrate, "new": cmd_new,
-            "rename": cmd_rename, "projects": cmd_projects, "skills": cmd_skills, "docs": cmd_docs}[a.cmd](a)
+            "rename": cmd_rename, "projects": cmd_projects, "skills": cmd_skills, "docs": cmd_docs,
+            "mcp": cmd_mcp}[a.cmd](a)
 
 
 if __name__ == "__main__":

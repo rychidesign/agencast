@@ -1,4 +1,5 @@
 """Bundled resources, safe paths and installation without modifying the host."""
+import re
 from pathlib import Path
 
 import pytest
@@ -53,13 +54,53 @@ def test_docs_paths(tmp_path, monkeypatch, capsys):
     assert "https://github.com/rychidesign/agencast" in capsys.readouterr().out
     assert main(["docs", "show", "spec/agent.md"]) == 0
     assert "specification v1" in capsys.readouterr().out
+    # the text files the docs link to print as in 0.18.0: the JSON schemas, the callback receiver
+    assert main(["docs", "show", "spec/schema/scenario.schema.json"]) == 0
+    assert '"$schema"' in capsys.readouterr().out
+    assert main(["docs", "show", "tutorials/callback-receiver.py"]) == 0
+    assert "import" in capsys.readouterr().out
     assert main(["docs", "show", "spec/agen.md"]) == 2
     assert "spec/agent.md" in capsys.readouterr().err
     for path in ("../README.md", "/etc/passwd"):
         assert main(["docs", "show", path]) == 2
     (tmp_path / "escape").symlink_to("/etc/passwd")
-    monkeypatch.setattr("agencast.cli.resource_dir", lambda _: tmp_path)
+    monkeypatch.setattr(resources, "resource_dir", lambda _: tmp_path)
     assert main(["docs", "show", "escape"]) == 2
+    assert "path must be relative and inside docs/" in capsys.readouterr().err
+
+
+def test_docs_reader_and_index(tmp_path, monkeypatch):
+    """The reader shared by `agencast docs` and the MCP server's `get_guide`."""
+    index = resources.docs_index()
+    assert index[0] == "getting-started.md" and {"spec/scenario.md", "tutorials/01-first-agent-and-scenario.md"} <= set(index)
+    assert all(resources.read_doc(path) for path in index)
+    assert "specification v1" in resources.read_doc("spec/agent.md")
+    with pytest.raises(ConfigErrors, match="document spec/agen.md does not exist; closest matches: spec/agent.md"):
+        resources.read_doc("spec/agen.md")
+    (tmp_path / "docs" / "spec").mkdir(parents=True)
+    (tmp_path / "docs" / "spec" / "escape.md").symlink_to(tmp_path / "secret.md")
+    (tmp_path / "secret.md").write_text("outside")
+    monkeypatch.setattr(resources, "resource_dir", lambda _: tmp_path / "docs")
+    for path in ("../secret.md", str(tmp_path / "secret.md"), "spec/escape.md"):
+        with pytest.raises(ConfigErrors, match="path must be relative and inside docs/"):
+            resources.read_doc(path)
+    # any text file is a document; a binary one (an image would not decode) and a name the OS cannot hold are misses
+    (tmp_path / "docs" / "spec" / "editor.png").write_bytes(b"\x89PNG\r\n")
+    (tmp_path / "docs" / "spec" / "guide.md").write_text("guide")
+    (tmp_path / "docs" / "spec" / "guide.schema.json").write_text("{}")
+    for path in ("spec/editor.png", "a" * 300, "\0.md"):
+        with pytest.raises(ConfigErrors, match=f"document {re.escape(path)} does not exist; closest matches: (?!.*png)"):
+            resources.read_doc(path)
+    with pytest.raises(ConfigErrors, match="closest matches: spec/guide.schema.json"):
+        resources.read_doc("spec/guide.schema.jsn")
+    assert resources.read_doc("spec/guide.md") == "guide" and resources.read_doc("spec/guide.schema.json") == "{}"
+    # a clone's docs/ outside what the wheel bundles (design notes, an archive) is neither served nor suggested
+    (tmp_path / "docs" / "archive").mkdir()
+    (tmp_path / "docs" / "archive" / "guide-notes.md").write_text("notes")
+    (tmp_path / "docs" / "DESIGN.md").write_text("design")
+    for path in ("archive/guide-notes.md", "DESIGN.md"):
+        with pytest.raises(ConfigErrors, match=r"does not exist; closest matches: spec/(?!.*(archive|DESIGN))"):
+            resources.read_doc(path)
 
 
 @pytest.mark.parametrize("example,scenario", [("showcase", "ig-post"), ("tutorial", "tutorial-07-composition")])

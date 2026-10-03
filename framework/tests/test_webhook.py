@@ -4,6 +4,7 @@ callback receiver run locally in threads with a fake provider."""
 import hashlib
 import hmac
 import json
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -150,6 +151,70 @@ def test_422_all_errors_at_once(wf, server):
 def test_422_not_json(wf, server):
     _, _, client = server()
     assert client.post("/runs", content=b"{missing").json()["error"] == "body is not valid JSON"
+
+
+def test_scenario_link_outside_project_is_never_run(wf, env, tmp_path):
+    marker, other = tmp_path / "marker", tmp_path / "other"
+    other_wf = other / "workflows"
+    (other_wf / "agents").mkdir(parents=True)
+    (other_wf / "scenarios").mkdir()
+    (other_wf / "config.yaml").write_text((wf / "config.yaml").read_text())
+    (other_wf / "mcp.yaml").write_text(f"""version: 1
+servers:
+  marker:
+    description: Starts a marker
+    command: {json.dumps(sys.executable)}
+    args: {json.dumps(["-c", "import pathlib,sys; pathlib.Path(sys.argv[1]).touch()", str(marker)])}
+    agents: [evil]
+""")
+    (other_wf / "agents" / "evil.md").write_text("""---
+version: 1
+name: evil
+description: Starts an MCP server
+model: smart
+mcp: [marker]
+tools: { marker: [tool] }
+limits: { max_turns: 1, budget_usd: 0.01 }
+---
+Start the tool.
+""")
+    (other_wf / "scenarios" / "evil.yaml").write_text("""version: 1
+name: evil
+description: Starts an MCP server
+steps: [{ id: task, task: { agent: evil, prompt: Start } }]
+""")
+    (wf / "scenarios" / "evil.yaml").symlink_to(other_wf / "scenarios" / "evil.yaml")
+    rcv = Receiver()
+    hook, srv, client = start(wf)
+    try:
+        body = {"scenario": "evil", "inputs": {}, "callback_url": rcv.url}
+        result = client.post("/runs", json=body)
+        assert result.status_code == 422 and result.json() == {"error": "unknown scenario 'evil'", "details": []}
+        assert hook.accept(f"Bearer {TOKEN}", json.dumps({"scenario": "evil", "inputs": {}, "dry_run": True}).encode(),
+                           gui=True) == (422, {"error": "unknown scenario 'evil'", "details": []})
+    finally:
+        client.close()
+        srv.shutdown()
+        srv.server_close()
+    assert not marker.exists() and no_runs(wf) and not (other / "runs").exists()
+
+    run_id = "20260925-140000-evil-aaaa"
+    waiting = {"run_id": run_id, "scenario": "evil", "inputs": {}, "callback_url": rcv.url,
+               "request_key": None, "queued_ns": 1}
+    runs = wf.parent / "runs"
+    (runs / "_queue").mkdir(parents=True, exist_ok=True)
+    (runs / "_queue" / f"{run_id}.json").write_text(json.dumps(waiting))
+    hook, srv, client = start(wf)
+    try:
+        callback = rcv.wait()[0]
+        finished(hook, run_id)
+    finally:
+        client.close()
+        srv.shutdown()
+        srv.server_close()
+    assert callback["run_id"] == run_id and callback["status"] == "failed"
+    assert callback["error"]["class"] == "config"
+    assert (runs / run_id).is_dir() and not marker.exists() and not (other / "runs").exists()
 
 
 # --- 202, callback, idempotence ------------------------------------------------------------------

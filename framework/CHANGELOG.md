@@ -5,6 +5,59 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
+## Unreleased (0.19.0, MCP server)
+
+- `agencast mcp` — AgenCast as an MCP server (spec/mcp-server.md): 17 tools to list projects and scenarios, read
+  workflow files and the bundled guide, validate drafts, plan (`dry_run`), run (`fake_run` free, `run_scenario`
+  live — two tools so that a client's permission for the free one never covers the paid one), wait for and read
+  runs (`run_status`, `wait_run` at most 50 s, `list_runs`, `get_run_file` with small images inline) and, with
+  `--allow edit`, write scenarios, agents and skills (`etag`-guarded, refused when they add a validation error).
+  The owner fixes the level at start (`--allow read|run|edit`, default `run`), `--fake [SCRIPT]` makes a server
+  that cannot spend money, `--input-dir DIR` allows image inputs from a directory (read once into a private
+  copy). Registry mode serves every registered project; `--project` one. The server never touches `config.yaml`,
+  `mcp.yaml`, `commands.yaml`, `.env` or the registry, loads from a project's `.env` only the variables the
+  project names (never the current directory's `.env`), and masks every result, error and log line with the
+  secrets of the addressed project.
+- Transports: stdio (the client starts the server) and `--http` — streamable HTTP at `http://HOST:PORT/mcp`
+  (`--host`, default 127.0.0.1; `--port`, default 8765; `--allow-host` for the names clients use, e.g. behind
+  `tailscale serve`), stateless, POST only, with a required bearer token from `AGENCAST_MCP_TOKEN` (at least 32
+  characters, removed from the environment at start) and Host/Origin checks. Setup for Claude Code, Claude Desktop
+  (also over ssh), Open WebUI and a systemd user service (`KillMode=process`): README “Use from an MCP client”.
+- Runs started through MCP outlive the client and the server: each executes in a detached worker,
+  `agencast run <scenario> --mcp-job <run_id>` (a hidden option; the job on stdin, never on a command line; a
+  session of its own; the server's environment as at start plus only its own project's named variables). At most
+  4 unfinished runs and dry runs started through MCP per project, shared by every MCP server, as lock files
+  `<runs>/_mcp-slots/<n>.lock` that hold the run id — so every server, also one started after a restart, reports
+  a run `queued` before its directory exists. A stop or restart of the server stops no run (under systemd only
+  with `KillMode=process`); SIGTERM / SIGINT end the server killed by the signal, a clean stop for systemd.
+- Fix: `agencast serve` refuses a scenario that is a link out of the project's own `workflows/scenarios/` (it
+  loaded the other tree's `config.yaml`, `.env` and `mcp.yaml` under the addressed project's trust): the request
+  is answered like an unknown scenario (422), a queued one fails with `config`.
+- Fix: a run takes `run.lock` right after creating its directory, before input images are copied — a run with
+  input images no longer reads `interrupted` (in `agencast runs list`, the API and the GUI) while they are copied,
+  as run-record.md already said.
+- Fix: a run's `scenario/<name>.yaml` snapshot is the text the run loaded, not the file as it is when the run
+  starts (an edit while a run waited for a slot ended up in its record).
+- The YAML reader of workflow files refuses a document whose aliases expand to more than 100,000 values
+  (`cannot read YAML — aliases expand to too many values`), for every reader: `validate`, `run`, `serve`, the GUI.
+- Fix: an unquoted `{{ … }}` value inside a block mapping (`v: {{ x }}`, a mapping as a key) is the usual
+  `cannot read YAML … must be quoted` error with the file and line (`found unhashable key`), not a `TypeError`
+  traceback that broke `validate` and every project listing.
+- Fix: an agent, skill or called scenario that is a link out of the project's own `workflows/` (a called
+  scenario: out of its `scenarios/`) does not exist for `validate` and a run — as a linked top-level scenario
+  (`validate.own_file`); the copy a draft is validated in leaves such links out.
+- `agencast docs show` and the MCP server's `get_guide` share one reader (`resources.read_doc`, `docs_index`) that
+  serves, and suggests on a miss, only what the wheel bundles (`getting-started.md`, `spec/`, `tutorials/`) — in a
+  clone too, whose other `docs/` files `docs show` read before; a link loop (a file input, a file of the files API)
+  or a name too long for the file system is a missing file instead of an exception; a run file path with a NUL byte
+  or a name too long answers 404 in `serve`. The files API serves no file of a `workflows/` that is a link to
+  another directory (404).
+- API additions (api.py): `project_env(root)` (load a project's named variables from its `.env`, return the values
+  to mask), `scenario_file(root, name)` (the real path of a scenario that lies in the project, otherwise
+  `NotFound`), `added_errors`, `runs_dir`, `run_output_files`; `load(…, dotenv=False)`; `record.Mask` (masking
+  without a run directory, `(NAME, value)` pairs); `task.SlotStore.held_ids()`; `loader.load_dotenv(path, only)`
+  returns what it read.
+
 ## 0.18.0 — 2026-10-02 (images as inputs, MCP hardening)
 
 - Images as inputs and as a variable (0.18.0, scenario.md Type `file`): input types `file` and `files` take a path

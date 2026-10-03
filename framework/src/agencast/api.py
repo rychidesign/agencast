@@ -1,9 +1,10 @@
-"""Public API for wrappers (DESIGN “Wrappers”): CLI, `serve`, later Modal and MCP.
+"""Public API for wrappers (DESIGN “Wrappers”): CLI, `serve`, the MCP server (`agencast mcp`), later Modal.
 
 Thin functions over validate, engine and record — logic belongs in the core
 with a hermetic test. Secrets come only from the environment (and `.env`).
 """
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -16,13 +17,15 @@ from .projects import (ProjectConflict, list_projects as projects, new_project, 
                        projects_root, registry_writable, remove as remove_project, trust as trust_project)
 from .edit import (Conflict, NotFound, OpError, add_step, batch, delete_agent, delete_scenario, delete_skill, delete_step,
                    create_path, file_etag, move_step, read_file, rename_agent, rename_scenario, render, replace_step, set_agent,
-                   set_config, set_header, set_skill, render_text as _render_text, update_step, validate_text, write_file)
+                   set_config, set_header, set_skill, render_text as _render_text, update_step, validate_text, write_file,
+                   _added as added_errors)  # the errors a change adds = what `write_file` refuses
 from .engine import RUN_ID, Interrupted, Run, dry_run as _dry_run, run_scenario
 from .fake import Fake
 from .loader import LoadError, load_dotenv, read_yaml
-from .record import Record, run_detail as _run_detail, run_status, step_detail as _step_detail
+from .mcp_client import load_mcp, secret_names
+from .record import Record, output_files as _output_files, run_detail as _run_detail, run_status, step_detail as _step_detail
 from .task import local_ledger
-from .validate import Project, require_config, resolve_inputs, validate
+from .validate import Project, env_fields, require_config, resolve_inputs, validate
 
 __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "new_project", "new_agent",
            "new_scenario", "projects", "projects_root", "normalize_project_root", "registry_writable",
@@ -35,7 +38,9 @@ __all__ = ["find_root", "load", "run", "dry_run", "runs_list", "run_status", "ne
            "delete_skill", "set_config", "read_file",
            "write_file", "validate_text",
            # 0.8.0: batch and preview without writes, whole step, lightweight file fingerprint
-           "OpError", "batch", "render", "render_text", "replace_step", "file_etag", "create_path"]
+           "OpError", "batch", "render", "render_text", "replace_step", "file_etag", "create_path",
+           # 0.19.0, for the MCP server (mcp-server.md): named variables only, scenario confinement, added errors
+           "project_env", "scenario_file", "added_errors", "runs_dir", "run_output_files"]
 
 
 def find_root(project_root=None) -> Path:
@@ -52,18 +57,47 @@ def find_root(project_root=None) -> Path:
     raise ConfigErrors(["no workflows/ directory in the current directory or its parents — use --project <path>"])
 
 
+def project_env(project_root) -> list[tuple[str, str]]:
+    """Environment of a project for a server that serves several (mcp-server.md “Secrets and environment”): from
+    `<root>/.env` take only the variables the project names — `*_env` fields of config.yaml, `env` and
+    `bearer_token_env` of mcp.yaml, the names of `engine.secret_values` — and never overwrite one that is set.
+    Any other line (HTTPS_PROXY, AGENCAST_CONFIG_DIR) would steer the whole process. Return what masking needs as
+    (NAME, value) pairs: the environment's value and, where it differs, the project's own `.env` value — another
+    project's `.env` may have set the variable first, and this project's runs use their own. An unreadable
+    config.yaml → ConfigErrors: no names are known."""
+    root = find_root(project_root)
+    names = {n for _, n in env_fields(require_config(root / "workflows"))} | set(secret_names(load_mcp(root / "workflows", [])))
+    own = load_dotenv(root / ".env", names)
+    return [(n, v) for n in sorted(names) for v in dict.fromkeys((os.environ.get(n), own.get(n))) if v]
+
+
+def scenario_file(project_root, name: str) -> Path:
+    """Real path of `workflows/scenarios/<name>.yaml`: a regular file directly in the project's own
+    `workflows/scenarios` — also behind a link to another scenario there. A link that leads out (the file, a
+    linked `scenarios/` or `workflows/`) → NotFound: `load` takes the project — config.yaml, `.env`, mcp.yaml,
+    the registry entry and its trust — from where the file really is, not from where the caller addressed it."""
+    d = find_root(project_root) / "workflows" / "scenarios"
+    # realpath, not resolve(): Python 3.12's raises RuntimeError on a link loop — realpath returns no file then
+    real = Path(os.path.realpath(d / f"{name}.yaml")) if _projects.NAME.fullmatch(name) else d
+    if not (real.parent == d and real.suffix == ".yaml" and os.path.isfile(real)):  # isfile: a too long name → False
+        raise NotFound(f"scenario '{name}' does not exist")
+    return real
+
+
 def load(scenario_path, *, project_root=None, fake: Fake | None = None, offline: bool = False,
-         listed: bool = False) -> Project:
+         listed: bool = False, dotenv: bool = True) -> Project:
     """Validated scenario. `scenario_path` = name (ig-post → workflows/scenarios/ig-post.yaml at the
-    project root) or path to .yaml. Load `.env` from the project root and current directory. With `fake`,
+    project root) or path to .yaml. Load `.env` from the project root and current directory — `dotenv=False`:
+    none, the caller has loaded the environment (`project_env`). With `fake`,
     validate models against its fake catalogs (if empty, populate them from config.yaml aliases).
     `listed` = for a server of registered projects: one that left the registry uses no MCP servers (projects.md)."""
     s = str(scenario_path)
     if not s.endswith((".yaml", ".yml")) and "/" not in s:
         s = str(find_root(project_root) / "workflows" / "scenarios" / f"{s}.yaml")
     wf = Path(s).resolve().parent.parent
-    load_dotenv(wf.parent / ".env")
-    load_dotenv(Path.cwd() / ".env")
+    if dotenv:
+        load_dotenv(wf.parent / ".env")
+        load_dotenv(Path.cwd() / ".env")
     if fake is not None and not fake.models and not fake.image_models:
         models = require_config(wf)["models"]
         fake.models = [m["id"] for m in models.values() if m.get("api", "chat") == "chat"]
@@ -86,7 +120,7 @@ def dry_run(project: Project, inputs: dict) -> Record:
     return _dry_run(project, resolve_inputs(project.scenario, inputs))
 
 
-def _runs_dir(project_root) -> Path:
+def runs_dir(project_root) -> Path:
     """`runs_dir` from config.yaml; reading runs does not require a valid config (API findings 4) — just this field.
     Fall back to `./runs` if it cannot be read."""
     wf = find_root(project_root) / "workflows"
@@ -123,7 +157,7 @@ def _in_queue(info: dict[str, Any], queue: dict[str, dict[str, Any]]) -> dict[st
 def runs_list(project_root=None, scenario: str | None = None, limit: int | None = None,
               before: str | None = None) -> list[dict]:
     """Project runs by directory name, descending; `scenario` filters run_id and `before` paginates."""
-    runs = _runs_dir(project_root)
+    runs = runs_dir(project_root)
     mine = re.compile(rf"\d{{8}}-\d{{6}}-{re.escape(scenario)}-[0-9a-f]{{4}}") if scenario else RUN_ID
     queue = _queue(runs)
     queued = {q["run_id"]: q for q in queue.values()
@@ -186,7 +220,7 @@ def describe_scenario(project_root, name: str) -> dict[str, Any] | None:
 def run_detail(project_root, run_id: str) -> dict[str, Any] | None:
     """Run status, steps and step tree (from the `scenario/` snapshot, or the current file for older
     runs); runs waiting in the `serve` queue have only `status: queued`; None = does not exist."""
-    runs = _runs_dir(project_root)
+    runs = runs_dir(project_root)
     if not RUN_ID.fullmatch(run_id):
         return None
     queue = _queue(runs)
@@ -198,18 +232,29 @@ def run_detail(project_root, run_id: str) -> dict[str, Any] | None:
 
 def step_detail(project_root, run_id: str, path: str) -> dict[str, Any] | None:
     """Run step by path (`copy`, or `propose/copy` for `call`): events, output, files; None = does not exist."""
-    d = _runs_dir(project_root) / run_id
+    d = runs_dir(project_root) / run_id
     return _step_detail(d, path) if RUN_ID.fullmatch(run_id) and d.is_dir() else None
 
 
+def run_output_files(project_root, run_id: str) -> dict[str, str]:
+    """`{output: path relative to the run directory}` of a run's `file` / `files` outputs (`files` as `<name>-<i>`),
+    from its `file_uploaded` events without the report (mcp-server.md “The run object”); {} = none, or no such run."""
+    d = runs_dir(project_root) / run_id
+    return _output_files(d) if RUN_ID.fullmatch(run_id) and d.is_dir() else {}
+
+
 def run_file(project_root, run_id: str, rel: str) -> Path | None:
-    """File inside the run directory; outside it (path traversal, external symlink) or missing → None."""
-    d = (_runs_dir(project_root) / run_id).resolve()
-    p = (d / rel).resolve()
-    return p if RUN_ID.fullmatch(run_id) and p.is_relative_to(d) and p.is_file() else None
+    """File inside the run directory; outside it (path traversal, external symlink), missing or a path the file
+    system cannot hold (a NUL byte, a name too long) → None."""
+    d = (runs_dir(project_root) / run_id).resolve()
+    try:
+        p = Path(os.path.realpath(d / rel))  # a link loop: no file (resolve() raises RuntimeError)
+        return p if RUN_ID.fullmatch(run_id) and p.is_relative_to(d) and p.is_file() else None
+    except (OSError, ValueError):
+        return None
 
 
 def spend(project_root, day: str) -> dict[str, Any]:
     """Daily spend ledger (live runs, UTC day): `{day, total_usd, runs: [{run_id, cost_usd, finished_at}]}`."""
-    rows = local_ledger(_runs_dir(project_root), False).rows(day)
+    rows = local_ledger(runs_dir(project_root), False).rows(day)
     return {"day": day, "total_usd": round(sum(r["cost_usd"] for r in rows), 10), "runs": rows}

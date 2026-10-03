@@ -59,6 +59,8 @@ The command above installs the CLI/API; build the GUI from a clone as described 
 - A fake provider replaces model calls with no cost and no key; MCP and callbacks stay real.
 - Every run stores `summary.md`, `callback.json` and a standalone `report.html`.
 - `agencast serve` accepts webhooks and offers a GUI for registered projects.
+- `agencast mcp` is an MCP server: Claude Code, Claude Desktop, Open WebUI or another agent can list, run and
+  build scenarios through it.
 - Skills for coding agents help both run and create scenarios.
 
 ![The ig-post scenario editor in the AgenCast GUI](docs/ui/screenshots/editor.png)
@@ -118,6 +120,85 @@ agencast run demo --dry-run
 agencast run demo --fake
 agencast run demo
 ```
+
+## Use from an MCP client
+
+`agencast mcp` serves the registered projects (one with `--project`) to an MCP client: it lists projects and
+scenarios, runs them, reads results and, with `--allow edit`, writes scenarios, agents and skills. A run started
+through it executes in a process of its own and goes on when the client disconnects or the server restarts.
+Everything below is specified in [the MCP server specification](docs/spec/mcp-server.md).
+
+Claude Code starts the server itself (stdio):
+
+```bash
+claude mcp add --transport stdio agencast -- agencast mcp           # dry, fake and live runs (--allow run)
+claude mcp add --transport stdio agencast -- agencast mcp --fake    # no live runs: nothing can cost money
+```
+
+Claude Desktop starts stdio servers only (`claude_desktop_config.json`, absolute paths, restart the app); on
+another machine it starts the server over ssh — no token and no open port:
+
+```json
+{"mcpServers": {"agencast": {"command": "/home/me/.local/bin/agencast", "args": ["mcp"]},
+                "agencast-box": {"command": "ssh", "args": ["-T", "box", "/home/me/.local/bin/agencast", "mcp"]}}}
+```
+
+Clients on other machines or in containers use streamable HTTP with a bearer token of at least 32 characters
+(`openssl rand -hex 32`), read from `AGENCAST_MCP_TOKEN` at start. Claude Code takes the URL from `.mcp.json`
+and expands `${AGENCAST_MCP_TOKEN}` from its own environment, so the token is in no file:
+
+```json
+{"mcpServers": {"agencast": {"type": "http", "url": "http://127.0.0.1:8765/mcp",
+                             "headers": {"Authorization": "Bearer ${AGENCAST_MCP_TOKEN}"}}}}
+```
+
+```bash
+claude mcp add --transport http --scope user agencast http://127.0.0.1:8765/mcp \
+  --header 'Authorization: Bearer ${AGENCAST_MCP_TOKEN}'                       # single quotes: stored unexpanded
+```
+
+Never let the shell expand the token into a `claude mcp add` command: it would stay in plain text in Claude
+Code's configuration and the shell history. In Open WebUI (0.6.31 or newer), add an external tool server of type
+MCP (Streamable HTTP) with the URL and Bearer authentication with the token. Open WebUI in Docker reaches
+`http://127.0.0.1:8765/mcp` with `--network=host`; otherwise start the container with
+`--add-host=host.docker.internal:host-gateway`, the server with `--host 172.17.0.1 --allow-host host.docker.internal`
+(the Docker bridge) and use `http://host.docker.internal:8765/mcp`.
+
+The HTTP server as a systemd user service, `~/.config/systemd/user/agencast-mcp.service`:
+
+```ini
+[Unit]
+Description=AgenCast MCP server (streamable HTTP)
+
+[Service]
+# Only AGENCAST_MCP_* in this file (mode 600), no provider keys: a key set here wins over
+# every project's .env and pays for the runs of all projects.
+EnvironmentFile=%h/.config/agencast/mcp.env
+ExecStart=%h/.local/bin/agencast mcp --http --allow run
+# Runs are processes of this unit: without this line a stop or restart interrupts them.
+KillMode=process
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+(umask 077; mkdir -p ~/.config/agencast && printf 'AGENCAST_MCP_TOKEN=%s\n' "$(openssl rand -hex 32)" > ~/.config/agencast/mcp.env)
+systemctl --user daemon-reload && systemctl --user enable --now agencast-mcp
+loginctl enable-linger "$USER"                  # the service and its runs outlive your logins
+tailscale serve --bg 8765                       # https://box.<tailnet>.ts.net/mcp for the tailnet
+```
+
+Behind `tailscale serve` add `--allow-host box.<tailnet>.ts.net` to `ExecStart` (the name clients use; without it
+they get 421), and point `.mcp.json` at `https://box.<tailnet>.ts.net/mcp`.
+
+Expose the server only on a private network: it speaks plain HTTP, so keep `127.0.0.1` and publish it with
+`tailscale serve` (never `tailscale funnel`). Whoever has the token has the server's level; `--fake` stops model
+spending but `task` steps still start their MCP servers — only `--allow read` starts nothing. Runs end only when
+their own process is stopped: a signal to it, or the end of the control group it lives in (a unit without
+`KillMode=process`, a stopped container, a logout without lingering).
 
 ## Skills for coding agents
 

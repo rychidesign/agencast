@@ -64,6 +64,12 @@ runs/20260925-140311-ig-post-a1b2/
     Always written; read by `daily_budget_usd`. Fake runs (`--fake`) write
     to `_ledger-fake/` (like `_dedupe-fake/`). Runs before 0.3.1 are not in
     the ledger.
+  - `_mcp-slots/<n>.lock`, n = 1..4 (since framework 0.19.0) — `flock` locks of the
+    runs and dry runs started through `agencast mcp`
+    ([mcp-server.md](mcp-server.md#unfinished-runs-4-per-project)): the MCP server
+    takes one, the run's worker process holds it until it exits; a process crash
+    releases it too. The file holds the `run_id` of the run that holds it (empty while
+    a dry run holds it); once unlocked its content is stale. The files stay.
 - **`run_id`** = `YYYYMMDD-HHMMSS-<scenario>-<4 hex characters>` in UTC
   (**proposal**) — sorts by time and shows what ran. It can be guessed,
   which is why the storage key has an extra 32 random hex characters (see

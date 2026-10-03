@@ -1,6 +1,9 @@
 """limits.max_parallel_runs and daily_budget_usd (ISSUES 40): slots `_slots/`, daily ledger `_ledger/`."""
 import json
+import os
 import signal
+import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, timezone
@@ -10,7 +13,7 @@ from conftest import events, run, scenario
 
 from agencast import engine
 from agencast.cli import main
-from agencast.task import local_slots
+from agencast.task import SlotStore, local_slots
 
 SC = """version: 1
 name: NAME
@@ -126,6 +129,22 @@ def test_daily_budget_exhausted_before_any_call(wf, capsys):
     assert not (wf.parent / "runs" / "_ledger").exists()                               # no real ledger created
 
 
+def test_run_that_cannot_start_never_writes_into_another_run(wf):
+    """A given run_id that another process took meanwhile: a run that cannot start (budget, slot timeout) is not
+    recorded over that run's directory; only a caller's own `error` (serve after a restart) reuses one."""
+    limits(wf, "daily_budget_usd: 0.5")
+    path = scenario(wf, SC)
+    book = wf.parent / "runs" / "_ledger-fake" / f"{today()}.jsonl"
+    book.parent.mkdir(parents=True)
+    book.write_text('{"run_id": "a", "cost_usd": 0.5, "finished_at": "x"}\n')
+    theirs = wf.parent / "runs" / "20260101-000000-test-aaaa"
+    theirs.mkdir()
+    (theirs / "events.jsonl").write_text("{}\n")
+    with pytest.raises(FileExistsError):
+        run(path, run_id=theirs.name)
+    assert [p.name for p in theirs.iterdir()] == ["events.jsonl"] and (theirs / "events.jsonl").read_text() == "{}\n"
+
+
 def test_ledger_filled_after_run_fake_separate(wf):
     limits(wf, "daily_budget_usd: 5")
     path = scenario(wf, SC)
@@ -137,3 +156,22 @@ def test_ledger_filled_after_run_fake_separate(wf):
     assert rows[1]["finished_at"].startswith(today()) and rows[1]["finished_at"].endswith("Z")
     assert not (wf.parent / "runs" / "_ledger").exists()
     assert engine.local_ledger(wf.parent / "runs", True).total(today()) == 0.75
+
+
+def test_held_slot_names_its_run(tmp_path):
+    """`SlotStore.held_ids`: the run ids in the slot files a live process holds — how every MCP server finds a run
+    started through MCP before its directory exists (mcp-server.md “Unfinished runs”). An empty held slot (a dry
+    run) names none; the content of a free slot is stale."""
+    store, run_id = SlotStore(tmp_path / "_mcp-slots", 4), "20261002-101512-demo-2cf1"
+    fd = store.acquire()
+    os.pwrite(fd, run_id.encode(), 0)
+    child = subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.read()"], stdin=subprocess.PIPE, pass_fds=(fd,))
+    store.release(fd)  # the child holds it now, as a worker does
+    empty = store.acquire()
+    try:
+        assert store.held_ids() == {run_id}
+    finally:
+        child.stdin.close()
+        child.wait()
+    assert store.held_ids() == set() and (tmp_path / "_mcp-slots" / "1.lock").read_text() == run_id
+    store.release(empty)

@@ -1,8 +1,10 @@
 import re
 import shutil
+import subprocess
 import sys
 import textwrap
 import threading
+import time
 from pathlib import Path
 
 import httpx
@@ -78,6 +80,38 @@ def add_image_model(wf: Path, alias="gpt-image", model_id="openai/gpt-image-2", 
     config = yaml.safe_load(cfg_path.read_text())
     config["models"][alias] = {"id": model_id, "api": "images", **({"quality": quality} if quality else {})}
     cfg_path.write_text(yaml.safe_dump(config, allow_unicode=True, sort_keys=False))
+
+
+def mcp_leftovers(basetemp: Path) -> set[str]:
+    """What the MCP server tests may leave behind: `agencast mcp` servers and `--mcp-job` workers of this session
+    (their registry is under its basetemp), `agencast-mcp-test-*` user units, `agencast-mcp-*` copies of file inputs."""
+    found = {f"temp dir {p}" for p in basetemp.rglob("agencast-mcp-*") if p.is_dir()}
+    for proc in Path("/proc").glob("[0-9]*"):
+        try:
+            args = (proc / "cmdline").read_bytes().split(b"\0")
+            if b"agencast.cli" in b" ".join(args) and (b"mcp" in args or b"--mcp-job" in args) and \
+                    f"AGENCAST_CONFIG_DIR={basetemp}".encode() in (proc / "environ").read_bytes():
+                found.add(f"process {proc.name}: {b' '.join(args).decode(errors='replace')}")
+        except OSError:  # gone meanwhile, or another user's
+            pass
+    if shutil.which("systemctl"):
+        units = subprocess.run(["systemctl", "--user", "list-units", "--all", "--plain", "--no-legend",
+                                "agencast-mcp-test-*"], capture_output=True, text=True, timeout=30).stdout
+        found |= {f"unit {line.split()[0]}" for line in units.splitlines() if line.strip()}
+    return found
+
+
+@pytest.fixture(scope="session", autouse=True)
+def no_mcp_leftovers(tmp_path_factory):
+    """After the whole suite no MCP server, run worker, test unit or temporary copy of file inputs that the tests
+    started remains (mcp-server.md; a worker of the last test gets a few seconds to finish)."""
+    basetemp = tmp_path_factory.getbasetemp()
+    before = mcp_leftovers(basetemp)
+    yield
+    end = time.monotonic() + 10
+    while (left := mcp_leftovers(basetemp) - before) and time.monotonic() < end:
+        time.sleep(0.2)
+    assert not left, sorted(left)
 
 
 @pytest.fixture(autouse=True)

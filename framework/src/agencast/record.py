@@ -76,16 +76,17 @@ def _forms(value: str) -> list[str]:
     return sorted(dict.fromkeys(forms), key=len, reverse=True)  # longest first: an inner form never hides an outer one
 
 
-class Record:
-    def __init__(self, directory: Path, secrets: dict[str, str], exist_ok: bool = False):
-        self.dir = directory
+class Mask:
+    """Masking of secret values (`{NAME: value}` or `(NAME, value)` pairs — one name may have two values,
+    `api.project_env`) without a run directory: the record's, and the exit of the MCP server (mcp-server.md “Masking”)."""
+
+    def __init__(self, secrets):
+        pairs = secrets.items() if isinstance(secrets, dict) else secrets
         # longest first across all secrets: a value that contains another one (a connection URL and its user name)
         # is replaced whole, before the shorter one could take a piece out of it
-        self.forms = sorted(((f, n) for n, v in secrets.items() if v and len(v) >= MIN_SECRET_LEN for f in _forms(v)),
+        self.forms = sorted(((f, n) for n, v in pairs if v and len(v) >= MIN_SECRET_LEN for f in _forms(v)),
                             key=lambda x: len(x[0]), reverse=True)
         self.masked: set[str] = set()
-        self.events: list[dict] = list(_events(directory)) if exist_ok else []
-        directory.mkdir(parents=True, exist_ok=exist_ok)  # exist_ok: interrupted run after server restart
 
     def mask(self, text: str) -> str:
         for form, name in self.forms:
@@ -109,6 +110,21 @@ class Record:
             return self.mask(o) if isinstance(o, str) else o
         return walk(json.loads(_dump(obj)))
 
+    def mask_bytes(self, data: bytes) -> bytes:
+        for form, name in self.forms:  # a tool's image block is any bytes the server likes: its key as text
+            if (b := form.encode()) in data:
+                data = data.replace(b, f"<secret: {name}>".encode())
+                self.masked.add(name)
+        return data
+
+
+class Record(Mask):
+    def __init__(self, directory: Path, secrets: dict[str, str], exist_ok: bool = False):
+        super().__init__(secrets)
+        self.dir = directory
+        self.events: list[dict] = list(_events(directory)) if exist_ok else []
+        directory.mkdir(parents=True, exist_ok=exist_ok)  # exist_ok: interrupted run after server restart
+
     def write(self, rel: str, content) -> str:
         p = self.dir / rel
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -117,13 +133,9 @@ class Record:
         return rel
 
     def write_bytes(self, rel: str, data: bytes) -> str:
-        for form, name in self.forms:  # a tool's image block is any bytes the server likes: its key as text
-            if (b := form.encode()) in data:
-                data = data.replace(b, f"<secret: {name}>".encode())
-                self.masked.add(name)
         p = self.dir / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(data)
+        p.write_bytes(self.mask_bytes(data))
         return rel
 
     def size(self, rel: str) -> int:
@@ -443,6 +455,13 @@ def run_detail(run_dir: Path) -> dict[str, Any]:
     steps, _ = _step_rows(run_dir)
     files = sorted(p.relative_to(run_dir).as_posix() for p in run_dir.rglob("*") if p.is_file())
     return {**run_status(run_dir), "steps": list(steps.values()), "files": files}
+
+
+def output_files(run_dir: Path) -> dict[str, str]:
+    """`{output: path relative to the run directory}` of the `file` / `files` outputs (`files` as `<name>-<i>`), from
+    the `file_uploaded` events — without report.html, whose upload is named `report` too."""
+    return {e["output"]: e["path"] for e in _events(run_dir)
+            if e["type"] == "file_uploaded" and (e["output"], e["path"]) != ("report", "report.html")}
 
 
 def step_detail(run_dir: Path, path: str) -> dict[str, Any] | None:
