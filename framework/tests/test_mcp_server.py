@@ -132,6 +132,9 @@ def test_run_card_resource_and_bindings():
     assert html.lower().startswith(("<!doctype html>", "<html"))
     assert all(text in html for text in ("ui/initialize", "tools/call", "run_status", "get_run_file"))
     assert "http://" not in html and "https://" not in html
+    # a host that embeds the card through an HTML attribute (Open WebUI's srcdoc) decodes legacy entities without a
+    # semicolon: `a&&section` became `a&§ion` and the card's script never parsed — so no `&` before a letter
+    assert not re.search(r"&[A-Za-z#]", html)
     for server, names in ((build(allow="edit"), {"fake_run", "run_scenario", "run_status"}),
                           (build(fake=""), {"fake_run", "run_status"}),
                           (build(allow="read"), {"run_status"})):

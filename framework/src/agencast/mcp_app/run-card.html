@@ -38,8 +38,8 @@ svg{width:16px;height:16px;flex-shrink:0}.icon-slot{display:inline-grid;place-it
   const text=value=>document.createTextNode(value==null?'':String(value));
   const node=(tag, value, name)=>{const el=document.createElement(tag);if(name)el.className=name;if(value!==undefined)el.append(text(value));return el};
   const add=(parent, tag, value, name)=>{const el=node(tag,value,name);parent.append(el);return el};
-  const message=result=>result?.content?.filter(x=>x&&x.type==='text').map(x=>x.text).join('\n')||'The host did not return a result.';
-  const data=result=>{if(result?.structuredContent&&typeof result.structuredContent==='object')return result.structuredContent;try{return JSON.parse(result?.content?.find(x=>x&&x.type==='text')?.text||'');}catch{return null;}};
+  const message=result=>result?.content?.filter(x=>x&& x.type==='text').map(x=>x.text).join('\n')||'The host did not return a result.';
+  const data=result=>{if(result?.structuredContent&& typeof result.structuredContent==='object')return result.structuredContent;try{return JSON.parse(result?.content?.find(x=>x&& x.type==='text')?.text||'');}catch{return null;}};
   const stop=why=>{clearTimeout(pollTimer);card.dataset.done='true';if(why)problem.textContent=why;};  // a card that gave up stops moving too
   const resize=()=>{const height=Math.ceil(document.documentElement.getBoundingClientRect().height);if(height!==lastHeight){lastHeight=height;post({method:'ui/notifications/size-changed',params:{height,width:document.documentElement.clientWidth}});}};
   // a finished run shows its duration; a live one counts from started_at
@@ -58,7 +58,7 @@ svg{width:16px;height:16px;flex-shrink:0}.icon-slot{display:inline-grid;place-it
     el.dataset.state=state;
     let slot=el.querySelector('.icon-slot');
     if(!slot){el.replaceChildren();slot=add(el,'span',undefined,'icon-slot');add(el,'span','',label?'status-label':'sr-only');}
-    for(const old of slot.children){if(motion.matches){old.classList.remove('icon-enter');old.classList.add('outgoing');const remove=e=>{if(e.target===old&&e.animationName==='fade-out')old.remove();};old.addEventListener('animationend',remove);old.addEventListener('animationcancel',remove);}else old.remove();}
+    for(const old of slot.children){if(motion.matches){old.classList.remove('icon-enter');old.classList.add('outgoing');const remove=e=>{if(e.target===old&& e.animationName==='fade-out')old.remove();};old.addEventListener('animationend',remove);old.addEventListener('animationcancel',remove);}else old.remove();}
     const next=add(slot,'span');next.append(icon(states[state]||'circle'));animate(next,'icon-enter');
     setText(el.lastElementChild,state);
   }
@@ -74,13 +74,13 @@ svg{width:16px;height:16px;flex-shrink:0}.icon-slot{display:inline-grid;place-it
     const state=run.state||run.status||'unknown', changed=bar.dataset.state!==state;
     card.dataset.done=String(!!run.done);status(badge,state,true);
     setText(q('.title'),run.scenario||'unknown scenario');setText(q('#project'),(run.project||'unknown project')+' · ');setText(q('#run-id'),run.run_id||'—');
-    const steps=Array.isArray(run.steps)?run.steps.filter(s=>s&&typeof s==='object'):[];
+    const steps=Array.isArray(run.steps)?run.steps.filter(s=>s&& typeof s==='object'):[];
     // Finished runs count from detail, as steps_done is then null; like the server, main-scenario steps that passed.
-    const done_=run.steps_done!=null?run.steps_done:(run.done&&steps.length?steps.filter(s=>['succeeded','skipped'].includes(s.status)&&!String(s.step).includes('/')).length:null);
+    const done_=run.steps_done!=null?run.steps_done:(run.done&& steps.length?steps.filter(s=>['succeeded','skipped'].includes(s.status)&&!String(s.step).includes('/')).length:null);
     setText(q('#progress'),(done_??'—')+' / '+(run.steps_total??'—')+' steps'+(run.current_step?' · '+run.current_step:''));
     setText(q('#elapsed'),'Elapsed: '+elapsed());
     const price=q('#cost'), priceText=cost(run.cost_usd);if(price.textContent!==priceText){setText(price,priceText);animate(price,'cost-flash');}
-    const total=Number.isInteger(run.steps_total)&&run.steps_total>0?run.steps_total:1;
+    const total=Number.isInteger(run.steps_total)&& run.steps_total>0?run.steps_total:1;
     while(bar.children.length<total){const segment=add(bar,'span',undefined,'segment');segment.style.setProperty('--i',bar.children.length-1);add(segment,'span',undefined,'fill');}
     while(bar.children.length>total)bar.lastElementChild.remove();
     bar.style.setProperty('--n',total);bar.setAttribute('aria-valuemax',total);bar.setAttribute('aria-valuenow',Math.min(total,Math.max(0,done_??0)));bar.setAttribute('aria-valuetext',state+': '+q('#progress').textContent);
@@ -88,7 +88,7 @@ svg{width:16px;height:16px;flex-shrink:0}.icon-slot{display:inline-grid;place-it
     const active=Math.min(total-1,Math.max(0,completed));
     [...bar.children].forEach((segment,i)=>{
       let fill=i<completed?'done':'empty';
-      if(state==='running'&&completed<total&&i===active)fill='current';
+      if(state==='running'&& completed<total&& i===active)fill='current';
       if(state==='failed'||state==='interrupted'){
         // steps[] says where the run stopped; without detail, keep what the last poll drew.
         if(!steps.length)fill=segment.dataset.fill||fill;
@@ -96,9 +96,9 @@ svg{width:16px;height:16px;flex-shrink:0}.icon-slot{display:inline-grid;place-it
         if(i===finalIndex)fill=state;
       }
       segment.dataset.fill=fill;
-      if(changed&&state==='failed'&&fill==='failed')animate(segment,'failed-shake');
+      if(changed&& state==='failed'&& fill==='failed')animate(segment,'failed-shake');
     });
-    bar.dataset.state=state;if(changed&&state==='succeeded')animate(bar,'success-glow');
+    bar.dataset.state=state;if(changed&& state==='succeeded')animate(bar,'success-glow');
     if(steps.length){
       let list=q('#steps');if(!list){const el=add(body,'section',undefined,'section');add(el,'h2','Steps');list=add(el,'div',undefined,'nested');list.id='steps';}
       const keep=new Set();let arriving=0;
@@ -113,25 +113,25 @@ svg{width:16px;height:16px;flex-shrink:0}.icon-slot{display:inline-grid;place-it
       }
       for(const [path,saved] of stepRows)if(!keep.has(path)){saved.el.remove();stepRows.delete(path);}
     }else if(q('#steps')){q('#steps').parentElement.remove();stepRows.clear();}
-    const warnings=Array.isArray(run.warnings)&&run.warnings.length;
+    const warnings=Array.isArray(run.warnings)&& run.warnings.length;
     if(warnings)section('Warnings',JSON.stringify(run.warnings),content=>{for(const warning of run.warnings){const line=add(content,'div',undefined,'row warning-row');line.append(icon('warning'));add(line,'span',warning);}});
     if(run.error)section('Error',JSON.stringify(run.error),content=>add(content,'div',(run.error.class||'error')+(run.error.step?' · '+run.error.step:'')+(run.error.message?': '+run.error.message:''),'error'));
-    const outputs=run.outputs&&typeof run.outputs==='object'?run.outputs:null, outFiles=run.output_files&&typeof run.output_files==='object'?run.output_files:{};
+    const outputs=run.outputs&& typeof run.outputs==='object'?run.outputs:null, outFiles=run.output_files&& typeof run.output_files==='object'?run.output_files:{};
     const hasOutputs=outputs||run.outputs_file||Object.keys(outFiles).length;
     if(hasOutputs)section('Outputs',JSON.stringify([outputs,run.outputs_file,outFiles]),content=>{
-      if(!outputs&&run.outputs_file)row(content,'outputs','too large to show here; read '+run.outputs_file);
+      if(!outputs&& run.outputs_file)row(content,'outputs','too large to show here; read '+run.outputs_file);
       for(const [name,value] of Object.entries(outputs||{}))if(!(name in outFiles))row(content,name,typeof value==='string'?(value.length>600?value.slice(0,600)+'… (shortened)':value):typeof value==='object'?JSON.stringify(value):value);
       for(const [name,path] of Object.entries(outFiles)){const line=row(content,name,path);line.dataset.file=path;line.dataset.name=name;}
     });
-    for(const [name,exists] of [['Warnings',warnings],['Error',run.error],['Outputs',hasOutputs]])if(!exists&&sections.has(name)){sections.get(name).el.remove();sections.delete(name);}
+    for(const [name,exists] of [['Warnings',warnings],['Error',run.error],['Outputs',hasOutputs]])if(!exists&& sections.has(name)){sections.get(name).el.remove();sections.delete(name);}
     for(const line of body.querySelectorAll('[data-file]')){const image=images.get(line.dataset.file);if(image&&!line.querySelector('img')){const img=document.createElement('img');img.alt=line.dataset.name;img.onload=()=>{img.classList.add('loaded');animate(img,'image-enter');resize();};img.src=image;line.append(img);}}
     resize();
   }
   function call(name,args,done){if(dead)return;const id='agencast-'+(++nextId);calls.set(id,done);post({id,method:'tools/call',params:{name,arguments:args}});}
   // one image at a time: each answer can be a megabyte of base64
-  function files(){if(!run||run.state!=='succeeded')return;const path=Object.values(run.output_files||{}).find(p=>typeof p==='string'&&imageFile.test(p)&&!asked.has(p));if(!path)return;asked.add(path);call('get_run_file',{project:run.project,run_id:run.run_id,path},result=>{const image=!result?.isError&&result?.content?.find(block=>block&&block.type==='image'&&imageTypes.has(block.mimeType)&&typeof block.data==='string');if(image)images.set(path,'data:'+image.mimeType+';base64,'+image.data);render();files();});}
+  function files(){if(!run||run.state!=='succeeded')return;const path=Object.values(run.output_files||{}).find(p=>typeof p==='string'&& imageFile.test(p)&&!asked.has(p));if(!path)return;asked.add(path);call('get_run_file',{project:run.project,run_id:run.run_id,path},result=>{const image=!result?.isError&& result?.content?.find(block=>block&& block.type==='image'&& imageTypes.has(block.mimeType)&& typeof block.data==='string');if(image)images.set(path,'data:'+image.mimeType+';base64,'+image.data);render();files();});}
   function fetch_(delay){clearTimeout(pollTimer);pollTimer=setTimeout(()=>call('run_status',{project:run.project,run_id:run.run_id,detail:true},result=>{if(result?.isError){stop(message(result));return;}const value=data(result);if(!value){stop('The host returned invalid run data.');return;}show(value);}),delay);}
-  function schedule(){if(dead||!run||run.done)return;const long=run.state==='running'&&Date.now()-(runningAt||Date.now())>=60000;fetch_(long?5000:2000);}
+  function schedule(){if(dead||!run||run.done)return;const long=run.state==='running'&& Date.now()-(runningAt||Date.now())>=60000;fetch_(long?5000:2000);}
   // unchanged data keeps the DOM, so a selection (the run_id to quote) survives the poll
   let detailed=false;  // a finished run handed over without detail (run_status without detail: true) gets its steps once
   function show(value){if(dead||!value||typeof value!=='object')return;const key=JSON.stringify(value);if(key!==shown){shown=key;run=value;if(run.state==='running'&&!runningAt)runningAt=run.started_at?Date.parse(run.started_at)||Date.now():Date.now();render();}if(!run.done)schedule();else if(!Array.isArray(run.steps)&&!detailed){detailed=true;fetch_(0);}else files();}
@@ -139,7 +139,7 @@ svg{width:16px;height:16px;flex-shrink:0}.icon-slot{display:inline-grid;place-it
   animate(card,'card-enter');
   window.addEventListener('message',event=>{if(event.source!==parent||event.data?.jsonrpc!=='2.0')return;const msg=event.data;
     if(msg.id==='agencast-init'){clearTimeout(initTimer);if(msg.error){stop(msg.error.message||'The host refused to initialize the card.');return;}post({method:'ui/notifications/initialized'});resize();return;}
-    if(msg.id&&calls.has(msg.id)){const done=calls.get(msg.id);calls.delete(msg.id);done(msg.result||{isError:true,content:[{type:'text',text:msg.error?.message||'The tool call failed.'}]});return;}
+    if(msg.id&& calls.has(msg.id)){const done=calls.get(msg.id);calls.delete(msg.id);done(msg.result||{isError:true,content:[{type:'text',text:msg.error?.message||'The tool call failed.'}]});return;}
     if(msg.method==='ui/notifications/tool-result'){if(msg.params?.isError){stop(message(msg.params));return;}const value=data(msg.params);if(value)show(value);else stop('The host returned invalid run data.');return;}
     if(msg.method==='ui/notifications/host-context-changed')return;
     if(msg.method==='ui/notifications/tool-input')return;
