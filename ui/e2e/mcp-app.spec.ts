@@ -31,15 +31,20 @@ test("follows a run, renders its result, and stops after done", async ({ page })
     steps: [{ step: "write", kind: "ask", status: "running", duration_s: null, cost_usd: null, error: null }] };
   await page.evaluate((value) => (window as any).setRun(value), running);
   await expect(frame.locator("#badge")).toHaveText("running");
-  await expect(frame.locator("body")).toContainText("1 / 3 · write");
+  await expect(frame.locator("#progress")).toContainText("1 / 3 steps · write");
+  await expect(frame.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+  await expect(frame.getByRole("progressbar").locator(".segment")).toHaveCount(3);
   const almost = { ...running, steps_done: 2, steps: [...running.steps, { step: "review", kind: "ask", status: "queued", duration_s: null, cost_usd: null, error: null }] };
   await page.evaluate((value) => (window as any).setRun(value), almost);
-  await expect(frame.locator("body")).toContainText("2 / 3");
+  await expect(frame.locator("#progress")).toContainText("2 / 3");
+  await expect(frame.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "2");
   // steps_done is null once the run has finished (spec “The run object”): the card counts the steps that ran
   const done = { ...almost, state: "succeeded", done: true, current_step: null, steps_done: null, outputs: { text: "Hello from the fake", image: "file:///x/image.png" }, output_files: { image: "steps/02-image/image.png" }, warnings: ["one warning"], steps: almost.steps.map((step) => ({ ...step, status: "succeeded" })) };
   await page.evaluate((value) => (window as any).setRun(value), done);
   await expect(frame.locator("#badge")).toHaveText("succeeded");
-  await expect(frame.locator("body")).toContainText("2 / 3");
+  await expect(frame.getByRole("progressbar")).toHaveAttribute("data-state", "succeeded");
+  await expect(frame.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "2");
+  await expect(frame.locator("#progress")).toContainText("2 / 3");
   await expect(frame.locator("body")).toContainText("Hello from the fake");
   await expect(frame.locator("body")).toContainText("one warning");
   await expect(frame.locator("img")).toHaveAttribute("src", /^data:image\/png;base64,/);
@@ -81,13 +86,14 @@ test("shows the host's refusal to initialize", async ({ page }) => {
   expect(await page.evaluate(() => (window as any).sent.some((m: { method?: string }) => m.method === "ui/notifications/initialized"))).toBe(false);
 });
 
-test("follows the host's theme over the system's", async ({ page }) => {
+test("keeps the AgenCast dark palette for dark and light hosts", async ({ page }) => {
   const frame = await host(page);  // the host says dark, the browser prefers light
   const background = () => frame.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
-  await expect.poll(background).toBe("rgb(29, 29, 29)");
+  await expect.poll(background).toBe("rgb(23, 36, 54)");
   await page.evaluate(() => document.querySelector("iframe")!.contentWindow!.postMessage(
     { jsonrpc: "2.0", method: "ui/notifications/host-context-changed", params: { theme: "light" } }, "*"));
-  await expect.poll(background).toBe("rgb(255, 255, 255)");
+  await frame.evaluate(() => new Promise<number>((resolve) => requestAnimationFrame(resolve)));
+  await expect.poll(background).toBe("rgb(23, 36, 54)");
 });
 
 test("shows file outputs when outputs are too large, fetching only the images", async ({ page }) => {
@@ -95,7 +101,7 @@ test("shows file outputs when outputs are too large, fetching only the images", 
     outputs: null, outputs_file: "callback.json", output_files: { "gallery-1": "steps/01-shots/image-1.png",
       "gallery-2": "steps/01-shots/image-2.png", notes: "steps/02-notes/notes.md" } });
   await expect(frame.locator("img")).toHaveCount(2);
-  await expect(frame.locator("#body")).toContainText("Elapsed: 42s");
+  await expect(frame.locator("#elapsed")).toHaveText("Elapsed: 42s");
   await expect(frame.locator("#body")).toContainText("read callback.json");
   await expect(frame.locator("#body")).toContainText("notes: steps/02-notes/notes.md");
   expect(await page.evaluate(() => (window as any).calls.map((m: any) => m.params.arguments.path)))
