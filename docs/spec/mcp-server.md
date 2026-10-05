@@ -60,8 +60,9 @@ agencast [--project PATH] mcp [--allow read|run|edit] [--input-dir DIR]... [--fa
 - **Protocol.** The server is built on the `mcp` SDK already used by the framework
   (`mcp.server.mcpserver.MCPServer`, no new dependency) and speaks whatever protocol
   versions that SDK negotiates. Server name `agencast`, version = the framework version.
-  Capabilities: **tools**. The SDK also advertises `resources` and `prompts`; nothing is
-  registered there (both lists are empty).
+  Capabilities: **tools**, and the MCP Apps extension `io.modelcontextprotocol/ui` with one
+  resource, the [run card](#run-card-mcp-apps). The SDK also advertises `prompts`; nothing
+  is registered there.
 - **`instructions`** (sent at connect): `AgenCast runs scenarios of LLM agents (YAML and
   Markdown files) in the projects registered on this machine. Call get_guide first.
   run_scenario calls real models and costs money; fake_run is free. Tools that are not
@@ -1258,6 +1259,28 @@ base64, and has no upload channel. So the **owner** widens the rule at start:
   `steps/<nn>-<id>/output.json` a step's output, `steps/<nn>-<id>/prompt.md` what the
   model received ([run-record.md](run-record.md)).
 
+## Run card (MCP Apps)
+
+In a client that renders [MCP Apps](https://modelcontextprotocol.io/specification/draft/extensions/apps)
+(the extension `io.modelcontextprotocol/ui`: Claude Desktop and claude.ai do, a terminal
+client such as Claude Code does not) the tools that start or show a run also show a
+**run card**: a panel in the chat that follows the run on its own — the user sees the
+steps go by without asking the model to poll. Everywhere else the tools behave exactly
+as before: the card is additive and changes no result (SEP-2133, graceful degradation).
+
+| Topic | Rule |
+|---|---|
+| Resource | `ui://agencast/run-card.html`, MIME type `text/html;profile=mcp-app`, served from the bundled file `agencast/mcp_app/run-card.html` through the SDK's `mcp.server.apps.Apps` extension (so the capability is advertised and `resources/list` names it). One self-contained HTML document: inline CSS and JavaScript, no build step, no framework, **no external URL** — it loads nothing from the network and needs no `_meta.ui.csp` entry. It follows the host's theme (`hostContext.theme` from `ui/initialize`, else `prefers-color-scheme`). |
+| Bound tools | `fake_run`, `run_scenario`, `dry_run` and `run_status` carry `_meta.ui.resourceUri = "ui://agencast/run-card.html"`. Not `wait_run` (a model calls it in a loop; every call would open another card) and not `list_runs`. Their results, descriptions and schemas do not change. |
+| Data | The card starts from the tool's `structuredContent` (a [run object](#the-run-object), `queued` at first) and then calls `run_status(project, run_id, detail: true)` through the host (`tools/call`) every 2 s, 5 s once the run is `running` for more than a minute, until `done` is `true`; then once more nothing. It calls no other tool except `get_run_file(project, run_id, output_files[name])` for each image output when the run has succeeded (an inline image is shown, a larger one only named), and never a tool that writes or starts anything. Both tools are level `read`, so the card works on every `--allow` level. |
+| Shows | The scenario, the project, the state as a badge (`queued`, `running`, `succeeded`, `failed`, `interrupted`, `dry_run`), the progress `steps_done / steps_total` with the `current_step`, elapsed time (from `started_at`, ticking while it runs), `cost_usd` so far when known, the step list (`steps[]`: status, kind, duration, cost, a step's error), `warnings`, on `failed` the `error` (class, step, message), on `succeeded` the `outputs` (a string shortened to 600 characters with a note, numbers and booleans as they are, objects as compact JSON, a `file` output as its name and the inline image), and the `run_id` for the user to quote. On a tool error (`not_found` after a run directory was removed, a transport error) the card shows the message and stops polling. |
+| Host protocol | JSON-RPC over `postMessage` to the parent as the ext-apps spec defines: the card sends `ui/initialize` (its `protocolVersion`, `appInfo`), then `ui/notifications/initialized`; it handles `ui/notifications/tool-result` (the run object), `ui/notifications/tool-input` (ignored) and `ui/resource-teardown` (stops its timers, answers `{}`); it sends `ui/notifications/size-changed` when its height changes. Everything the host sends is treated as data; nothing is evaluated. |
+| Masking and trust | Everything the card shows comes from tool results, which the server masks as always; the card adds no channel: it reaches the server only through the host, with the same session and the same permission level. |
+| The model | The tool result text does not mention the card (the server does not know whether the host rendered it). The `start` guide says: a run card may appear and refresh itself; still call `wait_run` when you need the result to continue. |
+
+Not included: an OpenAI Apps SDK template (`_meta["openai/outputTemplate"]`), a cancel
+button (there is no cancel tool), a link to the GUI (the server does not know its address).
+
 ## Trust rules: what the server can never do
 
 At every level, including `edit`, and in both transports. Each rule is enforced by
@@ -1371,7 +1394,9 @@ tools only. Tools you do not see were not enabled by the owner.
    behind a threshold may stop a fake run — check error.step before changing the
    scenario.
 3. wait_run(project, run_id) until done is true. One call waits at most 50 s; a run
-   takes seconds to minutes — call again.
+   takes seconds to minutes — call again. In a client that renders MCP Apps the start
+   tools and run_status also show a run card that follows the run by itself; still
+   call wait_run when you need the result to continue.
 4. state "succeeded": read outputs. A file output is a URL; its file in the run is
    output_files[name] — get_run_file(project, run_id, output_files[name]) returns it
    (a small image inline). state "failed": error has class, step and message.

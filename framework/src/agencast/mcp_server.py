@@ -100,7 +100,9 @@ tools only. Tools you do not see were not enabled by the owner.
    behind a threshold may stop a fake run — check error.step before changing the
    scenario.
 3. wait_run(project, run_id) until done is true. One call waits at most 50 s; a run
-   takes seconds to minutes — call again.
+   takes seconds to minutes — call again. In a client that renders MCP Apps the start
+   tools and run_status also show a run card that follows the run by itself; still
+   call wait_run when you need the result to continue.
 4. state "succeeded": read outputs. A file output is a URL; its file in the run is
    output_files[name] — get_run_file(project, run_id, output_files[name]) returns it
    (a small image inline). state "failed": error has class, step and message.
