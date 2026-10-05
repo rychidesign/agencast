@@ -16,7 +16,7 @@ async function host(page: import("@playwright/test").Page, initial = queued, ref
       // as the ext-apps AppBridge: appCapabilities is a required param of ui/initialize
       if(m.method==='ui/initialize')event.source.postMessage(m.params?.appCapabilities&&!${refuse}?{jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2026-01-26',hostInfo:{name:'test',version:'1'},hostContext:{theme:'dark'}}}:{jsonrpc:'2.0',id:m.id,error:{code:-32602,message:'Invalid params: appCapabilities is required'}},'*');
       if(m.method==='ui/notifications/initialized')event.source.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-result',params:{structuredContent:window.run}},'*');
-      if(m.method==='tools/call'){window.calls.push(m);const image=m.params.name==='get_run_file';event.source.postMessage({jsonrpc:'2.0',id:m.id,result:image?{content:[{type:'text',text:'{}'},{type:'image',mimeType:'image/png',data:'${pixel}'}],structuredContent:{kind:'image'}}:{content:[{type:'text',text:JSON.stringify(window.run)}],structuredContent:window.run}},'*');}
+      if(m.method==='tools/call'){window.calls.push(m);const image=m.params.name==='get_run_file';event.source.postMessage({jsonrpc:'2.0',id:m.id,result:window.fail?{isError:true,content:[{type:'text',text:window.fail}]}:image?{content:[{type:'text',text:'{}'},{type:'image',mimeType:'image/png',data:'${pixel}'}],structuredContent:{kind:'image'}}:{content:[{type:'text',text:JSON.stringify(window.run)}],structuredContent:window.run}},'*');}
     });
   </script>`);
   await page.locator("iframe").evaluate((el, html) => { (el as HTMLIFrameElement).srcdoc = html; }, card);
@@ -56,13 +56,49 @@ test("follows a run, renders its result, and stops after done", async ({ page })
 
 test("shows a failed run and stops polling", async ({ page }) => {
   const frame = await host(page);
-  await page.evaluate((value) => (window as any).setRun(value), { ...queued, state: "failed", done: true,
+  const step = (step: string, status: string, kind = "ask") => ({ step, kind, status, duration_s: null, cost_usd: null, error: null });
+  const started_at = "2026-10-05T12:00:00Z";
+  await page.evaluate((value) => (window as any).setRun(value), { ...queued, state: "running", started_at, steps_done: 1, current_step: "review",
+    steps: [step("draft", "succeeded"), step("review", "running", "call")] });
+  await expect(frame.locator("#progress")).toContainText("1 / 3 steps · review");
+  // the run moved on between two polls: the bar follows steps[] (main-scenario steps only), not the last poll's fills
+  await page.evaluate((value) => (window as any).setRun(value), { ...queued, state: "failed", done: true, started_at,
+    steps: [step("draft", "succeeded"), step("review", "succeeded", "call"), step("review/check", "succeeded"), step("write", "failed")],
     error: { class: "provider", step: "write", message: "model failed" } });
   await expect(frame.locator("#badge")).toHaveText("failed");
   await expect(frame.locator("#body")).toContainText("provider · write: model failed");
+  await expect(frame.locator("#progress")).toHaveText("2 / 3 steps");
+  await expect(frame.locator(".segment[data-fill=failed]")).toHaveCount(1);
+  await expect(frame.locator(".segment").nth(2)).toHaveAttribute("data-fill", "failed");
   const calls = await page.evaluate(() => (window as any).calls.length);
   await page.waitForTimeout(2_500);
   expect(await page.evaluate(() => (window as any).calls.length)).toBe(calls);
+});
+
+test("keeps still with reduced motion, and stops moving when a poll fails", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const frame = await host(page);
+  const animations = () => frame.evaluate(() => document.getAnimations().length);
+  await expect(frame.locator("#badge")).toHaveText("queued");
+  // a static queued bar is the empty track, not a block that reads as progress
+  expect(await frame.evaluate(() => [...document.querySelectorAll("#bar, #bar *")].every((el) => getComputedStyle(el, "::after").content === "none"))).toBe(true);
+  await page.evaluate((value) => (window as any).setRun(value), { ...queued, state: "running", started_at: "2026-10-05T12:00:00Z", steps_done: 1, current_step: "write",
+    steps: [{ step: "write", kind: "ask", status: "running", duration_s: null, cost_usd: null, error: null }] });
+  await expect(frame.locator("#badge")).toHaveText("running");
+  expect(await animations()).toBe(0);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect.poll(animations).toBeGreaterThan(0);  // the running pulse and the sheen
+  await page.evaluate(() => { (window as any).fail = "not_found: gone"; });
+  await expect(frame.locator("#problem")).toHaveText("not_found: gone");
+  await expect.poll(animations).toBe(0);
+});
+
+test("glows once when a queued run has succeeded by the next poll", async ({ page }) => {
+  const frame = await host(page);
+  await expect(frame.locator("#badge")).toHaveText("queued");
+  await frame.evaluate(() => { (window as any).started = []; document.querySelector("#bar")!.addEventListener("animationstart", (e) => (window as any).started.push((e as AnimationEvent).animationName)); });
+  await page.evaluate((value) => (window as any).setRun(value), { ...queued, state: "succeeded", done: true, outputs: {} });
+  await expect.poll(() => frame.evaluate(() => (window as any).started)).toContain("glow");
 });
 
 test("answers teardown and makes no later tool calls", async ({ page }) => {
