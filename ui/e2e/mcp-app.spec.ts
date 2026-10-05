@@ -7,15 +7,15 @@ const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwH
 const queued: Record<string, any> = { project: "demo", run_id: "20261005-120000-demo-abcd", scenario: "demo", state: "queued", done: false,
   started_at: null, steps_done: null, steps_total: 3, outputs: null, output_files: {}, warnings: [] };
 
-async function host(page: import("@playwright/test").Page, initial = queued, refuse = false) {
+async function host(page: import("@playwright/test").Page, initial = queued, refuse = false, polled?: Record<string, any>) {
   await page.setContent(`<iframe title="run card"></iframe><script>
-    window.run=${JSON.stringify(initial).replaceAll("<", "\\u003c")};window.calls=[];window.sent=[];
+    window.run=${JSON.stringify(initial).replaceAll("<", "\\u003c")};window.calls=[];window.sent=[];window.polled=${JSON.stringify(polled ?? null)};
     const frame=document.querySelector('iframe');
     window.setRun=value=>window.run=value;window.teardown=()=>frame.contentWindow.postMessage({jsonrpc:'2.0',id:'bye',method:'ui/resource-teardown'},'*');
     window.addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.data?.jsonrpc!=='2.0')return;const m=event.data;window.sent.push(m);
       // as the ext-apps AppBridge: appCapabilities is a required param of ui/initialize
       if(m.method==='ui/initialize')event.source.postMessage(m.params?.appCapabilities&&!${refuse}?{jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2026-01-26',hostInfo:{name:'test',version:'1'},hostContext:{theme:'dark'}}}:{jsonrpc:'2.0',id:m.id,error:{code:-32602,message:'Invalid params: appCapabilities is required'}},'*');
-      if(m.method==='ui/notifications/initialized')event.source.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-result',params:{structuredContent:window.run}},'*');
+      if(m.method==='ui/notifications/initialized'){event.source.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-result',params:{structuredContent:window.run}},'*');if(window.polled)window.run=window.polled;}
       if(m.method==='tools/call'){window.calls.push(m);const image=m.params.name==='get_run_file';event.source.postMessage({jsonrpc:'2.0',id:m.id,result:window.fail?{isError:true,content:[{type:'text',text:window.fail}]}:image?{content:[{type:'text',text:'{}'},{type:'image',mimeType:'image/png',data:'${pixel}'}],structuredContent:{kind:'image'}}:{content:[{type:'text',text:JSON.stringify(window.run)}],structuredContent:window.run}},'*');}
     });
   </script>`);
@@ -140,6 +140,24 @@ test("shows file outputs when outputs are too large, fetching only the images", 
   await expect(frame.locator("#elapsed")).toHaveText("Elapsed: 42s");
   await expect(frame.locator("#body")).toContainText("read callback.json");
   await expect(frame.locator("#body")).toContainText("notes: steps/02-notes/notes.md");
-  expect(await page.evaluate(() => (window as any).calls.map((m: any) => m.params.arguments.path)))
+  expect(await page.evaluate(() => (window as any).calls.filter((m: any) => m.params.name === "get_run_file").map((m: any) => m.params.arguments.path)))
     .toEqual(["steps/01-shots/image-1.png", "steps/01-shots/image-2.png"]);
+});
+
+test("fetches the steps once for a finished run handed over without detail", async ({ page }) => {
+  // run_status without detail: true on a finished run — the card is done at once but has no steps[] yet
+  const finished = { ...queued, state: "failed", done: true, started_at: "2026-10-05T12:00:00Z", duration_s: 0.4, cost_usd: 0.0002,
+    error: { class: "fail", step: "stop", message: "not on brand" } };
+  const detail = { ...finished, steps: [
+    { step: "copy", kind: "ask", status: "succeeded", duration_s: 0.1, cost_usd: 0.0001, error: null },
+    { step: "tone_check", kind: "jev", status: "succeeded", duration_s: 0.1, cost_usd: 0.0001, error: null },
+    { step: "stop", kind: "fail", status: "failed", duration_s: 0, cost_usd: 0, error: { class: "fail", message: "not on brand" } }] };
+  const frame = await host(page, finished, false, detail);
+  await expect(frame.locator("#progress")).toContainText("2 / 3 steps");
+  await expect(frame.locator(".segment[data-fill=failed]")).toHaveCount(1);
+  await expect(frame.locator("body")).toContainText("tone_check");
+  await page.waitForTimeout(3000);
+  const statusCalls = await page.evaluate(() => (window as any).calls.filter((m: any) => m.params.name === "run_status"));
+  expect(statusCalls).toHaveLength(1);
+  expect(statusCalls[0].params.arguments.detail).toBe(true);
 });
