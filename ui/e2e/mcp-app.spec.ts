@@ -7,19 +7,21 @@ const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwH
 const queued: Record<string, any> = { project: "demo", run_id: "20261005-120000-demo-abcd", scenario: "demo", state: "queued", done: false,
   started_at: null, steps_done: null, steps_total: 3, outputs: null, output_files: {}, warnings: [] };
 
-async function host(page: import("@playwright/test").Page, initial = queued) {
+async function host(page: import("@playwright/test").Page, initial = queued, refuse = false) {
   await page.setContent(`<iframe title="run card"></iframe><script>
     window.run=${JSON.stringify(initial).replaceAll("<", "\\u003c")};window.calls=[];window.sent=[];
     const frame=document.querySelector('iframe');
     window.setRun=value=>window.run=value;window.teardown=()=>frame.contentWindow.postMessage({jsonrpc:'2.0',id:'bye',method:'ui/resource-teardown'},'*');
     window.addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.data?.jsonrpc!=='2.0')return;const m=event.data;window.sent.push(m);
-      if(m.method==='ui/initialize')event.source.postMessage({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2026-01-26',hostInfo:{name:'test',version:'1'},hostContext:{theme:'dark'}}},'*');
+      // as the ext-apps AppBridge: appCapabilities is a required param of ui/initialize
+      if(m.method==='ui/initialize')event.source.postMessage(m.params?.appCapabilities&&!${refuse}?{jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2026-01-26',hostInfo:{name:'test',version:'1'},hostContext:{theme:'dark'}}}:{jsonrpc:'2.0',id:m.id,error:{code:-32602,message:'Invalid params: appCapabilities is required'}},'*');
       if(m.method==='ui/notifications/initialized')event.source.postMessage({jsonrpc:'2.0',method:'ui/notifications/tool-result',params:{structuredContent:window.run}},'*');
       if(m.method==='tools/call'){window.calls.push(m);const image=m.params.name==='get_run_file';event.source.postMessage({jsonrpc:'2.0',id:m.id,result:image?{content:[{type:'text',text:'{}'},{type:'image',mimeType:'image/png',data:'${pixel}'}],structuredContent:{kind:'image'}}:{content:[{type:'text',text:JSON.stringify(window.run)}],structuredContent:window.run}},'*');}
     });
   </script>`);
   await page.locator("iframe").evaluate((el, html) => { (el as HTMLIFrameElement).srcdoc = html; }, card);
-  await page.waitForFunction(() => (window as any).sent.some((m: { method?: string }) => m.method === "ui/notifications/initialized"));
+  await page.waitForFunction((method) => (window as any).sent.some((m: { method?: string }) => m.method === method),
+    refuse ? "ui/initialize" : "ui/notifications/initialized");
   return page.frames().find((frame) => frame !== page.mainFrame())!;
 }
 
@@ -69,4 +71,31 @@ test("renders hostile result text as text", async ({ page }) => {
   const frame = await host(page, { ...queued, scenario: attack, done: true, state: "succeeded", outputs: {}, output_files: {} });
   await expect(frame.locator("#summary")).toContainText(attack);
   expect(await frame.evaluate(() => (window as Window & { pwned?: number }).pwned)).toBeUndefined();
+});
+
+test("shows the host's refusal to initialize", async ({ page }) => {
+  const frame = await host(page, queued, true);
+  await expect(frame.locator("#problem")).toHaveText("Invalid params: appCapabilities is required");
+  expect(await page.evaluate(() => (window as any).sent.some((m: { method?: string }) => m.method === "ui/notifications/initialized"))).toBe(false);
+});
+
+test("follows the host's theme over the system's", async ({ page }) => {
+  const frame = await host(page);  // the host says dark, the browser prefers light
+  const background = () => frame.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+  await expect.poll(background).toBe("rgb(29, 29, 29)");
+  await page.evaluate(() => document.querySelector("iframe")!.contentWindow!.postMessage(
+    { jsonrpc: "2.0", method: "ui/notifications/host-context-changed", params: { theme: "light" } }, "*"));
+  await expect.poll(background).toBe("rgb(255, 255, 255)");
+});
+
+test("shows file outputs when outputs are too large, fetching only the images", async ({ page }) => {
+  const frame = await host(page, { ...queued, state: "succeeded", done: true, started_at: "2026-10-05T12:00:00Z", duration_s: 42,
+    outputs: null, outputs_file: "callback.json", output_files: { "gallery-1": "steps/01-shots/image-1.png",
+      "gallery-2": "steps/01-shots/image-2.png", notes: "steps/02-notes/notes.md" } });
+  await expect(frame.locator("img")).toHaveCount(2);
+  await expect(frame.locator("#body")).toContainText("Elapsed: 42s");
+  await expect(frame.locator("#body")).toContainText("read callback.json");
+  await expect(frame.locator("#body")).toContainText("notes: steps/02-notes/notes.md");
+  expect(await page.evaluate(() => (window as any).calls.map((m: any) => m.params.arguments.path)))
+    .toEqual(["steps/01-shots/image-1.png", "steps/01-shots/image-2.png"]);
 });

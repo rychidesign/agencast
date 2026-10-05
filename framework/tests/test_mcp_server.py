@@ -120,19 +120,20 @@ def test_read_level_over_stdio(root, registry):
 
 
 def test_run_card_resource_and_bindings():
-    """The card is a bundled MCP Apps resource, bound only to its four entry-point tools."""
-    async def read_card():
-        async with Client(build(allow="read")) as client:
+    """The card is a bundled MCP Apps resource, bound only to the tools that start or show a run."""
+    async def read_card(mode):
+        async with Client(build(allow="read"), mode=mode) as client:
             result = await client.read_resource(RUN_CARD)
             return client.server_capabilities.extensions, result.contents[0].text
 
-    extensions, html = anyio.run(read_card)
+    extensions, html = anyio.run(read_card, "auto")
     assert "io.modelcontextprotocol/ui" in extensions
+    assert anyio.run(read_card, "legacy") == (None, html)  # the 2025 handshake has no `extensions`; the card is served
     assert html.lower().startswith(("<!doctype html>", "<html"))
     assert all(text in html for text in ("ui/initialize", "tools/call", "run_status", "get_run_file"))
     assert "http://" not in html and "https://" not in html
-    for server, names in ((build(allow="edit"), {"dry_run", "fake_run", "run_scenario", "run_status"}),
-                          (build(fake=""), {"dry_run", "fake_run", "run_status"}),
+    for server, names in ((build(allow="edit"), {"fake_run", "run_scenario", "run_status"}),
+                          (build(fake=""), {"fake_run", "run_status"}),
                           (build(allow="read"), {"run_status"})):
         tools = {tool.name: tool for tool in anyio.run(_tools, server)}
         assert {name for name, tool in tools.items() if tool.meta} == names

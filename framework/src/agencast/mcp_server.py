@@ -777,7 +777,7 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
 
     @tool("run", "Free — no model is called. Validates the scenario and the inputs and returns the plan (plan.md) of "
                  "what a run would do; MCP servers of task steps are started briefly to list their tools. Use it "
-                 "before fake_run.", RUN, card=True)
+                 "before fake_run.", RUN)
     def dry_run(project: Project, scenario: Name,
                 inputs: Annotated[dict[str, Any], Field(description="as for `run_scenario`")] = {},  # noqa: B006 (not mutated)
                 *, root: Path) -> dict[str, Any]:
