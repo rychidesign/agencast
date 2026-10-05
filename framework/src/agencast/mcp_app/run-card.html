@@ -35,7 +35,10 @@ body{margin:0;padding:10px}.card{border:1px solid var(--line);border-radius:8px;
     summary.textContent=(run.project||'unknown project')+' · '+(run.scenario||'unknown scenario');
     const facts=add(body,'section',undefined,'section');add(facts,'h2','Run');
     row(facts,'Run ID',run.run_id||'—');
-    if(run.steps_done!=null||run.steps_total!=null)row(facts,'Progress',(run.steps_done??0)+' / '+(run.steps_total??'—')+(run.current_step?' · '+run.current_step:''));
+    // steps_done is set while running only: a finished run counts the steps that ran from steps[] (detail)
+    const steps=Array.isArray(run.steps)?run.steps.filter(s=>s&&typeof s==='object'):[];
+    const done_=run.steps_done!=null?run.steps_done:(run.done&&steps.length?steps.filter(s=>s.status==='succeeded').length:null);
+    if(done_!=null||run.steps_total!=null)row(facts,'Progress',(done_??'—')+' / '+(run.steps_total??'—')+(run.current_step?' · '+run.current_step:''));
     clock=row(facts,'Elapsed',elapsed()).lastChild;row(facts,'Cost',cost(run.cost_usd));
     if(Array.isArray(run.steps)&&run.steps.length){const section=add(body,'section',undefined,'section');add(section,'h2','Steps');for(const step of run.steps){const line=add(section,'div',undefined,'step');line.append(text((step.status||'unknown')+' · '+(step.kind||'')+' · '+(step.step||'')+(step.duration_s==null?'':' · '+Number(step.duration_s).toFixed(2)+'s')+(step.cost_usd==null?'':' · '+cost(step.cost_usd))));if(step.error)add(line,'div',(step.error.class||'error')+(step.error.message?': '+step.error.message:''),'step-error');}}
     if(Array.isArray(run.warnings)&&run.warnings.length){const section=add(body,'section',undefined,'section');add(section,'h2','Warnings');for(const warning of run.warnings)add(section,'div',warning,'row');}

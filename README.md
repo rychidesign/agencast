@@ -135,6 +135,10 @@ claude mcp add --transport stdio agencast -- agencast mcp           # dry, fake 
 claude mcp add --transport stdio agencast -- agencast mcp --fake    # no live runs: nothing can cost money
 ```
 
+In a client that renders MCP Apps, such as Claude Desktop, starting a run also shows a **run card** in the chat
+that follows the run on its own: state, steps, elapsed time, cost, and at the end the outputs with inline
+images. It changes nothing for other clients.
+
 Claude Desktop starts stdio servers only (`claude_desktop_config.json`, absolute paths, restart the app); on
 another machine it starts the server over ssh — no token and no open port:
 

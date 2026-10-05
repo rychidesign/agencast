@@ -35,9 +35,11 @@ test("follows a run, renders its result, and stops after done", async ({ page })
   const almost = { ...running, steps_done: 2, steps: [...running.steps, { step: "review", kind: "ask", status: "queued", duration_s: null, cost_usd: null, error: null }] };
   await page.evaluate((value) => (window as any).setRun(value), almost);
   await expect(frame.locator("body")).toContainText("2 / 3");
-  const done = { ...almost, state: "succeeded", done: true, current_step: null, steps_done: 3, outputs: { text: "Hello from the fake", image: "file:///x/image.png" }, output_files: { image: "steps/02-image/image.png" }, warnings: ["one warning"], steps: almost.steps.map((step) => ({ ...step, status: "succeeded" })) };
+  // steps_done is null once the run has finished (spec “The run object”): the card counts the steps that ran
+  const done = { ...almost, state: "succeeded", done: true, current_step: null, steps_done: null, outputs: { text: "Hello from the fake", image: "file:///x/image.png" }, output_files: { image: "steps/02-image/image.png" }, warnings: ["one warning"], steps: almost.steps.map((step) => ({ ...step, status: "succeeded" })) };
   await page.evaluate((value) => (window as any).setRun(value), done);
   await expect(frame.locator("#badge")).toHaveText("succeeded");
+  await expect(frame.locator("body")).toContainText("2 / 3");
   await expect(frame.locator("body")).toContainText("Hello from the fake");
   await expect(frame.locator("body")).toContainText("one warning");
   await expect(frame.locator("img")).toHaveAttribute("src", /^data:image\/png;base64,/);

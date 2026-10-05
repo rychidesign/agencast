@@ -20,6 +20,11 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
   `mcp.yaml`, `commands.yaml`, `.env` or the registry, loads from a project's `.env` only the variables the
   project names (never the current directory's `.env`), and masks every result, error and log line with the
   secrets of the addressed project.
+- Run card (MCP Apps, `io.modelcontextprotocol/ui`): in a client that renders MCP Apps (Claude Desktop), `fake_run`,
+  `run_scenario` and `run_status` also show a card in the chat that follows the run by itself — state, steps,
+  current step, elapsed time, cost, warnings, error, outputs with inline images — by calling `run_status` and
+  `get_run_file` through the host; one bundled HTML file (`agencast/mcp_app/run-card.html`, resource
+  `ui://agencast/run-card.html`), no external URL, no change to any tool result (spec/mcp-server.md “Run card”).
 - Transports: stdio (the client starts the server) and `--http` — streamable HTTP at `http://HOST:PORT/mcp`
   (`--host`, default 127.0.0.1; `--port`, default 8765; `--allow-host` for the names clients use, e.g. behind
   `tailscale serve`), stateless, POST only, with a required bearer token from `AGENCAST_MCP_TOKEN` (at least 32
