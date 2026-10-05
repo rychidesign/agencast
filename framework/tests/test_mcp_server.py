@@ -101,7 +101,8 @@ def test_read_level_over_stdio(root, registry):
                     (await c.list_prompts()).prompts, ok(await c.call_tool("list_projects", {})))
 
     name, tools, resources, prompts, listed = anyio.run(go, "mcp", "--allow", "read")
-    assert name == "agencast" and resources == [] and prompts == []
+    assert name == "agencast" and prompts == []
+    assert [(r.uri, r.mime_type) for r in resources] == [("ui://agencast/run-card.html", "text/html;profile=mcp-app")]
     assert {t.name for t in tools} == READ_TOOLS
     for t in tools:
         assert t.annotations.read_only_hint is True and t.annotations.open_world_hint is False

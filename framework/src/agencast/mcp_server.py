@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import anyio
+from mcp.server.apps import Apps
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
@@ -314,6 +315,9 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
     signals: that is the command's job (`cli.cmd_mcp`), so a server object used in-process leaves the process
     alone. Runs get the environment as it is now, before any project's `.env` was read."""
     tools: list[Tool] = []
+    apps = Apps()
+    card_uri = "ui://agencast/run-card.html"
+    apps.add_html_resource(card_uri, (Path(__file__).parent / "mcp_app" / "run-card.html").read_text(encoding="utf-8"))
     environment, project_mode = dict(os.environ), project
 
     def listing() -> list[dict[str, Any]]:
@@ -364,7 +368,7 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
             text = f"internal: {type(e).__name__}: {e}"
         return ToolError(mask.mask(text))
 
-    def tool(level: str, description: str, annotations: ToolAnnotations = READ):
+    def tool(level: str, description: str, annotations: ToolAnnotations = READ, *, card: bool = False):
         """Register `fn` under its name when the level allows it. A tool with a `root` parameter addresses one
         project: `root` (and `mask`, the project's masking) is not part of its input schema — the exit resolves it
         from `project`. An async `fn` is awaited on the event loop."""
@@ -402,7 +406,8 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
             exit_.__name__ = fn.__name__
             exit_.__signature__ = sig.replace(parameters=[p for p in sig.parameters.values()
                                                           if p.name not in ("root", "mask")])
-            t = Tool.from_function(exit_, description=description, annotations=annotations)
+            t = Tool.from_function(exit_, description=description, annotations=annotations,
+                                   meta={"ui": {"resourceUri": card_uri}} if card else None)
             # an argument the tool does not have is refused, not dropped: `run_scenario {provider: fake}` runs live;
             # strict: a type is the schema's, not pydantic's lax guess ("yes" is no boolean, "5" no integer), but
             # JSON Schema's integer is any number without a fraction: 5.0 is one (strict pydantic refuses it)
@@ -680,7 +685,7 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
             {"topics": ["start", "create", "run", *resources.docs_index()]} if topic == "start" else {})
 
     @tool("read", "Free. The state and result of one run: outputs, output_files, error, cost. detail=true adds the "
-                  "steps and the list of files to read with get_run_file.")
+                  "steps and the list of files to read with get_run_file.", card=True)
     def run_status(project: Project, run_id: RunId,
                    detail: Annotated[bool, Field(description="add `steps` and `files`")] = False,
                    *, root: Path) -> dict[str, Any]:
@@ -769,7 +774,7 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
 
     @tool("run", "Free — no model is called. Validates the scenario and the inputs and returns the plan (plan.md) of "
                  "what a run would do; MCP servers of task steps are started briefly to list their tools. Use it "
-                 "before fake_run.", RUN)
+                 "before fake_run.", RUN, card=True)
     def dry_run(project: Project, scenario: Name,
                 inputs: Annotated[dict[str, Any], Field(description="as for `run_scenario`")] = {},  # noqa: B006 (not mutated)
                 *, root: Path) -> dict[str, Any]:
@@ -791,7 +796,7 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
 
     @tool("run", "Free — starts a run with placeholder model answers: no key, no cost; MCP servers of task steps are "
                  "real. Returns run_id at once; the run goes on without this connection. Call wait_run until done is "
-                 "true. Tests the flow, not the content.", RUN)
+                 "true. Tests the flow, not the content.", RUN, card=True)
     def fake_run(project: Project, scenario: Name, inputs: Inputs = {}, *, root: Path,  # noqa: B006 (not mutated)
                  mask: Mask) -> dict[str, Any]:
         return start(project, scenario, inputs, root=root, mask=mask, live=False)
@@ -799,12 +804,13 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
     if fake is None:  # a fake-only server cannot spend money: no live runs at all
         @tool("run", "Start a live run — calls real models and COSTS MONEY (bounded by the project's limits). Returns "
                      "run_id at once; the run goes on without this connection and no tool cancels it. Call wait_run "
-                     "until done is true. Test with fake_run (free) first.", RUN)
+                     "until done is true. Test with fake_run (free) first.", RUN, card=True)
         def run_scenario(project: Project, scenario: Name, inputs: Inputs = {}, *, root: Path,  # noqa: B006
                          mask: Mask) -> dict[str, Any]:
             return start(project, scenario, inputs, root=root, mask=mask, live=True)
 
-    return MCPServer("agencast", instructions=INSTRUCTIONS, version=__version__, log_level="WARNING", tools=tools)
+    return MCPServer("agencast", instructions=INSTRUCTIONS, version=__version__, log_level="WARNING", tools=tools,
+                     extensions=[apps])
 
 
 def http_app(server: MCPServer, token: str, host: str, extra_hosts: Sequence[str]):

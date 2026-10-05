@@ -51,5 +51,6 @@ addopts = "-m 'not live'"
 "../examples/tutorial/workflows" = "agencast/examples/tutorial/workflows"
 "../examples/tutorial/fake" = "agencast/examples/tutorial/fake"
 "../examples/tutorial/.env.example" = "agencast/examples/tutorial/.env.example"
+"src/agencast/mcp_app/run-card.html" = "agencast/mcp_app/run-card.html"
 
 [tool.hatch.build.hooks.custom]

@@ -1,0 +1,56 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AgenCast run</title>
+<style>
+:root{color-scheme:light dark;font:13px/1.4 system-ui,sans-serif;color:#202124;background:#fff}body{margin:0;padding:10px}.card{border:1px solid #c9c9c9;border-radius:8px;padding:10px;overflow-wrap:anywhere}.head{display:flex;gap:8px;align-items:baseline;justify-content:space-between}.title{font-weight:650;font-size:15px}.badge{border-radius:999px;padding:2px 7px;background:#e7e7e7;font-size:12px}.failed{background:#f9cccc}.succeeded{background:#ccebd4}.running{background:#cde5ff}.queued{background:#f3e7b9}.error{color:#a40000;white-space:pre-wrap}.muted{color:#666}.section{margin-top:9px}.section h2{font-size:12px;margin:0 0 3px;text-transform:uppercase;letter-spacing:.04em}.row,.step{padding:3px 0;border-top:1px solid #e1e1e1}.key{font-weight:600}.step-error{color:#a40000}img{display:block;max-width:100%;height:auto;margin-top:5px}code{font:12px ui-monospace,SFMono-Regular,monospace}@media(prefers-color-scheme:dark){:root{color:#e9e9e9;background:#1d1d1d}.card{border-color:#555}.badge{background:#444}.failed{background:#662727}.succeeded{background:#245b32}.running{background:#234f78}.queued{background:#66531b}.muted{color:#aaa}.row,.step{border-color:#444}.error,.step-error{color:#ff9f9f}}
+</style>
+<main class="card" aria-live="polite"><div class="head"><div class="title">AgenCast run</div><span id="badge" class="badge">waiting</span></div><div id="summary" class="muted">Waiting for run data.</div><div id="body"></div><div id="problem" class="error" role="alert"></div></main>
+<script>
+(()=>{
+  const q=s=>document.querySelector(s), body=q('#body'), badge=q('#badge'), summary=q('#summary'), problem=q('#problem');
+  let run, dead=false, pollTimer, tickTimer, initTimer, initialized=false, runningAt=0, nextId=0, lastHeight=0;
+  const calls=new Map(), images=new Map(), asked=new Set(), imageTypes=new Set(['image/png','image/jpeg','image/webp','image/gif']);
+  const post=message=>parent.postMessage({jsonrpc:'2.0',...message},'*');
+  const text=value=>document.createTextNode(value==null?'':String(value));
+  const node=(tag, value, name)=>{const el=document.createElement(tag);if(name)el.className=name;if(value!==undefined)el.append(text(value));return el};
+  const add=(parent, tag, value, name)=>{const el=node(tag,value,name);parent.append(el);return el};
+  const message=result=>result?.content?.filter(x=>x&&x.type==='text').map(x=>x.text).join('\n')||'The host did not return a result.';
+  const data=result=>{if(result?.structuredContent&&typeof result.structuredContent==='object')return result.structuredContent;try{return JSON.parse(result?.content?.find(x=>x&&x.type==='text')?.text||'');}catch{return null;}};
+  const stop=why=>{clearTimeout(pollTimer);if(why)problem.textContent=why;};
+  const resize=()=>{const height=Math.ceil(document.documentElement.getBoundingClientRect().height);if(height!==lastHeight){lastHeight=height;post({method:'ui/notifications/size-changed',params:{height,width:document.documentElement.clientWidth}});}};
+  const elapsed=value=>{if(!value)return '—';const seconds=Math.max(0,Math.floor((Date.now()-Date.parse(value))/1000));const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=seconds%60;return h?h+'h '+m+'m':m?m+'m '+s+'s':s+'s';};
+  const cost=value=>value==null?'—':'$'+Number(value).toFixed(4);
+  function row(parent,key,value){const line=add(parent,'div',undefined,'row');add(line,'span',key+': ','key');line.append(text(value));return line;}
+  function render(){
+    body.replaceChildren();if(!run){resize();return;}
+    badge.textContent=run.state||run.status||'unknown';badge.className='badge '+(run.state||'');
+    summary.textContent=(run.project||'unknown project')+' · '+(run.scenario||'unknown scenario');
+    const facts=add(body,'section',undefined,'section');add(facts,'h2','Run');
+    row(facts,'Run ID',run.run_id||'—');
+    if(run.steps_done!=null||run.steps_total!=null)row(facts,'Progress',(run.steps_done??0)+' / '+(run.steps_total??'—')+(run.current_step?' · '+run.current_step:''));
+    row(facts,'Elapsed',elapsed(run.started_at));row(facts,'Cost',cost(run.cost_usd));
+    if(Array.isArray(run.steps)&&run.steps.length){const section=add(body,'section',undefined,'section');add(section,'h2','Steps');for(const step of run.steps){const line=add(section,'div',undefined,'step');line.append(text((step.status||'unknown')+' · '+(step.kind||'')+' · '+(step.step||'')+(step.duration_s==null?'':' · '+Number(step.duration_s).toFixed(2)+'s')+(step.cost_usd==null?'':' · '+cost(step.cost_usd))));if(step.error)add(line,'div',(step.error.class||'error')+(step.error.message?': '+step.error.message:''),'step-error');}}
+    if(Array.isArray(run.warnings)&&run.warnings.length){const section=add(body,'section',undefined,'section');add(section,'h2','Warnings');for(const warning of run.warnings)add(section,'div',warning,'row');}
+    if(run.error){const section=add(body,'section',undefined,'section');add(section,'h2','Error');add(section,'div',(run.error.class||'error')+(run.error.step?' · '+run.error.step:'')+(run.error.message?': '+run.error.message:''),'error');}
+    if(run.outputs&&typeof run.outputs==='object'){const section=add(body,'section',undefined,'section');add(section,'h2','Outputs');for(const [name,value] of Object.entries(run.outputs)){const line=row(section,name,'');const file=run.output_files&&run.output_files[name];if(file){line.append(text(name));const image=images.get(file);if(image){const img=document.createElement('img');img.alt=name;img.src=image;line.append(img);}}else if(typeof value==='string'){line.append(text(value.length>600?value.slice(0,600)+'… (shortened)':value));}else if(typeof value==='object'){line.append(text(JSON.stringify(value)));}else{line.append(text(value));}}
+      for(const [name,path] of Object.entries(run.output_files||{}))if(!(name in run.outputs))row(section,name,name);}
+    resize();
+  }
+  function call(name,args,done){if(dead)return;const id='agencast-'+(++nextId);calls.set(id,done);post({id,method:'tools/call',params:{name,arguments:args}});}
+  function files(){if(!run||run.state!=='succeeded')return;for(const path of Object.values(run.output_files||{})){if(asked.has(path))continue;asked.add(path);call('get_run_file',{project:run.project,run_id:run.run_id,path},result=>{if(result?.isError){render();return;}const image=result?.content?.find(block=>block&&block.type==='image'&&imageTypes.has(block.mimeType)&&typeof block.data==='string');if(image)images.set(path,'data:'+image.mimeType+';base64,'+image.data);render();});}}
+  function schedule(){if(dead||!run||run.done)return;clearTimeout(pollTimer);const long=run.state==='running'&&Date.now()-(runningAt||Date.now())>=60000;pollTimer=setTimeout(()=>call('run_status',{project:run.project,run_id:run.run_id,detail:true},result=>{if(result?.isError){stop(message(result));return;}const value=data(result);if(!value){stop('The host returned invalid run data.');return;}show(value);}),long?5000:2000);}
+  function show(value){if(dead||!value||typeof value!=='object')return;run=value;if(run.state==='running'&&!runningAt)runningAt=run.started_at?Date.parse(run.started_at)||Date.now():Date.now();render();if(run.done)files();else schedule();}
+  tickTimer=setInterval(()=>{if(run&&!run.done){render();}},1000);
+  window.addEventListener('message',event=>{if(event.source!==parent||event.data?.jsonrpc!=='2.0')return;const msg=event.data;
+    if(msg.id==='agencast-init'&&!msg.error){initialized=true;clearTimeout(initTimer);const theme=msg.result?.hostContext?.theme;if(theme==='dark'||theme==='light')document.documentElement.style.colorScheme=theme;post({method:'ui/notifications/initialized'});resize();return;}
+    if(msg.id&&calls.has(msg.id)){const done=calls.get(msg.id);calls.delete(msg.id);done(msg.result||{isError:true,content:[{type:'text',text:msg.error?.message||'The tool call failed.'}]});return;}
+    if(msg.method==='ui/notifications/tool-result'){if(msg.params?.isError){stop(message(msg.params));return;}const value=data(msg.params);if(value)show(value);else stop('The host returned invalid run data.');return;}
+    if(msg.method==='ui/notifications/tool-input')return;
+    if(msg.method==='ui/resource-teardown'){dead=true;stop();clearInterval(tickTimer);clearTimeout(initTimer);post({id:msg.id,result:{}});}
+  });
+  if(typeof ResizeObserver==='function')new ResizeObserver(resize).observe(document.documentElement);
+  post({id:'agencast-init',method:'ui/initialize',params:{protocolVersion:'2026-01-26',appInfo:{name:'AgenCast run card',version:'1'}}});
+  initTimer=setTimeout(()=>{if(!initialized)stop('The host did not initialize the card.');},5000);
+})();
+</script>
