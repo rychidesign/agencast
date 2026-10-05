@@ -4,12 +4,14 @@ conftest (`AGENCAST_CONFIG_DIR`); no model is called. Runs execute in worker pro
 their life apart from the server (disconnect, signals, restarts, the cap) are in test_mcp_workers.py."""
 import base64
 import fcntl
+import getpass
 import hashlib
 import json
 import os
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -106,7 +108,9 @@ def test_read_level_over_stdio(root, registry):
         assert t.output_schema["type"] == "object"
         assert t.description == spec_description(t.name) and "COSTS MONEY" not in t.description
     assert listed["server"] | {"version": None} == {"version": None, "mode": "registry", "allow": "read",
-                                                    "fake_only": False, "input_dirs": []}
+                                                    "fake_only": False, "input_dirs": [],
+                                                    "host": socket.gethostname(), "user": getpass.getuser()}
+    assert listed["server"]["host"] and listed["server"]["user"]  # the scp target for image inputs
     assert listed["projects"] == [{"name": "lumen", "root": str(root), "available": True, "trusted": True}]
     listed = anyio.run(go, "--project", str(root), "mcp", "--allow", "read")[4]
     assert listed["server"]["mode"] == "project" and listed["server"]["allow"] == "read"

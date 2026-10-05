@@ -1,6 +1,6 @@
 ---
 name: agencast-run
-description: Run, dry-run and inspect AgenCast scenarios and read their results (runs/<id>/summary.md, callback.json, cost). AgenCast is a CLI framework for LLM-agent scenarios written in YAML/Markdown (`agencast` command, folder with workflows/) — NOT the Claude Code Workflow tool. Use when asked to run/test/validate an AgenCast (formerly maw) scenario, check why a run failed, or find a run's output or cost.
+description: Run, dry-run and inspect AgenCast scenarios and read their results (runs/<id>/summary.md, callback.json, cost) — with the `agencast` CLI, or through a connected `agencast` MCP server (tools list_projects, run_scenario, wait_run), including getting the user's images onto the server as inputs. AgenCast is a CLI framework for LLM-agent scenarios written in YAML/Markdown (`agencast` command, folder with workflows/) — NOT the Claude Code Workflow tool. Use when asked to run/test/validate an AgenCast (formerly maw) scenario, check why a run failed, or find a run's output or cost.
 ---
 
 # Running AgenCast scenarios
@@ -80,6 +80,63 @@ folder after a successful run, and put the item into the publishing step's
 `-i 'refs=["a.png","b.webp"]'` — PNG/JPEG/WebP/GIF/AVIF ≤ 10 MB, copied into
 `runs/<id>/inputs/`. Over HTTP: `POST /projects/<p>/uploads` with the raw bytes
 → `{"upload_id"}`, then `"inputs": {"photo": {"upload_id": "up_…"}}` (api.md Uploads).
+
+## Through the MCP server (`agencast mcp`)
+
+When an MCP server named `agencast` is connected (tools `list_projects`,
+`list_scenarios`, `fake_run`, `run_scenario`, `wait_run`, `get_run_file`, …), use it
+instead of the CLI: the projects live on the machine that runs the server, which may
+not be yours. Order of work: `get_guide(topic="start")` (the server's own manual),
+`list_projects`, `list_scenarios(project)` (each scenario's inputs with their types and
+bounds), `fake_run` (free), then `run_scenario` (real money, no cancel) only after the
+user has confirmed the inputs, the cost and any side effect of the scenario (a step
+that publishes); then `wait_run` in a loop. A required input the user did not give:
+propose a value and have it confirmed, do not invent it silently. A run keeps going
+when you disconnect. What the server cannot tell you is how to get the user's
+images there:
+
+**An image input (`file`/`files`) is a file on the server's machine**, inside one of
+`server.input_dirs` from `list_projects`. A tool call carries no bytes and there is
+no upload, so when the user hands you images ("here are the photos", a folder, paths),
+copy them there first:
+
+1. `list_projects` → `server.host`, `server.user`, `server.input_dirs`. Empty
+   `input_dirs`: stop and tell the user — the owner must start the server with
+   `--input-dir <dir>`.
+2. Check the files by content, not by extension: `file <paths>` must say PNG, JPEG,
+   WebP, GIF or AVIF, `ls -l` at most 10 MB each; a `files` input takes 1–16 or the
+   bounds `list_scenarios` shows. Anything else (HEIC from a phone) or anything too
+   big: convert or shrink into a temporary folder of your own, never next to the
+   user's originals (macOS `sips -s format jpeg in.heic --out <tmp>/x.jpg`, elsewhere
+   `magick in.heic -resize 2048x2048\> <tmp>/x.jpg`), check the result again, and if
+   no tool is installed stop and tell the user. Phone photos carry the place they were
+   taken in EXIF and the server keeps every input for good in `runs/<id>/inputs/`:
+   strip metadata from your copies when you can (`exiftool -all= …` or `magick … -strip …`).
+3. Where: the **first** input dir, one fresh subfolder per job made by `mktemp`, so
+   a retry or a second agent never shares or deletes another job's files. Never copy
+   anywhere else.
+   - Same machine (the server is a local stdio command, or `hostname` equals
+     `server.host` and `whoami` equals `server.user`):
+     `dest=$(mktemp -d <input_dir>/$(date +%Y%m%d)-<scenario>-XXXX) && cp <files> "$dest"/`
+   - Another machine: over your own ssh login to the server, which exists apart from
+     MCP. Probe it first: `ssh -n -o BatchMode=yes <user>@<host> echo ok` must print
+     `ok`; if it hangs, errors or prints anything else, that route is a key restricted to
+     the command `agencast mcp` (it cannot copy) or `server.host` does not resolve from
+     your machine — stop and ask the user for the ssh name of that machine. Then
+     `dest=$(ssh <user>@<host> mktemp -d <input_dir>/$(date +%Y%m%d)-<scenario>-XXXX)`
+     and `scp <files> <user>@<host>:"$dest"/`.
+4. Pass the paths as the server sees them: `"photo": "<dest>/front.jpg"`,
+   `"refs": ["<dest>/a.png", "<dest>/b.png"]` — absolute, no `~`, never your local path.
+5. The server reads each file when the tool is called and the run keeps its own copy,
+   so the subfolder is needed only until the **last** call that names those paths has
+   returned a run id — `fake_run` and then `run_scenario` both read it. Then remove
+   exactly the subfolder you made (`rm -r -- "$dest"`, over ssh when the server is on
+   another machine) and your temporary folder; never touch other folders there. Tell
+   the user that the run keeps its own copy of the images.
+
+Results: `wait_run` returns `outputs`; a file output is in `output_files[name]`
+and `get_run_file(project, run_id, <that path>)` returns it (a small image inline);
+`get_run_file(project, run_id, "summary.md")` is the summary.
 
 ## Reading the result
 

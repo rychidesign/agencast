@@ -6,6 +6,7 @@ the owner at start (`build`), and every tool leaves through one exit (`tool`) th
 and masks everything with the secrets of the addressed project.
 """
 import base64
+import getpass
 import hmac
 import inspect
 import json
@@ -13,6 +14,7 @@ import os
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -542,11 +544,14 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
     # --- read ---------------------------------------------------------------------
 
     @tool("read", "Free. The projects this server serves (name, root, available, trusted) and what the server "
-                  "allows: permission level, fake-only, directories for image inputs. Call it first to get a "
-                  "project name.")
+                  "allows: permission level, fake-only, directories for image inputs and the host and user to "
+                  "copy them to. Call it first to get a project name.")
     def list_projects() -> dict[str, Any]:
+        # host/user: the ssh target a caller on another machine copies image inputs to (scp <files>
+        # user@host:<input_dir>/); the paths in `root` already name the account, so nothing new is revealed.
         return {"server": {"version": __version__, "mode": "project" if project else "registry", "allow": allow,
-                           "fake_only": fake is not None, "input_dirs": [str(d) for d in input_dirs]},
+                           "fake_only": fake is not None, "input_dirs": [str(d) for d in input_dirs],
+                           "host": socket.gethostname(), "user": getpass.getuser()},
                 "projects": listing()}
 
     @tool("read", "Free. What a scenario in the project can use: model aliases, limits, agents, skills and MCP "

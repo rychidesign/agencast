@@ -344,12 +344,12 @@ description says `Free`.
 Level `read`. No arguments. The projects this server serves and what the server may do.
 
 Description: `Free. The projects this server serves (name, root, available, trusted) and
-what the server allows: permission level, fake-only, directories for image inputs. Call
-it first to get a project name.`
+what the server allows: permission level, fake-only, directories for image inputs and the
+host and user to copy them to. Call it first to get a project name.`
 
 | Result field | What it is |
 |---|---|
-| `server` | `{"version", "mode": "registry" \| "project", "allow": "read" \| "run" \| "edit", "fake_only": bool, "input_dirs": [absolute paths]}` — `fake_only: true` = started with `--fake`: there is no `run_scenario`; `input_dirs` = where `file` / `files` inputs may come from (empty = none accepted) |
+| `server` | `{"version", "mode": "registry" \| "project", "allow": "read" \| "run" \| "edit", "fake_only": bool, "input_dirs": [absolute paths], "host", "user"}` — `fake_only: true` = started with `--fake`: there is no `run_scenario`; `input_dirs` = where `file` / `files` inputs may come from (empty = none accepted); `host` = the machine's host name, `user` = the account the server runs as: the ssh target `user@host` a caller on another machine copies image inputs to ([File inputs](#file-inputs); the `root` paths name the account anyway) |
 | `projects[]` | `{"name", "root", "available", "trusted"}` and `reason` for `available: false` (missing `workflows/config.yaml`), as `GET /projects`. `trusted: false` = the project may not use MCP servers ([projects.md “Trust”](projects.md#trust-projects-registered-through-the-api)). |
 
 Errors: `config` when the registry cannot be read (registry mode). In single-project
@@ -357,7 +357,8 @@ mode an unreadable registry is not an error: the project is listed with `trusted
 
 ```json
 // list_projects {}
-{"server": {"version": "0.19.0", "mode": "registry", "allow": "run", "fake_only": false, "input_dirs": []},
+{"server": {"version": "0.19.0", "mode": "registry", "allow": "run", "fake_only": false, "input_dirs": [],
+            "host": "box", "user": "me"},
  "projects": [{"name": "lumen", "root": "/home/me/lumen", "available": true, "trusted": true}]}
 ```
 
@@ -1202,9 +1203,14 @@ base64, and has no upload channel. So the **owner** widens the rule at start:
   **absolute** path (`~` is expanded) on the server's host — over HTTP too, where the
   client's own files are not reachable. A relative path → `invalid`.
 - The path is resolved (links followed) and must then lie inside one of the allowed
-  directories, themselves resolved at start — a link inside an allowed directory that
-  points out of it is refused:
+  directories (at any depth: subdirectories count), themselves resolved at start — a
+  link inside an allowed directory that points out of it is refused:
   `denied: input 'photo': /home/me/Pictures/agencast/x.png is not inside an allowed directory (/home/me/Pictures/agencast)`.
+- How a file gets there is the caller's job, outside MCP. A caller on another machine
+  copies it over its own ssh access to `server.user@server.host` from `list_projects`,
+  into a subdirectory of an input directory it creates for the job; the `agencast-run`
+  skill ([skills/](../../skills/)) gives an agent that recipe. A key restricted to the
+  command `agencast mcp` cannot copy anything.
 - The file must be an image the core accepts: PNG, JPEG, WebP, GIF or AVIF by its
   header, readable dimensions, at most 10,000,000 bytes (`config`, with the message of
   the core naming the path the caller sent; a link loop, like a dangling link, is a file

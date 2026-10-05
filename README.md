@@ -158,7 +158,14 @@ claude mcp add --transport http --scope user agencast http://127.0.0.1:8765/mcp 
 ```
 
 Never let the shell expand the token into a `claude mcp add` command: it would stay in plain text in Claude
-Code's configuration and the shell history. In Open WebUI (0.6.31 or newer), add an external tool server of type
+Code's configuration and the shell history.
+
+Image inputs over MCP are files on the server's machine inside a directory the owner allows with
+`--input-dir DIR` (a tool call carries no bytes). An agent on another machine copies the user's images there
+over its own ssh access first — `list_projects` tells it the host, the user and the directories, and the
+`agencast-run` skill gives it the recipe.
+
+In Open WebUI (0.6.31 or newer), add an external tool server of type
 MCP (Streamable HTTP) with the URL and Bearer authentication with the token. Open WebUI in Docker reaches
 `http://127.0.0.1:8765/mcp` with `--network=host`; otherwise start the container with
 `--add-host=host.docker.internal:host-gateway`, the server with `--host 172.17.0.1 --allow-host host.docker.internal`

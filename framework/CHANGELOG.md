@@ -14,7 +14,9 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
   `--allow edit`, write scenarios, agents and skills (`etag`-guarded, refused when they add a validation error).
   The owner fixes the level at start (`--allow read|run|edit`, default `run`), `--fake [SCRIPT]` makes a server
   that cannot spend money, `--input-dir DIR` allows image inputs from a directory (read once into a private
-  copy). Registry mode serves every registered project; `--project` one. The server never touches `config.yaml`,
+  copy; `list_projects` also returns `server.host` and `server.user`, the scp target a caller on another machine
+  copies images to — the recipe is in the `agencast-run` skill). Registry mode serves every registered project;
+  `--project` one. The server never touches `config.yaml`,
   `mcp.yaml`, `commands.yaml`, `.env` or the registry, loads from a project's `.env` only the variables the
   project names (never the current directory's `.env`), and masks every result, error and log line with the
   secrets of the addressed project.
