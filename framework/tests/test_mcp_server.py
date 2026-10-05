@@ -41,6 +41,7 @@ READ_TOOLS = {"list_projects", "describe_project", "list_scenarios", "describe_s
               "get_guide", "run_status", "wait_run", "list_runs", "get_run_file"}
 RUN_TOOLS = {"dry_run", "fake_run", "run_scenario"}
 RUN_ID = re.compile(r"\d{8}-\d{6}-demo-[0-9a-f]{4}")
+RUN_CARD = "ui://agencast/run-card.html"
 
 
 def spec_description(tool: str) -> str:
@@ -116,6 +117,26 @@ def test_read_level_over_stdio(root, registry):
     listed = anyio.run(go, "--project", str(root), "mcp", "--allow", "read")[4]
     assert listed["server"]["mode"] == "project" and listed["server"]["allow"] == "read"
     assert listed["projects"] == [{"name": "lumen", "root": str(root), "available": True, "trusted": True}]
+
+
+def test_run_card_resource_and_bindings():
+    """The card is a bundled MCP Apps resource, bound only to its four entry-point tools."""
+    async def read_card():
+        async with Client(build(allow="read")) as client:
+            result = await client.read_resource(RUN_CARD)
+            return client.server_capabilities.extensions, result.contents[0].text
+
+    extensions, html = anyio.run(read_card)
+    assert "io.modelcontextprotocol/ui" in extensions
+    assert html.lower().startswith(("<!doctype html>", "<html"))
+    assert all(text in html for text in ("ui/initialize", "tools/call", "run_status", "get_run_file"))
+    assert "http://" not in html and "https://" not in html
+    for server, names in ((build(allow="edit"), {"dry_run", "fake_run", "run_scenario", "run_status"}),
+                          (build(fake=""), {"dry_run", "fake_run", "run_status"}),
+                          (build(allow="read"), {"run_status"})):
+        tools = {tool.name: tool for tool in anyio.run(_tools, server)}
+        assert {name for name, tool in tools.items() if tool.meta} == names
+        assert all(tools[name].meta == {"ui": {"resourceUri": RUN_CARD}} for name in names)
 
 
 def test_project_and_scenarios(root):

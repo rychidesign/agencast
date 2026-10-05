@@ -8,6 +8,7 @@ and masks everything with the secrets of the addressed project.
 import base64
 import getpass
 import hmac
+from importlib.resources import files
 import inspect
 import json
 import os
@@ -58,6 +59,7 @@ INLINE = 1_000_000  # bytes of an image get_run_file returns inline
 MAX_READ = 10_000_000  # bytes of a file get_run_file reads; a larger one is `binary`
 MAX_LISTED = 500  # `files` of run_status(detail=true)
 DONE = ("succeeded", "failed", "interrupted", "dry_run")
+RUN_CARD = "ui://agencast/run-card.html"
 # result fields of a run object, without the list-excluded ones (`list_runs`)
 KEYS = ("run_id", "scenario", "state", "status", "done", "fake", "started_at", "finished_at", "duration_s", "cost_usd",
         "current_step", "steps_done", "steps_total")
@@ -316,8 +318,9 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
     alone. Runs get the environment as it is now, before any project's `.env` was read."""
     tools: list[Tool] = []
     apps = Apps()
-    card_uri = "ui://agencast/run-card.html"
-    apps.add_html_resource(card_uri, (Path(__file__).parent / "mcp_app" / "run-card.html").read_text(encoding="utf-8"))
+    apps.add_html_resource(RUN_CARD, (files("agencast") / "mcp_app" / "run-card.html").read_text(encoding="utf-8"),
+                           name="run-card", title="AgenCast run card",
+                           description="Shows the progress and result of an AgenCast run.")
     environment, project_mode = dict(os.environ), project
 
     def listing() -> list[dict[str, Any]]:
@@ -407,7 +410,7 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
             exit_.__signature__ = sig.replace(parameters=[p for p in sig.parameters.values()
                                                           if p.name not in ("root", "mask")])
             t = Tool.from_function(exit_, description=description, annotations=annotations,
-                                   meta={"ui": {"resourceUri": card_uri}} if card else None)
+                                   meta={"ui": {"resourceUri": RUN_CARD}} if card else None)
             # an argument the tool does not have is refused, not dropped: `run_scenario {provider: fake}` runs live;
             # strict: a type is the schema's, not pydantic's lax guess ("yes" is no boolean, "5" no integer), but
             # JSON Schema's integer is any number without a fraction: 5.0 is one (strict pydantic refuses it)

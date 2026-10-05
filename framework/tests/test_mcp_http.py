@@ -30,6 +30,7 @@ INIT = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
     "protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}}}
 JSON = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
 RUN_TOOLS = {"dry_run", "fake_run", "run_scenario"}
+RUN_CARD = "ui://agencast/run-card.html"
 
 
 class Http:
@@ -160,6 +161,12 @@ def test_http_transport(root, registry, cleanup, tmp_path):
                                          env=env_for(root, registry), cwd=root.parent))
     expected = tools(stdio)
     assert {t["name"] for t in expected} >= {"fake_run", "dry_run"} and "run_scenario" not in {t["name"] for t in expected}
+
+    async def read_card():
+        async with s.client() as client:
+            return (await client.read_resource(RUN_CARD)).contents[0].text
+
+    assert (html := anyio.run(read_card)).lower().startswith(("<!doctype html>", "<html")) and "ui/initialize" in html
     for mode in ("legacy", "auto"):
         assert tools(s.client(mode)) == expected
         assert [p["name"] for p in s.call("list_projects", mode=mode)["projects"]] == ["lumen"]
@@ -171,6 +178,9 @@ def test_http_transport(root, registry, cleanup, tmp_path):
     # the token: missing or wrong → 401 before the MCP layer; the SDK client cannot connect
     for headers in ({}, {"Authorization": f"Bearer {wrong}"}):
         r = httpx2.post(s.url, json=INIT, headers=JSON | headers)
+        assert (r.status_code, r.headers["www-authenticate"], r.text) == (401, "Bearer", "missing or wrong bearer token")
+        r = httpx2.post(s.url, json={"jsonrpc": "2.0", "id": 2, "method": "resources/read",
+                                     "params": {"uri": RUN_CARD}}, headers=JSON | headers)
         assert (r.status_code, r.headers["www-authenticate"], r.text) == (401, "Bearer", "missing or wrong bearer token")
     for token in ("", wrong):
         for mode in ("legacy", "auto"):
