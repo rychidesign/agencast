@@ -108,7 +108,10 @@ tools only. Tools you do not see were not enabled by the owner.
    lists steps and files; get_run_file reads any of them.
 5. A file input is an absolute path to an image inside one of server.input_dirs
    (list_projects); files = a list of 1–16. There is no upload; with no input_dirs ask
-   the user to start the server with --input-dir.
+   the user to start the server with --input-dir. Images the user gives you elsewhere
+   (their machine, their folder) you copy there first — over your own ssh login to
+   server.user@server.host when this machine is not yours — into a fresh subfolder
+   of an input dir; the recipe: get_guide("run"), section "Through the MCP server".
 6. A run goes on without you: disconnecting, or a restart of this server, does not stop
    it, and no tool cancels it — start a paid run only when you mean it. Find a run again
    with list_runs(project, scenario) and read it with wait_run or run_status. There is

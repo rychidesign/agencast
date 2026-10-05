@@ -98,6 +98,15 @@ Claude Code starts the server itself over stdio; `--fake` leaves out live runs, 
 claude mcp add --transport stdio agencast -- agencast mcp --fake
 ```
 
+Image inputs are files on the server's machine inside a directory allowed with `--input-dir DIR` (a tool call
+carries no bytes). Claude Code or Codex on another machine copies the user's images there over your own ssh
+login first; the recipe is in the `agencast-run` skill (`agencast skills install` on that machine) and in
+`get_guide("run")` on the server:
+
+```bash
+claude mcp add --transport stdio agencast -- ssh -T box /home/me/.local/bin/agencast mcp --input-dir /home/me/agencast-inputs
+```
+
 Claude Desktop starts stdio servers only (`claude_desktop_config.json`, absolute paths, restart the app); on
 another machine over ssh, without a token or an open port:
 
