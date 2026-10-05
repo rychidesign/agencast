@@ -135,9 +135,13 @@ claude mcp add --transport stdio agencast -- agencast mcp           # dry, fake 
 claude mcp add --transport stdio agencast -- agencast mcp --fake    # no live runs: nothing can cost money
 ```
 
-In a client that renders MCP Apps, such as Claude Desktop, starting a run also shows a **run card** in the chat
-that follows the run on its own: state, steps, elapsed time, cost, and at the end the outputs with inline
-images. It changes nothing for other clients.
+In a client that renders MCP Apps (Claude Desktop, Codex Desktop), starting a run also shows a **run card** in the
+chat, in the AgenCast look, that follows the run on its own: an animated segmented progress bar, the steps with
+their type icons, elapsed time and cost, and at the end the outputs with inline images. It changes nothing for
+other clients. Open WebUI renders it through the community
+[MCP App Bridge](https://github.com/Classic298/open-webui-plugins/tree/main/mcp-app-bridge) tool (Open WebUI
+0.11.4), configured with the server URL and the bearer token; the model then starts runs through its
+`call_mcp_tool`.
 
 Claude Desktop starts stdio servers only (`claude_desktop_config.json`, absolute paths, restart the app); on
 another machine it starts the server over ssh — no token and no open port:

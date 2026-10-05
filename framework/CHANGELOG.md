@@ -24,7 +24,10 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
   `run_scenario` and `run_status` also show a card in the chat that follows the run by itself — state, steps,
   current step, elapsed time, cost, warnings, error, outputs with inline images — by calling `run_status` and
   `get_run_file` through the host; one bundled HTML file (`agencast/mcp_app/run-card.html`, resource
-  `ui://agencast/run-card.html`), no external URL, no change to any tool result (spec/mcp-server.md “Run card”).
+  `ui://agencast/run-card.html`) in the AgenCast GUI design — a segmented animated progress bar, step type icons,
+  motion only under `prefers-reduced-motion: no-preference` — no external URL, no `&` before a letter (hosts that
+  embed through an HTML attribute decode legacy entities), no change to any tool result (spec/mcp-server.md
+  “Run card”). Open WebUI shows it through the community MCP App Bridge tool.
 - Transports: stdio (the client starts the server) and `--http` — streamable HTTP at `http://HOST:PORT/mcp`
   (`--host`, default 127.0.0.1; `--port`, default 8765; `--allow-host` for the names clients use, e.g. behind
   `tailscale serve`), stateless, POST only, with a required bearer token from `AGENCAST_MCP_TOKEN` (at least 32
