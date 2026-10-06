@@ -24,7 +24,7 @@ AgenCast is for developers and teams who want to compose repeatable LLM-agent ta
 - **Any model, one line to switch.** Agents refer to aliases; `config.yaml` maps them to models. Changing a model
   touches one line and no scenario.
 - **Made to sit behind automation.** A token-protected webhook, signed callbacks, idempotent requests and
-  protection against repeating a step with a side effect. No web framework and no database: the files are the state,
+  protection against repeating a step with a side effect. No web framework of its own and no database: the files are the state,
   and the GUI is only a view of them.
 
 AgenCast is deliberately small. It runs workflows you can describe step by step; it is not a library for
@@ -52,7 +52,8 @@ The command above installs the CLI/API; build the GUI from a clone as described 
 - Scenarios in YAML, agents and skills in Markdown.
 - Ten step types: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail` and `output`.
 - `task` calls permitted MCP tools; `parallel`, `switch` and `call` compose branches and scenarios.
-- Images as inputs: `file` and `files` inputs (PNG, JPEG, WebP, GIF, AVIF) come from the CLI, the API or the GUI;
+- Images as inputs: `file` and `files` inputs (PNG, JPEG, WebP, GIF, AVIF) come from the CLI, the API, the GUI or an MCP
+  client (from a directory the owner allows with `agencast mcp --input-dir`);
   `ask` and `task` can look at them, `image` can edit one or compose a new one from several.
 - Permissions belong to the project owner: MCP servers are set only in `workflows/mcp.yaml` on disk —
   the API and the GUI cannot change them.
@@ -135,7 +136,7 @@ claude mcp add --transport stdio agencast -- agencast mcp           # dry, fake 
 claude mcp add --transport stdio agencast -- agencast mcp --fake    # no live runs: nothing can cost money
 ```
 
-In a client that renders MCP Apps (Claude Desktop, Codex Desktop), starting a run also shows a **run card** in the
+In a client that renders MCP Apps (Claude Desktop; Codex Desktop implements the extension too), starting a run also shows a **run card** in the
 chat, in the AgenCast look, that follows the run on its own: an animated segmented progress bar, the steps with
 their type icons, elapsed time and cost, and at the end the outputs with inline images. It changes nothing for
 other clients. Open WebUI renders it through the community
@@ -151,7 +152,8 @@ another machine it starts the server over ssh — no token and no open port:
                 "agencast-box": {"command": "ssh", "args": ["-T", "box", "/home/me/.local/bin/agencast", "mcp"]}}}
 ```
 
-Clients on other machines or in containers use streamable HTTP with a bearer token of at least 32 characters
+Clients on other machines or in containers use streamable HTTP: `agencast mcp --http` serves
+`http://127.0.0.1:8765/mcp` (`--host`, `--port`) and needs a bearer token of at least 32 characters
 (`openssl rand -hex 32`), read from `AGENCAST_MCP_TOKEN` at start. Claude Code takes the URL from `.mcp.json`
 and expands `${AGENCAST_MCP_TOKEN}` from its own environment, so the token is in no file:
 
@@ -175,16 +177,18 @@ user and the directories, and the `agencast-run` skill gives it the recipe (one 
 files checked by content, removed again after the run has started). On the laptop:
 
 ```bash
+ssh box mkdir -p /home/me/agencast-inputs     # the directory must exist on box before the server starts
 claude mcp add --transport stdio agencast -- ssh -T box /home/me/.local/bin/agencast mcp --input-dir /home/me/agencast-inputs
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework" && agencast skills install
 ```
 
-Then "here are the photos in ~/Desktop/ig, make an Instagram post with the scenario ig-post" is enough.
+Then "here are the photos in ~/Desktop/ig, make an Instagram post with the scenario product-post" is enough —
+for a scenario whose `photos` input has the type `files`.
 
 In Open WebUI (0.6.31 or newer), add an external tool server of type
 MCP (Streamable HTTP) with the URL and Bearer authentication with the token. Open WebUI in Docker reaches
 `http://127.0.0.1:8765/mcp` with `--network=host`; otherwise start the container with
-`--add-host=host.docker.internal:host-gateway`, the server with `--host 172.17.0.1 --allow-host host.docker.internal`
+`--add-host=host.docker.internal:host-gateway`, the server with `agencast mcp --http --host 172.17.0.1 --allow-host host.docker.internal`
 (the Docker bridge) and use `http://host.docker.internal:8765/mcp`.
 
 The HTTP server as a systemd user service, `~/.config/systemd/user/agencast-mcp.service`:
@@ -273,8 +277,9 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current framework version is **0.18.0** (the 0.18.x line); the history of changes is in
-the [changelog](framework/CHANGELOG.md). The project is available under the
+The current release is **0.18.0** (the 0.18.x line); `main` also carries the unreleased **0.19.0** — the MCP
+server (`agencast mcp`) and the run card — listed under “Unreleased” in the [changelog](framework/CHANGELOG.md)
+and available with an install from `main`. The project is available under the
 [WTFPL version 2](LICENSE) license.
 
 This program comes without any warranty, to the extent permitted by applicable law.

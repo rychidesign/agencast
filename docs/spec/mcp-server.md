@@ -1263,8 +1263,8 @@ base64, and has no upload channel. So the **owner** widens the rule at start:
 ## Run card (MCP Apps)
 
 In a client that renders [MCP Apps](https://modelcontextprotocol.io/specification/draft/extensions/apps)
-(the extension `io.modelcontextprotocol/ui`: Claude Desktop does, over stdio or ssh; a
-terminal client such as Claude Code does not; claude.ai connectors need OAuth and a public
+(the extension `io.modelcontextprotocol/ui`: Claude Desktop does, over stdio or ssh; Codex Desktop
+implements the extension too; a terminal client such as Claude Code does not; claude.ai connectors need OAuth and a public
 address, which this server does not offer) the tools that start or show a run also show a
 **run card**: a panel in the chat that follows the run on its own — the user sees the
 steps go by without asking the model to poll. Everywhere else the tools behave exactly

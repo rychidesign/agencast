@@ -1,7 +1,8 @@
 # Skills for coding agents
 
-`agencast-run` helps run scenarios and read results; `agencast-create`
-helps create agents and scenarios. They are bundled with the installation even without a clone.
+`agencast-run` helps run scenarios and read results — from the CLI or through a connected `agencast mcp`
+server, including copying the user's images to the server's `--input-dir`; `agencast-create`
+helps create agents and scenarios. The MCP server serves both as `get_guide("run")` and `get_guide("create")`. They are bundled with the installation even without a clone.
 
 ```bash
 agencast skills list

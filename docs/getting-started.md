@@ -100,12 +100,20 @@ claude mcp add --transport stdio agencast -- agencast mcp --fake
 
 Image inputs are files on the server's machine inside a directory allowed with `--input-dir DIR` (a tool call
 carries no bytes). Claude Code or Codex on another machine copies the user's images there over your own ssh
-login first; the recipe is in the `agencast-run` skill (`agencast skills install` on that machine) and in
-`get_guide("run")` on the server:
+login first; the recipe is in the `agencast-run` skill (on that machine: `uv tool install
+"git+https://github.com/rychidesign/agencast#subdirectory=framework"`, then `agencast skills install`) and in
+`get_guide("run")` on the server. The directory must exist on the server before the server starts:
 
 ```bash
+ssh box mkdir -p /home/me/agencast-inputs
 claude mcp add --transport stdio agencast -- ssh -T box /home/me/.local/bin/agencast mcp --input-dir /home/me/agencast-inputs
 ```
+
+In a client that renders MCP Apps (Claude Desktop), `fake_run`, `run_scenario` and `run_status` also show a
+**run card** in the chat that follows the run on its own: progress, steps, cost, and at the end the outputs with
+inline images ([spec/mcp-server.md “Run card”](spec/mcp-server.md#run-card-mcp-apps)). Open WebUI shows it
+through the community [MCP App Bridge](https://github.com/Classic298/open-webui-plugins/tree/main/mcp-app-bridge)
+tool, configured with the server URL and the token.
 
 Claude Desktop starts stdio servers only (`claude_desktop_config.json`, absolute paths, restart the app); on
 another machine over ssh, without a token or an open port:

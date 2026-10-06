@@ -19,6 +19,7 @@ uv run --project framework agencast --project examples/showcase run demo-task -i
 uv run --project framework agencast --project examples/showcase runs list
 uv run --project framework agencast --project examples/showcase runs show <run_id>
 uv run --project framework agencast --project examples/showcase serve --host 127.0.0.1 --port 8080 [--workers 2] [--cors http://localhost:5173]
+uv run --project framework agencast --project examples/showcase mcp [--allow read|run|edit] [--input-dir DIR]... [--fake [SCRIPT]] [--http [--host H] [--port P] [--allow-host H]...]
 uv run --project framework agencast --project examples/showcase migrate examples/showcase/workflows/scenarios/ig-post.yaml
 uv run --project framework agencast new project ~/my-project [--example showcase|tutorial]
 uv run --project framework agencast new agent reviewer | new scenario check [--project <path>]
@@ -152,6 +153,16 @@ GET /, /assets/…      GUI (framework/src/agencast/ui/, no token)
   expose it publicly; bind only to localhost or a private network, for example
   Tailscale. Deployment on Modal is Phase 3c.
 
+## MCP server (`agencast mcp`, unreleased 0.19.0)
+
+`agencast mcp` serves the registered projects (one with `--project`) to an MCP client over stdio, or over
+streamable HTTP with `--http` and a bearer token from `AGENCAST_MCP_TOKEN`: tools to list projects and
+scenarios, run them (`fake_run` free, `run_scenario` live), follow and read runs, and with `--allow edit`
+write scenarios, agents and skills. Runs outlive the client and the server. Image inputs come from
+directories the owner allows with `--input-dir`. Clients that render MCP Apps also get a run card. Everything
+is specified in [docs/spec/mcp-server.md](../docs/spec/mcp-server.md); client setup is in the
+[main README](../README.md#use-from-an-mcp-client).
+
 ## Tests
 
 ```
@@ -182,7 +193,10 @@ its scripted answers belong in `../examples/<project>/fake/<name>.yaml`.
 | `mcp_client.py` | `mcp.yaml`, the run's MCP servers (`mcp` SDK 2.2), tool schema normalization |
 | `task.py` | the `task` step (model ↔ tools loop, `load_skill`), `dedupe_key` |
 | `projects.py` | project registry, templates for `agencast new`, project and scenario descriptions for the GUI |
-| `api.py` | public API for the shells (CLI, `serve`, later Modal and MCP): `load`, `run`, `dry_run`, `runs_list`, `run_status`, `new_*` |
+| `api.py` | public API for the shells (CLI, `serve`, `agencast mcp`, later Modal): `load`, `run`, `dry_run`, `runs_list`, `run_status`, `new_*` |
+| `mcp_server.py` | `agencast mcp`: the MCP tools, run workers (`run --mcp-job`), the HTTP transport ([spec](../docs/spec/mcp-server.md)) |
+| `mcp_app/run-card.html` | the run card, MCP Apps resource `ui://agencast/run-card.html` |
+| `resources.py` | the bundled docs, skills and examples (`agencast docs`, `get_guide`) |
 | `cli.py` | the `agencast` command |
 
 Not yet: Modal and R2 storage (Phase 3c). Unclear points in the spec: `docs/spec/ISSUES.md`.

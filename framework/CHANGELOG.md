@@ -20,7 +20,7 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
   `mcp.yaml`, `commands.yaml`, `.env` or the registry, loads from a project's `.env` only the variables the
   project names (never the current directory's `.env`), and masks every result, error and log line with the
   secrets of the addressed project.
-- Run card (MCP Apps, `io.modelcontextprotocol/ui`): in a client that renders MCP Apps (Claude Desktop), `fake_run`,
+- Run card (MCP Apps, `io.modelcontextprotocol/ui`): in a client that renders MCP Apps (Claude Desktop; Codex Desktop implements the extension too), `fake_run`,
   `run_scenario` and `run_status` also show a card in the chat that follows the run by itself — state, steps,
   current step, elapsed time, cost, warnings, error, outputs with inline images — by calling `run_status` and
   `get_run_file` through the host; one bundled HTML file (`agencast/mcp_app/run-card.html`, resource
