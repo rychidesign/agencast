@@ -270,7 +270,7 @@ export function numbered(steps: WStep[]): WStep[] {
 // --- new step -------------------------------------------------------------------------------
 
 let seq = 0;
-/** Id of a new step `<type>_<n>` (§2.3, like `step_2` in Buzz), unique in the file. */
+/** Id of a new step `<type>_<n>` (§2.3, e.g. `step_2`), unique in the file. */
 export function newId(steps: WStep[], type: StepType): string {
   const ids = new Set(flat(steps).map((s) => s.id));
   let n = 1;

@@ -242,7 +242,7 @@ on disk the owner's `workflows/mcp.yaml` with the framework's fake stdio server 
 - **N6 Leaving with unsaved changes** — a `beforeunload` dialog on reload (Playwright `page.on("dialog")`), after accepting, the draft is still in localStorage and after returning “Unsaved” + text (C5 var.). Navigation via a hash link (back to Scenarios) **does not ask** — design §4.4 wants it; **[worked around]**.
 
 ## What a test will not capture
-- The Buzz look: the surface ladder, the selected card's ring, the pulse, hover states, `prefers-reduced-motion` — only screenshots (a screenshot diff) with a tolerance, not asserts.
+- The look: the surface ladder, the selected card's ring, the pulse, hover states, `prefers-reduced-motion` — only screenshots (a screenshot diff) with a tolerance, not asserts.
 - Performance (LCP, bundle size 96 kB gz, 20 cards × N+1 for projects — finding 24) and behaviour with hundreds of runs (the cursor, finding 25).
 - Real models, costs and `spend` (the fake ledger is separate → “today 0 USD” always), callbacks, R2 storage, real MCP servers (C21 uses the framework's fake stdio server).
 - The iframe in a host dashboard (`postMessage` with the path), CORS with `vite dev`, real screen readers (only the ARIA structure), the system clipboard (“Copy” only with `clipboard-read` permissions).

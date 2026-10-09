@@ -146,9 +146,8 @@ n8n), `embed`/`search`.
 **Our own small framework.** We write the orchestration (step order, `parallel`,
 `switch`, `call`, run record) and the thin agent runtime (the model ↔
 tools loop, the structured output cascade, the MCP client) ourselves on top of
-**protocols and small stable libraries**. No agent framework
-(Mastra, LangGraph, Google ADK, CrewAI, MS Agent Framework) and no fork of
-baton/zenflow.
+**protocols and small stable libraries**. No agent framework and no fork of an
+existing orchestrator.
 
 Reasons: (1) the spikes showed that both OpenRouter and Modal can be handled with plain HTTP/SDK
 and that the hard parts — checking `finish_reason`, the output cascade by model,
@@ -616,21 +615,11 @@ by the user 2026-09-25**, see §3.
 
 ---
 
-## 9. Starting material (what we take from existing tools)
+## 9. Starting material
 
-A GitHub survey 2026-09-25 (4× Haiku, 5× Sonnet xhigh, verified via
-`gh api`): nothing meets R1–R7 at once. Inspiration:
+A survey of existing tools (2026-09-25): nothing meets R1–R7 at once. Facts about the
+services AgenCast builds on:
 
-- **foxzi/baton** (Go, MIT): scenarios in YAML, `validate` + `--dry-run`,
-  a run folder, error classes, `dedupe_key`, a structured output cascade,
-  “an agent may only do what you allow it”. It has no central agents; an `agent:` step =
-  Claude Code/Codex CLI, not an API model.
-- **zendev-sh/zenflow** (Go, Apache-2.0): an `agents:` block in YAML,
-  `dependsOn`, `forEach`, `condition`, `include`. A hidden LLM coordinator.
-- **johnlindquist/mdflow** (TS, MIT): a workflow as Markdown with `_steps` in the
-  frontmatter — the most readable format; steps = CLI agents.
-- **IBM/prompt-declaration-language** (Apache-2.0): `base_url` on calls,
-  LiteLLM; more a programming language in YAML.
 - OpenRouter: 460 models, 11 with image output, ~390 declare `tools`
   and `structured_outputs` (as of 2026-09-25). Jev: `/api/v1/systemone`,
   response `{ answers: { id: { type, noul|choice|score… } }, usage.cost }`.
