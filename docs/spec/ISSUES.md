@@ -380,7 +380,7 @@ the coordinator or the user decides.
     and [projects.md](projects.md)). `serve` in registry mode can create a
     project from the existing templates, register a project with
     `workflows/config.yaml` or remove an entry without deleting files.
-    The default root `projects_root` is `~/workspace`; the API expands `~`,
+    The default root `projects_root` is `~/workspace` (`~/agencast-projects` after 0.19.0); the API expands `~`,
     normalizes paths, forbids `..` and a relative escape through a symlink.
     Writing outside the server's home directory stays allowed and runs with the permissions of the
     `serve` user; in single-project mode writes are 405.

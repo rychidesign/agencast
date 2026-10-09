@@ -32,7 +32,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import ConfigErrors, AgencastError, api
 from .engine import CALLBACK_URL, IMAGE_EXT, RUN_ID, RUN_ID_TRIES, new_run_id, resend_callback
-from .projects import NAME, default_name, error_fields, registry_path
+from .projects import NAME, PROJECTS_ROOT, default_name, error_fields, registry_path
 from .providers import probe_image
 from .record import INTERRUPTED_BY_RESTART, _events, run_status
 from .validate import IMAGE_FORMATS, MAX_FILE_BYTES, UPLOAD_ID, Project, require_config, resolve_inputs
@@ -448,7 +448,7 @@ class Projects:
             except ConfigErrors:
                 if not self.hook:
                     raise
-                projects_root = (Path.home() / "workspace").resolve()
+                projects_root = Path(PROJECTS_ROOT).expanduser().resolve()
             today = f"{datetime.now(timezone.utc):%Y-%m-%d}"
             projects = []
             for x in self.listing():

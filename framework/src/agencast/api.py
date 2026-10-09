@@ -11,7 +11,7 @@ from typing import Any
 
 from . import ConfigErrors, projects as _projects
 # Project registry re-exported from projects.py (projects.md): new_project, projects = [{name, root, available, trusted}],
-# projects_root (default ~/workspace), normalize_project_root (expands ~, rejects .., relative paths under base),
+# projects_root (default ~/agencast-projects), normalize_project_root (expands ~, rejects .., relative paths under base),
 # trust_project (`agencast projects trust` — the owner's terminal only, never an HTTP route).
 from .projects import (ProjectConflict, list_projects as projects, new_project, normalize_root as normalize_project_root,
                        projects_root, registry_writable, remove as remove_project, trust as trust_project)

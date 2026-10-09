@@ -5,6 +5,13 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
+## Unreleased
+
+- **Changed:** the default `projects_root` (where the GUI creates a project without a path) is
+  `~/agencast-projects` instead of `~/workspace`. A registry that sets `projects_root` keeps it; to keep the old
+  folder, add `projects_root: ~/workspace` to `~/.config/agencast/projects.yaml`.
+- The design documents no longer name the author's private projects.
+
 ## 0.19.0 — 2026-10-09 (MCP server)
 
 - `agencast mcp` — AgenCast as an MCP server (spec/mcp-server.md): 17 tools to list projects and scenarios, read

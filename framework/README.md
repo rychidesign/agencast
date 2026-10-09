@@ -68,7 +68,7 @@ uv run --project framework agencast projects list | add <path> [--name N] | rm <
   write in registry mode — its entries are `trusted: false`: such a project uses no MCP server
   until `agencast projects trust <name>`, which shows the project root and its servers and asks first
   (`--yes` outside a terminal; docs/spec/projects.md). `projects_root` sets the default folder for
-  new projects (default `~/workspace`).
+  new projects (default `~/agencast-projects`).
 - `migrate`: there is nothing to convert in v1; an unknown version = `config` error.
 - Exit code: 0 success, 1 the run ended with an error, 2 `config` error
   (validate, inputs, environment).

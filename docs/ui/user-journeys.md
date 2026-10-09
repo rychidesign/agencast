@@ -245,7 +245,7 @@ on disk the owner's `workflows/mcp.yaml` with the framework's fake stdio server 
 - The Buzz look: the surface ladder, the selected card's ring, the pulse, hover states, `prefers-reduced-motion` — only screenshots (a screenshot diff) with a tolerance, not asserts.
 - Performance (LCP, bundle size 96 kB gz, 20 cards × N+1 for projects — finding 24) and behaviour with hundreds of runs (the cursor, finding 25).
 - Real models, costs and `spend` (the fake ledger is separate → “today 0 USD” always), callbacks, R2 storage, real MCP servers (C21 uses the framework's fake stdio server).
-- The iframe in Skynet Soul (`postMessage` with the path), CORS with `vite dev`, real screen readers (only the ARIA structure), the system clipboard (“Copy” only with `clipboard-read` permissions).
+- The iframe in a host dashboard (`postMessage` with the path), CORS with `vite dev`, real screen readers (only the ARIA structure), the system clipboard (“Copy” only with `clipboard-read` permissions).
 - Time captions (“3 min ago”, “yesterday 2:03 PM”) and the `title` with UTC — test with a regex, not by value.
 
 ## The designer's questions and the coordinator's decisions (2026-09-26)

@@ -1,4 +1,4 @@
-// Hash routing (design §1): the GUI also runs in a Skynet Soul iframe, hence `#/…`.
+// Hash routing (design §1): the GUI can also run in an iframe of a host dashboard, hence `#/…`.
 import { useSyncExternalStore } from "react";
 
 export type Tab = "scenarios" | "agents" | "config" | "skills" | "runs";

@@ -164,7 +164,7 @@ a wish. Estimate of the v1 core: 3–5 thousand lines, written and maintained by
 
 Reasons: Modal is natively Python — the webhook, queue, Volume and secrets from
 spike (b) become a direct part of the framework (in TypeScript there would be two
-languages to maintain); the spikes and `jev-labs` are in Python; the advantage of the AI SDK in TS
+languages to maintain); the spikes and the earlier Jev experiments are in Python; the advantage of the AI SDK in TS
 is small when we write the cascade and the checks ourselves.
 
 Default library set (changes only with a reason in the changelog): `httpx` (HTTP),
@@ -246,7 +246,7 @@ since 0.19.0) and later Modal are **thin wrappers over `agencast.api`** (`load`,
 **GUI — decided 2026-09-26 (user + coordinator):**
 
 - The GUI is a standalone wrapper `ui/` in this repo (React). It is served by
-  `agencast serve`; Skynet Soul only embeds it in a tab (iframe).
+  `agencast serve`; a host dashboard can only embed it in a tab (iframe).
 - The GUI talks to the core **only through the `serve` HTTP API** (`/projects/...`,
   [spec/api.md](spec/api.md)) — no direct file access and no parser of its own
   for the formats.
@@ -580,8 +580,8 @@ which cascade level was used; (2) Jev through
 `https://openrouter.ai/api/v1/systemone` — response shape, errors, latency;
 (3) image generation (`google/gemini-3.1-flash-image` or similar) —
 response shape, saving the file, cost. Starting material:
-`~/workspace/jev-labs` (existing experiments with Jev directly through the TypeSafe
-API, `docs/findings.md`). Needs `OPENROUTER_API_KEY` in the environment;
+earlier private experiments with Jev directly through the TypeSafe
+API. Needs `OPENROUTER_API_KEY` in the environment;
 cost in cents.
 
 **(b) Modal** — questions: (1) a container with one stdio MCP server
@@ -634,8 +634,8 @@ A GitHub survey 2026-09-25 (4× Haiku, 5× Sonnet xhigh, verified via
 - OpenRouter: 460 models, 11 with image output, ~390 declare `tools`
   and `structured_outputs` (as of 2026-09-25). Jev: `/api/v1/systemone`,
   response `{ answers: { id: { type, noul|choice|score… } }, usage.cost }`.
-- **`~/workspace/jev-labs`** (own, 2026-09-21): a Python CLI and Jev measurements
-  directly through the TypeSafe API (`docs/findings.md`). Findings: Czech works
+- **Earlier Jev experiments** (private, 2026-09-21): a Python CLI and Jev measurements
+  directly through the TypeSafe API. Findings: Czech works
   (34/34 correct `choice`, the term `noul` 15/15), median latency 0.63 s,
   `score` for factual defect descriptions overestimates dissatisfaction, `confidence`
   is not the probability of being right, `noul=0.5` = uncertainty; API errors 401,

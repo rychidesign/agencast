@@ -25,6 +25,7 @@ from .mcp_client import load_mcp, secret_names
 from .validate import _strings, env_fields, load_agent, load_skill, require_config, validate
 
 NAME = re.compile(r"[a-z][a-z0-9-]*")  # matches agent and scenario names in the schemas
+PROJECTS_ROOT = "~/agencast-projects"  # default `projects_root` (up to 0.19.0: ~/workspace)
 
 CONFIG = """\
 # Only the project owner may edit this. No secret values: *_env fields contain the NAME
@@ -185,9 +186,9 @@ def untrusted(*roots: Path, listed: bool = False) -> str | None:
 
 
 def projects_root() -> Path:
-    """Root for projects created in the GUI; default `~/workspace`."""
+    """Root for projects created in the GUI; default `PROJECTS_ROOT`."""
     try:
-        return Path(_read_registry().get("projects_root", "~/workspace")).expanduser().resolve()
+        return Path(_read_registry().get("projects_root", PROJECTS_ROOT)).expanduser().resolve()
     except (OSError, RuntimeError, ValueError) as e:
         raise ConfigErrors([f"projects_root: invalid path ({e})"]) from None
 

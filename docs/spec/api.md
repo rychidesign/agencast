@@ -542,10 +542,10 @@ through `call` in `<run>/scenario/<name>.yaml`
 ### `GET /projects`
 
 `{"projects": [...], "registry": "/home/…/.config/agencast/projects.yaml",
- "projects_root": "/home/…/workspace", "writable": true}`
+ "projects_root": "/home/…/agencast-projects", "writable": true}`
 — `registry` = the path to the registry file (even when it does not exist, also in
 single-project mode). `projects_root` = the configured default path, otherwise
-`~/workspace`. `writable` is `true` only in registry mode, when the process can
+`~/agencast-projects`. `writable` is `true` only in registry mode, when the process can
 write the registry atomically; in single-project mode it is `false`. An unavailable
 project has `reason` (`missing <root>/workflows/config.yaml`). Since 0.10.0
 every project item additionally contains `counts: {scenarios, agents}`

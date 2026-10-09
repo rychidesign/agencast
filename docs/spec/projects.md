@@ -10,18 +10,18 @@ registry. Formats v1 do not change.
 `AGENCAST_CONFIG_DIR` variable, mainly for tests):
 
 ```yaml
-projects_root: ~/workspace   # default location for new projects from the GUI
+projects_root: ~/agencast-projects   # default location for new projects from the GUI
 projects:
   - name: lumen              # project name in the registry and in the URL /projects/<name>
     root: ~/lumen  # absolute path to the root (the directory with workflows/)
   - name: from-gui
-    root: ~/workspace/from-gui
+    root: ~/agencast-projects/from-gui
     trusted: false           # registered through the API: no MCP servers until `agencast projects trust from-gui`
 ```
 
 | Field | What it does |
 |---|---|
-| `projects_root` | Default root for `POST /projects/new`; defaults to `~/workspace`. Paths are expanded and normalized. |
+| `projects_root` | Default root for `POST /projects/new`; defaults to `~/agencast-projects` (up to 0.19.0 `~/workspace`). Paths are expanded and normalized. |
 | `name` | Unique, same shape as scenario names (lowercase letters, digits, hyphen, starts with a letter). Default = the directory name converted to this shape (`My Project` → `my-project`). |
 | `root` | Absolute path to the project root; a root appears in the registry at most once. |
 | `trusted` | Optional, since 0.18.0. `false` = the entry was written by the API (`POST /projects`, `POST /projects/new`): the project may not use MCP servers ([Trust](#trust-projects-registered-through-the-api)). Without the key the project is trusted — every entry written from a terminal, and every entry from before 0.18.0. Only `true` or `false`; anything else is a `config` error. |

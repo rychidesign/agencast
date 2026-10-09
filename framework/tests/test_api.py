@@ -164,6 +164,22 @@ def test_registry_project_create_register_remove(tmp_path, registry, monkeypatch
         srv.server_close()
 
 
+def test_registry_default_projects_root(tmp_path, registry, monkeypatch):
+    """Without `projects_root` a new project goes to ~/agencast-projects (up to 0.19.0 ~/workspace)."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry.parent.mkdir(parents=True)
+    registry.write_text("projects: []\n")
+    srv, client = serve(projects=Projects(token=TOKEN, fake=lambda: Fake(None)))
+    try:
+        assert client.get("/projects").json()["projects_root"] == str(tmp_path / "agencast-projects")
+        created = client.post("/projects/new", json={"name": "fresh"})
+        assert created.status_code == 201 and created.json()["root"] == str(tmp_path / "agencast-projects" / "fresh")
+    finally:
+        client.close()
+        srv.shutdown()
+        srv.server_close()
+
+
 def test_serve_registry_needs_token(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("AGENCAST_TOKEN", raising=False)
