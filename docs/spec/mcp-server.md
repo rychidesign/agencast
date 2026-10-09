@@ -1506,7 +1506,7 @@ The numbers are constants of the server, not options.
 Deliberately, in 0.19.0:
 
 - **Scheduling.** Running a scenario at a time or repeatedly is the caller's job — cron,
-  n8n, a client's own scheduler, `agencast serve` with a webhook. The server starts a run
+  an automation tool, a client's own scheduler, `agencast serve` with a webhook. The server starts a run
   when a tool asks for it and keeps nothing to run later.
 - **A queue, callbacks, `request_key`** — that is `agencast serve`.
 - **Cancelling a run.** No tool stops a run (`cancelled` is reserved, api.md), and

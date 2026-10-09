@@ -839,7 +839,7 @@ class _Checker:
             return None
         if sc.get("callable") is not True:
             self.err(info.id, "call.scenario", f"scenario '{name}' has no callable: true — it cannot be called "
-                                               "(protects approval in n8n, §5.2)")
+                                               "(protects human approval, §5.2)")
             return None
         chk = _Checker(sc, self.config, self.wf, path.name, self.stack, self.model_needs, text)
         chk.run()

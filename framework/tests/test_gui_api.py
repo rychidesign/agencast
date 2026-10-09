@@ -174,7 +174,7 @@ def test_runs_for_gui(registry_server):
     assert r.status_code == 200 and r.json() == {"run_id": r.json()["run_id"], "dry_run": True}
     assert sorted(x.name for x in (a / "runs" / r.json()["run_id"]).iterdir()) == ["inputs.json", "plan.md"]
     bad = client.post("/projects/alpha/runs", json={"scenario": "demo", "dry_run": True,
-                                                   "callback_url": "https://n8n.example.com/x"})
+                                                   "callback_url": "https://caller.example.com/x"})
     assert bad.status_code == 422 and "dry_run" in bad.json()["details"][0]
     bad = client.post("/projects/alpha/runs", json={"scenario": "demo", "callback_url": "http://evil"})
     assert bad.status_code == 422 and bad.json()["details"] == ["callback_url: does not start with https://"]

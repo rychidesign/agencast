@@ -70,7 +70,7 @@ and without `--callback-url` are guaranteed to run offline, for example `ig-post
 
 A run executes one scenario once. Scheduling ("every Monday"), event triggers,
 approvals and any state that must survive between runs belong to whoever calls
-`agencast` (n8n, cron, a scheduled Claude Code task, …). The only cross-run
+`agencast` (an automation tool, cron, a scheduled Claude Code task, …). The only cross-run
 state inside the framework is `dedupe_key` on a side-effect step: the side
 effect happens at most once per key even if the trigger repeats the run.
 Pattern for "one item per run from a pool": keep the pool as a folder outside

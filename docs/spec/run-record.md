@@ -47,7 +47,7 @@ runs/20260925-140311-ig-post-a1b2/
       output.json
 ```
 
-- `runs/` is `runs_dir` from `config.yaml` (default `./runs`), on Modal a
+- `runs/` is `runs_dir` from `config.yaml` (default `./runs`), on a serverless host a
   Volume (D5). Next to the run directories there are only `_dedupe/`
   (separate key files,
   [scenario.md](scenario.md#dedupe_key--once-and-only-once)), the
@@ -102,7 +102,7 @@ runs/20260925-140311-ig-post-a1b2/
   (SIGTERM)`, the servers `mcp_server` `stopped` — also one that was still
   starting; exit code 130/143), or a
   run in flight when `agencast serve` was stopped (the same record; the
-  next start of the server finishes it, see `run_finished` below). On Modal the wrapper substitutes its
+  next start of the server finishes it, see `run_finished` below). On a serverless host the wrapper substitutes its
   own mechanism (like the `max_parallel_runs` slots). A dry run has no
   lock — since framework 0.8.0 this is how it is recognized: `plan.md`
   without `events.jsonl` and without `run.lock` = dry run; a live run
@@ -370,7 +370,7 @@ one event).
 |---|---|
 | `url` | address without the query |
 | `attempt` | attempt 1–3 (**proposal**: 3 attempts, delays of 5 s and 30 s) |
-| `http_status` | n8n response, `null` on a network error |
+| `http_status` | the caller's response, `null` on a network error |
 | `error` | message, if delivery failed |
 
 **`callback_failed`** — after the third failed attempt (the last line of
@@ -379,7 +379,7 @@ the file), or when SIGINT/SIGTERM arrived while the callback was being sent
 The run status **does not change**; `callback.json` stays in the
 run directory. The CLI (`runs`) shows “callback not delivered” and
 `summary.md` shows “Callback not delivered”. Recovery is handled by the
-timeout in n8n (§5.1 item 7).
+timeout in the caller (§5.1 item 7).
 
 A callback given up because `agencast serve` was stopped is sent again
 at the next start of the server: the same body, from `callback.json`,
@@ -414,7 +414,7 @@ For humans, in English, always the same structure (**proposal**):
 ```markdown
 # ig-post — success
 
-Draft IG post for approval (part 1; part 2 publishes it via n8n)
+Draft IG post for approval (part 1; part 2 publishes it via the caller)
 Run `20260925-140311-ig-post-a1b2` · 2026-09-25 14:03 UTC · 17.5 s · 0.06934 USD (of which images 0.0672 USD)
 
 ## Inputs
@@ -476,7 +476,7 @@ JSON body:
 {
   "run_id": "20260925-140311-ig-post-a1b2",
   "scenario": "ig-post",
-  "request_key": "n8n-4711",
+  "request_key": "caller-4711",
   "status": "succeeded",
   "outputs": {
     "caption": "…",
@@ -498,7 +498,7 @@ On error:
 {
   "run_id": "20260925-141502-ig-post-9f3c",
   "scenario": "ig-post",
-  "request_key": "n8n-4712",
+  "request_key": "caller-4712",
   "status": "failed",
   "outputs": null,
   "error": {
@@ -521,7 +521,7 @@ On error:
 | `error` | `{class, step, message}` or `null`; `step` is a path (`propose/copy`) |
 | `warnings` | the same as in `run_finished` |
 | `report_url` | URL of `report.html`; when uploading the record fails, `null` and a warning |
-| `sent_at` | send time — n8n can reject old messages |
+| `sent_at` | send time — the caller can reject old messages |
 
 File addresses have the form `<public_base_url>/<run_id>-<32 random hex
 characters>/<name>` — for all files including `report.html` (DESIGN §5.2).
@@ -532,5 +532,5 @@ unapproved images or prompts by trying `run_id` values.
 Signature (§5.2, **proposal** of the shape): header
 `X-Signature: sha256=<hex>`, where `<hex>` = HMAC-SHA256 over the exact
 bytes of the body with the secret from `callback.secret_env`. The
-`X-Run-Id` header carries the `run_id`. n8n verifies the signature before
+`X-Run-Id` header carries the `run_id`. The caller verifies the signature before
 trusting the message.

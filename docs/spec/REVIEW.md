@@ -88,7 +88,7 @@ Summary: **6 BLOCKING, 23 IMPORTANT, 12 MINOR**.
 - **Where:** `scenario.md:180-182` vs. `DESIGN.md:115-117` (D2).
 - **What:** D2: “runs do not share files (except `state` and the output storage)”,
   so that parallel runs are possible. The spec introduces a single `<runs>/dedupe.jsonl` for all
-  runs. A Modal Volume is at the last `commit()` (`DESIGN.md:184`), so two
+  runs. A persistent volume on a serverless host is at the last `commit()` (`DESIGN.md:184`), so two
   concurrent writes are lost.
 - **Why:** It violates D2. At the same time it is the “once and only once” feature for publishing,
   where a lost write means a double post.
@@ -105,9 +105,9 @@ Summary: **6 BLOCKING, 23 IMPORTANT, 12 MINOR**.
   `request_key`) and the response (`run_id`, queue position per D2) are missing. Also missing is
   what a repeated `request_key` does (§5.2) and when validation happens. `scenario.md:89-90`
   returns an input error “immediately”, but D2 wants a callback **always**. When `validate`
-  runs only after pick-up from the queue on Modal, the spec does not say whether
+  runs only after pick-up from the queue on a serverless host, the spec does not say whether
   a callback arrives.
-- **Why:** Per the spec n8n cannot be connected. D2 and §5.2 both remain
+- **Why:** Per the spec an automation tool cannot be connected. D2 and §5.2 both remain
   unfulfilled.
 - **Proposal:** A new section `run-record.md#webhook` (or `webhook.md`):
   “`POST /runs`, header `Authorization: Bearer <token from webhook.token_env>`,
@@ -115,7 +115,7 @@ Summary: **6 BLOCKING, 23 IMPORTANT, 12 MINOR**.
   Synchronously: 401 = token; 422 = an unknown scenario, inputs that do not match `inputs`
   or that failed `validate`. Then no `run_id` and no callback is created. Otherwise 202
   `{run_id, queue_position}`, where `queue_position` is computed by the framework
-  (D5: Modal does not provide it) and may be `null`. A repeated `request_key` returns 200
+  (D5: a serverless host does not provide it) and may be `null`. A repeated `request_key` returns 200
   with the original `run_id` and no new run is created. From the assignment of `run_id` the callback
   is always sent, even when `validate` fails only after pick-up from the queue.”
 
@@ -157,7 +157,7 @@ Summary: **6 BLOCKING, 23 IMPORTANT, 12 MINOR**.
 
 ### D2. `call` and `task` with the `publisher` agent bypass human approval
 - **Where:** `scenario.md:400-432`, `ig-post.yaml:3` vs. `DESIGN.md:123-124`.
-- **What:** Approval takes place in n8n between the parts of a workflow. But nothing prevents a scenario
+- **What:** Approval takes place in an automation tool between the parts of a workflow. But nothing prevents a scenario
   from part 1 from calling the scenario of part 2 (`call: {scenario: ig-publish}`) or
   directly a `task` with the `publisher` agent. The post would then be published without
   approval.
@@ -219,7 +219,7 @@ Summary: **6 BLOCKING, 23 IMPORTANT, 12 MINOR**.
 - **Where:** `scenario.md:166` vs. `DESIGN.md:248-249`.
 - **What:** A record is created only after a **successful** step. When `publish_media`
   runs and the step then fails (budget, timeout, `schema` of the final answer),
-  n8n repeats the run and the post goes out twice. The key is also not bound to the
+  the caller repeats the run and the post goes out twice. The key is also not bound to the
   scenario and step, so the same key text in another scenario returns the foreign output
   of a different shape.
 - **Proposal:** “A `started` record is created before the first call of the step's tool.
@@ -400,7 +400,7 @@ Summary: **6 BLOCKING, 23 IMPORTANT, 12 MINOR**.
 - **Proposal:** “Each attempt = one `callback_sent` event. After the third
   failure `callback_failed` (the last line). The run state does not change,
   `callback.json` stays. When run from the CLI and in `summary.md` ‘callback not
-  delivered’ is shown. Recovery is handled by the time limit in n8n (§5.1 point 7).”
+  delivered’ is shown. Recovery is handled by the time limit in the caller (§5.1 point 7).”
 
 ### D21. `validate` against `/models`: the need for a network and a missing check of alias capabilities
 - **Where:** `scenario.md:738-739`, `scenario.md:723` vs. `DESIGN.md:276-278`, `DESIGN.md:295-296`.
@@ -485,7 +485,7 @@ Summary: **6 BLOCKING, 23 IMPORTANT, 12 MINOR**.
 - **What:** `base_url` is “only for conformance tests”, but the schema lets through
   `http://evil.example.com`, where the OpenRouter key would go. The same
   variable as `webhook.token_env` and `openrouter.api_key_env` passes (verified),
-  so n8n would get the OpenRouter key.
+  so the caller would get the OpenRouter key.
 - **Proposal:** `base_url` pattern
   `^(https://openrouter\.ai/|http://(127\.0\.0\.1|localhost)[:/])`.
   `validate`: two different `*_env` fields with the same value = a `config` error.
@@ -495,7 +495,7 @@ Summary: **6 BLOCKING, 23 IMPORTANT, 12 MINOR**.
 - **What:** “a folder from the server configuration”, but `config.yaml` has no such field
   and no other server configuration exists.
 - **Proposal:** Add `runs_dir` to `config.yaml` (default `./runs`, on
-  Modal the path to a Volume), or write “the CLI switch `--runs-dir`, default `./runs`”.
+  a serverless host the path to a persistent volume), or write “the CLI switch `--runs-dir`, default `./runs`”.
 
 ### M8. Numbers in expressions: `int`, `round`, NaN, `integer` vs. `number`, the format in text
 - **Where:** `scenario.md:521-522`, `scenario.md:583-584`, `scenario.md:596`, `scenario.md:606-608`, `scenario.md:622-624`.

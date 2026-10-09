@@ -269,7 +269,7 @@ run record: …/runs/20260925-151455-tutorial-03-decisions-967b/summary.md
 report: file:///…/outputs/20260925-151455-tutorial-03-decisions-967b-6b023b2b60bcf6f6b9befebcb7402197/report.html
 ```
 
-And this is exactly what n8n would receive (the file `callback.json` in the run
+And this is exactly what the caller would receive (the file `callback.json` in the run
 folder):
 
 ```
@@ -292,8 +292,7 @@ folder):
 }
 ```
 
-The class `fail` says "the scenario ended on purpose", not "something broke". In
-n8n you use it to tell "the text did not pass the check" from a malfunction.
+The class `fail` says "the scenario ended on purpose", not "something broke". The caller uses it to tell "the text did not pass the check" from a malfunction.
 
 ---
 

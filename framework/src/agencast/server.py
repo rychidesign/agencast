@@ -134,7 +134,7 @@ class Webhook:
                     known = True
                 except api.NotFound:
                     pass
-            if errs:  # BUGS 9: include scenario and input errors so n8n can fix everything in one pass
+            if errs:  # BUGS 9: include scenario and input errors so the caller can fix everything in one pass
                 more = self.check(path, inputs)[0] if known and isinstance(inputs, dict) else []
                 return 422, {"error": "invalid request", "details": errs + more}
             if not known:

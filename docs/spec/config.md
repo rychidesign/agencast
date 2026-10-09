@@ -34,7 +34,7 @@ mistake (`sk-or-…`), `validate` rejects it — and does **not print** the key
 in the error message (also not when it stands where the name of a variable
 belongs in `mcp.yaml` `env`, e.g. a pasted `NAME=key`: the message says
 `servers.<name>.env: variable name does not match pattern …`). Two different `_env` fields with the same value
-(e.g. webhook token = OpenRouter key) are a `config` error — otherwise n8n
+(e.g. webhook token = OpenRouter key) are a `config` error — otherwise the caller
 would get the OpenRouter key.
 
 Before writing each record file and the callback, the framework replaces
@@ -44,7 +44,7 @@ DESIGN §5.2,
 [run-record.md](run-record.md#what-must-never-be-in-the-record)).
 
 Variables come from the process environment: on the server from `.env`
-(it is in `.gitignore`), on Modal from `modal.Secret.from_name` (D5).
+(it is in `.gitignore`), on a serverless host from the host's secrets (D5).
 Loading `.env` tolerates CRLF line endings (DESIGN §7 item 8). A missing
 variable → `config` error before the run, with the variable name (not the
 value).
@@ -118,7 +118,7 @@ changes — that is the framework's job (Phase 2), not this file's.
 
 | Field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
-| `runs_dir` | no | Directory with run records ([run-record.md](run-record.md)), `_dedupe/`, `_slots/`, `_ledger/` and the `_models.json` cache. On Modal a path to a Volume. | `./runs` | `runs_dir: /runs` |
+| `runs_dir` | no | Directory with run records ([run-record.md](run-record.md)), `_dedupe/`, `_slots/`, `_ledger/` and the `_models.json` cache. On a serverless host a path to a persistent volume. | `./runs` | `runs_dir: /runs` |
 
 ### `storage` — where files from `output` are uploaded (§5.7)
 
@@ -148,9 +148,9 @@ implementation (<https://developers.cloudflare.com/r2/>).
 |---|---|---|---|---|
 | `run_budget_usd` | yes | At most this many USD for the whole run including `call` and images. Exceeding it → `budget`. | `config` error — a run without a spending cap does not exist. | `run_budget_usd: 1.00` |
 | `run_image_budget_usd` | no | Separate cap for `image` steps (two orders of magnitude more expensive than text, §5.7). Also counts towards `run_budget_usd`. | Images are guarded only by `run_budget_usd`. | `run_image_budget_usd: 0.30` |
-| `run_timeout` | yes | Maximum run duration (without waiting in the queue). `s`/`m`/`h`. At most 24h on Modal (D5). | `config` error. | `run_timeout: 1h` |
+| `run_timeout` | yes | Maximum run duration (without waiting in the queue). `s`/`m`/`h`. At most 24h on a serverless host (D5). | `config` error. | `run_timeout: 1h` |
 | `max_call_depth` | no | Maximum nesting depth of `call` (§5.3). | `3` (**proposal**) | `max_call_depth: 3` |
-| `max_parallel_runs` | no | At most this many runs at once over one `runs_dir` — shared by a manually started CLI, n8n, cron and `agencast serve --workers` (since framework 0.3.1). Integer ≥ 1. The next run waits for a free slot (on stderr `waiting for a free slot (max_parallel_runs=N)`), at most `run_timeout`; then a `timeout` error and the run does not start. The waiting is not part of the run's `run_timeout`. Fake runs (`--fake`) take part in the slots. | No cap — behavior as up to 0.3.0. | `max_parallel_runs: 2` |
+| `max_parallel_runs` | no | At most this many runs at once over one `runs_dir` — shared by a manually started CLI, an automation tool, cron and `agencast serve --workers` (since framework 0.3.1). Integer ≥ 1. The next run waits for a free slot (on stderr `waiting for a free slot (max_parallel_runs=N)`), at most `run_timeout`; then a `timeout` error and the run does not start. The waiting is not part of the run's `run_timeout`. Fake runs (`--fake`) take part in the slots. | No cap — behavior as up to 0.3.0. | `max_parallel_runs: 2` |
 | `daily_budget_usd` | no | Daily spending cap in USD (day = UTC) across all runs over one `runs_dir` (since framework 0.3.1). When the total of the daily spend ledger ([run-record.md](run-record.md#run-directory)) reaches the limit, a new run does not start — a `budget` error before the first call. Checked **only at start**: a run that started under the limit finishes and can exceed the limit by at most its `run_budget_usd` (concurrent runs each by their own). Fake runs have their own ledger. | No daily cap — behavior as up to 0.3.0. | `daily_budget_usd: 5.00` |
 
 Example of both optional keys (since framework 0.3.1):
@@ -169,16 +169,16 @@ even without `daily_budget_usd`, so a limit switched on during the day also
 counts the runs made earlier that day.
 
 Safeguard outside the framework: a spending limit directly on the
-OpenRouter key and a timeout in n8n (§5.1 item 7).
+OpenRouter key and a timeout in the caller (§5.1 item 7).
 
 ### `webhook` and `callback`
 
 | Field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
-| `webhook.token_env` | yes | Variable with the token that every incoming request to start a run must carry (Modal endpoints are otherwise public, D5). | `config` error. | `token_env: WEBHOOK_TOKEN` |
-| `callback.secret_env` | yes | Variable with the secret for the HMAC callback signature (§5.2); n8n verifies the signature. | `config` error. | `secret_env: CALLBACK_SECRET` |
+| `webhook.token_env` | yes | Variable with the token that every incoming request to start a run must carry (serverless host endpoints are otherwise public, D5). | `config` error. | `token_env: WEBHOOK_TOKEN` |
+| `callback.secret_env` | yes | Variable with the secret for the HMAC callback signature (§5.2); the caller verifies the signature. | `config` error. | `secret_env: CALLBACK_SECRET` |
 
-n8n sends the callback address with every request to start a run
+The caller sends the callback address with every request to start a run
 (typically the resume URL of a waiting workflow), so it is not in
 `config.yaml`. Shape of the callback body and signature:
 [run-record.md](run-record.md#callback).
@@ -233,9 +233,9 @@ servers:
 | `servers.<name>` | — | Server name that agents refer to. Lowercase letters, digits, hyphen. | — | `instagram` |
 | `description` | yes | What the server is for (for humans and `--dry-run`). | `config` error. | |
 | `agents` | yes | Which agents may use the server. An agent with a server that does not list it here is a `config` error. | `config` error. | `agents: [publisher]` |
-| `scenarios` | no | Which scenarios may run (`task`) an agent with this server. A scenario outside the list → `config` error. Prevents an arbitrary scenario from using the publishing agent and bypassing the approval in n8n. | Any scenario. | `scenarios: [ig-publish]` |
+| `scenarios` | no | Which scenarios may run (`task`) an agent with this server. A scenario outside the list → `config` error. Prevents an arbitrary scenario from using the publishing agent and bypassing the approval in the automation tool. | Any scenario. | `scenarios: [ig-publish]` |
 | `tools` | no | Upper list of tools the project owner allows. An agent may have in `tools` only tools from this list, otherwise a `config` error. | Only the list in the agent. | `tools: [publish_media]` |
-| `command` | either `command` or `url` | Program of a local server (stdio). Started without a shell, **once per run** (at the first `task` that needs it). On Modal the package must be preinstalled in the image (D5: 0.7 s vs. 3.8 s). | — | `command: npx` |
+| `command` | either `command` or `url` | Program of a local server (stdio). Started without a shell, **once per run** (at the first `task` that needs it). On a serverless host the package must be preinstalled in the image (D5: 0.7 s vs. 3.8 s). | — | `command: npx` |
 | `args` | no | Program arguments, a list of strings. The only allowed substitution is `{run_dir}` = absolute path to the current run directory (so the server does not see other runs or `_dedupe`). Any other `{…}` is a `config` error. The root the server gets is the second permission layer (§5.8). | None. | `["…", "{run_dir}/work"]` |
 | `env` | no | Variables for the server process: `NAME_FOR_SERVER: NAME_ON_HOST`. The value is taken from the framework's environment. The server gets only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER` (the default set of the `mcp` SDK, DESIGN §5.8) and the variables from `env` — nothing else. The names `PATH`, `HOME`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `NODE_OPTIONS`, `PYTHONPATH` are not allowed in `env`. | The server gets no secret. | `env: { GITHUB_TOKEN: GH_TOKEN }` |
 | `url` | either `command` or `url` | Address of a remote server: `https://…`, or `http://127.0.0.1` / `http://localhost` (a sidecar in the same container), optionally with a port. Plain `http://` with userinfo is rejected (`http://127.0.0.1:1@example.com/` — the host would be `example.com`). | — | |

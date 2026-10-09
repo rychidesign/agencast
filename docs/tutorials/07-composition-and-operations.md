@@ -7,7 +7,7 @@ Run the commands from `examples/tutorial` (from the clone root: `cd examples/tut
 **Time:** about 35 minutes · **Spend:** 0 USD with `--fake`; the optional live
 run through the webhook ~0.001 USD
 **You will learn to:** assemble a scenario from building blocks (`call`), start
-`agencast serve` and call it like n8n (token, `request_key`, a callback with a
+`agencast serve` and call it like an automation tool (token, `request_key`, a callback with a
 signature), open `report.html` and protect a step with a side effect using
 `dedupe_key`.
 
@@ -81,7 +81,7 @@ Three things make it a building block:
 - **`callable: true`** — only such a scenario may be called by another scenario.
   Without it, `call` is an error. This protects approval: a publishing scenario
   (without `callable`) cannot be called from the inside by anyone, which would
-  bypass the human in n8n.
+  bypass the human in the automation tool.
 - **`inputs`** — what the caller **must** provide (`text`) and what it may
   (`threshold`, otherwise 0.7).
 - **`outputs`** — what the caller gets back. It sees nothing else from the inside
@@ -305,7 +305,7 @@ config: tutorial-07-composition.yaml: step "out", output.slogan: 'steps.slogan' 
 Calling a scenario without `callable: true` (`scenario: tutorial-02-name-and-slogan`):
 
 ```
-config: tutorial-07-composition.yaml: step "slogan", call.scenario: scenario 'tutorial-02-name-and-slogan' has no callable: true — it cannot be called (protects approval in n8n, §5.2)
+config: tutorial-07-composition.yaml: step "slogan", call.scenario: scenario 'tutorial-02-name-and-slogan' has no callable: true — it cannot be called (protects human approval, §5.2)
 ```
 
 **A cycle.** Put `callable: true` into the copy of
@@ -332,7 +332,7 @@ Besides cycles it also guards the nesting depth: `limits.max_call_depth` in
 
 ## Step 4 — `agencast serve`: the framework as a web service
 
-In operation, runs are not started by you from a terminal but by n8n: it sends
+In operation, runs are not started by you from a terminal but by an automation tool: it sends
 a `POST` saying what to run, immediately gets a `run_id`, and the result
 arrives later at its address (the callback). That is exactly what
 `agencast serve` does.
@@ -352,7 +352,7 @@ callback:
   send (the header `Authorization: Bearer …`). Without it, anyone who knows the
   address could run scenarios at your expense.
 - **`CALLBACK_SECRET`** — the secret the framework signs the result with. The
-  recipient (n8n) uses the signature to tell that the message was really sent by
+  recipient uses the signature to tell that the message was really sent by
   your framework and that nobody changed it on the way.
 
 Generate the values and append them to `.env` **without printing them to the
@@ -371,7 +371,7 @@ CALLBACK_SECRET
 ```
 
 `cut` shows only the names. Do not copy or print the values anywhere — when you
-set up n8n, paste them straight into its credentials. If you have
+set up the caller, store them in its secret store. If you have
 `export CALLBACK_SECRET=…` in the terminal from part 5, remove it
 (`unset CALLBACK_SECRET`): a variable from the environment takes precedence
 over `.env`.
@@ -392,7 +392,7 @@ not sign:
 
 ### Three terminals
 
-**Terminal 1 — the callback receiver.** Instead of n8n, a small script,
+**Terminal 1 — the callback receiver.** Instead of the real receiver, a small script,
 [`docs/tutorials/callback-receiver.py`](callback-receiver.py) (stdlib only): it
 prints what arrived and verifies the signature. It reads the secret from the
 environment (or from a `.env` in the repository root), so pass it from the
@@ -421,7 +421,7 @@ It listens only on `127.0.0.1` (the default `--host`) — you cannot reach it fr
 another computer. Leave it that way: the server is plain HTTP and the token
 travels in a header; it belongs outside only behind a reverse proxy with HTTPS.
 
-**Terminal 3 — you as n8n.** Load the token into a terminal variable (it is not
+**Terminal 3 — you as the caller.** Load the token into a terminal variable (it is not
 printed):
 
 ```bash
@@ -469,7 +469,7 @@ More 422s that are worth seeing (you change only the body):
 
 Everything that can be detected without running — the token, the shape of the
 body, the inputs, the scenario's `validate` — is rejected **immediately**. Then
-no `run_id` and no callback are created; n8n has the error in the response and
+no `run_id` and no callback are created; the caller has the error in the response and
 does not have to wait for anything.
 
 `callback_url` may only be `https://`. The one exception is `http://127.0.0.1` —
@@ -528,7 +528,7 @@ differ). When the signature does not match, it prints "INVALID" and answers
 
 ### `GET /runs/<run_id>`
 
-When the callback did not arrive (n8n was down at that moment), the state can
+When the callback did not arrive (the receiver was down at that moment), the state can
 be looked up:
 
 ```bash
@@ -549,8 +549,8 @@ token too.
 
 ## Step 6 — `request_key`: send it twice
 
-n8n sometimes sends the same request again — the network drops before it
-receives the response, and its HTTP Request node repeats it. Send exactly the
+The caller sometimes sends the same request again — the network drops before it
+receives the response, and it repeats the request. Send exactly the
 same `curl` (with the same `request_key`) a second time:
 
 ```
@@ -563,7 +563,7 @@ The server remembers the key in `runs/_queue/keys/` (one file per key), so this
 holds even after a server restart.
 
 Watch out: **only the key** decides. A request with the same `request_key` but
-different inputs also gets 200 and the original run. That is why n8n must send a
+different inputs also gets 200 and the original run. That is why the caller must send a
 key that belongs to one request (e.g. the id of its own run), not to a topic.
 
 ---
@@ -593,7 +593,7 @@ Step output
 the report too, including the Jev calls. Base64 images and secret values are not
 in it (the same rules as the run record, part 5).
 
-Why it is in the callback: in n8n you see only `outputs` and `error`. When a
+Why it is in the callback: the caller sees only `outputs` and `error`. When a
 result looks odd, `report_url` is one click to everything the model received and
 returned. With R2 storage (the owner, `config.yaml`) it becomes a public HTTPS
 address with 32 random characters that nobody can guess.
@@ -604,7 +604,7 @@ address with 32 random characters that nobody can guess.
 
 `request_key` protects against **the same request** twice. But it does not
 protect against **two different requests** that do the same thing — typically
-when n8n starts a workflow again (a manual "Retry", a new run = a new key). For
+when the caller starts a workflow again (a manual "Retry", a new run = a new key). For
 a step that only writes something into `outputs`, that does not matter. For a
 step with a **side effect** — it writes a file, publishes a post, sends an
 e-mail — it does: the post would go out twice.
@@ -657,10 +657,10 @@ The fixture `fake/tutorial-07-archive.yaml` has the same turns as
 agencast serve --fake fake/tutorial-07-archive.yaml
 ```
 
-and send two **different** requests (`n8n-5001`, `n8n-5002`) for the same day:
+and send two **different** requests (`caller-5001`, `caller-5002`) for the same day:
 
 ```bash
-for k in n8n-5001 n8n-5002; do
+for k in caller-5001 caller-5002; do
   curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:8080/runs \
     -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
     -d "{\"scenario\": \"tutorial-07-archive\", \"inputs\": {\"day\": \"2026-09-25\", \"text\": \"It rained in the morning. In the afternoon we finished part 7.\"}, \"callback_url\": \"http://127.0.0.1:8799/cb\", \"request_key\": \"$k\"}"
@@ -820,27 +820,25 @@ At the end, stop both the server and the receiver (Ctrl+C).
 
 ---
 
-## Step 10 — what n8n needs from this
+## Step 10 — what the caller needs from this
 
-We do not set up n8n here, only what will be in it. It can be built from two
-workflows (facts about the nodes are from the n8n documentation, repository
-`n8n-io/n8n-docs`, the Webhook, Wait and Crypto node pages, fetched
-2026-09-25):
+We do not set up an automation tool here, only what the caller needs to do. It
+can be built from two workflows in any tool that can send an HTTP request and
+receive a webhook:
 
 **Workflow A — starting**
 
-1. A **Webhook node** (or another trigger — a form, a schedule) receives the
-   input, e.g. `product`.
-2. An **HTTP Request node**: `POST https://<your-agencast>/runs`, the header
-   `Authorization: Bearer <WEBHOOK_TOKEN>` (store it as a Header Auth
-   credential, not in the node text), the body:
+1. A trigger (a webhook, a form, a schedule) receives the input, e.g. `product`.
+2. An HTTP request: `POST https://<your-agencast>/runs`, the header
+   `Authorization: Bearer <WEBHOOK_TOKEN>` (store the token in the tool's secret
+   store, not in the workflow text), the body:
 
    ```json
    {
      "scenario": "tutorial-07-composition",
      "inputs": {"product": "…from step 1…"},
-     "callback_url": "https://<n8n>/webhook/agencast-result",
-     "request_key": "n8n-<n8n run id>"
+     "callback_url": "https://<caller>/webhook/agencast-result",
+     "request_key": "caller-<caller run id>"
    }
    ```
 
@@ -849,27 +847,25 @@ workflows (facts about the nodes are from the n8n documentation, repository
 
 **Workflow B — the result**
 
-3. A **Webhook node** on the path `agencast-result`, method `POST`, the
-   **Raw Body** option on (the signature is computed from the exact bytes of the
-   body, not from the JSON that n8n parses and reassembles — part 5), the
-   response *Immediately* (the framework only waits for a 2xx).
-4. A **Crypto node**, action **Hmac**, **Binary File** on (the raw body from
-   step 3 arrives as binary data), type **SHA256**, encoding **HEX**, the secret
-   `CALLBACK_SECRET` in a Crypto credential; compare the result (IF node) with
-   the `x-signature` header without the `sha256=` prefix. No match → stop, do
-   not trust the message.
-5. An **IF / Switch** on `status` and `error.class`: `succeeded` → continue
-   (approval, publishing), `fail` → an intentional stop by the scenario (e.g.
-   the tone), other classes → a malfunction, alert a human. Attach `report_url`
-   to the alert.
+3. A webhook on the path `agencast-result`, method `POST`, with access to the
+   **raw body** (the signature is computed from the exact bytes of the body, not
+   from the JSON that the caller parses and reassembles — part 5), answering
+   immediately (the framework only waits for a 2xx).
+4. Compute HMAC-SHA256 of the raw body with `CALLBACK_SECRET`, hex-encoded, and
+   compare it with the `x-signature` header without the `sha256=` prefix. No
+   match → stop, do not trust the message.
+5. Branch on `status` and `error.class`: `succeeded` → continue (approval,
+   publishing), `fail` → an intentional stop by the scenario (e.g. the tone),
+   other classes → a malfunction, alert a human. Attach `report_url` to the
+   alert.
 
-Instead of workflow B you can use a **Wait node** ("Resume: On Webhook Call")
-right in workflow A and send its `$execution.resumeUrl` as the `callback_url` —
-an address that n8n creates separately for every run (that is the "resume URL"
-from part 5). Then set **Limit Wait Time**: a run can wait in the queue, and if
-the callback never arrives, n8n would otherwise wait forever.
+Instead of workflow B, the caller can wait for the callback in workflow A if its
+tool supports a per-run resume address, and send that address as the
+`callback_url` (as `/webhook-waiting/4711` in part 5). Then set a time limit on the wait:
+a run can wait in the queue, and if the callback never arrives, the caller would
+otherwise wait forever.
 
-What n8n does **not** need to know: the models, the agents, the MCP servers or
+What the caller does **not** need to know: the models, the agents, the MCP servers or
 what a scenario looks like inside. The contract is `scenario` + `inputs` in,
 `outputs` + `status` + `error` out.
 
@@ -1008,6 +1004,6 @@ tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-07-slogan] 
 ## What comes next
 
 This is where the series ends. What `maw` 0.2.1 cannot do yet and what comes with
-Phase 3c of the framework: running on Modal.com and R2 storage, with which
+Phase 3c of the framework: a hosted deployment and R2 storage, with which
 `report_url` and the files from `output` will be a public HTTPS address. An
 overview of all the parts is in [README.md](README.md).

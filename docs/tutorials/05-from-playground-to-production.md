@@ -7,7 +7,7 @@ Run the commands from `examples/tutorial` (from the clone root: `cd examples/tut
 **Time:** about 20 minutes · **Spend:** 0 USD (everything with `--fake` or without
 calling a model)
 **You will learn to:** swap a model with one line, turn a scenario into a golden
-test, read the run record in depth, send a result to n8n
+test, read the run record in depth, send a result to a webhook
 (`--callback-url`) and know what will never break while the framework is being improved.
 
 Prerequisite: parts 1–4.
@@ -347,46 +347,46 @@ Come up with 3 names for this product: ice cream <secret: CALLBACK_SECRET>. Each
 
 ---
 
-## Step 4 — `--callback-url`: what arrives in n8n
+## Step 4 — `--callback-url`: what the receiver gets
 
-In production n8n starts the run and waits for the result at its “resume”
-address. The framework sends it there with a `POST` — **always**, on success
+In production an automation tool starts the run and waits for the result at a
+webhook address. The framework sends it there with a `POST` — **always**, on success
 and on error. From the CLI you try it with the `--callback-url` switch
 (`https://` only). It needs the variable from `callback.secret_env` (for us
 `CALLBACK_SECRET`) — the message is signed with it. In production it is in
 `.env`; for a trial the `export` from step 3 is enough.
 
-To see exactly what n8n receives, I ran a small HTTPS server on my computer that
-pretends to be n8n and prints what arrived (the script is
-[below](#appendix-fake-n8n)):
+To see exactly what the receiver gets, I ran a small HTTPS server on my computer that
+pretends to be the receiver and prints what arrived (the script is
+[below](#appendix-fake-receiver)):
 
 ```bash
-agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan ice cream" --fake fake/tutorial-01-names.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan ice cream" --fake fake/tutorial-01-names.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key caller-4711
 ```
 
 ```
 run 20260929-185938-tutorial-01-names-40ed: succeeded · 0.0 s · 0.0001 USD
 ```
 
-The fake n8n printed:
+The fake receiver printed:
 
 ```
 POST /webhook-waiting/4711
 Content-Type: application/json
 X-Run-Id: 20260929-185938-tutorial-01-names-40ed
-X-Signature: sha256=6cd67d35eb9636bdf981e2792be6131579d47fcbcfe48b8c59e747ef18dffe83
-{"run_id": "20260929-185938-tutorial-01-names-40ed", "scenario": "tutorial-01-names", "request_key": "n8n-4711", "status": "succeeded", "outputs": {"names": "Oatsy\nFrost Oat\nFrozen Field"}, "error": null, "warnings": [], "cost_usd": 0.0001, "duration_s": 0.001, "report_url": "file:///…/outputs/20260929-185938-tutorial-01-names-40ed-b7ea967c1f7a1ea419552469a363db35/report.html", "sent_at": "2026-09-29T18:59:38.389Z"}
+X-Signature: sha256=e2139b991d82b9da60e584a6862bd204a826ef85d630ea5657037468c0f59ba4
+{"run_id": "20260929-185938-tutorial-01-names-40ed", "scenario": "tutorial-01-names", "request_key": "caller-4711", "status": "succeeded", "outputs": {"names": "Oatsy\nFrost Oat\nFrozen Field"}, "error": null, "warnings": [], "cost_usd": 0.0001, "duration_s": 0.001, "report_url": "file:///…/outputs/20260929-185938-tutorial-01-names-40ed-b7ea967c1f7a1ea419552469a363db35/report.html", "sent_at": "2026-09-29T18:59:38.389Z"}
 ```
 
 The body fields:
 
-| Field | What you do with it in n8n |
+| Field | What you do with it |
 |---|---|
 | `status` | `succeeded` / `failed` — the first branching |
 | `outputs` | exactly the fields from the scenario's `outputs`; `null` on error |
-| `error` | `{class, step, message}` — by `class` n8n tells an intentional `fail` from a malfunction (part 3) |
+| `error` | `{class, step, message}` — by `class` you tell an intentional `fail` from a malfunction (part 3) |
 | `warnings` | e.g. the image failed with `on_error: continue` (part 4) |
-| `request_key` | what n8n sent (`--request-key`), so it can pair the response |
+| `request_key` | what the caller sent (`--request-key`), so it can pair the response |
 | `cost_usd`, `duration_s` | for an overview of spend |
 | `report_url` | the address of `report.html` in storage (since `maw` 0.2.0; a run summary with prompts and responses, part 7); `null` only when the report could not be created or uploaded (then there is a warning about it) |
 
@@ -398,27 +398,27 @@ nothing with. A public URL comes with R2 storage (the owner changes it in
 ### The signature
 
 `X-Signature` = HMAC-SHA256 of the **exact bytes of the body** with the secret
-from `CALLBACK_SECRET`. n8n computes it the same way and trusts the message only
-if they match. Verification (the body saved by the fake n8n):
+from `CALLBACK_SECRET`. The receiver computes it the same way and trusts the message only
+if they match. Verification (the body saved by the fake receiver):
 
 ```bash
 python3 -c "
 import hmac, hashlib
-body = open('/tmp/n8n-mock/last-body.json', 'rb').read()
+body = open('/tmp/callback-mock/last-body.json', 'rb').read()
 print('sha256=' + hmac.new(b'tutorial-demo-secret', body, hashlib.sha256).hexdigest())
 "
 ```
 
 ```
-sha256=6cd67d35eb9636bdf981e2792be6131579d47fcbcfe48b8c59e747ef18dffe83
+sha256=e2139b991d82b9da60e584a6862bd204a826ef85d630ea5657037468c0f59ba4
 ```
 
-It matches the header. Important for n8n: compute the signature from the **raw
-body**, not from JSON that n8n has already parsed and reassembled — different
+It matches the header. Important for the receiver: compute the signature from the **raw
+body**, not from JSON that the receiver has already parsed and reassembled — different
 spacing = a different signature. (`callback.json` in the run folder has the same
 content, but nicely indented, so the signature won't come out from it.)
 
-### When n8n does not answer
+### When the receiver does not answer
 
 ```bash
 agencast run workflows/scenarios/tutorial-01-names.yaml -i product="ice cream" --fake fake/tutorial-01-names.yaml --callback-url https://127.0.0.1:8444/webhook-waiting/4713
@@ -449,7 +449,7 @@ agencast runs list
 20260929-185946-tutorial-01-names-89df        succeeded                         0.0 s   0.0001 USD callback not delivered
 ```
 
-So that n8n does not wait forever, set a timeout on its waiting step.
+So that the caller does not wait forever, set a timeout on its waiting step.
 
 ---
 
@@ -486,7 +486,7 @@ Parts 1–5 were written with `maw` 0.1.0; parts 6 and 7 need `maw` 0.2.1:
   (a model ↔ MCP tools loop with a turn limit), `mcp.yaml` from the owner's
   point of view, skills via `load_skill`, the record of tool calls.
 - **[Part 7 — Composition and operations](07-composition-and-operations.md):** `call`
-  (a scenario calls a scenario), `agencast serve` for n8n (token, `request_key`,
+  (a scenario calls a scenario), `agencast serve` for the caller (token, `request_key`,
   a signed callback), `report.html` and `dedupe_key` for steps that may run
   only once.
 
@@ -598,20 +598,20 @@ you wanted. That is why you should always check the `branch …` note in
 
 ---
 
-## Appendix: fake n8n
+## Appendix: fake receiver
 
 For the curious — this is how I captured the callback in step 4. It needs
 `openssl` and Python; it runs only on your computer.
 
 ```bash
-mkdir -p /tmp/n8n-mock && cd /tmp/n8n-mock
+mkdir -p /tmp/callback-mock && cd /tmp/callback-mock
 openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 1 -subj "/CN=localhost" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"
 ```
 
-`/tmp/n8n-mock/receiver.py`:
+`/tmp/callback-mock/receiver.py`:
 
 ```python
-# Fake n8n: an HTTPS server that prints the headers and body of an incoming callback.
+# Fake receiver: an HTTPS server that prints the headers and body of an incoming callback.
 import http.server, ssl
 
 class H(http.server.BaseHTTPRequestHandler):
@@ -631,14 +631,14 @@ srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
 srv.serve_forever()
 ```
 
-Start it in one terminal (`cd /tmp/n8n-mock && python3 receiver.py`); in a second
+Start it in one terminal (`cd /tmp/callback-mock && python3 receiver.py`); in a second
 one (in the `examples/tutorial` project) tell the framework to trust the
 certificate and send the callback:
 
 ```bash
 export CALLBACK_SECRET=tutorial-demo-secret
-export SSL_CERT_FILE=/tmp/n8n-mock/cert.pem
-agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan ice cream" --fake fake/tutorial-01-names.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key n8n-4711
+export SSL_CERT_FILE=/tmp/callback-mock/cert.pem
+agencast run workflows/scenarios/tutorial-01-names.yaml -i product="vegan ice cream" --fake fake/tutorial-01-names.yaml --callback-url https://127.0.0.1:8443/webhook-waiting/4711 --request-key caller-4711
 ```
 
 Leave `SSL_CERT_FILE` set only in this terminal. It says “trust **only** this

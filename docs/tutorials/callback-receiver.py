@@ -45,7 +45,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             print(body.decode(errors="replace"))
         Path("/tmp/last-callback.json").write_bytes(body)
-        # n8n would reject a message with an invalid signature; 401 → agencast retries, then records callback_failed
+        # a real receiver would reject a message with an invalid signature; 401 → agencast retries, then records callback_failed
         self.send_response(200 if ok else 401)
         self.end_headers()
         sys.stdout.flush()

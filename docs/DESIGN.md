@@ -12,8 +12,8 @@ A framework in which workflows with LLM agents are written in easily readable
 files (scenarios in YAML, agents in Markdown). The user is a beginner programmer:
 from the scenario file and from the run record they must understand what is
 going on. The framework's internals are of no interest to them. Models and Jev go through a single
-provider (OpenRouter). Runs on your own server or on Modal.com,
-triggered by a webhook (typically from n8n).
+provider (OpenRouter). Runs on your own server or on a serverless host,
+triggered by a webhook (typically from an automation tool).
 
 Reference case: an Instagram post (copywriter → Jev check →
 image → draft for approval → publication).
@@ -28,7 +28,7 @@ image → draft for approval → publication).
 | R2 | The user understands what the workflow does from the scenario file **and** from the run record. The framework's internals are of no interest to them. |
 | R3 | Agents are defined centrally, each in its own file (model, instructions, MCP servers, skills, tools, limits). A scenario calls them by name. |
 | R4 | The provider is hard-wired to OpenRouter: LLM, Jev (System One API), image generation. |
-| R5 | Runs on your own server or on Modal.com; triggered by a webhook. Cron, events and approvals are handled by n8n outside the framework. |
+| R5 | Runs on your own server or on a serverless host; triggered by a webhook. Cron, events and approvals are handled by the caller (an automation tool) outside the framework. |
 | R6 | The framework is a tool the user does not touch. If it is your own, agents (workers) tune and develop it. |
 | R7 | Updating the framework or its dependencies must not require changes to agents and scenarios. The formats are ours, versioned. |
 | R8 | **Existing scenarios and agents must not fall apart when the framework is improved.** For the compatibility rules see §5.9. (Added 2026-09-25 when spec v1 was approved.) |
@@ -111,7 +111,7 @@ Planned (implemented **only when a concrete scenario needs it**):
 runs, atomic `claim`).
 
 Rejected: `race`, `approve`/`human`, `wait` (approvals and waiting are handled by
-n8n), `embed`/`search`.
+the caller), `embed`/`search`.
 
 ### D2 — Run model
 
@@ -126,12 +126,12 @@ n8n), `embed`/`search`.
   one queue — a `run_id` collision is resolved by a new suffix, the `/models` cache is
   written atomically, `_dedupe` sits behind the `DedupeStore` interface (ISSUES 39).
 - **The webhook is asynchronous:** it immediately returns the `run_id` and the position in the queue,
-  and the result arrives at the **callback URL** (n8n). The callback is sent **always**,
+  and the result arrives at the **callback URL** (the caller). The callback is sent **always**,
   on success and on error.
-- A run takes minutes to an hour. The timeout in n8n must also account for waiting
+- A run takes minutes to an hour. The timeout on the caller's side must also account for waiting
   in the queue.
 - **Human approval is not in the framework.** A workflow is split into parts,
-  n8n holds the state between them. The hand-off contract: output = JSON + file URLs.
+  the caller holds the state between them. The hand-off contract: output = JSON + file URLs.
 - Both agent modes: `ask` (one call) and `task` (autonomous).
 - **The run record** is a folder: `events.jsonl` (a machine-readable log),
   the outputs of every step (prompt, response, model, tokens, cost, time),
@@ -149,11 +149,11 @@ tools loop, the structured output cascade, the MCP client) ourselves on top of
 **protocols and small stable libraries**. No agent framework and no fork of an
 existing orchestrator.
 
-Reasons: (1) the spikes showed that both OpenRouter and Modal can be handled with plain HTTP/SDK
+Reasons: (1) the spikes showed that both OpenRouter and a serverless host can be handled with plain HTTP/SDK
 and that the hard parts — checking `finish_reason`, the output cascade by model,
 passing back `reasoning_details`, normalizing `usage` — are not solved for us by the big
 frameworks; (2) their main benefits (pausing for a human, a durable graph state)
-we do not need, because approvals are done by n8n and the queue by Modal (D2);
+we do not need, because approvals are done by the caller and the queue by the host (D2);
 (3) R7 — depend only on things that change slowly.
 
 Cost: maintenance is ours → conformance tests (§5.6) are an obligation, not
@@ -161,15 +161,15 @@ a wish. Estimate of the v1 core: 3–5 thousand lines, written and maintained by
 
 ### D4 — Language — decided 2026-09-25: Python 3.12 + uv
 
-Reasons: Modal is natively Python — the webhook, queue, Volume and secrets from
+Reasons: the serverless host from spike (b) is driven from Python — the webhook, queue, persistent volume and secrets from
 spike (b) become a direct part of the framework (in TypeScript there would be two
 languages to maintain); the spikes and the earlier Jev experiments are in Python; the advantage of the AI SDK in TS
 is small when we write the cascade and the checks ourselves.
 
 Default library set (changes only with a reason in the changelog): `httpx` (HTTP),
 `mcp` (the official MCP SDK), `pydantic` (format validation, JSON Schema),
-`pyyaml`, `modal` (deployment only), CLI via `typer` or `argparse`,
-the expression evaluator per D1c. Distribution by `uv run`/`uvx` on the server and in the Modal
+`pyyaml`, the host's SDK (deployment only), CLI via `typer` or `argparse`,
+the expression evaluator per D1c. Distribution by `uv run`/`uvx` on the server and in the host
 image; dependencies locked in `uv.lock`.
 
 **Addendum 2026-09-26 (framework 0.5.0): `ruamel.yaml`** only for the GUI's
@@ -183,48 +183,48 @@ from the original file.
 
 ### D5 — Hosting
 
-Your own server (CLI + webhook) and Modal. Trigger, cron and approvals: n8n.
-Verified by spike (b), Modal SDK 1.5.5:
+Your own server (CLI + webhook) and a serverless host. Trigger, cron and approvals: the caller.
+Verified by spike (b) on a serverless host:
 
-- **Queue:** `@app.function(max_containers=1)` + `.spawn()` from the endpoint
+- **Queue:** a function limited to one container, started asynchronously from the endpoint
   = runs strictly one after another (3 runs without overlap), the webhook responds
-  in < 1 s. Modal does not reliably give the position in the queue
-  (`get_current_stats().backlog` is delayed) — the framework or n8n holds it.
-- **Endpoint:** `@modal.fastapi_endpoint(method="POST")`; an HTTP request
+  in < 1 s. The host does not reliably give the position in the queue
+  (its queue statistics are delayed) — the framework or the caller holds it.
+- **Endpoint:** an HTTP endpoint on the host (POST); an HTTP request
   has a 150 s limit, so the submit only spawns and returns the `run_id`. Function timeout
   1 s – 24 h (`timeout=`), waiting in the queue is not counted. Read headers
   via `Header()`. Endpoints are public → your own token in a header from
-  `modal.Secret`.
+  the host's secrets.
 - **Callback** from a function to an HTTPS endpoint works without restrictions.
 - **MCP servers:** a stdio `npx` server in a container works; **pre-install
   the packages into the image** (cold handshake 0.7 s vs. 3.8 s via
   `npx -y`). Container cold start 4–7 s, a cold web endpoint +4–5 s.
-- **Files:** `modal.Volume` (`commit()` after writing, `reload()` before
-  reading); reading locally via `modal volume get` and a public GET via the
-  endpoint. But the URL is Modal-specific → for Instagram and permanent links
+- **Files:** a persistent volume (`commit()` after writing, `reload()` before
+  reading); reading locally via the host's CLI and a public GET via the
+  endpoint. But the URL is host-specific → for Instagram and permanent links
   Cloudflare R2 stays (S3 token + r2.dev/custom domain, `boto3`).
-- **Secrets:** `modal.Secret.from_name` (rotation without a redeploy).
-- **Deployment:** `modal deploy` over a running app need not replace warm
-  containers → deploy as `app stop` + `deploy`, or verify the version.
-- One shared Dockerfile for the server and Modal (`Image.from_dockerfile`,
+- **Secrets:** the host's secrets, by name (rotation without a redeploy).
+- **Deployment:** redeploying over a running app need not replace warm
+  containers → deploy as stop + deploy, or verify the version.
+- One shared Dockerfile for the server and the host (building the host image from it
   not tried), so that the installed tools do not diverge.
 
 ### Wrappers (since 0.3.0)
 
 The CLI (`agencast`), the webhook (`agencast serve`), the MCP server (`agencast mcp`,
-since 0.19.0) and later Modal are **thin wrappers over `agencast.api`** (`load`, `run`,
+since 0.19.0) and later a hosted wrapper (planned) are **thin wrappers over `agencast.api`** (`load`, `run`,
 `dry_run`, `runs_list`, `run_status`):
 
 - A wrapper contains no logic — it only converts the input (arguments, HTTP, a tool
   call) into a call to `api` and the result back. Anything with logic goes into the core
   and has a hermetic test.
-- Secret keys only from the environment (`.env` only locally, on Modal
-  `modal.Secret`), never in workflow files or in arguments.
+- Secret keys only from the environment (`.env` only locally, on the host
+  its secrets), never in workflow files or in arguments.
 - Shared state between runs sits behind an interface: `dedupe_key` via `DedupeStore`
   (`get`, `claim` — exclusively and atomically, `finish`) in `agencast/task.py`.
   The local implementation keeps files `<runs>/_dedupe/<sha256>.json`
-  (`_dedupe-fake/` with `--fake`); **Modal will later plug in its own
-  storage here** (`modal.Dict` etc.) via `Run.dedupe`. Likewise since 0.3.1
+  (`_dedupe-fake/` with `--fake`); **a serverless host will later plug in its own
+  storage here** (a shared key-value store etc.) via `Run.dedupe`. Likewise since 0.3.1
   the slots `limits.max_parallel_runs` (`SlotStore`: `acquire`, `release`;
   locally `flock` on `<runs>/_slots/<n>.lock`) and the daily spend ledger for
   `limits.daily_budget_usd` (`Ledger`: `total`, `add`; locally
@@ -234,7 +234,7 @@ since 0.19.0) and later Modal are **thin wrappers over `agencast.api`** (`load`,
   run from an interrupted one — ISSUES 45.
 - The MCP tools are “start and return the ID” (`fake_run`, `run_scenario`), “status”
   and a bounded “wait” (`run_status`, `wait_run`, at most 50 s) — a run takes minutes,
-  MCP clients cut a call after about 60 s and Modal's web endpoint has a 150 s limit
+  MCP clients cut a call after about 60 s and a serverless host's web endpoint has a 150 s limit
   (D5), so a tool never waits for the end of a run in a single call. Each run started
   through MCP executes in a detached worker process, `agencast run --mcp-job <run_id>`
   (job on stdin, a session of its own), so it outlives the client and the server; the
@@ -273,7 +273,7 @@ since 0.19.0) and later Modal are **thin wrappers over `agencast.api`** (`load`,
   `~/.config/agencast/projects.yaml` is kept ([spec/projects.md](spec/projects.md));
   `agencast serve` outside a project serves all projects from the registry
   with the server token `AGENCAST_TOKEN`; in a project or with `--project` it serves one
-  project as before (n8n, Modal). ISSUES 41, 42.
+  project as before (the caller, a hosted wrapper). ISSUES 41, 42.
 
 ---
 
@@ -312,7 +312,7 @@ Everything else can be written by other people and agents.
    a warning.
 5. Every skipped step has its reason stated in the record.
 6. `repeat` and `task` have an iteration/turn limit that is **mandatory**.
-7. A safeguard outside the framework: a timeout in n8n (“if no callback arrives within X
+7. A safeguard outside the framework: a timeout on the caller's side (“if no callback arrives within X
    minutes → alert”) and a spend limit directly on the OpenRouter key.
 8. **HTTP 200 is not success.** A model step is successful only after checking
    `finish_reason`, parsing and schema validation. Spike (a): Gemini
@@ -328,7 +328,7 @@ Everything else can be written by other people and agents.
   with an empty environment, validated arguments.
 - An agent defines the **maximum** of permissions (tools, MCP, limits); a step in a
   scenario can only **narrow** them, never widen.
-- An incoming webhook requires a token; the callback is signed (HMAC), n8n verifies it.
+- An incoming webhook requires a token; the callback is signed (HMAC), the caller verifies it.
 - Idempotence: the request key on the webhook (a repeated call does not start a second
   run) and `dedupe_key` on steps with a side effect (publication). The `started`
   record is created before the first tool call; `started` without `succeeded`
@@ -339,11 +339,11 @@ Everything else can be written by other people and agents.
   Agents and scenarios are files written by others, so these
   restrictions cannot live there. A scenario is callable via `call` only with
   `callable: true` (default `false`), so that part 1 cannot bypass an approval
-  in n8n by calling part 2.
+  in the caller by calling part 2.
 - **`mcp.yaml` is the owner's alone, also towards the API** (since 0.18.0).
   A `command` in it is a program started on the host; a `url` with
   `bearer_token_env` hands a host variable to a remote server. The token of
-  `agencast serve` is held by more than the owner (the GUI, n8n), so no HTTP
+  `agencast serve` is held by more than the owner (the GUI, the caller), so no HTTP
   route creates, replaces, deletes or returns `mcp.yaml`; the one change
   the API makes is the new name of a renamed agent in the `agents` lists.
   For the same reason a project registered through the API — an existing
@@ -375,7 +375,7 @@ Everything else can be written by other people and agents.
   file, one format.
 - **A scenario must never start a new framework run and wait for it**
   (with a sequential queue = deadlock). Starting a new run is allowed
-  only in the “send and don't wait” style (via n8n / webhook).
+  only in the “send and don't wait” style (via the caller / webhook).
 
 ### 5.4 Expressions and templates
 - `{{ }}` in a model response is **never evaluated again**.
@@ -508,7 +508,7 @@ Everything else can be written by other people and agents.
 ```yaml
 version: 1
 name: ig-post
-description: Draft IG post for approval (part 1; part 2 publishes it via n8n)
+description: Draft IG post for approval (part 1; part 2 publishes it via the caller)
 
 inputs:
   topic: { type: string, required: true }
@@ -554,14 +554,14 @@ step, the reason for skipping, the cost and time, `summary.md` and HTML.
    **confirmed** by spike (a) (Gemini: tool + schema 4/5, 200 with an error).
 3. ~~Unverified assumptions~~ → verified by the 2026-09-25 spikes: Jev through
    OpenRouter works (the word “beta” is not in the documentation, 6/6 OK); MCP
-   servers on Modal work; the run record on Modal is available via
-   Volume and endpoint.
+   servers on a serverless host work; the run record on the host is available via
+   a persistent volume and endpoint.
 4. The expression language is still undecided (D1c).
-5. Observability on Modal (hence the HTML run record in storage).
+5. Observability on a serverless host (hence the HTML run record in storage).
 6. Maintenance: without conformance tests regressions creep in within a month.
 7. **New:** the `content` error class (content refusal) could not be
    measured — the provider refused nothing. We do not know the shape of a refusal.
-8. **New:** a `.env` with CRLF line endings breaks tokens (Modal: “Invalid
+8. **New:** a `.env` with CRLF line endings breaks tokens (serverless host: “Invalid
    metadata value”); `.env` loading must tolerate CRLF.
 9. **New:** R2 so far without keys — the public URL for Instagram is unverified.
 
@@ -583,11 +583,11 @@ earlier private experiments with Jev directly through the TypeSafe
 API. Needs `OPENROUTER_API_KEY` in the environment;
 cost in cents.
 
-**(b) Modal** — questions: (1) a container with one stdio MCP server
-(`npx`), cold start; (2) webhook → `.spawn()` → callback to a test
-URL, `max_containers=1` (verify the parameter name), the queue; (3) a Volume for
+**(b) Serverless host** — questions: (1) a container with one stdio MCP server
+(`npx`), cold start; (2) webhook → asynchronous start → callback to a test
+URL, at most one container at a time, the queue; (3) a persistent volume for
 the run record and uploading one file to R2 with a public URL. Needs a
-Modal token and access to R2.
+host token and access to R2.
 
 ### Results (2026-09-25, both spikes done)
 
@@ -596,10 +596,10 @@ Modal token and access to R2.
 | (a) OpenRouter — schema + tool | works with a caveat (Gemini needs a tool wrapper) | the openrouter/REPORT.md spike report (removed from the tree; in the repository history up to commit fe90e05) |
 | (a) OpenRouter — Jev | works (5/5, 0.30 s, ~0.00003 USD) | ditto |
 | (a) OpenRouter — image | works with a caveat (0.067 USD, refusal not triggered) | ditto |
-| (b) Modal — MCP in a container | works (pre-install packages) | the modal/REPORT.md spike report (removed from the tree; in the repository history up to commit fe90e05) |
-| (b) Modal — webhook + queue | works (caveat: redeploy = stop + deploy) | ditto |
-| (b) Modal — Volume + public URL | works; R2 not implemented (no keys) | ditto |
-| (b) Modal — Secrets | works | ditto |
+| (b) Serverless host — MCP in a container | works (pre-install packages) | the spike (b) report (removed from the tree; in the repository history up to commit fe90e05) |
+| (b) Serverless host — webhook + queue | works (caveat: redeploy = stop + deploy) | ditto |
+| (b) Serverless host — persistent volume + public URL | works; R2 not implemented (no keys) | ditto |
+| (b) Serverless host — secrets | works | ditto |
 | (c) expressions for D1c (2026-09-25, branch `spike-expressions`) | works: the custom evaluator 24/24 + 14/14 + 20/20; no library meets §5.4 | the expressions/REPORT.md spike report (removed from the tree; in the repository history up to commit fe90e05) |
 | (d) MCP client + skills in Python (2026-09-25, branch `spike-mcp-python`) | works: `mcp` 2.2 stdio/HTTP/SSE, schemas after normalization 18/18, `load_skill` 12/12, the allowlist holds; 0.136 USD | the mcp-python/REPORT.md spike report (removed from the tree; in the repository history up to commit fe90e05) |
 
@@ -607,7 +607,7 @@ Spend: (a) 0.30 USD, (b) on the order of cents. The facts from both spikes are
 incorporated in §5.1 (item 8), §5.5, §5.7, D5 and §7.
 
 **Facts relevant to D3/D4** (without a choice): all three OpenRouter APIs
-and Modal could be driven with plain HTTP/SDK without an agent framework; the hard
+and a serverless host could be driven with plain HTTP/SDK without an agent framework; the hard
 places are the structured output cascade, the `finish_reason` check, passing back
 `reasoning_details`, normalizing `usage` and the MCP handshake — exactly the
 agent runtime, not the orchestration. The decisions D3, D4 and D1c: **accepted

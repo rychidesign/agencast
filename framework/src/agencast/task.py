@@ -53,7 +53,7 @@ def skill_tool(agent) -> dict:
 # --- dedupe_key -----------------------------------------------------------------------
 
 class DedupeStore:
-    """`dedupe_key` store (DESIGN “Wrappers”): local `<directory>/<sha256>.json`. On Modal,
+    """`dedupe_key` store (DESIGN “Wrappers”): local `<directory>/<sha256>.json`. On a serverless host,
     the wrapper supplies its own store (Dict etc.) with the same three methods."""
 
     def __init__(self, directory):
@@ -96,7 +96,7 @@ def local_dedupe(runs_dir, fake: bool) -> DedupeStore:
 
 class SlotStore:
     """Cross-process `max_parallel_runs` slots (DESIGN “Wrappers”): local `flock` on
-    `<directory>/<n>.lock`, n = 1..N; a process crash also releases the lock. On Modal, the wrapper supplies
+    `<directory>/<n>.lock`, n = 1..N; a process crash also releases the lock. In a hosted deployment, the wrapper supplies
     its own semaphore with the same two methods."""
 
     def __init__(self, directory, size: int):
@@ -133,7 +133,7 @@ class SlotStore:
 
 class Ledger:
     """Daily spend ledger (DESIGN “Wrappers”): local `<directory>/<YYYY-MM-DD>.jsonl` (UTC), one
-    `{run_id, cost_usd, finished_at}` row per completed run, appended under `flock`. On Modal, the wrapper
+    `{run_id, cost_usd, finished_at}` row per completed run, appended under `flock`. In a hosted deployment, the wrapper
     supplies its own store with the same methods (`rows` is read by GET /projects/<p>/spend)."""
 
     def __init__(self, directory):
@@ -160,7 +160,7 @@ class Ledger:
 def hold_run_lock(run_dir) -> int:
     """Live run lock (api-findings 1): `flock` on `<run>/run.lock` for the process lifetime; released by
     `os.close` or a process crash. Blocks because the `run_locked` reader holds a shared lock only briefly.
-    On Modal, the wrapper supplies its own (like `SlotStore`)."""
+    In a hosted deployment, the wrapper supplies its own (like `SlotStore`)."""
     fd = os.open(run_dir / "run.lock", os.O_RDWR | os.O_CREAT, 0o644)
     fcntl.flock(fd, fcntl.LOCK_EX)
     return fd

@@ -1,6 +1,6 @@
 # config.yaml for Phase 2 (created from config.example.yaml, aliases point to cheap models).
 # Changed by the owner only. No secret values: the *_env fields contain the NAME
-# of an environment variable; the value is in .env (server) or in modal.Secret.
+# of an environment variable; the value is in .env (server) or in the host's secret store.
 # Specification: docs/spec/config.md
 version: 1
 
@@ -15,7 +15,7 @@ models:
   gemini-image: { id: google/gemini-3.1-flash-image }
   gemini-image-api: { id: google/gemini-3.1-flash-image, api: images }   # Images API: reference images (image.images)
 
-# Folder with run records (on Modal, a path to the Volume).
+# Folder with run records (on a serverless host, a path to the persistent volume).
 runs_dir: ./runs
 
 # Where files from the output step are uploaded. The framework does not support R2 yet (Phase 3),

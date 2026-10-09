@@ -166,7 +166,7 @@ Read it from top to bottom:
 - **`inputs`** — what the scenario receives from outside. Every input has a
   `type` and either `required: true` **or** `default` (never both, never
   neither).
-- **`outputs`** — what the scenario returns. It is a "contract": n8n (or
+- **`outputs`** — what the scenario returns. It is a "contract": the caller (or
   anyone who runs the scenario) can rely on getting exactly these fields.
 - **`steps`** — the steps run from top to bottom, one after another.
   - `ask` = one model call through an agent. Without `schema` it returns text,

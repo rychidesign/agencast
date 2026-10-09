@@ -8,7 +8,7 @@ and the callbacks do not change. Projects: [projects.md](projects.md).
 
 | Start | Mode | Token (`Authorization: Bearer …`) | `/runs` |
 |---|---|---|---|
-| `agencast serve` inside a project (a folder with `workflows/`, searched from the cwd upward) or `--project <path>` | single project (as up to 0.3.x; Modal) | the project's `webhook.token_env` value | yes, unchanged |
+| `agencast serve` inside a project (a folder with `workflows/`, searched from the cwd upward) or `--project <path>` | single project (as up to 0.3.x; serverless host) | the project's `webhook.token_env` value | yes, unchanged |
 | `agencast serve` outside a project | registry | variable **`AGENCAST_TOKEN`** (required at start, otherwise `config`) | no — 404, run through `POST /projects/<p>/runs` |
 
 - In single-project mode `/projects` contains exactly that project; its name

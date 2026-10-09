@@ -1,7 +1,7 @@
 ---
 version: 1
 name: publisher
-description: Publishes an approved post to Instagram (part 2 via n8n)
+description: Publishes an approved post to Instagram (part 2 by the caller)
 model: smart
 mcp: [instagram]
 tools:

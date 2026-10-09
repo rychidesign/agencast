@@ -6,7 +6,7 @@ version: 1
 
 servers:
   # Run workspace: the server sees only runs/<run>/work, nothing else.
-  # The package version is pinned (R7); preinstall it on Modal (D5).
+  # The package version is pinned (R7); preinstall it on a serverless host (D5).
   filesystem:
     description: Reading and writing in the workspace of the current run
     command: npx

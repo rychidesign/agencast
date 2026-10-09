@@ -63,7 +63,7 @@ stderr and the command finishes with its own result.
 Since 0.18.0. `workflows/mcp.yaml` names programs that the framework starts
 on the host and remote servers that receive tokens from its environment
 ([config.md](config.md)); that file is the project owner's decision. The
-API token can be held by more than the owner (the GUI, n8n), and a
+API token can be held by more than the owner (the GUI, an automation tool), and a
 directory on disk can be written by others — an agent with a filesystem
 server writes into its run's `work/` folder. So:
 

@@ -38,7 +38,7 @@ uv run --project framework agencast projects list | add <path> [--name N] | rm <
   owner changes both — `mcp.yaml` only on disk: the API never reads or writes the file, the GUI shows its servers read-only). Keys only from the environment or from `.env` in the project
   root.
 - A `task` step starts the MCP servers from `mcp.yaml` once per run (stdio via
-  `npx` needs Node; on Modal, preinstall the package). The servers' stderr
+  `npx` needs Node; on a serverless host, preinstall the package). The servers' stderr
   is in the run record in `mcp/<server>.stderr.log`.
 - `--fake` replaces model calls with no model cost and no OpenRouter key;
   an optional YAML contains scripted answers (described in `src/agencast/fake.py`).
@@ -80,7 +80,7 @@ web framework.
 
 ```
 POST /runs            Authorization: Bearer $WEBHOOK_TOKEN
-{"scenario": "ig-post", "inputs": {"topic": "…"}, "callback_url": "https://…", "request_key": "n8n-4711"}
+{"scenario": "ig-post", "inputs": {"topic": "…"}, "callback_url": "https://…", "request_key": "caller-4711"}
 → 202 {"run_id": "…", "queue_position": 1}   the run is queued, the result arrives at callback_url
 → 200 {"run_id": "<original>", "queue_position": null}   request_key was already used
 → 401 / 422 {"error": "…", "details": [...]}   nothing is created, no callback arrives
@@ -151,7 +151,7 @@ GET /, /assets/…      GUI (framework/src/agencast/ui/, no token)
   `X-Signature: sha256=<HMAC>`, 3 attempts, then `callback_failed`.
 - The server is HTTP without TLS and the GUI has no token protection. Never
   expose it publicly; bind only to localhost or a private network, for example
-  Tailscale. Deployment on Modal is Phase 3c.
+  Tailscale. Hosted deployment is Phase 3c.
 
 ## MCP server (`agencast mcp`, since 0.19.0)
 
@@ -193,12 +193,12 @@ its scripted answers belong in `../examples/<project>/fake/<name>.yaml`.
 | `mcp_client.py` | `mcp.yaml`, the run's MCP servers (`mcp` SDK 2.2), tool schema normalization |
 | `task.py` | the `task` step (model ↔ tools loop, `load_skill`), `dedupe_key` |
 | `projects.py` | project registry, templates for `agencast new`, project and scenario descriptions for the GUI |
-| `api.py` | public API for the shells (CLI, `serve`, `agencast mcp`, later Modal): `load`, `run`, `dry_run`, `runs_list`, `run_status`, `new_*` |
+| `api.py` | public API for the shells (CLI, `serve`, `agencast mcp`, a hosted wrapper, planned): `load`, `run`, `dry_run`, `runs_list`, `run_status`, `new_*` |
 | `mcp_server.py` | `agencast mcp`: the MCP tools, run workers (`run --mcp-job`), the HTTP transport ([spec](../docs/spec/mcp-server.md)) |
 | `mcp_app/run-card.html` | the run card, MCP Apps resource `ui://agencast/run-card.html` |
 | `resources.py` | the bundled docs, skills and examples (`agencast docs`, `get_guide`) |
 | `cli.py` | the `agencast` command |
 
-Not yet: Modal and R2 storage (Phase 3c). Unclear points in the spec: `docs/spec/ISSUES.md`.
+Not yet: a hosted wrapper and R2 storage (Phase 3c). Unclear points in the spec: `docs/spec/ISSUES.md`.
 
 Historical logs are in the [archive of live runs](../docs/archive/live-runs-2026-09.md).

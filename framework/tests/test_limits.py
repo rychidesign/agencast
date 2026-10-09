@@ -75,7 +75,7 @@ def test_slot_wait_over_run_timeout_is_timeout(wf, capsys):
     limits(wf, "max_parallel_runs: 1", run_timeout="1s")
     path = scenario(wf, SC)
     slots = local_slots(wf.parent / "runs", 1)
-    held = slots.acquire()                      # slot held by another process (n8n, cron…)
+    held = slots.acquire()                      # slot held by another process (an automation tool, cron…)
     try:
         r, fake = run(path)
     finally:

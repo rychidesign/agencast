@@ -213,7 +213,7 @@ version: 1
 
 servers:
   # Run workspace: the server sees only runs/<run>/work, nothing else.
-  # The package version is pinned (R7); preinstall it on Modal (D5).
+  # The package version is pinned (R7); preinstall it on the host (D5).
   filesystem:
     description: Reading and writing in the workspace of the current run
     command: npx
@@ -859,6 +859,6 @@ tests/test_golden.py::test_workflow_scenario_runs_with_fake[tutorial-06-exercise
 ## What comes next
 
 **[Part 7 — Composition and operations](07-composition-and-operations.md):** a scenario
-calls a scenario (`call`), `agencast serve` for n8n (token, `request_key`, a
+calls a scenario (`call`), `agencast serve` for the caller (token, `request_key`, a
 callback with a signature), `report.html` and `dedupe_key` for steps that may
 run only once.

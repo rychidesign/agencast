@@ -1,6 +1,6 @@
 # Webhook — starting a run (specification v1)
 
-A run is started by n8n (or anyone with the token) with a request to the
+A run is started by a caller (or anyone with the token) with a request to the
 webhook. The response comes immediately; the result comes later to
 `callback_url` (D2). Shape of the callback:
 [run-record.md](run-record.md#callback).
@@ -24,18 +24,18 @@ Content-Type: application/json
 {
   "scenario": "ig-post",
   "inputs": { "topic": "new coffee" },
-  "callback_url": "https://n8n.example.com/webhook-waiting/4711",
-  "request_key": "n8n-4711"
+  "callback_url": "https://automation.example.com/webhook-waiting/4711",
+  "request_key": "caller-4711"
 }
 ```
 
 | Field | Required | What it does | When missing | Example |
 |---|---|---|---|---|
-| `Authorization` header | yes | `Bearer <token>`; the token is the value of the variable named in `webhook.token_env` in `config.yaml` (Modal endpoints are otherwise public, D5). | 401 | |
+| `Authorization` header | yes | `Bearer <token>`; the token is the value of the variable named in `webhook.token_env` in `config.yaml` (serverless host endpoints are otherwise public, D5). | 401 | |
 | `scenario` | yes | Name of a scenario from `workflows/scenarios/`. A file there that is a link out of that directory is unknown (since 0.19.0): it would run under another tree's `config.yaml`, `.env` and `mcp.yaml`. | 422 | `"ig-post"` |
 | `inputs` | no | Inputs according to the scenario's `inputs`. For `file`/`files` inputs `{"upload_id": "up_…"}` from `POST /uploads` (since 0.18.0, [api.md Uploads](api.md#uploads-since-0180)) — a JSON string is never a path (422). | `{}` — the scenario gets its `default` values. | `{"topic": "new coffee"}` |
-| `callback_url` | yes | Where to send the result. `https://` only. Typically the resume URL of a waiting n8n workflow. | 422 | |
-| `request_key` | no | Idempotency key (§5.2): a repeated request with the same key does not start a second run. | Every request = a new run. | `"n8n-4711"` |
+| `callback_url` | yes | Where to send the result. `https://` only. Typically the resume URL of a waiting workflow. | 422 | |
+| `request_key` | no | Idempotency key (§5.2): a repeated request with the same key does not start a second run. | Every request = a new run. | `"caller-4711"` |
 
 ## Responses
 
@@ -50,7 +50,7 @@ Content-Type: application/json
   starting is rejected: token, body shape, inputs, `validate` of the
   scenario. Then **no `run_id` and no callback are created** — the caller
   gets the error right in the response.
-- **`queue_position`** is computed by the framework (Modal does not provide
+- **`queue_position`** is computed by the framework (a serverless host does not provide
   it reliably, D5); it may be `null` when unknown. It is information, not a
   promise.
 - **Concurrent runs** (since framework 0.3.0): `agencast serve --workers N`
@@ -73,4 +73,4 @@ Content-Type: application/json
   `POST /runs` contract stays unchanged and still requires `callback_url`.
 - A `request_key` record is kept for as long as run directories are
   retained (**proposal**).
-- The timeout in n8n must also account for waiting in the queue (D2).
+- The timeout in the caller must also account for waiting in the queue (D2).

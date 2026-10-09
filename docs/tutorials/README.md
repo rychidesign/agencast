@@ -27,7 +27,7 @@ the fixtures in `examples/tutorial/fake/` — they are also golden tests
 | [4 — Parallel steps and an image](04-parallel-and-image.md) | 20 min | ~0.07 USD | `parallel`, the `image` step, error classes, `budget_usd` and `timeout` |
 | [5 — From playground to production](05-from-playground-to-production.md) | 20 min | 0 USD | swapping a model in `config.yaml`, golden tests, the record in depth, `--callback-url` and the signature |
 | [6 — An agent with tools](06-agent-with-tools.md) | 30 min | ~0.014 USD | the `task` step, turns and `max_turns`, `mcp.yaml` (owner) × agent (author), skills and `load_skill`, the `tool_call` record |
-| [7 — Composition and operations](07-composition-and-operations.md) | 35 min | 0 USD (+ optionally ~0.001) | `call` and building blocks, `agencast serve`, 401/422/202, `request_key`, callback, `report.html`, `dedupe_key`, what n8n needs |
+| [7 — Composition and operations](07-composition-and-operations.md) | 35 min | 0 USD (+ optionally ~0.001) | `call` and building blocks, `agencast serve`, 401/422/202, `request_key`, callback, `report.html`, `dedupe_key`, what the caller needs |
 
 Parts 1–5 were written with `maw` 0.1.0, parts 6 and 7 with `maw` 0.2.1 (up to
 0.2.5 the package and the command were called `maw`, from 0.3.0 `agencast`; the

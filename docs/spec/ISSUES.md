@@ -95,7 +95,7 @@ the coordinator or the user decides.
     `scheme://host/path` is logged from the callback URL”): `--callback-url
     https://127.0.0.1:8443/webhook-waiting/4711` is in `callback_sent` as
     `https://127.0.0.1/webhook-waiting/4711`. Literally per the spec, but when
-    debugging n8n on a non-standard port the port is missing. (Found while writing the
+    debugging a caller on a non-standard port the port is missing. (Found while writing the
     tutorials.)
 
 ## Phase 3a (the `task` step, MCP, skills, `dedupe_key`; framework 0.2.0)
@@ -117,7 +117,7 @@ the coordinator or the user decides.
     exited, did not answer the handshake; remote: any other 4xx). *(Changed in 0.18.0:
     a `transient` failure is first retried according to the step's `retry`, like a model
     call, `Retry-After` included — scenario.md, the `task` step; before that it was not
-    retried and retrying the run was up to n8n. Network errors after the connection was
+    retried and retrying the run was up to the caller. Network errors after the connection was
     made — a reset, a server that closes without an answer — are `transient` too, and an
     HTTP status of the SSE message POST is reported as that status, not as a timeout.)*
 27. **A JSON-RPC error on `tools/call`** (not `isError`, e.g. an unknown tool
@@ -167,7 +167,7 @@ the coordinator or the user decides.
 
 35. **A `run_id` collision** (run-record.md: `<time>-<scenario>-<4 hex>`): two runs of
     the same scenario in the same second have the same id with probability
-    1 : 65,536; with a batch of 50 requests per second from n8n that is ≈ 2 %.
+    1 : 65,536; with a batch of 50 requests per second from the caller that is ≈ 2 %.
     Consequence: `agencast serve` overwrites the queue entry `<run_id>.json` of another
     request, `agencast run` crashes on the existing run folder. Proposal: a longer
     random part, or a new id when the folder/queue entry already exists.
@@ -228,12 +228,12 @@ the coordinator or the user decides.
     `DedupeStore` interface (`get`, `claim` exclusively and atomically via `O_EXCL`,
     `finish` via rename); local files and the paths
     `<runs>/_dedupe/<sha256>.json` and `_dedupe-fake/` stay unchanged,
-    old records stay valid. On Modal its own storage is plugged in here
+    old records stay valid. On a serverless host its own storage is plugged in here
     (DESIGN “Wrappers”). Queue recovery and `request_key` (`_queue/keys/`)
     are still under a lock; `queue_position` counts waiting and running requests,
     the completion order with N > 1 is not guaranteed (webhook.md).
 40. **A cap on concurrent runs and a daily spend limit** (decided by the user
-    2026-09-26, framework 0.3.1). With `--workers` (point 39), manual CLI, n8n
+    2026-09-26, framework 0.3.1). With `--workers` (point 39), manual CLI, an automation tool
     and cron over one `runs/` there was no way to limit how many runs would go at once
     or how much would be spent per day — `run_budget_usd` guards only a single
     run. Now two **optional** `limits` keys (without them nothing changes, R8):
@@ -257,7 +257,7 @@ the coordinator or the user decides.
     record and `summary.md`, without `plan.md`/`inputs.json`, `run_finished`
     with `error` (`step: null`) and a callback. Both slots and the ledger are behind an interface
     next to `DedupeStore` (`SlotStore.acquire/release`,
-    `Ledger.total/add` in `task.py`) — Modal plugs its own storage in here
+    `Ledger.total/add` in `task.py`) — a serverless host plugs its own storage in here
     (DESIGN “Wrappers”). Note: the ledger is a shared append-only file, which
     D2 (“never one shared log”) formally does not anticipate; a write is
     one line under `flock`.
@@ -265,7 +265,7 @@ the coordinator or the user decides.
     always written, because it also serves as a daily spend overview and a limit turned on
     during the day should count the runs so far as well. The exception to D2 is bounded:
     one row per finished run, one file per day, under `flock`;
-    run records stay separate. On Modal the wrapper replaces the ledger through the
+    run records stay separate. On a serverless host the wrapper replaces the ledger through the
     `Ledger` interface.
 41. **The project registry and `agencast new`** (decided by the user and the coordinator
     2026-09-26, framework 0.4.0; [projects.md](projects.md)). A GUI on top of
@@ -281,7 +281,7 @@ the coordinator or the user decides.
 42. **The `serve` read API for the GUI** (decided by the user and the coordinator
     2026-09-26, framework 0.4.0; [api.md](api.md)). The GUI (`ui/`, DESIGN
     “Wrappers”) talks to the core only over HTTP. The `/projects/...` family is
-    additive: `POST /runs`, `GET /runs/<id>` and the callbacks do not change (n8n).
+    additive: `POST /runs`, `GET /runs/<id>` and the callbacks do not change (callers).
     `serve` in a project or with `--project` = a single project with its
     `webhook.token_env`; outside a project = registry mode with one server token
     `AGENCAST_TOKEN` (the coordinator's variant A: per-project
@@ -341,7 +341,7 @@ the coordinator or the user decides.
     process (like the `max_parallel_runs` slots — a crash releases the lock, nothing
     needs cleaning up); a reader tries the shared lock without waiting, so a run takes
     the exclusive lock blocking (a reader holds it for microseconds). A file, not a PID:
-    PIDs are recycled and make no sense on Modal. The machine `state` next to the
+    PIDs are recycled and make no sense on a serverless host. The machine `state` next to the
     textual `status`; `cancelled` is only reserved (a v1 run does not end that way).
     Step details, a run step and `current_nn` from `events.jsonl`
     — `step_started`/`step_skipped` now have `nn` and `dir` (for older

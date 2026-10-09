@@ -119,7 +119,7 @@ def test_401_without_or_with_wrong_token(wf, server):
     ({"scenario": "nonexistent"}, "unknown scenario 'nonexistent'"),
     ({"scenario": "../config"}, "scenario: missing"),
     ({"callback_url": None}, "callback_url"),
-    ({"callback_url": "http://n8n.example.com/w"}, "callback_url"),
+    ({"callback_url": "http://caller.example.com/w"}, "callback_url"),
     ({"inputs": {}}, "missing required input 'text'"),
     ({"inputs": {"text": 1}}, "input 'text' must be string"),
     ({"inputs": {"text": "x", "extra": 1}}, "unknown input 'extra'"),
@@ -222,7 +222,7 @@ steps: [{ id: task, task: { agent: evil, prompt: Start } }]
 def test_202_and_signed_callback(wf, server):
     hook, _, client = server()
     rcv = Receiver()
-    r = client.post("/runs", json=req(rcv, request_key="n8n-1"))
+    r = client.post("/runs", json=req(rcv, request_key="caller-1"))
     assert r.status_code == 202
     run_id = r.json()["run_id"]
     assert r.json()["queue_position"] == 1
@@ -231,7 +231,7 @@ def test_202_and_signed_callback(wf, server):
     headers, raw = rcv.got[0]
     assert headers["x-run-id"] == run_id
     assert headers["x-signature"] == "sha256=" + hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest()
-    assert cb["run_id"] == run_id and cb["status"] == "succeeded" and cb["request_key"] == "n8n-1"
+    assert cb["run_id"] == run_id and cb["status"] == "succeeded" and cb["request_key"] == "caller-1"
     assert cb["outputs"] == {"on_brand": 0.5, "passed": False}
     assert cb["report_url"].startswith("file://") and cb["report_url"].endswith("/report.html")
     d = hook.runs / run_id
@@ -246,12 +246,12 @@ def test_202_and_signed_callback(wf, server):
 def test_request_key_is_idempotent_across_restart(wf, server):
     hook, _, client = server()
     rcv = Receiver()
-    first = client.post("/runs", json=req(rcv, request_key="n8n-4711")).json()
-    again = client.post("/runs", json=req(rcv, request_key="n8n-4711"))
+    first = client.post("/runs", json=req(rcv, request_key="caller-4711")).json()
+    again = client.post("/runs", json=req(rcv, request_key="caller-4711"))
     assert again.status_code == 200 and again.json() == {"run_id": first["run_id"], "queue_position": None}
     finished(hook, first["run_id"])  # otherwise the new server would treat the unfinished queue entry as an interrupted run
     _, _, client2 = server()  # restart: new server using the same run directory
-    third = client2.post("/runs", json=req(rcv, request_key="n8n-4711"))
+    third = client2.post("/runs", json=req(rcv, request_key="caller-4711"))
     assert third.status_code == 200 and third.json()["run_id"] == first["run_id"]
     time.sleep(0.2)
     assert len(rcv.got) == 1

@@ -300,7 +300,7 @@ the `events.jsonl` format is covered in part 5.)
 ## Step 5 — error classes
 
 Every error has a **class**. It tells the framework whether retrying makes
-sense, and it tells you (or n8n) what to do:
+sense, and it tells you (or the caller) what to do:
 
 | Class | What happened | Retried? |
 |---|---|---|
@@ -603,7 +603,7 @@ run 20260925-151900-tutorial-04-exercise-77d9: succeeded · 0.0 s · 0.0403 USD
 ```
 
 And in `callback.json`: `"status": "succeeded"`, `"photo": null` and the warning
-in `"warnings"` — that way n8n knows to send the post without an image or hand
+in `"warnings"` — that way the caller knows to send the post without an image or hand
 it back for manual work.
 
 </details>

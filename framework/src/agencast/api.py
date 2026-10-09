@@ -1,4 +1,4 @@
-"""Public API for wrappers (DESIGN “Wrappers”): CLI, `serve`, the MCP server (`agencast mcp`), later Modal.
+"""Public API for wrappers (DESIGN “Wrappers”): CLI, `serve`, the MCP server (`agencast mcp`), a hosted wrapper (planned).
 
 Thin functions over validate, engine and record — logic belongs in the core
 with a hermetic test. Secrets come only from the environment (and `.env`).

@@ -68,7 +68,7 @@ steps:
 | `description` | yes | One sentence for humans: what the scenario does. Appears in `summary.md`. | `config` error. | `description: Draft an IG post for approval` |
 | `inputs` | no | What the scenario receives from outside (webhook, CLI, `call`). See below. | The scenario has no inputs. | see below |
 | `outputs` | no | What the scenario returns — the contract for the callback and for `call` (§5.3). The values are supplied by the `output` step. When present, it has at least one entry. | The scenario returns nothing (the callback carries only the status). | see below |
-| `callable` | no | `true` = another scenario may call this scenario with a `call` step. Every scenario can be started via webhook/CLI. Protects approvals: part 1 must not call part 2 (publishing) and bypass n8n (DESIGN §5.2). | `false` — a `call` to this scenario is a `config` error. | `callable: true` |
+| `callable` | no | `true` = another scenario may call this scenario with a `call` step. Every scenario can be started via webhook/CLI. Protects approvals: part 1 must not call part 2 (publishing) and bypass the caller's approval (DESIGN §5.2). | `false` — a `call` to this scenario is a `config` error. | `callable: true` |
 | `steps` | yes | List of steps. At least one. | `config` error. | see [§4](#4-step-types) |
 
 No other top-level fields are allowed — a typo is an error, not a silently
@@ -181,7 +181,7 @@ step type key (`ask:`, `jev:`, …) and optionally common properties:
 | `retry` | no | How many times **one API call** is retried on a `transient` or `schema` error (§5.1). For `task` it applies to each turn separately, and to the start of each MCP server (a `transient` handshake failure, same delay); retries do not count towards `max_turns`, only towards `budget_usd`. Delay 2 s, 4 s, 8 s…, or according to the `Retry-After` header. | `2` (**proposal**). | `retry: 0` |
 | `on_error` | no | `fail` = a step error ends the run. `continue` = the run continues, the step has the output `default` and the run summary has a **warning** (§5.1 item 4). | `fail`. | `on_error: continue` |
 | `default` | see text | Output of the step in case the step does not run (skipped via `when`, a `switch` branch not taken, failed with `on_error: continue`). Must contain **all** output fields of the step (for `jev` all questions; `details` is filled in as `{}` automatically); a missing field is a `validate` error. | If another step refers to the output of a step that might not run, it is a `validate` error (§5.4). | `default: { on_brand: 0 }` |
-| `dedupe_key` | no | Only for `task` (a step with a side effect, e.g. publishing). A template that produces text. Ensures the side effect happens at most once, even when n8n repeats the run — see [dedupe](#dedupe_key--once-and-only-once). (§5.2) | The step runs every time. | `dedupe_key: "ig-{{ inputs.post_id }}"` |
+| `dedupe_key` | no | Only for `task` (a step with a side effect, e.g. publishing). A template that produces text. Ensures the side effect happens at most once, even when the caller repeats the run — see [dedupe](#dedupe_key--once-and-only-once). (§5.2) | The step runs every time. | `dedupe_key: "ig-{{ inputs.post_id }}"` |
 | `schema` | no | Only for `ask` and `task`; written **inside** the step block. See [`ask`](#ask). | The output is text. | |
 
 Where each property makes sense (elsewhere it is a `config` error):
@@ -620,7 +620,7 @@ Contract (§5.3):
   top-level scenario uploads them, if it puts them in its `output`.
 - A scenario **never starts a new framework run and never waits for one**
   (with a sequential queue it would deadlock). A new run can only be
-  started “fire and forget” via n8n.
+  started “fire and forget” via an automation tool.
 
 ### `set`
 

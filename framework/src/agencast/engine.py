@@ -160,8 +160,8 @@ class Run:
                  callback_url=None, request_key=None, callback_transport=None, fake=False):
         self.p, self.inputs, self.rec, self.client, self.run_id = p, inputs, record, client, run_id
         self.fake = fake  # fake provider (--fake): separate dedupe, flag in the record
-        self.dedupe = local_dedupe(p.runs_dir, fake)  # DedupeStore; Modal supplies its own
-        self.ledger = local_ledger(p.runs_dir, fake)  # daily spend ledger (Ledger); Modal supplies its own
+        self.dedupe = local_dedupe(p.runs_dir, fake)  # DedupeStore; a hosted wrapper supplies its own
+        self.ledger = local_ledger(p.runs_dir, fake)  # daily spend ledger (Ledger); a hosted wrapper supplies its own
         self.waited_s = None  # wait for a max_parallel_runs slot (run_waiting), otherwise None
         self.callback_url, self.request_key, self.callback_transport = callback_url, request_key, callback_transport
         self.storage_prefix = f"{run_id}-{secrets.token_hex(16)}"

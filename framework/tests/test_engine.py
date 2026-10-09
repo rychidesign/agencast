@@ -730,7 +730,7 @@ def test_callback_signed(wf, monkeypatch):
     def handler(req):
         got.append(req)
         return httpx.Response(200)
-    r, _ = run(ask_scenario(wf), script={"write": {"text": "ok"}}, callback_url="https://n8n.example.com/w/1?t=x",
+    r, _ = run(ask_scenario(wf), script={"write": {"text": "ok"}}, callback_url="https://caller.example.com/w/1?t=x",
                request_key="k-1", callback_transport=httpx.MockTransport(handler))
     assert len(got) == 1
     req = got[0]
@@ -741,12 +741,12 @@ def test_callback_signed(wf, monkeypatch):
     assert body["request_key"] == "k-1" and body["outputs"] == {"text": "ok"}
     assert body["report_url"].startswith("file://") and body["report_url"].endswith("/report.html")
     sent = events(r, "callback_sent")[0]
-    assert sent["url"] == "https://n8n.example.com/w/1" and sent["http_status"] == 200
+    assert sent["url"] == "https://caller.example.com/w/1" and sent["http_status"] == 200
 
 
 def test_callback_failure_does_not_change_status(wf, monkeypatch):
     monkeypatch.setenv("CALLBACK_SECRET", "signature-123456")
-    r, _ = run(ask_scenario(wf), script={"write": {"text": "ok"}}, callback_url="https://n8n.example.com/w",
+    r, _ = run(ask_scenario(wf), script={"write": {"text": "ok"}}, callback_url="https://caller.example.com/w",
                callback_transport=httpx.MockTransport(lambda req: httpx.Response(500)))
     assert r.status == "succeeded" and r.callback_failed
     assert [e["attempt"] for e in events(r, "callback_sent")] == [1, 2, 3]
@@ -766,7 +766,7 @@ def test_interrupt_during_the_callback_leaves_a_finished_run(wf, monkeypatch):
     fake = Fake(None, model_ids(wf))
     p = validate(ask_scenario(wf), transport=fake.transport())
     with pytest.raises(engine.Interrupted):
-        run_scenario(p, {"topic": "x"}, fake=fake, callback_url="https://n8n.example.com/w",
+        run_scenario(p, {"topic": "x"}, fake=fake, callback_url="https://caller.example.com/w",
                      callback_transport=httpx.MockTransport(handler))
     (run_dir,) = (wf.parent / "runs").glob("2*")
     evs = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines()]
@@ -780,7 +780,7 @@ def test_callback_requires_https_and_secret(wf, monkeypatch):
     from agencast import ConfigErrors
     monkeypatch.delenv("CALLBACK_SECRET", raising=False)
     with pytest.raises(ConfigErrors) as e:
-        run(ask_scenario(wf), callback_url="http://n8n.example.com/w")
+        run(ask_scenario(wf), callback_url="http://caller.example.com/w")
     assert "https://" in str(e.value) and "CALLBACK_SECRET" in str(e.value)
     monkeypatch.setenv("CALLBACK_SECRET", "signature-123456")
     for url in ("http://127.0.0.1:1@example.com/w", "http://127.0.0.1@example.com/w", "http://127.0.0.1.example.com/w"):

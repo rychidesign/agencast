@@ -198,7 +198,7 @@ A fake run of a step with a `dedupe_key` creates `_dedupe/<sha>.json` with
 skips the step and returns the fake output as a real one — `succeeded`, 0 model
 calls, and neither the callback nor `summary.md` shows that the output comes
 from a fake run. For publishing (`ig-publish`) this would mean: after a
-rehearsal with `--fake`, the post is never published live and n8n receives an
+rehearsal with `--fake`, the post is never published live and the caller receives an
 invented `post_url`.
 
 ```bash
@@ -231,4 +231,4 @@ The tutorial warns about it (part 7, step 8).
 - `POST /runs` with an unknown field **and** a wrong input type returns 422 with
   only the first group of errors (`unknown field 'priority' …`); the input error
   (`input 'product' must be string, got number`) arrives only on the second
-  attempt. The spec does not require it, but it would save n8n a round.
+  attempt. The spec does not require it, but it would save the caller a round.

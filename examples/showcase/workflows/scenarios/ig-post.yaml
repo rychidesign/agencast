@@ -1,6 +1,6 @@
 version: 1
 name: ig-post
-description: Draft IG post for approval (part 1; part 2 publishes it via n8n)
+description: Draft IG post for approval (part 1; part 2 publishes it by the caller)
 
 inputs:
   topic:
@@ -43,7 +43,7 @@ steps:
             Does the text match the tone of Lumen café — English, short, friendly and
             matter-of-fact, talks to the reader directly, no emoji and no advertising clichés?
 
-  # 3. If not, the run ends with an error and n8n sends an alert.
+  # 3. If not, the run ends with an error and the caller sends an alert.
   - id: stop
     when: steps.tone_check.on_brand < 0.7
     fail: "The text does not match the brand (on_brand = {{ steps.tone_check.on_brand }})"
@@ -83,7 +83,7 @@ steps:
       prompt: "{{ steps.photo_prompt.photo_description }}"
       aspect_ratio: "4:5"
 
-  # 8. The result for n8n: text, hashtags and photo URL for approval.
+  # 8. The result for the caller: text, hashtags and photo URL for approval.
   - id: out
     output:
       caption: "{{ steps.copy.caption }}"

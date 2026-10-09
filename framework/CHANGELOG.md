@@ -10,7 +10,9 @@ Up to 0.2.5 the package and the command were called `maw`; older entries here ke
 - **Changed:** the default `projects_root` (where the GUI creates a project without a path) is
   `~/agencast-projects` instead of `~/workspace`. A registry that sets `projects_root` keeps it; to keep the old
   folder, add `projects_root: ~/workspace` to `~/.config/agencast/projects.yaml`.
-- The design documents no longer name the author's private projects.
+- The documentation, examples and comments no longer name the author's private projects or other products as
+  design references, as the caller (an automation tool) or as the planned hosting target (a serverless host). The
+  `call.scenario` error for a scenario without `callable: true` ends with `(protects human approval, §5.2)`.
 
 ## 0.19.0 — 2026-10-09 (MCP server)
 
@@ -564,7 +566,7 @@ Patch: two optional keys, behavior unchanged without them (R8).
 Format: spec v1, a backward-compatible addition (ISSUES 40).
 
 - **`limits.max_parallel_runs: N`** — at most N runs at once over one
-  `runs/`, across processes (CLI, n8n, cron, `serve --workers`): a `flock` on
+  `runs/`, across processes (CLI, an automation tool, cron, `serve --workers`): a `flock` on
   `<runs>/_slots/<n>.lock`, the slot is taken before the run folder and always
   released. Full → stderr “waiting for a free slot (max_parallel_runs=N)”,
   polling every 0.5 s for at most `run_timeout`, then `timeout`. The wait is
@@ -578,7 +580,7 @@ Format: spec v1, a backward-compatible addition (ISSUES 40).
 - A run that did not start because of a slot or the daily limit has a record like a run
   not started by a webhook (`run_scenario(error=…)`): `run_finished` with `error`,
   `callback.json`, `summary.md`, without `plan.md`/`inputs.json`.
-- `SlotStore` and `Ledger` in `task.py` next to `DedupeStore` (a place for Modal).
+- `SlotStore` and `Ledger` in `task.py` next to `DedupeStore` (a place for a hosted wrapper).
 - `agencast run`: an error without a step is printed as `<class>: <message>` (formerly
   “… in step None: …”).
 
@@ -602,7 +604,7 @@ v1 unchanged (only `--workers` added in webhook.md).
   a corrupted cache = no cache.
 - **`DedupeStore`** (`task.py`): `dedupe_key` behind a `get` / `claim` /
   `finish` interface, locally the `<runs>/_dedupe/` and `_dedupe-fake/` files unchanged;
-  `Run.dedupe` is the place where Modal plugs in its own storage.
+  `Run.dedupe` is the place where a hosted wrapper plugs in its own storage.
 - **`agencast.api`**: `load`, `run`, `dry_run`, `runs_list`, `run_status`
   (+ `find_root`) — thin functions over validate, engine and record; `cli.py`
   and `server.py` call through them (DESIGN “Shells”).
@@ -847,9 +849,9 @@ Dependencies: `pyyaml`, `jsonschema`, `httpx`; development `pytest`. Compared to
 D4 default set **without** `pydantic` (the formats are JSON Schemas from the spec, verified
 by `jsonschema` directly — a second description in pydantic would be a duplicate) and
 **without** `typer` (stdlib `argparse` is enough). `hatchling` is only a build
-backend for installing the `maw` command (not used at run time). `mcp` and `modal`
+backend for installing the `maw` command (not used at run time). `mcp` and the hosting dependency
 will come with the `task` step and deployment.
 
 Not in 0.1.0 (places in the code prepared): `task` (MCP, skills via
-`load_skill`, `dedupe_key`), `call`, the webhook server, Modal, `report.html`,
+`load_skill`, `dedupe_key`), `call`, the webhook server, a hosted wrapper, `report.html`,
 R2 storage — `validate` rejects them with a clear `config` error.
