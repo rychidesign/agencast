@@ -277,9 +277,8 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current release is **0.18.0** (the 0.18.x line); `main` also carries the unreleased **0.19.0** — the MCP
-server (`agencast mcp`) and the run card — listed under “Unreleased” in the [changelog](framework/CHANGELOG.md)
-and available with an install from `main`. The project is available under the
+The current framework version is **0.19.0** (the 0.19.x line); the history of changes is in
+the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 
 This program comes without any warranty, to the extent permitted by applicable law.

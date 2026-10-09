@@ -1,6 +1,6 @@
 # AgenCast framework
 
-Version 0.18.0, Python 3.12 + uv. Formats per `docs/spec/` (v1), design
+Version 0.19.0, Python 3.12 + uv. Formats per `docs/spec/` (v1), design
 in `docs/DESIGN.md`. The package and the command are both called `agencast` (until 0.2.5
 `maw`); the command name is in `pyproject.toml` (`[project.scripts]`).
 
@@ -153,7 +153,7 @@ GET /, /assets/…      GUI (framework/src/agencast/ui/, no token)
   expose it publicly; bind only to localhost or a private network, for example
   Tailscale. Deployment on Modal is Phase 3c.
 
-## MCP server (`agencast mcp`, unreleased 0.19.0)
+## MCP server (`agencast mcp`, since 0.19.0)
 
 `agencast mcp` serves the registered projects (one with `--project`) to an MCP client over stdio, or over
 streamable HTTP with `--http` and a bearer token from `AGENCAST_MCP_TOKEN`: tools to list projects and

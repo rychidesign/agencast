@@ -39,7 +39,7 @@ agencast run ig-post -i topic="new coffee"             # live: real models, real
 - `--fake [fixture]` = fake model provider, no model API key or model cost. Fixtures for the
   repo's own scenarios live in `fake/<scenario>.yaml`. Without a
   fixture the fake invents values (text placeholders, JSON per schema, Jev
-  answers 0.5), so threshold checks may `fail` — expected, not a bug. Own fixture:
+  `noul` 0.5, the first `choice`, `score` 0), so threshold checks may `fail` — expected, not a bug. Own fixture:
   YAML map `step_id: [answer, …]` (last answer repeats; nested call step
   `call_id/step_id`), answer shapes `text: "…"`, `json: {…}`, `answers: {q: v}`
   (Jev), `image: {width, height}`, `status: 429`; details in the docstring of

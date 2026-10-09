@@ -138,7 +138,7 @@ agencast run greet -i who=Ada --fake       # fake provider, no cost
 
 `validate` prints `valid: greet (2 steps)` or `config: …` lines that name
 the file, step and field — fix every one before a live run. `--fake` without a
-fixture invents values (Jev answers 0.5), so a threshold `fail` is expected.
+fixture invents values (Jev: `noul` 0.5, the first `choice`, `score` 0), so a threshold `fail` is expected.
 Then tell the user the files, the inputs and the exact `run` command; a live
 run and reading results: skill `agencast-run`.
 

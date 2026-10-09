@@ -5,7 +5,7 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
-## Unreleased (0.19.0, MCP server)
+## 0.19.0 — 2026-10-09 (MCP server)
 
 - `agencast mcp` — AgenCast as an MCP server (spec/mcp-server.md): 17 tools to list projects and scenarios, read
   workflow files and the bundled guide, validate drafts, plan (`dry_run`), run (`fake_run` free, `run_scenario`

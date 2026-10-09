@@ -1,6 +1,6 @@
 [project]
 name = "agencast"
-version = "0.18.0"
+version = "0.19.0"
 description = "AgenCast — scenarios with LLM agents: YAML scenarios, Markdown agents, models via OpenRouter"
 readme = "README.md"
 license = "WTFPL"
