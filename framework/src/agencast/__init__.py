@@ -6,7 +6,7 @@ record (run record, report.html), mcp_client (MCP servers), task (task step,
 dedupe_key), projects (project registry, templates, GUI descriptions), server
 (webhook and read API), api (public API for wrappers), cli.
 """
-__version__ = "0.19.0"
+__version__ = "0.19.1"
 
 # Format versions the framework can read (DESIGN §5.9 item 6).
 FORMAT_VERSIONS = (1,)

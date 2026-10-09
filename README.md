@@ -277,7 +277,7 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current framework version is **0.19.0** (the 0.19.x line); the history of changes is in
+The current framework version is **0.19.1** (the 0.19.x line); the history of changes is in
 the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 

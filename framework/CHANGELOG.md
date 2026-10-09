@@ -5,7 +5,7 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
-## Unreleased
+## 0.19.1 — 2026-10-09 (default project folder, generic docs)
 
 - **Changed:** the default `projects_root` (where the GUI creates a project without a path) is
   `~/agencast-projects` instead of `~/workspace`. A registry that sets `projects_root` keeps it; to keep the old

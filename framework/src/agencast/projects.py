@@ -25,7 +25,7 @@ from .mcp_client import load_mcp, secret_names
 from .validate import _strings, env_fields, load_agent, load_skill, require_config, validate
 
 NAME = re.compile(r"[a-z][a-z0-9-]*")  # matches agent and scenario names in the schemas
-PROJECTS_ROOT = "~/agencast-projects"  # default `projects_root` (up to 0.19.0: ~/workspace)
+PROJECTS_ROOT = "~/agencast-projects"  # default `projects_root` (0.19.1; up to 0.19.0 ~/workspace)
 
 CONFIG = """\
 # Only the project owner may edit this. No secret values: *_env fields contain the NAME
