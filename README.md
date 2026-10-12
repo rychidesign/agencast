@@ -113,6 +113,8 @@ examples and skills:
 uv tool install agencast
 ```
 
+Update with `uv tool upgrade agencast`; symlinked skills follow the update.
+
 The sample filesystem MCP server runs via `npx` and needs Node.js `^20.19.0 || >=22.12.0` (verified with Node 24).
 To develop AgenCast itself, install from a clone; building the GUI needs the same Node.js:
 
@@ -314,7 +316,7 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current runtime version is **0.19.2** (the 0.19.x line); the history of changes is in
+The current runtime version is **0.19.3** (the 0.19.x line); the history of changes is in
 the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 

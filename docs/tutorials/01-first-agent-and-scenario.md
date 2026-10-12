@@ -33,7 +33,7 @@ usage: agencast [-h] [--project PATH]
                 {validate,run,runs,serve,migrate,new,projects,rename,skills,docs}
                 ...
 
-AgenCast 0.19.2 — scenarios with LLM agents
+AgenCast 0.19.3 — scenarios with LLM agents
 
 positional arguments:
   {validate,run,runs,serve,migrate,new,projects,rename,skills,docs}

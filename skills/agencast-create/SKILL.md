@@ -5,9 +5,8 @@ description: Write or edit AgenCast agents (workflows/agents/<name>.md), scenari
 
 # Creating AgenCast agents and scenarios
 
-Command: `agencast`. If missing, see `docs/getting-started.md` on
-https://github.com/rychidesign/agencast or install with
-`uv tool install agencast`.
+Command: `agencast`. If missing, install it with `uv tool install agencast`; updating and other
+installation details are in the skill `agencast-run`, section "Install and update".
 
 ## Before writing anything
 

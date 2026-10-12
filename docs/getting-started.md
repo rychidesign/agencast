@@ -19,6 +19,8 @@ Install it from PyPI to operate workflows through your agent or a terminal:
 uv tool install agencast
 ```
 
+Update with `uv tool upgrade agencast`; symlinked skills follow the update.
+
 ## Prepare a project
 
 Create your own project with `agencast new project ~/my-project`.

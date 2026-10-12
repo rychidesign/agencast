@@ -5,9 +5,22 @@ description: Run, dry-run and inspect AgenCast scenarios and read their results 
 
 # Running AgenCast scenarios
 
-Command: `agencast`. If missing, see `docs/getting-started.md` on
-https://github.com/rychidesign/agencast or install with
-`uv tool install agencast`.
+Command: `agencast`. If missing, install it (below) or see `docs/getting-started.md` on
+https://github.com/rychidesign/agencast.
+
+## Install and update
+
+- Install: `uv tool install agencast`, then `agencast skills install` (links these skills for the detected
+  coding agents). The package is https://pypi.org/project/agencast/.
+- Installed version: `uv tool list | grep agencast`.
+- Update: `uv tool upgrade agencast`. Symlinked skills follow the update; copies made with `--copy` need
+  `agencast skills install --copy --force`. A connected `agencast mcp` server keeps running the old version
+  until the MCP client restarts or reconnects it.
+- After an update, check projects with `agencast validate <scenario> --offline`; v1 formats stay compatible.
+  Changes: https://github.com/rychidesign/agencast/blob/main/framework/CHANGELOG.md.
+- From a clone (`uv tool install --editable framework`), update with `git pull` and rebuild the GUI
+  (`cd ui && npm install && npm run build`).
+- Uninstall: `uv tool uninstall agencast`. Projects and run records are plain files and stay.
 
 ## Find the project and the scenario
 

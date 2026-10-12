@@ -5,6 +5,13 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
+## 0.19.3 — 2026-10-12 (update instructions)
+
+- The `agencast-run` skill has an "Install and update" section: install from PyPI, check the installed version,
+  `uv tool upgrade agencast`, refreshing copied skills (`agencast skills install --copy --force`), restarting a
+  connected `agencast mcp` server, validating projects after an update, updating a clone and uninstalling.
+  `agencast-create` points to it; the README and the getting-started guide mention `uv tool upgrade agencast`.
+
 ## 0.19.2 — 2026-10-12 (PyPI)
 
 - Published on PyPI: `uv tool install agencast` installs the CLI, the MCP server, the API and the built GUI. A
