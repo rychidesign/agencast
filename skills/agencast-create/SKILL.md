@@ -7,7 +7,7 @@ description: Write or edit AgenCast agents (workflows/agents/<name>.md), scenari
 
 Command: `agencast`. If missing, see `docs/getting-started.md` on
 https://github.com/rychidesign/agencast or install with
-`uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"`.
+`uv tool install agencast`.
 
 ## Before writing anything
 

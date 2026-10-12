@@ -7,7 +7,7 @@ description: Run, dry-run and inspect AgenCast scenarios and read their results 
 
 Command: `agencast`. If missing, see `docs/getting-started.md` on
 https://github.com/rychidesign/agencast or install with
-`uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"`.
+`uv tool install agencast`.
 
 ## Find the project and the scenario
 

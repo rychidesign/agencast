@@ -5,6 +5,14 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
+## 0.19.2 — 2026-10-12 (PyPI)
+
+- Published on PyPI: `uv tool install agencast` installs the CLI, the MCP server, the API and the built GUI. A
+  `v*` tag runs `.github/workflows/release.yml`, which builds the GUI and the package, smoke-tests the wheel and
+  publishes it through PyPI Trusted Publishing.
+- The documentation presents AgenCast as a workflow runtime that agents operate through MCP or the CLI, with an MCP
+  quick start on the shipped fake fixture; the GUI is described as an optional human layer.
+
 ## 0.19.1 — 2026-10-09 (default project folder, generic docs)
 
 - **Changed:** the default `projects_root` (where the GUI creates a project without a path) is

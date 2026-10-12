@@ -7,19 +7,17 @@ models, permissions and limits; the optional GUI helps people review and edit fi
 ## Install the runtime
 
 Verified on Linux and WSL with Python 3.12; use `uv`.
-To build the GUI and to run the sample MCP server via `npx` you need Node.js
+To run the sample MCP server via `npx` you need Node.js
 `^20.19.0 || >=22.12.0` (per `ui/package.json`, verified with Node 24).
 Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
 macOS is not verified.
 
-The package contains the CLI, the MCP server, the API, the documentation, the skills and the examples.
-Install straight from GitHub to operate workflows through your agent or a terminal:
+The package contains the CLI, the MCP server, the API, the built GUI, the documentation, the skills and the examples.
+Install it from PyPI to operate workflows through your agent or a terminal:
 
 ```bash
-uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
+uv tool install agencast
 ```
-
-For an installation that includes the GUI, use a clone as described under [Optional GUI](#optional-gui).
 
 ## Prepare a project
 
@@ -137,7 +135,7 @@ the [scenario](spec/scenario.md), [agent](spec/agent.md) and
 ## Optional GUI
 
 The GUI is a human interface for reviewing and editing workflow files and inspecting run records.
-For an installation that includes it, clone the repository and build the frontend with Node.js:
+It is included in the package. To develop AgenCast itself, clone the repository and build the frontend with Node.js:
 
 ```bash
 git clone https://github.com/rychidesign/agencast
@@ -168,7 +166,7 @@ claude mcp add --transport stdio agencast -- agencast mcp --fake
 Image inputs are files on the server's machine inside a directory allowed with `--input-dir DIR` (a tool call
 carries no bytes). Claude Code or Codex on another machine copies the user's images there over your own ssh
 login first; the recipe is in the `agencast-run` skill (on that machine: `uv tool install
-"git+https://github.com/rychidesign/agencast#subdirectory=framework"`, then `agencast skills install`) and in
+agencast`, then `agencast skills install`) and in
 `get_guide("run")` on the server. The directory must exist on the server before the server starts:
 
 ```bash

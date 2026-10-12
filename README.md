@@ -41,7 +41,7 @@ Tested on Linux/WSL with Python 3.12 and `uv`; native Windows is unsupported, ma
 The example below needs no workflow model key and makes no workflow model calls.
 
 ```bash
-uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
+uv tool install agencast
 agencast new project ~/agencast-demo --example showcase
 cd ~/agencast-demo
 ```
@@ -106,15 +106,15 @@ Verified on Linux and WSL with Python 3.12; use `uv`.
 Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
 macOS is not verified.
 
-Directly from GitHub, install the CLI, MCP server and API together with the bundled documentation,
+From PyPI, install the CLI, MCP server, API and the built GUI together with the bundled documentation,
 examples and skills:
 
 ```bash
-uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
+uv tool install agencast
 ```
 
-To include the optional GUI, build and install from a clone. Building the GUI and running the sample
-filesystem MCP server via `npx` need Node.js `^20.19.0 || >=22.12.0` (verified with Node 24):
+The sample filesystem MCP server runs via `npx` and needs Node.js `^20.19.0 || >=22.12.0` (verified with Node 24).
+To develop AgenCast itself, install from a clone; building the GUI needs the same Node.js:
 
 ```bash
 git clone https://github.com/rychidesign/agencast
@@ -210,7 +210,7 @@ files checked by content, removed again after the run has started). On the lapto
 ```bash
 ssh box mkdir -p /home/me/agencast-inputs     # the directory must exist on box before the server starts
 claude mcp add --transport stdio agencast -- ssh -T box /home/me/.local/bin/agencast mcp --input-dir /home/me/agencast-inputs
-uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework" && agencast skills install
+uv tool install agencast && agencast skills install
 ```
 
 Then "here are the photos in ~/Desktop/ig, make an Instagram post with the scenario product-post" is enough —
@@ -285,8 +285,8 @@ OpenCode and OMP tools it finds; `--to all` selects all of them. More: [skills/]
 ## GUI and server
 
 The GUI is an optional interface for people to review and edit workflow files and inspect runs.
-Agents use MCP or the CLI to operate the same runtime. `agencast serve` serves the GUI when it has been
-built from a clone as described in [Installation](#installation).
+Agents use MCP or the CLI to operate the same runtime. `agencast serve` serves the GUI bundled with the
+package (in a clone, after the GUI build described in [Installation](#installation)).
 
 ![Reviewing and editing the ig-post workflow in the optional AgenCast GUI](docs/ui/screenshots/editor.png)
 
@@ -314,7 +314,7 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current runtime version is **0.19.1** (the 0.19.x line); the history of changes is in
+The current runtime version is **0.19.2** (the 0.19.x line); the history of changes is in
 the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 

@@ -1,0 +1,52 @@
+name: Release
+
+# Push a tag vX.Y.Z matching framework/pyproject.toml to publish the package with the built GUI to PyPI.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - name: Tag matches the package version
+        run: test "${GITHUB_REF_NAME#v}" = "$(grep -m1 '^version' framework/pyproject.toml | cut -d'"' -f2)"
+      - run: cd ui && npm ci && npm run build
+      - run: cd framework && uv build
+      - name: GUI is in the wheel
+        run: unzip -l framework/dist/*.whl | grep -q 'agencast/ui/index.html'
+      - env:
+          AGENCAST_CONFIG_DIR: ${{ runner.temp }}/cfg
+        run: |
+          uv venv "$RUNNER_TEMP/smoke" && uv pip install --python "$RUNNER_TEMP/smoke" framework/dist/*.whl
+          "$RUNNER_TEMP/smoke/bin/agencast" new project "$RUNNER_TEMP/demo" --example showcase
+          "$RUNNER_TEMP/smoke/bin/agencast" --project "$RUNNER_TEMP/demo" run ig-post -i topic=x --fake fake/ig-post.yaml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: framework/dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # PyPI Trusted Publishing; no token stored in the repository
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
