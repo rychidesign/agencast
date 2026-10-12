@@ -50,3 +50,27 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Notes from the changelog section of this version
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk -v v="## $V " 'index($0, v) == 1 {on=1; next} /^## / {on=0}
+            on { if ($0 ~ /^  +[^ -]/ && n) { sub(/^ +/, ""); line = line " " $0 } else { if (n) print line; line = $0; n = 1 } }
+            END { if (n) print line }' framework/CHANGELOG.md > notes.md
+          test -s notes.md
+          printf '\nFull list: [framework changelog](https://github.com/%s/blob/%s/framework/CHANGELOG.md).\n\n## Installation\n\n```bash\nuv tool install agencast==%s\n```\n' \
+            "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$V" >> notes.md
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "AgenCast ${GITHUB_REF_NAME#v}" --notes-file notes.md
