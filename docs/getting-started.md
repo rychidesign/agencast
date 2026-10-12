@@ -1,33 +1,70 @@
 # Getting started with AgenCast
 
+AgenCast lets your agent create, validate and run reusable workflows through MCP or the CLI, then read the
+results. Start with a prepared project and a run with scripted model answers. The project owner configures
+models, permissions and limits; the optional GUI helps people review and edit files and inspect runs.
+
+## Install the runtime
+
 Verified on Linux and WSL with Python 3.12; use `uv`.
 To build the GUI and to run the sample MCP server via `npx` you need Node.js
 `^20.19.0 || >=22.12.0` (per `ui/package.json`, verified with Node 24).
 Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
 macOS is not verified.
 
-The package contains the CLI, the API, the documentation, the skills and the examples.
-Install straight from GitHub (without the GUI):
+The package contains the CLI, the MCP server, the API, the documentation, the skills and the examples.
+Install straight from GitHub to operate workflows through your agent or a terminal:
 
 ```bash
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
 ```
 
-For the GUI, clone the repository and build the frontend with Node.js:
+For an installation that includes the GUI, use a clone as described under [Optional GUI](#optional-gui).
 
-```bash
-git clone https://github.com/rychidesign/agencast
-cd agencast
-(cd ui && npm install && npm run build)
-uv tool install --editable framework
-```
+## Prepare a project
 
 Create your own project with `agencast new project ~/my-project`.
 You get a skeleton with the agent `writer` and the scenario `demo`.
-For a finished example with deterministic responses, use:
+For a finished example with scripted responses, use:
 
 ```bash
 agencast new project ~/agencast-demo --example showcase
+cd ~/agencast-demo
+```
+
+## Connect your agent
+
+For Claude Code, connect the prepared project over MCP:
+
+```bash
+claude mcp add --transport stdio agencast -- \
+  agencast --project ~/agencast-demo mcp --allow edit --fake ~/agencast-demo/fake/ig-post.yaml
+```
+
+Then ask your agent:
+
+> Use AgenCast to find the ig-post scenario, validate it, check its plan and run it for the topic
+> "coffee" with fake_run. Return the outputs, model cost and run summary.
+
+The server uses the shipped fixture and exposes no live model run tool. The `ig-post` workflow has no
+MCP task or callback and can run offline; the coding agent's own usage is separate. Other clients can
+start the same `agencast` command over stdio. [Client configuration and remote servers](#use-from-an-mcp-client)
+are below.
+
+For a recurring task, ask your agent to read the guide with `get_guide("create")`, inspect the project with
+`describe_project`, then create and validate a scenario using the configured model aliases, agents and tools.
+`--allow edit` enables writing scenarios, agents and skills; the owner sets this level at server start.
+The MCP server never edits owner configuration, credentials or the project registry.
+Through the CLI, the bundled skills guide the same work.
+
+For a different workflow, use its own fixture or start the server with `--fake` alone. Placeholder answers
+may fail a workflow's conditions; prepared fixtures make its test results repeatable.
+
+## Check the workflow from the CLI
+
+The agent and a person can use the same commands to inspect the plan and exercise the flow:
+
+```bash
 cd ~/agencast-demo
 agencast validate ig-post --offline
 agencast run ig-post -i topic="new coffee" --dry-run --fake fake/ig-post.yaml
@@ -39,11 +76,17 @@ Without a fixture you can use `--fake` alone, but the made-up responses may not 
 the scenario's conditions. You can try the skeleton with `agencast run demo --fake`.
 
 `--fake` replaces only the model calls: no model cost and no OpenRouter key.
+It records simulated costs to exercise budget checks; these are not charges.
 A `task` step still starts the real MCP servers from `mcp.yaml`; the sample
 `filesystem` server uses `npx`, needs Node.js and downloads its package on first start.
 `--callback-url` sends a real callback (and needs its signing secret).
 Only scenarios without `task` (including in called scenarios)
 and without `--callback-url` are guaranteed to be offline, for example `ig-post`.
+
+## Use live models
+
+Models executing workflow steps currently use OpenRouter; the coding agent connected through MCP or using
+the CLI operates AgenCast itself. Its login does not supply the workflow's OpenRouter key.
 
 Only for a live run, copy `.env.example` to `.env` and fill in
 `OPENROUTER_API_KEY`. Never commit or print keys.
@@ -53,9 +96,20 @@ After checking the plan and the result of the fake run, start:
 agencast run ig-post -i topic="new coffee"
 ```
 
+For live runs through MCP, the owner also changes the server command to omit `--fake` and its fixture path.
+The server then exposes `run_scenario` in addition to `fake_run`.
+
+## Inspect and reuse the results
+
 The record is in `runs/<run_id>/summary.md`, the machine-readable result in `callback.json`,
 the report in `report.html`; exports are in `outputs/`. The CLI prints the exact paths.
 `agencast runs list` and `agencast runs show <run_id>` show the history.
+
+An agent can read outputs and records with `run_status` and `get_run_file` through MCP. Review the procedure
+and its result, then run the same scenario with new inputs. The workflow fixes the steps and branching rules;
+live model answers may vary.
+
+## Skills and reference
 
 Install the skills for Claude Code, Codex, OpenCode and OMP like this:
 
@@ -80,6 +134,18 @@ The [tutorials](tutorials/README.md) have seven parts; the formats are described
 the [scenario](spec/scenario.md), [agent](spec/agent.md) and
 [config](spec/config.md) specifications. Source code: [GitHub](https://github.com/rychidesign/agencast).
 
+## Optional GUI
+
+The GUI is a human interface for reviewing and editing workflow files and inspecting run records.
+For an installation that includes it, clone the repository and build the frontend with Node.js:
+
+```bash
+git clone https://github.com/rychidesign/agencast
+cd agencast
+(cd ui && npm install && npm run build)
+uv tool install --editable framework
+```
+
 `agencast serve` starts the API and the built GUI, if there is one. New projects are added
 to the registry for the GUI automatically. Expose the server and the GUI only on a private network;
 for registry mode set `AGENCAST_TOKEN`, for a single project `WEBHOOK_TOKEN`
@@ -92,7 +158,8 @@ runs and their results, and with `--allow edit` writing scenarios, agents and sk
 goes on in a process of its own when the client disconnects or the server restarts. Details:
 `agencast docs show spec/mcp-server.md` ([MCP server](spec/mcp-server.md)).
 
-Claude Code starts the server itself over stdio; `--fake` leaves out live runs, so nothing can cost money:
+Claude Code starts the server itself over stdio. To serve all registered projects with placeholder model
+answers, use the following command; MCP tools still run for real:
 
 ```bash
 claude mcp add --transport stdio agencast -- agencast mcp --fake

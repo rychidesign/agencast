@@ -1,6 +1,9 @@
 # AgenCast examples
 
-Each folder is a standalone project with its own `workflows/`, runs and outputs.
+Ready-made workflows your agent can run, inspect and adapt for recurring tasks through MCP or the CLI.
+Each folder is a standalone project with its own `workflows/`, runs and outputs. Use the shipped fixtures
+to check the flow before live model calls, then reuse the scenario with new inputs.
+
 - `showcase/`: a post for Lumen, a fictional small coffee roastery and café; images, `call` and an MCP book catalog.
 - `tutorial/`: solutions and exercises for the [tutorials](../docs/tutorials/).
 

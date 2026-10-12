@@ -8,12 +8,17 @@ The current version and the implementation status are in the [README](../README.
 
 ## 1. Goal
 
-A framework in which workflows with LLM agents are written in easily readable
-files (scenarios in YAML, agents in Markdown). The user is a beginner programmer:
-from the scenario file and from the run record they must understand what is
-going on. The framework's internals are of no interest to them. Models and Jev go through a single
-provider (OpenRouter). Runs on your own server or on a serverless host,
-triggered by a webhook (typically from an automation tool).
+A workflow runtime that lets AI agents create, validate, test and run repeatable
+procedures, then read their results. Scenarios are YAML; agents and skills are Markdown.
+The files preserve the procedure between conversations and can be versioned, shared and reviewed.
+
+The project owner configures models, tool permissions, secrets and limits. A coding agent
+operates the runtime through MCP or the CLI within those rules. People must be able to understand
+the procedure from its files and the outcome from its run record; the optional GUI helps them
+review, edit and inspect that same state.
+
+Models and Jev currently go through OpenRouter. Runs on your own server or on a serverless host;
+MCP, the CLI and webhooks provide the entry points. Scheduling and human approvals belong to the caller.
 
 Reference case: an Instagram post (copywriter → Jev check →
 image → draft for approval → publication).
@@ -24,12 +29,12 @@ image → draft for approval → publication).
 
 | # | Requirement |
 |---|---|
-| R1 | A workflow (scenario) is written in an easily readable file. |
-| R2 | The user understands what the workflow does from the scenario file **and** from the run record. The framework's internals are of no interest to them. |
+| R1 | A workflow (scenario) is written in an easily readable file that an agent can create and a person can review, version and reuse. |
+| R2 | Agents can validate and run workflows and read their results through MCP or the CLI. People understand the procedure from its files **and** the outcome from its run record; the GUI is an optional layer for viewing and editing the same state. |
 | R3 | Agents are defined centrally, each in its own file (model, instructions, MCP servers, skills, tools, limits). A scenario calls them by name. |
 | R4 | The provider is hard-wired to OpenRouter: LLM, Jev (System One API), image generation. |
 | R5 | Runs on your own server or on a serverless host; triggered by a webhook. Cron, events and approvals are handled by the caller (an automation tool) outside the framework. |
-| R6 | The framework is a tool the user does not touch. If it is your own, agents (workers) tune and develop it. |
+| R6 | The runtime is a tool for agents; people set its rules and inspect the results. Workflow authors work through files and public interfaces without needing to change the runtime's internals. |
 | R7 | Updating the framework or its dependencies must not require changes to agents and scenarios. The formats are ours, versioned. |
 | R8 | **Existing scenarios and agents must not fall apart when the framework is improved.** For the compatibility rules see §5.9. (Added 2026-09-25 when spec v1 was approved.) |
 

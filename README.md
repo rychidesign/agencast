@@ -2,54 +2,90 @@
 
 [![CI](https://github.com/rychidesign/agencast/actions/workflows/ci.yml/badge.svg)](https://github.com/rychidesign/agencast/actions/workflows/ci.yml)
 
-AgenCast is an open-source framework for defining and running LLM-agent workflows. Scenarios use YAML, agents use Markdown, and each run leaves a readable record.
+**Turn agent tasks into repeatable workflows.**
 
-AgenCast is for developers and teams who want to compose repeatable LLM-agent tasks from files that can be read, versioned and reviewed. A scenario describes the flow of work; an agent describes its role and tools.
+AgenCast is an open-source workflow runtime for AI agents. Let your agent write, validate and run reusable
+LLM workflows through MCP or the CLI, then inspect the results of every run.
+
+It is for people and small teams who already use AI agents and want to reuse a working procedure with new
+inputs. Scenarios are YAML; agents and skills are Markdown. These files keep the procedure between
+conversations, so it can be shared, versioned and reviewed.
+
+The project owner sets the models, tool permissions and limits. The optional GUI helps people review and
+edit the same files and inspect run records.
 
 ## Why AgenCast
 
-- **Workflows are files, not code.** A scenario is YAML and an agent is Markdown. There is no graph to assemble
-  in a programming language and no classes to subclass, so a workflow can be read in a minute, reviewed in a pull
-  request and written by a coding agent.
-- **The flow is explicit.** The scenario fixes the steps, branches and calls; the model works inside a step and
-  never invents the route. You can read every possible path before anything runs.
-- **Check before you pay.** `validate` finds mistakes without calling a model, `--dry-run` prints the plan and
-  `--fake` runs the whole scenario with scripted answers — no key, no cost. The same fixtures serve as regression tests.
-- **Every run explains itself.** The run folder keeps each prompt and response, a timeline, the cost of every
-  step, `summary.md` and a standalone `report.html`. No tracing service and no account are needed.
-- **Costs have hard limits.** Budgets per step, per run and per day, a separate cap for images and a timeout on
-  every step. A limit that is hit stops the run with a named error class; nothing fails silently.
-- **Permissions belong to the owner.** Which tools and servers an agent may use is decided in the project owner's
-  files; a scenario can only narrow them. Secrets are referenced by variable name and masked in every record.
-- **Any model, one line to switch.** Agents refer to aliases; `config.yaml` maps them to models. Changing a model
-  touches one line and no scenario.
-- **Made to sit behind automation.** A token-protected webhook, signed callbacks, idempotent requests and
-  protection against repeating a step with a side effect. No web framework of its own and no database: the files are the state,
-  and the GUI is only a view of them.
-
-AgenCast is deliberately small. It runs workflows you can describe step by step; it is not a library for
-free-form conversations between agents written in code.
+- **Your agent can operate the whole cycle.** Through MCP it can discover scenarios, read the guide, validate
+  drafts, write agents and workflows with `--allow edit`, start runs and read their results. The CLI and
+  bundled skills support the same work from a terminal.
+- **Keep the procedure for the next task.** A scenario makes the steps, branches and calls explicit. Models
+  work inside those steps; you can review the procedure and reuse it with new inputs. Live model answers may vary.
+- **Check the flow before live model calls.** `validate` checks the files, `--dry-run` shows the plan and
+  `--fake` exercises the workflow with scripted model answers. Fixtures also serve as regression tests.
+  Fake runs make no paid model calls and record simulated costs for testing; MCP tools and callbacks still run for real.
+- **Understand every run.** The run folder keeps prompts, responses, tool calls, errors, a timeline and model
+  costs, plus `summary.md` and a standalone `report.html`. Agents can read the results through MCP; people
+  can inspect the files or use the GUI.
+- **The owner sets the boundaries.** Tool permissions, model aliases, spending checks and timeouts belong to
+  the project owner; a scenario can only narrow an agent's permissions and limits. Step and run budget checks
+  prevent new model calls once the limit is reached, but an in-flight call can finish over budget — one per parallel
+  branch. See [budget behavior](docs/spec/scenario.md#budget). Secrets are referenced by name and masked in records.
+- **Fit into existing automation.** MCP, the CLI and a webhook API with signed callbacks let an agent or an
+  automation tool start work and collect results. Workflow files and run folders hold the state; the GUI
+  provides a human view of it.
 
 ## Quick start
 
 Tested on Linux/WSL with Python 3.12 and `uv`; native Windows is unsupported, macOS untested.
-GUI builds and example MCP servers need Node `^20.19.0 || >=22.12.0` (tested: 24).
+The example below needs no workflow model key and makes no workflow model calls.
 
 ```bash
 uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
-agencast new project ~/demo --example showcase
-cd ~/demo
+agencast new project ~/agencast-demo --example showcase
+cd ~/agencast-demo
+```
+
+For Claude Code, connect the prepared project over MCP:
+
+```bash
+claude mcp add --transport stdio agencast -- \
+  agencast --project ~/agencast-demo mcp --allow edit --fake ~/agencast-demo/fake/ig-post.yaml
+```
+
+Then ask your agent:
+
+> Use AgenCast to find the ig-post scenario, validate it, check its plan and run it for the topic
+> "coffee" with fake_run. Return the outputs, model cost and run summary.
+
+The server allows workflow editing and uses the shipped fixture for the example. It exposes no live model
+run tool. The example's `ig-post` workflow has no MCP task or callback, so it runs offline. Your coding
+agent's own usage is separate from the workflow's model cost.
+
+The fake run records simulated model costs to exercise budget checks; these are not charges.
+
+Other MCP clients can start the same `agencast` command over stdio.
+[Client configuration and remote servers](#use-from-an-mcp-client) are below;
+[the getting started guide](docs/getting-started.md) covers creation, permissions and live runs.
+
+You can also check and run the same workflow from a terminal:
+
+```bash
+cd ~/agencast-demo
+agencast validate ig-post --offline
+agencast run ig-post -i topic="coffee" --dry-run --fake fake/ig-post.yaml
 agencast run ig-post -i topic="coffee" --fake fake/ig-post.yaml
 ```
 
-This example needs no model key or payment; `--fake` still uses real MCP servers and callbacks.
-Offline runs require no `task` steps (including called scenarios) and no `--callback-url`, as above.
-The GUI is English by default with a Czech translation. Deploy the GUI only on a private network.
-The command above installs the CLI/API; build the GUI from a clone as described below.
+To let a coding agent work through the CLI, install the bundled skills with `agencast skills install`.
+For your own recurring task, have the agent create a scenario, validate it and test the flow before a live
+run. Models executing workflow steps currently use OpenRouter; the connected coding agent operates the runtime.
 
 ## What it does
 
 - Scenarios in YAML, agents and skills in Markdown.
+- MCP and CLI interfaces for creating, checking and running workflows and reading results.
+- Model aliases configured by the owner, with workflow model calls through OpenRouter.
 - Ten step types: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail` and `output`.
 - `task` calls permitted MCP tools; `parallel`, `switch` and `call` compose branches and scenarios.
 - Images as inputs: `file` and `files` inputs (PNG, JPEG, WebP, GIF, AVIF) come from the CLI, the API, the GUI or an MCP
@@ -59,22 +95,26 @@ The command above installs the CLI/API; build the GUI from a clone as described 
   the API and the GUI cannot change them.
 - A fake provider replaces model calls with no cost and no key; MCP and callbacks stay real.
 - Every run stores `summary.md`, `callback.json` and a standalone `report.html`.
-- `agencast serve` accepts webhooks and offers a GUI for registered projects.
+- `agencast serve` accepts webhooks and can serve the optional GUI for registered projects.
 - `agencast mcp` is an MCP server: Claude Code, Claude Desktop, Open WebUI or another agent can list, run and
   build scenarios through it.
 - Skills for coding agents help both run and create scenarios.
 
-![The ig-post scenario editor in the AgenCast GUI](docs/ui/screenshots/editor.png)
-
 ## Installation
 
 Verified on Linux and WSL with Python 3.12; use `uv`.
-To build the GUI and run the example MCP server via `npx` you need Node.js
-`^20.19.0 || >=22.12.0` (per `ui/package.json`, verified with Node 24).
 Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
 macOS is not verified.
 
-From a clone of the repository, including the GUI:
+Directly from GitHub, install the CLI, MCP server and API together with the bundled documentation,
+examples and skills:
+
+```bash
+uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
+```
+
+To include the optional GUI, build and install from a clone. Building the GUI and running the sample
+filesystem MCP server via `npx` need Node.js `^20.19.0 || >=22.12.0` (verified with Node 24):
 
 ```bash
 git clone https://github.com/rychidesign/agencast
@@ -82,15 +122,6 @@ cd agencast
 (cd ui && npm install && npm run build)   # builds the GUI into the package
 uv tool install --editable framework
 ```
-
-Directly from GitHub without a clone, only the `agencast` command and the server
-with the API are installed, without the GUI:
-
-```bash
-uv tool install "git+https://github.com/rychidesign/agencast#subdirectory=framework"
-```
-
-Examples, tutorials, documentation and skills are bundled even without a clone.
 
 ## Getting started
 
@@ -133,7 +164,7 @@ Claude Code starts the server itself (stdio):
 
 ```bash
 claude mcp add --transport stdio agencast -- agencast mcp           # dry, fake and live runs (--allow run)
-claude mcp add --transport stdio agencast -- agencast mcp --fake    # no live runs: nothing can cost money
+claude mcp add --transport stdio agencast -- agencast mcp --fake    # no live model calls; MCP tools stay real
 ```
 
 In a client that renders MCP Apps (Claude Desktop; Codex Desktop implements the extension too), starting a run also shows a **run card** in the
@@ -247,11 +278,17 @@ OpenCode and OMP tools it finds; `--to all` selects all of them. More: [skills/]
 - [Format specification](docs/spec/)
 - [Tutorials](docs/tutorials/)
 - [Framework design](docs/DESIGN.md)
-- [Framework README](framework/README.md)
+- [Runtime reference](framework/README.md)
 - [GUI README](ui/README.md)
 - [Skills for coding agents](skills/)
 
 ## GUI and server
+
+The GUI is an optional interface for people to review and edit workflow files and inspect runs.
+Agents use MCP or the CLI to operate the same runtime. `agencast serve` serves the GUI when it has been
+built from a clone as described in [Installation](#installation).
+
+![Reviewing and editing the ig-post workflow in the optional AgenCast GUI](docs/ui/screenshots/editor.png)
 
 `agencast serve` can run in project registry mode. On the host, set
 `AGENCAST_TOKEN`, `AGENCAST_HOST` and `AGENCAST_PORT` in
@@ -277,7 +314,7 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current framework version is **0.19.1** (the 0.19.x line); the history of changes is in
+The current runtime version is **0.19.1** (the 0.19.x line); the history of changes is in
 the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 

@@ -1,4 +1,9 @@
-# AgenCast framework
+# AgenCast runtime
+
+AgenCast is a workflow runtime for AI agents: create a reusable procedure, validate and test its flow,
+run it with new inputs and inspect the results. Agents operate it through MCP or the CLI; the optional GUI
+helps people review and edit the same workflow files and inspect run records.
+Live workflow model calls use OpenRouter.
 
 Version 0.19.1, Python 3.12 + uv. Formats per `docs/spec/` (v1), design
 in `docs/DESIGN.md`. The package and the command are both called `agencast` (until 0.2.5

@@ -1,7 +1,7 @@
 [project]
 name = "agencast"
 version = "0.19.1"
-description = "AgenCast — scenarios with LLM agents: YAML scenarios, Markdown agents, models via OpenRouter"
+description = "AgenCast — repeatable workflows for AI agents, with MCP, CLI, validation and readable run records"
 readme = "README.md"
 license = "WTFPL"
 license-files = ["LICENSE"]

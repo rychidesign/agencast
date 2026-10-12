@@ -1,6 +1,8 @@
 # ui — AgenCast GUI
 
-A thin shell over the `agencast serve` HTTP API (`docs/spec/api.md`), design in `docs/ui/gui-design.md`.
+An optional human interface for reviewing and editing AgenCast workflow files and inspecting run records.
+Agents operate the runtime through MCP or the CLI; the GUI shows and edits the same state through the
+`agencast serve` HTTP API (`docs/spec/api.md`), design in `docs/ui/gui-design.md`.
 React 18 + Vite + TypeScript + Tailwind; it parses and validates nothing itself.
 
 - **Editing (part 2, API 0.10.0):** the file is the source of truth, no autosave. Form mode holds the
