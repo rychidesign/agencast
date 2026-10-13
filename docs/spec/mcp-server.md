@@ -214,6 +214,62 @@ systemctl --user kill agencast-mcp        # stop the server and every run of the
 Why `KillMode=process` and what the default does: [Under systemd](#under-systemd). Do
 not set `PrivateTmp=yes` ([File inputs](#file-inputs)).
 
+### As a launchd agent (macOS)
+
+The same server on a Mac, with the same `mcp.env` and its rules. launchd has no
+`EnvironmentFile`: the agent's shell reads the file and then becomes the server (`exec`).
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- ~/Library/LaunchAgents/agencast-mcp.plist -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>agencast-mcp</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>set -a; . "$HOME/.config/agencast/mcp.env"; exec "$HOME/.local/bin/agencast" mcp --http --allow run 2>>"$HOME/Library/Logs/agencast-mcp.log"</string>
+  </array>
+  <!-- launchd starts jobs with /usr/bin:/bin:/usr/sbin:/sbin; MCP servers from mcp.yaml
+       (npx) need Homebrew's directories too -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <!-- a crash or a failed start (an address that does not exist yet) starts the server
+       again, at most every 5 s; only bootout stops it for good -->
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+</dict>
+</plist>
+```
+
+```bash
+(umask 077; mkdir -p ~/.config/agencast && printf 'AGENCAST_MCP_TOKEN=%s\n' "$(openssl rand -hex 32)" > ~/.config/agencast/mcp.env)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/agencast-mcp.plist  # start now and at every login
+launchctl kickstart -k gui/$(id -u)/agencast-mcp  # a new server; runs in flight go on
+launchctl bootout gui/$(id -u)/agencast-mcp       # stop the server; runs in flight go on
+pkill -f -- --mcp-job                             # stop every run of your AgenCast MCP servers (the runs end interrupted)
+tail -f ~/Library/Logs/agencast-mcp.log           # the server's log
+```
+
+`kickstart -k` does not read the plist again: after an edit, `bootout` and then
+`bootstrap`. Behind `tailscale serve`, add `--allow-host` to the `agencast` command in the
+plist. A LaunchAgent lives in the owner's login session: it starts at login and stops at
+logout, and `gui/$(id -u)` exists only while that user is logged in at the Mac — also for
+`launchctl` over ssh. A Mac that serves with nobody at it needs automatic login (System
+Settings → Users & Groups). Why runs go on without a setting: [Under launchd](#under-launchd).
+The GUI server runs the same way under a label of its own, with `serve.env` and
+`agencast serve`.
+
 ## Permission levels
 
 Chosen by the owner at start with `--allow`; each level contains the previous one. A
@@ -1102,7 +1158,7 @@ result.
 | SIGTERM / SIGINT to the server | ends killed by the signal (143 / 130 in a shell) | continue | cancelled as a signal cancels `agencast run --dry-run`: MCP servers stopped (`engine.stop_runs`, at most 15 s), no plan, copies of file inputs removed |
 | the client kills the server's process group (SIGKILL) | killed | continue — they are in sessions of their own | killed; their MCP servers usually end on stdin EOF |
 | HTTP: a client disconnects | nothing | continue | the call finishes in the server |
-| HTTP: the server stops (SIGTERM, `systemctl stop`) | stops accepting, up to 5 s for requests in flight, ends killed by SIGTERM | continue; under systemd only with `KillMode=process` ([Under systemd](#under-systemd)) | cancelled |
+| HTTP: the server stops (SIGTERM, `systemctl stop`) | stops accepting, up to 5 s for requests in flight, ends killed by SIGTERM | continue; under systemd only with `KillMode=process` ([Under systemd](#under-systemd)), under launchd always ([Under launchd](#under-launchd)) | cancelled |
 
 - A tool call in flight at that moment may get no answer (over HTTP: one still in flight
   after those 5 s). A run whose worker was already started has started: find it with
@@ -1148,6 +1204,15 @@ stop). The example unit sets `KillMode=process`; `systemctl --user kill agencast
 sends SIGTERM to every process of the unit — the server and every run (the runs end
 `interrupted`; the unit ends inactive and is not restarted). With lingering
 (`loginctl enable-linger`) the service and its workers outlive the owner's logins.
+
+### Under launchd
+
+When a LaunchAgent stops or restarts (`bootout`, `kickstart -k`, a crash), launchd ends
+the server and then kills what is left of its process group. Workers run in sessions of
+their own, outside that group, so **runs in flight go on** without a setting like
+systemd's `KillMode=process`; the MCP slots those workers hold still count for the next
+server. To stop the runs too, signal their workers: `pkill -f -- --mcp-job` ends every
+worker of the user, also those of stdio servers that clients started.
 
 ### After the server restarts
 

@@ -238,6 +238,10 @@ loginctl enable-linger "$USER"     # the service and its runs outlive your login
 tailscale serve --bg 8765          # https://box.<tailnet>.ts.net/mcp; the server needs --allow-host box.<tailnet>.ts.net
 ```
 
+On macOS the same server runs as a launchd agent with the same `mcp.env`
+(`~/Library/LaunchAgents/agencast-mcp.plist`): the plist and its `launchctl` commands are in
+[spec/mcp-server.md](spec/mcp-server.md#as-a-launchd-agent-macos).
+
 Expose it only on a private network — it speaks plain HTTP: keep `127.0.0.1` and publish it with
 `tailscale serve`, never `tailscale funnel`. `--fake` stops model spending, but `task` steps still start their
 MCP servers; only `--allow read` starts nothing. A run stops only when its own process does: a signal to it, or

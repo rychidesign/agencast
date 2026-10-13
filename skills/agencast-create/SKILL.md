@@ -150,7 +150,7 @@ and without `--callback-url` are guaranteed to run offline, for example `ig-post
 
 ## GUI and registry
 
-The web GUI (`agencast serve` in registry mode, typically a systemd service)
+The web GUI (`agencast serve` in registry mode, typically a systemd service, on macOS a launchd agent)
 edits the same files and shows **registered projects only**
 (`~/.config/agencast/projects.yaml`, `agencast projects list`). `new project`
 registers; an existing folder: `agencast projects add <root> [--name <name>]`;
