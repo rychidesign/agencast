@@ -37,7 +37,7 @@ edit the same files and inspect run records.
 
 ## Quick start
 
-Tested on Linux/WSL with Python 3.12 and `uv`; native Windows is unsupported, macOS untested.
+Tested on Linux, macOS and WSL with Python 3.12 and `uv`; native Windows is unsupported.
 The example below needs no workflow model key and makes no workflow model calls.
 
 ```bash
@@ -102,9 +102,8 @@ run. Models executing workflow steps currently use OpenRouter; the connected cod
 
 ## Installation
 
-Verified on Linux and WSL with Python 3.12; use `uv`.
-Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
-macOS is not verified.
+Verified on Linux, macOS and WSL with Python 3.12; use `uv`.
+Native Windows is not supported (`fcntl` in `projects.py` and `task.py`).
 
 From PyPI, install the CLI, MCP server, API and the built GUI together with the bundled documentation,
 examples and skills:
