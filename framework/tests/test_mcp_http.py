@@ -21,7 +21,7 @@ from mcp.client.streamable_http import streamable_http_client
 
 from agencast import api
 from agencast.cli import main
-from conftest import FAKE_MCP
+from conftest import FAKE_MCP, needs_proc
 from test_mcp_workers import (cleanup, copies, env_for, free_port, pictures, root, server, slow_script,  # noqa: F401
                               until, worker_pids)
 from test_task import setup
@@ -232,6 +232,7 @@ def test_http_allow_host_and_levels(root, registry, cleanup):
     assert s.stop() == -signal.SIGTERM
 
 
+@needs_proc
 def test_http_restarts_and_runs(root, registry, cleanup):
     """A slow fake run: the token reaches no worker, waits do not block each other, one SDK session (both modes)
     outlives restarts of the server on the same port, the run outlives them too, and the listener is free at once

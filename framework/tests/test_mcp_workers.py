@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from conftest import FAKE_MCP
+from conftest import FAKE_MCP, needs_proc
 from test_task import setup
 
 from agencast.cli import main
@@ -207,6 +207,7 @@ def queue_lock(root):
     return fd
 
 
+@needs_proc
 def test_worker_shape_disconnect_and_kill(root, registry, cleanup):
     """Checks 1–3: sealed worker command/environment, EOF and SIGKILL server survival."""
     secret, script = "sk-test-0123456789abcdef", slow_script(root)
@@ -265,8 +266,8 @@ def test_server_signals_worker_interrupt_and_reaping(root, registry, cleanup):
     quick = run(new, cleanup)
     assert wait_done(new, quick["run_id"], timeout=8)["state"] == "succeeded"
     time.sleep(1)
-    ps = subprocess.run(["ps", "--ppid", str(new.p.pid), "-o", "stat="], text=True, capture_output=True).stdout
-    assert "Z" not in ps
+    ps = subprocess.run(["ps", "-e", "-o", "ppid=,stat="], text=True, capture_output=True, check=True).stdout  # BSD ps too
+    assert not [stat for ppid, stat in map(str.split, ps.splitlines()) if ppid == str(new.p.pid) and "Z" in stat]
     def free():
         for path in slots(root).glob("*.lock"):
             fd = os.open(path, os.O_RDWR | os.O_CREAT)
@@ -280,6 +281,7 @@ def test_server_signals_worker_interrupt_and_reaping(root, registry, cleanup):
     assert until(free, 2)
 
 
+@needs_proc
 def test_registry_environment_isolation(root, registry, cleanup, tmp_path):
     """Checks 7–8: a registry server never lends A's .env to B's worker or live run."""
     a, b = root, tmp_path / "beta"
@@ -354,6 +356,7 @@ def test_mcp_cap_and_queued_restart(root, registry, cleanup):
     assert wait_done(after, queued["run_id"])["state"] == "succeeded"
 
 
+@needs_proc
 def test_queued_worker_stopped_and_coexistence(root, registry, cleanup):
     """Checks 11 and 13: a stopped queued worker is local failure; existing serve files are read-only."""
     script = slow_script(root)
@@ -493,6 +496,7 @@ def copies(tmp):
     return sorted(p.name for p in tmp.glob("agencast-mcp-*"))
 
 
+@needs_proc
 def test_file_input_staging_and_a_copy_that_outlives_the_server(root, registry, cleanup, tmp_path):
     """No false `interrupted` while a 9 MB image is staged; a queued run keeps the bytes read at the call after the
     source changed and the server was killed; neither path is on the worker's command line; the worker removes
@@ -532,6 +536,7 @@ def test_file_input_staging_and_a_copy_that_outlives_the_server(root, registry, 
     assert copies(tmp) == []
 
 
+@needs_proc
 def test_file_input_copy_of_a_stopped_worker(root, registry, cleanup, tmp_path):
     """A worker stopped while it waits for a slot exits 143 and removes its copy; one killed while it starts
     leaves none either — the server's reaper removes it — and did not start."""
