@@ -21,6 +21,8 @@ REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / "examples" / "showcase" / "workflows"
 TUTORIAL = REPO / "examples" / "tutorial" / "workflows"
 FAKE_MCP = Path(__file__).resolve().parent / "fake_mcp_server.py"
+# Tests that read another process's command line, environment or stderr from /proc; macOS has none, Linux CI runs them.
+needs_proc = pytest.mark.skipif(not Path("/proc/self/environ").exists(), reason="reads another process from /proc")
 TOKEN, SECRET = "token-webhook-123", "callback-signature-456"  # webhook and server in registry mode
 
 # Test config: aliases (models) come from examples/showcase/workflows/config.yaml — golden_config().

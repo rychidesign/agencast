@@ -4,7 +4,10 @@ over streamable HTTP, raw requests use httpx2 (both ship with the SDK). Every pr
 end (`cleanup`)."""
 import json
 import os
+import plistlib
+import re
 import secrets
+import shlex
 import shutil
 import signal
 import socket
@@ -12,6 +15,7 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 import anyio
 import httpx2
@@ -21,7 +25,7 @@ from mcp.client.streamable_http import streamable_http_client
 
 from agencast import api
 from agencast.cli import main
-from conftest import FAKE_MCP
+from conftest import FAKE_MCP, needs_proc
 from test_mcp_workers import (cleanup, copies, env_for, free_port, pictures, root, server, slow_script,  # noqa: F401
                               until, worker_pids)
 from test_task import setup
@@ -232,6 +236,7 @@ def test_http_allow_host_and_levels(root, registry, cleanup):
     assert s.stop() == -signal.SIGTERM
 
 
+@needs_proc
 def test_http_restarts_and_runs(root, registry, cleanup):
     """A slow fake run: the token reaches no worker, waits do not block each other, one SDK session (both modes)
     outlives restarts of the server on the same port, the run outlives them too, and the listener is free at once
@@ -353,6 +358,19 @@ def state(root, run_id):
     return info and info["state"]
 
 
+def slow_fake_run(root, cleanup, url, token):
+    """A `fake_run` of the slow demo through the server at `url`; returns its run_id once it runs."""
+    async def go():
+        async with Client(streamable_http_client(url, http_client=httpx2.AsyncClient(
+                headers={"Authorization": f"Bearer {token}"}, timeout=30)), mode="legacy") as c:
+            r = await c.call_tool("fake_run", {"project": "lumen", "scenario": "demo", "inputs": {"topic": "t"}})
+            return r.structured_content["run_id"]
+    run_id = anyio.run(go)
+    cleanup.run_ids.append(run_id)
+    until(lambda: state(root, run_id) == "running", 10)
+    return run_id
+
+
 @pytest.mark.skipif(not user_systemd(), reason="no systemd user manager (systemctl --user)")
 def test_systemd_units(root, registry, cleanup):
     """Transient user units as the documented service: KillMode=process keeps runs over a restart, the default
@@ -371,15 +389,7 @@ def test_systemd_units(root, registry, cleanup):
         return unit, url
 
     def slow_run(url):
-        async def go():
-            async with Client(streamable_http_client(url, http_client=httpx2.AsyncClient(
-                    headers={"Authorization": f"Bearer {token}"}, timeout=30)), mode="legacy") as c:
-                r = await c.call_tool("fake_run", {"project": "lumen", "scenario": "demo", "inputs": {"topic": "t"}})
-                return r.structured_content["run_id"]
-        run_id = anyio.run(go)
-        run_ids.append(run_id)
-        cleanup.run_ids.append(run_id)
-        until(lambda: state(root, run_id) == "running", 10)
+        run_ids.append(run_id := slow_fake_run(root, cleanup, url, token))
         return run_id
 
     try:
@@ -409,5 +419,63 @@ def test_systemd_units(root, registry, cleanup):
             systemctl("kill", unit)
             systemctl("stop", unit)
             systemctl("reset-failed", unit)
+        for run_id in run_ids:
+            until(lambda: not worker_pids(run_id), 10)
+
+
+# --- launchd (macOS, while this user is logged in at the Mac) -------------------------------------------------------
+
+def launchctl(*args, check=False):
+    return subprocess.run(["launchctl", *args], capture_output=True, text=True, check=check, timeout=30)
+
+
+def gui_domain() -> str | None:
+    domain = f"gui/{os.getuid()}"
+    return domain if sys.platform == "darwin" and launchctl("print", domain).returncode == 0 else None
+
+
+def agent_pid(target) -> int | None:
+    found = re.search(r"^\s*pid = (\d+)$", launchctl("print", target).stdout, re.M)
+    return found and int(found[1])
+
+
+@pytest.mark.skipif(not gui_domain(), reason="no launchd gui domain (macOS login session)")
+def test_launchd_agent(root, registry, cleanup, tmp_path):
+    """The LaunchAgent of mcp-server.md as written, in a home of its own whose `agencast` adds this project and the
+    slow fake: kickstart -k and bootout leave the runs in flight going, KeepAlive starts a killed server again,
+    bootout stops it for good."""
+    spec = (Path(__file__).resolve().parents[2] / "docs" / "spec" / "mcp-server.md").read_text()
+    agent = plistlib.loads(re.search(r"```xml\n(.*?)```", spec, re.S)[1].encode())
+    script, token, port, domain = slow_script(root), secrets.token_hex(32), free_port(), gui_domain()
+    home, label, run_ids = tmp_path / "home", f"agencast-mcp-test-{secrets.token_hex(4)}", []
+    for d in (".config/agencast", ".local/bin", "Library/Logs"):
+        (home / d).mkdir(parents=True)
+    (home / ".config/agencast/mcp.env").write_text(f"AGENCAST_MCP_TOKEN={token}\nAGENCAST_MCP_PORT={port}\n")
+    exe = home / ".local/bin/agencast"
+    exe.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} -m agencast.cli --project {shlex.quote(str(root))} "
+                   f'"$@" --fake {shlex.quote(str(script))}\n')
+    exe.chmod(0o755)
+    plist, target, url = tmp_path / f"{label}.plist", f"{domain}/{label}", f"http://127.0.0.1:{port}/mcp"
+    plist.write_bytes(plistlib.dumps(agent | {"Label": label, "EnvironmentVariables": agent["EnvironmentVariables"] | {
+        "HOME": str(home), "AGENCAST_CONFIG_DIR": str(registry.parent)}}))
+    try:
+        launchctl("bootstrap", domain, str(plist), check=True)
+        until(lambda: listening(port), 15)
+        run_ids.append(run_id := slow_fake_run(root, cleanup, url, token))
+        launchctl("kickstart", "-k", target, check=True)  # (1) restart: the run goes on
+        until(lambda: state(root, run_id) == "succeeded", 15)
+        until(lambda: listening(port), 15)
+        pid = agent_pid(target)
+        launchctl("kill", "9", target, check=True)  # (2) a crash: KeepAlive starts a new server
+        until(lambda: agent_pid(target) not in (None, pid), 15)
+        until(lambda: listening(port), 15)
+        run_ids.append(run_id := slow_fake_run(root, cleanup, url, token))
+        launchctl("bootout", target, check=True)  # (3) stop: the run goes on, the server stays stopped
+        until(lambda: state(root, run_id) == "succeeded", 15)
+        time.sleep(6)  # ThrottleInterval is 5 s: a restart would have happened by now
+        assert not listening(port) and launchctl("print", target).returncode != 0
+        assert "Traceback" not in (home / "Library/Logs/agencast-mcp.log").read_text()
+    finally:
+        launchctl("bootout", target)
         for run_id in run_ids:
             until(lambda: not worker_pids(run_id), 10)

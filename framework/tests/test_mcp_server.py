@@ -25,7 +25,7 @@ import pytest
 import yaml
 from mcp import Client, StdioServerParameters
 
-from conftest import golden_config, mcp_leftovers
+from conftest import golden_config, mcp_leftovers, needs_proc
 from test_mcp_http import Http
 from test_mcp_workers import cleanup, until  # noqa: F401 (a fixture)
 from test_owner_only import marked
@@ -753,13 +753,13 @@ def test_file_inputs_are_scoped_and_cleaned(root, tmp_path, monkeypatch):
     locked = pictures / "locked.png"
     locked.write_bytes(png(4, 3))
     locked.chmod(0)
-    for path, why in ((f"{pictures}/a\0.png", "embedded null byte"), (f"/a\0/{pictures}", "embedded null byte"),
+    for path, why in ((f"{pictures}/a\0.png", "embedded null"), (f"/a\0/{pictures}", "embedded null"),  # byte or character
                       (f"{pictures}/{'x' * 300}.png", "File name too long"),
                       *[(str(locked), "Permission denied")] * (not os.access(locked, os.R_OK))):  # root reads it
         for tool in ("fake_run", "dry_run"):  # the file system's refusal is `config` too, not internal
             text = err(fake_run(server, path, tool))
             assert text.startswith(f"Error executing tool {tool}: config: ") and \
-                f"- input 'photo': file {path} cannot be read ({why})" in text, text
+                f"- input 'photo': file {path} cannot be read (" in text and why in text, text
     assert ok(fake_run(server, str(photo), "dry_run"))["state"] == "dry_run"
     slots, locks = root / "runs" / "_mcp-slots", []
     try:
@@ -932,6 +932,7 @@ def test_write_keeps_running_snapshot(root, tmp_path):
     assert (root / "runs" / run_id / "scenario" / "demo.yaml").read_text() == old
 
 
+@needs_proc
 def test_write_keeps_queued_snapshot(root):
     """The worker's loaded text, not a later edit while it waits for an engine slot, is snapshotted."""
     config = root / "workflows" / "config.yaml"
@@ -1219,6 +1220,7 @@ sys.exit(main())
 """
 
 
+@needs_proc
 def test_secret_sweep(root, registry, cleanup):
     """With a key in the project's .env (pasted into an agent, sent as an input, quoted by a failing run and by an
     `internal` error) and a token for --http: no tool result of a whole session, no line of the server's stderr and

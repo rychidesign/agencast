@@ -5,6 +5,16 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
+## 0.19.4 — 2026-10-14 (macOS)
+
+- Verified on macOS: CI runs the Python tests and the wheel smoke test on `macos-latest` as well as Ubuntu. Tests
+  that read another process from `/proc` run on Linux only; the zombie check uses `ps` options that BSD `ps`
+  understands, and the refusal of a path with a NUL byte is checked without one interpreter's wording.
+- `docs/spec/mcp-server.md` describes the MCP server as a launchd agent on macOS next to the systemd unit (the same
+  `mcp.env`, read by the agent's shell; Homebrew's `PATH` for `npx`; `KeepAlive`), and "Under launchd": workers
+  live in sessions of their own, so `bootout` and `kickstart -k` leave the runs in flight going. README,
+  getting-started and the skills point to it; `test_launchd_agent` runs the documented plist on macOS.
+
 ## 0.19.3 — 2026-10-12 (update instructions)
 
 - The `agencast-run` skill has an "Install and update" section: install from PyPI, check the installed version,

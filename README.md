@@ -37,7 +37,7 @@ edit the same files and inspect run records.
 
 ## Quick start
 
-Tested on Linux/WSL with Python 3.12 and `uv`; native Windows is unsupported, macOS untested.
+Tested on Linux, macOS and WSL with Python 3.12 and `uv`; native Windows is unsupported.
 The example below needs no workflow model key and makes no workflow model calls.
 
 ```bash
@@ -102,9 +102,8 @@ run. Models executing workflow steps currently use OpenRouter; the connected cod
 
 ## Installation
 
-Verified on Linux and WSL with Python 3.12; use `uv`.
-Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
-macOS is not verified.
+Verified on Linux, macOS and WSL with Python 3.12; use `uv`.
+Native Windows is not supported (`fcntl` in `projects.py` and `task.py`).
 
 From PyPI, install the CLI, MCP server, API and the built GUI together with the bundled documentation,
 examples and skills:
@@ -254,6 +253,10 @@ tailscale serve --bg 8765                       # https://box.<tailnet>.ts.net/m
 Behind `tailscale serve` add `--allow-host box.<tailnet>.ts.net` to `ExecStart` (the name clients use; without it
 they get 421), and point `.mcp.json` at `https://box.<tailnet>.ts.net/mcp`.
 
+On macOS the same server runs as a launchd agent with the same `mcp.env`
+(`~/Library/LaunchAgents/agencast-mcp.plist`): the plist and its `launchctl` commands are in
+[docs/spec/mcp-server.md](docs/spec/mcp-server.md#as-a-launchd-agent-macos).
+
 Expose the server only on a private network: it speaks plain HTTP, so keep `127.0.0.1` and publish it with
 `tailscale serve` (never `tailscale funnel`). Whoever has the token has the server's level; `--fake` stops model
 spending but `task` steps still start their MCP servers — only `--allow read` starts nothing. Runs end only when
@@ -294,7 +297,7 @@ package (in a clone, after the GUI build described in [Installation](#installati
 
 `agencast serve` can run in project registry mode. On the host, set
 `AGENCAST_TOKEN`, `AGENCAST_HOST` and `AGENCAST_PORT` in
-`~/.config/agencast/serve.env` (systemd `EnvironmentFile`). Expose the GUI
+`~/.config/agencast/serve.env` (systemd `EnvironmentFile`; on macOS the launchd agent's shell reads it). Expose the GUI
 only on a private network. You can find the address by reading only the host and port:
 
 ```bash
@@ -316,7 +319,7 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current runtime version is **0.19.3** (the 0.19.x line); the history of changes is in
+The current runtime version is **0.19.4** (the 0.19.x line); the history of changes is in
 the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 

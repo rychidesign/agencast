@@ -6,11 +6,10 @@ models, permissions and limits; the optional GUI helps people review and edit fi
 
 ## Install the runtime
 
-Verified on Linux and WSL with Python 3.12; use `uv`.
+Verified on Linux, macOS and WSL with Python 3.12; use `uv`.
 To run the sample MCP server via `npx` you need Node.js
 `^20.19.0 || >=22.12.0` (per `ui/package.json`, verified with Node 24).
-Native Windows is not supported (`fcntl` in `projects.py` and `task.py`);
-macOS is not verified.
+Native Windows is not supported (`fcntl` in `projects.py` and `task.py`).
 
 The package contains the CLI, the MCP server, the API, the built GUI, the documentation, the skills and the examples.
 Install it from PyPI to operate workflows through your agent or a terminal:
@@ -238,6 +237,10 @@ systemctl --user daemon-reload && systemctl --user enable --now agencast-mcp
 loginctl enable-linger "$USER"     # the service and its runs outlive your logins
 tailscale serve --bg 8765          # https://box.<tailnet>.ts.net/mcp; the server needs --allow-host box.<tailnet>.ts.net
 ```
+
+On macOS the same server runs as a launchd agent with the same `mcp.env`
+(`~/Library/LaunchAgents/agencast-mcp.plist`): the plist and its `launchctl` commands are in
+[spec/mcp-server.md](spec/mcp-server.md#as-a-launchd-agent-macos).
 
 Expose it only on a private network — it speaks plain HTTP: keep `127.0.0.1` and publish it with
 `tailscale serve`, never `tailscale funnel`. `--fake` stops model spending, but `task` steps still start their

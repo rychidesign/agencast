@@ -201,7 +201,7 @@ Never print, cat, grep or log `.env` or key values. `validate --offline`,
 ## Web GUI
 
 Runs can also be started and inspected in the web GUI (`agencast serve` in
-registry mode, typically managed by systemd). `AGENCAST_HOST` and
+registry mode, typically managed by systemd, on macOS by launchd). `AGENCAST_HOST` and
 `AGENCAST_PORT` in `~/.config/agencast/serve.env` determine its address; read
 only those lines with `grep -E '^AGENCAST_(HOST|PORT)=' ~/.config/agencast/serve.env`.
 `AGENCAST_TOKEN` is also configured in that file. Keep the GUI on a private
