@@ -5,7 +5,7 @@ run it with new inputs and inspect the results. Agents operate it through MCP or
 helps people review and edit the same workflow files and inspect run records.
 Live workflow model calls use OpenRouter.
 
-Version 0.19.3, Python 3.12 + uv. Formats per `docs/spec/` (v1), design
+Version 0.19.4, Python 3.12 + uv. Formats per `docs/spec/` (v1), design
 in `docs/DESIGN.md`. The package and the command are both called `agencast` (until 0.2.5
 `maw`); the command name is in `pyproject.toml` (`[project.scripts]`).
 
