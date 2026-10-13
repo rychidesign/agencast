@@ -14,6 +14,12 @@ conversations, so it can be shared, versioned and reviewed.
 The project owner sets the models, tool permissions and limits. The optional GUI helps people review and
 edit the same files and inspect run records.
 
+[![An agent creates an Instagram-post workflow, validates it and calls reusable caption and image scenarios.](docs/marketing/agent-workflow-camera.png)](https://rychidesign.github.io/agencast/)
+
+[Watch the workflow demo](https://rychidesign.github.io/agencast/) · [Download the video](docs/marketing/agent-workflow-camera.mp4) · [Animation sources and exports](docs/marketing/)
+
+*Illustrative workflow with scripted replies and simulated costs; no live model calls.*
+
 ## Why AgenCast
 
 - **Your agent can operate the whole cycle.** Through MCP it can discover scenarios, read the guide, validate
