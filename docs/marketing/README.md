@@ -1,7 +1,7 @@
 # AgenCast workflow animations
 
-[Watch the hosted demo](https://rychidesign.github.io/agencast/). The repository README uses the camera
-poster's small static image and links here to the interactive animation.
+[Watch the hosted demo](https://rychidesign.github.io/agencast/). The repository README embeds the camera
+GIF so the workflow is animated directly on GitHub, with links to the interactive demo and MP4.
 
 A 25-second illustrated walkthrough of an agent drafting a reusable workflow, correcting a validation
 error, checking its flow, reading run records and using the same scenario with new inputs. The animation
