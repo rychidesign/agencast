@@ -570,7 +570,10 @@ How the call goes:
   `inputSchema` as the server reports it. A mismatch → the tool does not
   run, `config` error listing what does not match.
 - The tool returns `isError` → the step fails with class `tool` and the
-  tool's text. No retry: the tool may have done part of its work.
+  tool's text. No retry: the tool may have done part of its work. A tool
+  written with the Python SDK's `MCPServer` passes its message only when it
+  raises `ToolError` (`mcp.server.mcpserver.exceptions`); for any other
+  exception the SDK sends just `Error executing tool <name>`.
 - A tool call timeout → `timeout`; a dropped connection → `config`. The
   tool may have run in both cases, hence `dedupe_key` for a tool with a
   side effect.
@@ -872,7 +875,9 @@ expression.
   `values` … (a dot never reaches into Python internals).
 - **Square brackets** are an index into a list (also negative: `[-1]` =
   the last item) or an object key as text:
-  `steps.tone_check.details["on_brand"]`.
+  `steps.tone_check.details["on_brand"]`. A key that is a Python keyword
+  (`from`, `in`, `is`, `class`, …) can only be read this way, e.g. a field
+  of a [`tool`](#tool) output: `steps.lookup["from"]`.
 - A missing key or an index out of range is an error (see below), never a
   silent `null`.
 

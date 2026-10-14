@@ -326,7 +326,7 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current runtime version is **0.19.4** (the 0.19.x line); the history of changes is in
+The current runtime version is **0.20.0** (the 0.20.x line); the history of changes is in
 the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 

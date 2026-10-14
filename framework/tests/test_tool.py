@@ -44,6 +44,13 @@ def test_validate_permissions_and_templates(wf, server, tool, msg):
     assert msg in got, got
 
 
+def test_conditional_tool_step_asks_for_any_default(wf):
+    setup(wf, server=DIRECT)
+    got = errors(tool_sc(wf, "{ server: fs, name: structured }", step="when: 1 == 2",
+                         after="  - id: next\n    set: { x: steps.s.score }\n"))
+    assert "has no default — add a default (an object) (§5.4)" in got, got
+
+
 def test_budget_usd_is_not_allowed(wf):
     setup(wf, server=DIRECT)
     assert "budget_usd" in errors(tool_sc(wf, "{ server: fs, name: structured }", step="budget_usd: 0.1"))

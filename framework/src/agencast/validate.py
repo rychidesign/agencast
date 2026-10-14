@@ -587,8 +587,8 @@ class _Checker:
                 raise ExprError(f"step '{key}' ({x.kind}) has no output — its nested steps have outputs")
             if key in scope:
                 if not x.cond <= r.anc and "default" not in x.data:
-                    raise ExprError(f"step '{key}' may not run ({self.why(x)}) and has no default — add a "
-                                    "default with all output fields (§5.4)")
+                    what = "a default (an object)" if x.kind == "tool" else "a default with all output fields"
+                    raise ExprError(f"step '{key}' may not run ({self.why(x)}) and has no default — add {what} (§5.4)")
                 return scope[key]
             if x and x.nn > r.nn:
                 raise ExprError(f"step '{key}' comes later — expressions can only reference preceding steps")
