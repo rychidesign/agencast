@@ -776,8 +776,8 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
                                        *([image] if image else [])], structured_content=body)
 
     @tool("run", "Free — no model is called. Validates the scenario and the inputs and returns the plan (plan.md) of "
-                 "what a run would do; MCP servers of task steps are started briefly to list their tools. Use it "
-                 "before fake_run.", RUN)
+                 "what a run would do; MCP servers of task and tool steps are started briefly to list their tools. "
+                 "Use it before fake_run.", RUN)
     def dry_run(project: Project, scenario: Name,
                 inputs: Annotated[dict[str, Any], Field(description="as for `run_scenario`")] = {},  # noqa: B006 (not mutated)
                 *, root: Path) -> dict[str, Any]:
@@ -797,9 +797,9 @@ def build(*, project: Path | None = None, allow: str = "run", input_dirs: Sequen
         return {"project": project, "run_id": rec.dir.name, "scenario": scenario, "state": "dry_run",
                 "run_dir": str(rec.dir), "plan": plan, "next_offset": next_offset}
 
-    @tool("run", "Free — starts a run with placeholder model answers: no key, no cost; MCP servers of task steps are "
-                 "real. Returns run_id at once; the run goes on without this connection. Call wait_run until done is "
-                 "true. Tests the flow, not the content.", RUN, card=True)
+    @tool("run", "Free — starts a run with placeholder model answers: no key, no cost; MCP servers of task and tool "
+                 "steps are real. Returns run_id at once; the run goes on without this connection. Call wait_run "
+                 "until done is true. Tests the flow, not the content.", RUN, card=True)
     def fake_run(project: Project, scenario: Name, inputs: Inputs = {}, *, root: Path,  # noqa: B006 (not mutated)
                  mask: Mask) -> dict[str, Any]:
         return start(project, scenario, inputs, root=root, mask=mask, live=False)

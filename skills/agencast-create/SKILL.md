@@ -103,6 +103,11 @@ unique in the file, not a Python keyword (`in`, `is`, `if`, …).
   (only an alias with `api: images`; the output ratio then follows the first reference unless set); output `.file`.
   With several references name each one in the prompt by its template — `the T-shirt from {{ inputs.shirt }},
   the cap from {{ inputs.cap }}` — the framework adds a legend that maps those paths to the attached images.
+- `tool` — call one MCP tool directly, without a model: `server`, `name` (only tools the owner lists in the
+  server's `direct` in `mcp.yaml`), `args` (any text value is a template, a whole template keeps its type),
+  `json: true` when the tool answers with JSON in text (an n8n workflow); output = the tool's `structuredContent`,
+  the parsed JSON, or `.text`. Output fields are known only at run time; no `budget_usd`, no retry of the call,
+  `dedupe_key` for a tool with a side effect.
 - `call` — run another scenario (it needs `callable: true`) in the same run with `inputs:`; output = its `outputs`.
 - `parallel` — named branches (lists of steps) run concurrently; no cross-branch refs.
 - `switch` — `value` (string expr), `cases: {v: [steps]}`, `default:` required (`[]` = nothing).
@@ -119,7 +124,7 @@ live in the caller, see skill `agencast-run`).
 ## Values
 
 `{{ path }}` templates only insert a value (no operators) in prompts, `jev.state`,
-`fail`, `output`, `call.inputs`; a `null` in a template is a runtime error unless
+`fail`, `output`, `call.inputs`, `tool.args`; a `null` in a template is a runtime error unless
 it comes from an explicit `default`. Expressions (`when`, `switch.value`, `set`)
 are bare Python-style: `steps.check.on_brand < 0.7 and inputs.lang in ["en", "fr"]`,
 literals `true/false/null`, functions `len min max round str int float join`.
@@ -144,8 +149,10 @@ run and reading results: skill `agencast-run`.
 `--fake` replaces only model calls: no model cost and no OpenRouter key.
 A `task` step still runs the real MCP servers from `mcp.yaml`; the example
 `filesystem` uses `npx`, needs Node.js and downloads a package on first run.
+A `tool` step calls its real tool too, unless the fake script answers for it
+(`<step>: {result: {...}}` or `{text: "..."}`); with `dedupe_key` it must.
 `--callback-url` sends a real callback (and needs its signing secret).
-Only scenarios without `task` (including called scenarios)
+Only scenarios without `task` and `tool` (including called scenarios)
 and without `--callback-url` are guaranteed to run offline, for example `ig-post`.
 
 ## GUI and registry
@@ -158,7 +165,7 @@ registers; an existing folder: `agencast projects add <root> [--name <name>]`;
 registers; a `run` (not `--dry-run`) does as a fallback. The GUI picks up a new
 registration on the next request. The GUI and its API never show or write
 `mcp.yaml`, and a project created or added from the GUI is not trusted
-(`agencast projects list` says so): its `task` steps with MCP servers fail
+(`agencast projects list` says so): its `task` steps with MCP servers and its `tool` steps fail
 `validate` until the owner runs `agencast projects trust <name>` — that is the
 owner's decision, ask before running it. Keep the GUI on a private network. Its
 address comes from `AGENCAST_HOST` and `AGENCAST_PORT` in

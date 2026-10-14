@@ -645,8 +645,8 @@ writes a plan, exactly like `agencast run --dry-run`: a run directory with only
 `plan.md` and `inputs.json`.
 
 Description: `Free — no model is called. Validates the scenario and the inputs and
-returns the plan (plan.md) of what a run would do; MCP servers of task steps are started
-briefly to list their tools. Use it before fake_run.`
+returns the plan (plan.md) of what a run would do; MCP servers of task and tool steps are
+started briefly to list their tools. Use it before fake_run.`
 
 | Argument | Type | Required | Default | |
 |---|---|---|---|---|
@@ -697,7 +697,7 @@ never covers the paid one:
 | `run_scenario` | live: real models through the project's provider key | **costs money**, bounded by the project's limits | at level `run`, **not** on a `--fake` server |
 
 Description of `fake_run`: `Free — starts a run with placeholder model answers: no key,
-no cost; MCP servers of task steps are real. Returns run_id at once; the run goes on
+no cost; MCP servers of task and tool steps are real. Returns run_id at once; the run goes on
 without this connection. Call wait_run until done is true. Tests the flow, not the
 content.`
 

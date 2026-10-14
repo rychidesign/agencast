@@ -219,9 +219,9 @@ def load_agent(wf: Path, name: str, config: dict, errs: list, ref: str | None = 
             if servers.missing(srv):  # not a server hidden by an error in mcp.yaml (reported there)
                 errs.append(f"{where}: MCP server '{srv}' is not in workflows/mcp.yaml (only the project owner can edit "
                             "the registry, see mcp.example.yaml)")
-        elif name not in s["agents"]:
+        elif name not in s.get("agents", []):  # 0.20.0: a server only for `tool` steps has no `agents`
             errs.append(f"{where}: the project owner has not allowed server '{srv}' for agent '{name}' "
-                        f"(mcp.yaml → servers.{srv}.agents: {', '.join(s['agents'])})")
+                        f"(mcp.yaml → servers.{srv}.agents: {', '.join(s.get('agents', [])) or '—'})")
         elif "tools" in s and (extra := [t for t in fm.get("tools", {}).get(srv, []) if t not in s["tools"]]):
             errs.append(f"{where}: the project owner has not allowed tools {', '.join(extra)} on server '{srv}' "
                         f"(mcp.yaml → servers.{srv}.tools: {', '.join(s['tools'])})")
@@ -236,13 +236,15 @@ def effective_tools(agent: dict, task: dict) -> dict[str, list]:
 
 
 def mcp_servers_used(p: "Project") -> set[str]:
-    """Servers a run may start: effective sets for all task steps (including called scenarios)."""
+    """Servers a run may start: effective sets for all task steps and the servers of tool steps (including called
+    scenarios)."""
     projects, used = [p], set()
     while projects:
         q = projects.pop()
         projects += q.callees.values()
         used |= {s for st in q.steps.values() if st.kind == "task"
                  for s in effective_tools(q.agents[st.data["task"]["agent"]].data, st.data["task"])}
+        used |= {st.data["tool"]["server"] for st in q.steps.values() if st.kind == "tool"}
     return used
 
 
@@ -489,6 +491,8 @@ def _strings(obj, path=(), skip=()):
 
 
 def _template_field(p) -> bool:
+    if p[:2] == ("tool", "args") and len(p) > 2 and p[-1] != "#key":  # 0.20.0: every value of args, at any depth
+        return True
     return any(len(p) == len(f) and all(a == "*" or a == b for a, b in zip(f, p)) for f in TEMPLATE_FIELDS)
 
 
@@ -537,7 +541,7 @@ class _Checker:
                     self.err(info.id, ".".join(map(str, p)).replace(".#key", " (key)"),
                              str(ExprError("template {{ }} is not allowed here — allowed only in prompt, jev.state, "
                                            "jev.questions (instructions, criteria), fail, output values, "
-                                           "call.inputs and dedupe_key", line.index("{{"), line)))
+                                           "call.inputs, tool.args and dedupe_key", line.index("{{"), line)))
         self.walk(self.sc["steps"], {}, top=True)
         outs = self.sc.get("outputs") or {}
         if len(self.stack) == 1 and self.config["storage"]["type"] == "r2" and any(o["type"] in ("file", "files")
@@ -629,7 +633,7 @@ class _Checker:
             if "when" in st:
                 self.expr_type(info, "when", st["when"], res, want="boolean")
             out = NOOUT
-            if k in ("ask", "task", "jev", "image", "call"):
+            if k in ("ask", "task", "jev", "image", "call", "tool"):
                 out = getattr(self, k)(info, res)
             elif k == "set":
                 out = {n: self.expr_type(info, f"set.{n}", v, res) if isinstance(v, str) else kind(v)
@@ -734,6 +738,29 @@ class _Checker:
                                             f"the same normalized name {n} (only [a-zA-Z0-9_-], max 64 characters)")
                 names[n] = (srv, tool)
         return out
+
+    def tool(self, info, res):
+        """Tool step (0.20.0): the owner allows the tool in the server's `direct` (config.md mcp.yaml). The output
+        fields are known only at run time: None = unknown type, any `default` object fits."""
+        st, t = info.data, info.data["tool"]
+        for p, s in _strings(t.get("args") or {}):
+            if "{{" in s and p[-1] != "#key":  # a template in a key is reported by run()
+                self.template(info, "tool.args." + ".".join(map(str, p)), s, res)
+        if "dedupe_key" in st:
+            self.template(info, "dedupe_key", st["dedupe_key"], res)
+        srv, name = t["server"], t["name"]
+        s = self.mcp.get(srv)
+        if s is None:
+            if self.mcp.missing(srv):  # not a server hidden by an error in mcp.yaml (reported there)
+                self.err(info.id, "tool.server", f"MCP server '{srv}' is not in workflows/mcp.yaml (only the project "
+                                                 "owner can edit the registry, see mcp.example.yaml)")
+        elif name not in s.get("direct", []):
+            self.err(info.id, "tool.name", f"the project owner has not allowed tool '{name}' of server '{srv}' for tool "
+                                           f"steps (mcp.yaml → servers.{srv}.direct: {', '.join(s.get('direct', [])) or '—'})")
+        elif "scenarios" in s and self.sc["name"] not in s["scenarios"]:
+            self.err(info.id, None, f"scenario '{self.sc['name']}' cannot call server '{srv}' "
+                                    f"(mcp.yaml → servers.{srv}.scenarios: {', '.join(s['scenarios'])})")
+        return None
 
     def jev(self, info, res):
         j = info.data["jev"]

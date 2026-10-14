@@ -540,7 +540,7 @@ The outputs are then read as `{{ steps.facts.robots_txt }}` and
 |---|---|---|---|---|
 | `server` | yes | Server from `mcp.yaml`. | `config` error. | `server: scripts` |
 | `name` | yes | The tool, as the server names it. It must be in the server's `direct` list ([config.md](config.md#mcpyaml--registry-of-mcp-servers)), otherwise a `config` error. | `config` error. | `name: site_facts` |
-| `args` | no | Arguments of the tool, a map. Every text in it, at any depth (also in lists and nested maps), is a [template](#templates--); a whole template keeps its type, so a list or an object from a step above goes in as it is. Other values are fixed. | `{}` | `domain: "{{ inputs.domain }}"` |
+| `args` | no | Arguments of the tool, a map. Every text in it, at any depth (also in lists and nested maps), is a [template](#templates--); a whole template keeps its type, so a list or an object from a step above goes in as it is, and a file as its path in the run directory. Other values are fixed. | `{}` | `domain: "{{ inputs.domain }}"` |
 | `json` | no | `true` = the tool answers with JSON in text (typical of an n8n workflow): the text of the result is read as a JSON object and its fields are the output. No effect when the result carries `structuredContent`. | The output is `text`. | `json: true` |
 
 Output (`steps.<id>`):

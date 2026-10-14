@@ -54,6 +54,7 @@ const RELIABILITY: Record<StepType, string[]> = {
   task: ["timeout", "budget_usd", "retry", "on_error", "default", "dedupe_key"],
   jev: ["timeout", "budget_usd", "retry", "on_error", "default"],
   image: ["timeout", "budget_usd", "retry", "on_error", "default"],
+  tool: ["timeout", "retry", "on_error", "default", "dedupe_key"],
   call: ["timeout", "budget_usd", "on_error", "default"],
   parallel: ["timeout", "budget_usd"],
   set: ["default"],
@@ -351,6 +352,37 @@ function TypeForm({ ctx }: { ctx: FormCtx }) {
           ))}
         </div>
       );
+    case "tool": {
+      // the owner's `direct` lists (mcp.yaml) — the only tools a tool step may call
+      const servers = project.mcp_servers.filter((x) => x.direct?.length || x.name === body.server);
+      const names = project.mcp_servers.find((x) => x.name === body.server)?.direct ?? [];
+      return (
+        <div className="space-y-4">
+          <FormField label={t("field.server")} help={servers.length ? undefined : t("help.noDirect")} errors={errors("tool.server")} required>
+            {(a) => (
+              <select {...a} className={inputCls} value={str("server")} onChange={(e) => setBody("server", e.target.value)}>
+                <option value="">—</option>
+                {servers.map((x) => <option key={x.name} value={x.name}>{x.name}{x.description ? ` — ${x.description}` : ""}</option>)}
+              </select>
+            )}
+          </FormField>
+          <FormField label={t("field.tool")} errors={errors("tool.name")} required>
+            {(a) => (
+              <select {...a} className={`${inputCls} font-mono`} value={str("name")} onChange={(e) => setBody("name", e.target.value)}>
+                <option value="">—</option>
+                {body.name && !names.includes(str("name")) ? <option value={str("name")}>{str("name")}</option> : null}
+                {names.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            )}
+          </FormField>
+          {json("args", t("field.args"), t("help.args", { ex: '{"domain": "{{ inputs.domain }}", "pages": 5}' }))}
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={body.json === true} onChange={(e) => setBody("json", e.target.checked || undefined)} />
+            {t("field.json")}
+          </label>
+        </div>
+      );
+    }
     case "call": {
       const target = project.scenarios.find((x) => x.name === body.scenario);
       const inputs: Obj = isObj(body.inputs) ? (body.inputs as Obj) : {};

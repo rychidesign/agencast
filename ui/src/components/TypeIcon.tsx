@@ -1,5 +1,5 @@
 import {
-  Bot, Columns2, CornerDownRight, Equal, Image, MessageSquare, OctagonX, PackageCheck, Scale, Split,
+  Bot, Columns2, CornerDownRight, Equal, Image, MessageSquare, OctagonX, PackageCheck, Scale, Split, Wrench,
   type LucideIcon, CircleHelp,
 } from "lucide-react";
 import { t } from "../i18n";
@@ -7,7 +7,7 @@ import type { StepType } from "../types";
 
 // Type icons per §5 of the design (lucide, 16 px, stroke 1.5).
 const ICONS: Record<StepType, LucideIcon> = {
-  ask: MessageSquare, task: Bot, jev: Scale, image: Image, parallel: Columns2,
+  ask: MessageSquare, task: Bot, jev: Scale, image: Image, tool: Wrench, parallel: Columns2,
   switch: Split, call: CornerDownRight, set: Equal, fail: OctagonX, output: PackageCheck,
 };
 

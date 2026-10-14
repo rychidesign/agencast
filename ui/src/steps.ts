@@ -20,6 +20,8 @@ export function stepDetail(step: Step): string {
     }
     case "image":
       return join(str(b.model), str(b.aspect_ratio), str(b.quality), str(b.resolution));
+    case "tool":
+      return b.server && b.name ? `${str(b.server)}.${str(b.name)}` : "";
     case "call":
       return b.scenario ? join(str(b.scenario), t("step.value.inputs", { n: Object.keys(obj(b.inputs)).length })) : "";
     case "parallel":

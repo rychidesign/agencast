@@ -5,8 +5,9 @@
 The last argument is the allowed root (as with server-filesystem). Tools:
 filesystem (list_allowed_directories, list_directory, write_file,
 read_text_file — only inside the root), image (red_pixel), error with isError
-(broken), slow tool (slow), environment variable value (get_env) and
-schema with $ref, const and numeric enum (complex).
+(broken), slow tool (slow), environment variable value (get_env),
+schema with $ref, const and numeric enum (complex) and structuredContent with
+an audio and a resource item (structured).
 """
 import base64
 import json
@@ -51,6 +52,9 @@ TOOLS = {
         "properties": {"tag": {"$ref": "#/$defs/Tag"}, "kind": {"const": "post"},
                        "level": {"type": "integer", "enum": [1, 2, 3]}},
         "required": ["tag", "kind", "level"]}),
+    "structured": ("Echo the arguments as structuredContent, with an audio and a resource item.",
+                   obj({"domain": {"type": "string"}, "pages": {"type": "integer"}, "tags": {"type": "array"}},
+                       ["domain"])),
 }
 
 
@@ -89,6 +93,12 @@ def call(name: str, args: dict):
             return text(value)
         case "complex":
             return text(json.dumps(args, ensure_ascii=False))
+        case "structured":  # a whole result: content and structuredContent
+            return {"structuredContent": {"echo": args}, "content": text(json.dumps(args)) + [
+                {"type": "audio", "mimeType": "audio/mpeg", "data": base64.b64encode(b"ID3").decode()},
+                {"type": "resource", "resource": {"uri": "file:///report.md", "mimeType": "text/markdown",
+                                                  "text": "# Report"}},
+                {"type": "resource_link", "uri": "file:///elsewhere.txt", "name": "elsewhere"}]}
     raise KeyError(name)
 
 
@@ -107,7 +117,8 @@ def tools_call(id_, params):
     if name not in TOOLS:
         return reply(id_, error={"code": -32602, "message": f"Tool {name} not found"})
     try:
-        reply(id_, {"content": call(name, params.get("arguments") or {}), "isError": False})
+        res = call(name, params.get("arguments") or {})
+        reply(id_, {**(res if isinstance(res, dict) else {"content": res}), "isError": False})
     except Exception as e:  # tool error = isError, not a protocol error (like real servers)
         reply(id_, {"content": [{"type": "text", "text": f"Error: {e}"}], "isError": True})
 

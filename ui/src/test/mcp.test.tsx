@@ -23,7 +23,7 @@ const project: Project = {
   agents: [{ name: "tester", etag: "a0", description: "Tests", model: "smart", model_id: null, skills: [], errors: [],
     mcp: ["testkit", "weather"], tools: { testkit: ["red_pixel", "broken"], weather: ["forecast"] } }],
   mcp_servers: [
-    { name: "testkit", type: "stdio", transport: "stdio", description: "Test server", agents: ["tester"], tools: ["red_pixel", "broken"], scenarios: null, env_missing: [] },
+    { name: "testkit", type: "stdio", transport: "stdio", description: "Test server", agents: ["tester"], tools: ["red_pixel", "broken"], scenarios: null, direct: ["red_pixel"], env_missing: [] },
     { name: "weather", type: "http", transport: "sse", description: "Forecasts", agents: ["tester"], tools: null, scenarios: null, env_missing: ["WEATHER_TOKEN"] },
   ],
   links: { scenario_agent: [], scenario_step_agent: [], scenario_scenario: [], agent_skill: [], agent_server: [] },
@@ -70,6 +70,24 @@ it("task step: names the agent does not have stay visible and can be removed", (
   fireEvent.click(box(/typo/, "testkit"));
   fireEvent.click(box(/ghost/));
   expect(task()).toEqual({ agent: "tester", prompt: "x", mcp: ["testkit"], tools: { testkit: ["red_pixel"] } });
+});
+
+it("tool step: only servers and tools the owner lists in direct are offered", () => {
+  let step: WStep = { uid: "facts", nn: 1, address: ["steps", 0], id: "facts", type: "tool", when: null, fields: { tool: {} }, refs: [] };
+  const view = () => (
+    <StepPanel step={step} steps={[step]} header={{ description: "", callable: false, inputs: null, outputs: null }} project={project}
+      scenario="s" errors={[]} onClose={vi.fn()} onSelect={vi.fn()}
+      edit={{ change: (fn) => (step = fn(step), rerender(view())), retype: vi.fn(), remove: vi.fn(), rename: vi.fn() }} />
+  );
+  const { rerender } = render(view());
+  const server = screen.getByRole("combobox", { name: /MCP server/ }) as HTMLSelectElement;
+  expect([...server.options].map((o) => o.value)).toEqual(["", "testkit"]);  // weather has no direct
+  fireEvent.change(server, { target: { value: "testkit" } });
+  const tool = screen.getByRole("combobox", { name: /Tool/ }) as HTMLSelectElement;
+  expect([...tool.options].map((o) => o.value)).toEqual(["", "red_pixel"]);
+  fireEvent.change(tool, { target: { value: "red_pixel" } });
+  fireEvent.click(screen.getByRole("checkbox", { name: /json: true/ }));
+  expect(step.fields.tool).toEqual({ server: "testkit", name: "red_pixel", json: true });
 });
 
 it("task step: a lone tool the agent does not have is not locked as the last one", () => {

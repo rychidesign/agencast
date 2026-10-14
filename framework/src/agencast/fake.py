@@ -19,6 +19,9 @@ with `aspect_ratio`). Script response shapes:
     cost: null             response without usage.cost
     sleep: 1.5             delay in seconds (timeouts)
     body: {...}            literal full response body
+
+A `tool` step (0.20.0) calls its real tool unless the script has a response for it:
+`result: {...}` (structuredContent), `text: "..."`, optionally `is_error: true`.
 """
 import asyncio
 import base64
@@ -63,6 +66,16 @@ class Fake:
         self.image_models = list(image_models)
         self.calls: list[tuple[str, str, dict]] = []  # (step path, endpoint, request body)
         self._used: dict[str, int] = {}
+
+    def tool(self, step: str) -> dict | None:
+        """Scripted response of a `tool` step, the next one on each call; None = the step calls its tool."""
+        plan = self.script.get(step)
+        if not plan:
+            return None
+        plan = plan if isinstance(plan, list) else [plan]
+        n = self._used.get(step, 0)
+        self._used[step] = n + 1
+        return plan[min(n, len(plan) - 1)] or {}
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self.handle)

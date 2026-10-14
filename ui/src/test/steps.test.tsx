@@ -19,6 +19,7 @@ const CASES: [Step, string][] = [
     on_brand: { type: "noul", instructions: "Does the text match the tone?" }, second: { type: "noul", instructions: "?" } } } }),
     "noul · +1 question"],
   [step("image", { image: { model: "gemini-image", prompt: "{{ steps.p.description }}", aspect_ratio: "4:5" } }), "gemini-image · 4:5"],
+  [step("tool", { tool: { server: "scripts", name: "site_facts", args: { domain: "{{ inputs.domain }}" } } }), "scripts.site_facts"],
   [step("call", { call: { scenario: "ig-text", inputs: { text: "a", b: "c" } } }), "ig-text · 2 inputs"],
   [step("set", { set: { slogan: "a + b", percent: "round(x)" } }), ""],
   [step("fail", { fail: "Text is off-brand" }), ""],

@@ -90,6 +90,8 @@ export interface McpServer {
   /** `null` = the owner does not restrict the tools. */
   tools: string[] | null;
   scenarios: string[] | null;
+  /** Since 0.20.0: tools a `tool` step may call; `null` = none (an older server does not send it). */
+  direct?: string[] | null;
   /** Since 0.18.0: names of the server's variables that are not set on the server (never values). */
   env_missing?: string[];
 }
@@ -113,7 +115,7 @@ export interface Project {
 }
 
 export type StepType =
-  | "ask" | "task" | "jev" | "image" | "parallel" | "switch" | "call" | "set" | "fail" | "output";
+  | "ask" | "task" | "jev" | "image" | "tool" | "parallel" | "switch" | "call" | "set" | "fail" | "output";
 
 export interface Step {
   nn: number;

@@ -5,6 +5,24 @@ format version = major. Format changes are in `docs/spec/CHANGELOG.md`.
 
 Up to 0.2.5 the package and the command were called `maw`; older entries here keep that name.
 
+## 0.20.0 — 2026-10-14 (the `tool` step)
+
+- New step type `tool`: a direct call of one MCP tool without a model, for the owner's scripts (Python, JavaScript or
+  anything an MCP server wraps) and outside services such as an n8n workflow. `server`, `name`, `args` (templates at
+  any depth, a whole template keeps its type) and `json: true` for a tool that answers with JSON in text. The output
+  is the tool's `structuredContent`, the parsed JSON object, or `{text}`; other content is saved as
+  `tool-01-<k>.<ext>`. The call costs nothing and is never retried; `retry` covers the server start.
+- `mcp.yaml`: the owner allows tools for `tool` steps in the server's new `direct` list; a server with `direct` needs
+  no `agents`. `scenarios` and the trust of a project registered through the API apply as for `task`.
+- New error class `tool`: the tool returned `isError`, or its text is not one JSON object with `json: true`. Arguments
+  that do not match the tool's `inputSchema` are a `config` error before the call.
+- `--fake` calls the real tool unless the fake script answers for the step (`result`, `text`, `is_error`); a `tool`
+  step with `dedupe_key` and no scripted answer fails with `config` in a fake run. `--dry-run` marks a tool the server
+  does not offer and fixed `args` that do not match its `inputSchema`.
+- The project description (`GET /projects/<p>`, `get_project`) has `direct` for each MCP server. The GUI offers the
+  `tool` step with the servers and tools of `direct`, shows its tool call in the run viewer and `direct` on the
+  Config page.
+
 ## 0.19.4 — 2026-10-14 (macOS)
 
 - Verified on macOS: CI runs the Python tests and the wheel smoke test on `macos-latest` as well as Ubuntu. Tests

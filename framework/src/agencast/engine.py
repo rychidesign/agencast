@@ -13,6 +13,7 @@ import hashlib
 import hmac
 import json
 import math
+import mimetypes
 import os
 import re
 import secrets
@@ -33,13 +34,13 @@ import httpx
 from . import ConfigErrors, AgencastError, __version__
 from .expressions import ExprError, FileRef, evaluate, kind, path_step, render, to_json, to_text
 from .loader import nested_lists
-from .mcp_client import Pool, _leaves, secret_names  # 3a
+from .mcp_client import Pool, ToolResult, _leaves, arg_errors, secret_names  # 3a
 from .providers import (LEVELS, Client, chat_body, image_body, images_body, image_media_type,
                         image_size, json_schema, http_error, parse_chat, parse_image, parse_images, parse_jev,
                         probe_image, prompt_level_suffix, schema_feedback)
 from .record import (SUM_DIGITS, Record, count, format_number, format_usd, now_iso, plan_md, redact,
                      report_html, scrub, summary_md)
-from .task import dedupe_skip, hold_run_lock, images_md, local_dedupe, local_ledger, local_slots, run_task  # 3a
+from .task import dedupe_key, dedupe_skip, hold_run_lock, images_md, local_dedupe, local_ledger, local_slots, run_task  # 3a
 from .validate import (DEFAULT_TIMEOUT, MAX_FILES, Project, StepInfo, _matches, env_fields, mcp_servers_used,
                        seconds)
 
@@ -160,6 +161,7 @@ class Run:
                  callback_url=None, request_key=None, callback_transport=None, fake=False):
         self.p, self.inputs, self.rec, self.client, self.run_id = p, inputs, record, client, run_id
         self.fake = fake  # fake provider (--fake): separate dedupe, flag in the record
+        self.fake_tool = None  # 0.20.0: Fake.tool of a fake run — scripted responses of tool steps
         self.dedupe = local_dedupe(p.runs_dir, fake)  # DedupeStore; a hosted wrapper supplies its own
         self.ledger = local_ledger(p.runs_dir, fake)  # daily spend ledger (Ledger); a hosted wrapper supplies its own
         self.waited_s = None  # wait for a max_parallel_runs slot (run_waiting), otherwise None
@@ -484,9 +486,9 @@ class Run:
                                     else RETRY_BASE_S * 2 ** (attempt - 1))
 
     async def mcp_server(self, info, name: str):
-        """Running MCP server for a `task`. A `transient` start failure (network, 5xx) is retried per the step's
-        `retry` with the delay of a model call (`Retry-After` of a remote server included); `Pool` does not cache
-        a failed start and `parallel` branches share the new attempt."""
+        """Running MCP server for a `task` or `tool` step. A `transient` start failure (network, 5xx) is retried per
+        the step's `retry` with the delay of a model call (`Retry-After` of a remote server included); `Pool` does not
+        cache a failed start and `parallel` branches share the new attempt."""
         retries, attempt = info.data.get("retry", 2), 0
         while True:
             attempt += 1
@@ -562,6 +564,90 @@ class Run:
 
     async def step_task(self, info: StepInfo, ctx: Ctx):  # 3a
         return await run_task(self, info, ctx)
+
+    async def step_tool(self, info: StepInfo, ctx: Ctx):  # 0.20.0
+        timeout = info.data.get("timeout", self.p.config["limits"]["run_timeout"])  # no own default (scenario.md §3)
+        return await self.with_deadline(info, ctx, timeout, self.call_tool(info))
+
+    async def call_tool(self, info: StepInfo):
+        """A direct MCP tool call without a model (scenario.md tool): no cost, the call itself is never retried."""
+        t, sid = info.data["tool"], info.id
+        server, name = t["server"], t["name"]
+        scripted = self.fake_tool(sid) if self.fake_tool else None
+        if scripted is None and self.fake and "dedupe_key" in info.data:
+            raise AgencastError("config", "a tool step with dedupe_key needs a scripted response (result or text) in a "
+                                          "fake run — the tool's side effect would really happen")
+
+        def fill(v, fld):
+            if isinstance(v, str):
+                return self.tpl(v, fld)
+            if isinstance(v, dict):
+                return {k: fill(x, f"{fld}.{k}") for k, x in v.items()}
+            if isinstance(v, list):
+                return [fill(x, f"{fld}.{i}") for i, x in enumerate(v)]
+            return v
+        args = json.loads(to_json(fill(t.get("args") or {}, "tool.args")))  # a file goes in as its path
+        n = self.calls[sid] = self.calls.get(sid, 0) + 1
+        flags, t0, files = {"allowed": True, "invalid_args": False, "is_error": False}, time.monotonic(), []
+
+        def record(result, **extra):
+            call_file = self.rec.write(f"{info.folder}/calls/{n:02d}.tool.json", {
+                "server": server, "tool": name, "arguments": args, **flags, "result": result, "files": files, **extra})
+            self.rec.event("tool_call", step=sid, server=server, tool=name, **flags,
+                           **({"error": extra["error"]} if "error" in extra else {}),
+                           duration_s=round(time.monotonic() - t0, 3), call_file=call_file)
+        srv = None if scripted is not None else await self.mcp_server(info, server)
+        if srv:
+            if (tool := srv.tools.get(name)) is None:
+                raise AgencastError("config", f"MCP server '{server}' has no tool '{name}' "
+                                              f"(offers: {', '.join(srv.tools) or '—'})")
+            if errs := arg_errors(tool.input_schema, args):
+                flags["invalid_args"] = True
+                msg = f"tool.args do not match the inputSchema of {server}.{name}: " + "; ".join(errs[:5])
+                record(msg)
+                raise AgencastError("config", msg)
+        dedupe = dedupe_key(self, info)[0] if "dedupe_key" in info.data else None
+        if dedupe:
+            self.dedupe.claim(dedupe, self.run_id)
+        if scripted is not None:
+            res = ToolResult(bool(scripted.get("is_error")), scripted.get("text", ""), [], scripted.get("result"))
+        else:
+            try:
+                res = await Pool.call(srv, name, args, files=True)
+            except BaseException as e:  # timeout, dead server, cancellation (deadline, interrupt): it may have run
+                flags["is_error"] = True
+                record(None, error=e.message if isinstance(e, AgencastError) else "cancelled before the tool answered "
+                       "(may have run)" if isinstance(e, asyncio.CancelledError) else f"{type(e).__name__}: {e}")
+                raise
+        flags["is_error"] = res.is_error
+        for k, (data, media) in enumerate(res.images, 1):
+            ext = IMAGE_EXT.get(media) or (mimetypes.guess_extension(media or "") or ".bin")[1:]
+            rel = self.rec.write_bytes(f"{info.folder}/tool-{n:02d}-{k}.{ext}", data)
+            files.append(rel)
+            if media in IMAGE_EXT:
+                w, h = image_size(data)
+                self.rec.event("image_saved", step=sid, path=rel, media_type=media, bytes=self.rec.size(rel),
+                               width=w, height=h)
+        record(res.text, **({"structured": res.structured} if res.structured is not None else {}),
+               **({"skipped": res.notes} if res.notes else {}))
+        if res.is_error:
+            raise AgencastError("tool", f"tool {server}.{name} returned an error: {res.text[:1000]}")
+        if res.structured is not None:
+            out = res.structured
+        elif t.get("json"):
+            try:
+                out = json.loads(res.text)
+            except ValueError:
+                out = None
+            if not isinstance(out, dict):
+                raise AgencastError("tool", f"tool {server}.{name} (json: true) did not answer with one JSON object: "
+                                            f"{res.text[:200]!r}")
+        else:
+            out = {"text": res.text}
+        if dedupe:
+            self.dedupe.finish(dedupe, {"state": "succeeded", "run_id": self.run_id, "output": out})
+        self.rows[sid]["note"] = f"{server}.{name}" + (" (scripted)" if scripted is not None else "")
+        return out
 
     async def step_jev(self, info: StepInfo, ctx: Ctx):
         j = info.data["jev"]
@@ -919,7 +1005,8 @@ def stage_inputs(rec: Record, inputs: dict, copy: bool = True) -> dict:
 
 async def mcp_offers(p: Project, servers: set) -> dict:
     """3a: start servers only for tools/list (scenario.md §7 --dry-run) in a temporary directory — the plan
-    directory keeps only plan.md; startup errors appear in the plan instead of the list."""
+    directory keeps only plan.md; startup errors appear in the plan instead of the list. A started server = its
+    tools by name → inputSchema (0.20.0: the fixed args of tool steps are checked against it)."""
     offers = {}
     with tempfile.TemporaryDirectory() as tmp:
         rec = Record(Path(tmp) / "run", secret_values(p))
@@ -927,7 +1014,8 @@ async def mcp_offers(p: Project, servers: set) -> dict:
         try:
             for s in sorted(servers):
                 try:
-                    offers[s] = sorted((await pool.get(s)).tools)
+                    tools = (await pool.get(s)).tools
+                    offers[s] = {n: tools[n].input_schema for n in sorted(tools)}
                 except AgencastError as e:  # the stderr log dies with the temporary directory: its last lines are in the message
                     offers[s] = e.message.replace(f" (stderr: mcp/{s}.stderr.log)", "")
         finally:
@@ -975,6 +1063,7 @@ def run_scenario(p: Project, inputs: dict, *, fake=None, callback_url=None, requ
         run = Run(p, inputs, rec, client, run_id, callback_url=callback_url, request_key=request_key,
                   callback_transport=callback_transport, fake=fake is not None)
         run.waited_s = waited
+        run.fake_tool = fake.tool if fake else None
         run_interruptible(run.execute(error, resume=resume))
         return run
     finally:

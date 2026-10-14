@@ -11,6 +11,7 @@ from typing import Any
 
 from .expressions import FileRef, to_json
 from .loader import nested_lists
+from .mcp_client import arg_errors
 from .validate import DEFAULT_TIMEOUT, Project, effective_tools
 
 MIN_SECRET_LEN = 8  # shorter values are not masked (run-record.md)
@@ -201,8 +202,8 @@ def _limits(p: Project, st: dict, kind: str) -> str:
 
 
 def plan_md(p: Project, offers: dict | None = None) -> str:
-    """Plan from validate (run-record.md plan.md, `--dry-run`). `offers` = server → offered tools
-    (or a message explaining why it did not start) — scenario.md §7."""
+    """Plan from validate (run-record.md plan.md, `--dry-run`). `offers` = server → offered tools by name → their
+    inputSchema (or a message explaining why it did not start) — scenario.md §7."""
     sc, cfg, lim = p.scenario, p.config, p.config["limits"]
     models = cfg["models"]
     lines = [f"# Plan: {sc['name']}", "", sc["description"], "",
@@ -219,8 +220,10 @@ def plan_md(p: Project, offers: dict | None = None) -> str:
         for x in q.steps.values():
             if x.kind == "task":
                 for s, ts in effective_tools(q.agents[x.data["task"]["agent"]].data, x.data["task"]).items():
-                    if isinstance(offers.get(s), list):
+                    if isinstance(offers.get(s), dict):
                         missing.setdefault(s, set()).update(set(ts) - set(offers[s]))
+            elif x.kind == "tool" and isinstance(offers.get(s := x.data["tool"]["server"]), dict):
+                missing.setdefault(s, set()).update({x.data["tool"]["name"]} - set(offers[s]))
 
     def rows(steps, indent):
         for st in steps:
@@ -251,6 +254,16 @@ def plan_md(p: Project, offers: dict | None = None) -> str:
                 what = f"based on {st['switch']['value']}: " + ", ".join(list(st["switch"]["cases"]) + ["default"])
             elif k == "call":
                 what = f"scenario {st['call']['scenario']}"
+            elif k == "tool":  # 0.20.0
+                t = st["tool"]
+                schema = (offers or {}).get(t["server"], {})
+                schema = schema.get(t["name"]) if isinstance(schema, dict) else None
+                errs = arg_errors(schema, t.get("args") or {}, fixed_only=True) if schema is not None else []
+                what = (f"{t['server']}.{t['name']}"
+                        + " (NOT OFFERED by the server)" * (t["name"] in missing.get(t["server"], ()))
+                        + ("; json" if t.get("json") else "")
+                        + (f"; args do not match the inputSchema: {'; '.join(errs[:5])}" if errs else "")
+                        + ("; dedupe_key" if "dedupe_key" in st else ""))
             elif k == "task":
                 t = st["task"]
                 agent = p.agents[t["agent"]]
@@ -273,7 +286,7 @@ def plan_md(p: Project, offers: dict | None = None) -> str:
         lines += ["", "## MCP servers", ""]
         for s, got in sorted(offers.items()):
             lines.append(f"- **{s}** ({p.mcp[s]['description']}): "
-                         + (f"offers {', '.join(got)}" if isinstance(got, list) else f"failed to start — {got}")
+                         + (f"offers {', '.join(got)}" if isinstance(got, dict) else f"failed to start — {got}")
                          + (f"; allowed but NOT OFFERED: {', '.join(sorted(missing[s]))}" if missing.get(s) else ""))
     return "\n".join(lines)
 

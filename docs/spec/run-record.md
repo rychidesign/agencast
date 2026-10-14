@@ -86,7 +86,10 @@ runs/20260925-140311-ig-post-a1b2/
   return has `result: null` and an `error`) and images from tools
   `tool-<NN>-<k>.png` in the step directory. A `tool` step (since
   framework 0.20.0) has the single `calls/01.tool.json` and saves every
-  non-text item of the result as `tool-01-<k>.<ext>`.
+  non-text item of the result as `tool-01-<k>.<ext>`; its `tool.json` has
+  no `turn` and `name`, `result` is the text, `structured` the
+  `structuredContent` when the tool sent one, and `skipped` the items that
+  carry nothing to save (a `resource_link`).
 - **`call`** — the step directory contains the called scenario's own
   `steps/`: `steps/03-propose/steps/01-copy/…`. Events go into the single
   `events.jsonl` of the whole run; `step` has the path `propose/copy`.
