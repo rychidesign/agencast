@@ -84,7 +84,9 @@ runs/20260925-140311-ig-post-a1b2/
   number = order of the call within the step. For `task` also
   `calls/NN.tool.json` (tool arguments and result; a call that did not
   return has `result: null` and an `error`) and images from tools
-  `tool-<NN>-<k>.png` in the step directory.
+  `tool-<NN>-<k>.png` in the step directory. A `tool` step (since
+  framework 0.20.0) has the single `calls/01.tool.json` and saves every
+  non-text item of the result as `tool-01-<k>.<ext>`.
 - **`call`** — the step directory contains the called scenario's own
   `steps/`: `steps/03-propose/steps/01-copy/…`. Events go into the single
   `events.jsonl` of the whole run; `step` has the path `propose/copy`.
@@ -282,15 +284,15 @@ stderr and exits with code 1.
 | `duration_s`, `usage` | duration, normalized consumption |
 | `request_file`, `response_file` | paths into `calls/` |
 
-**`tool_call`** — `task` called a tool.
+**`tool_call`** — `task` or, since framework 0.20.0, a `tool` step called a tool.
 
 | Field | What it is |
 |---|---|
-| `turn` | turn in which the model called the tool |
+| `turn` | turn in which the model called the tool; missing for a `tool` step |
 | `server`, `tool` | MCP server and tool; for skills `server: "_skills"`, `tool: "load_skill"` |
 | `allowed` | `false` when the tool was not allowed (it did not run, the model got an error) |
-| `invalid_args` | `true` when the arguments did not pass validation against the tool schema (it did not run, the model got an error) |
-| `is_error` | the tool returned an error (passed to the model, the step continues); also `true` for a call with `error` |
+| `invalid_args` | `true` when the arguments did not pass validation against the tool schema (it did not run, the model got an error; a `tool` step fails with `config`) |
+| `is_error` | the tool returned an error (passed to the model, the step continues; a `tool` step fails with `tool`); also `true` for a call with `error` |
 | `error` | only for a call that did not return (the step fails or was cancelled; the tool may have run): the timeout or dropped-connection message, or `cancelled before the tool answered (may have run)` when the step was cancelled during the call (step `timeout`, a failed `parallel` branch, an interrupt) |
 | `duration_s` | duration |
 | `call_file` | `calls/NN.tool.json` with arguments and result (for a call with `error`: `result: null` and `error`) |

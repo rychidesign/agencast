@@ -26,7 +26,6 @@
             "additionalProperties": false,
             "required": [
               "description",
-              "agents",
               "command"
             ],
             "properties": {
@@ -105,7 +104,28 @@
                     "$ref": "#/$defs/duration"
                   }
                 }
+              },
+              "direct": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
+            },
+            "if": {
+              "not": {
+                "required": [
+                  "direct"
+                ]
+              }
+            },
+            "then": {
+              "required": [
+                "agents"
+              ]
             }
           },
           {
@@ -113,7 +133,6 @@
             "additionalProperties": false,
             "required": [
               "description",
-              "agents",
               "url"
             ],
             "properties": {
@@ -170,7 +189,28 @@
                   "streamable-http",
                   "sse"
                 ]
+              },
+              "direct": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
+            },
+            "if": {
+              "not": {
+                "required": [
+                  "direct"
+                ]
+              }
+            },
+            "then": {
+              "required": [
+                "agents"
+              ]
             }
           }
         ]

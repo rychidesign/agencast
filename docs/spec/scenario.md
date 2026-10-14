@@ -25,8 +25,8 @@ Contents:
 1. [Scenario header](#1-scenario-header)
 2. [How a scenario runs](#2-how-a-scenario-runs)
 3. [Common step properties](#3-common-step-properties)
-4. [Step types](#4-step-types) — `ask`, `task`, `jev`, `image`, `parallel`,
-   `switch`, `call`, `set`, `fail`, `output`
+4. [Step types](#4-step-types) — `ask`, `task`, `jev`, `image`, `tool`,
+   `parallel`, `switch`, `call`, `set`, `fail`, `output`
 5. [Values: `{{ }}` templates and expressions](#5-values---templates-and-expressions)
 6. [Errors](#6-errors)
 7. [What `validate` checks](#7-what-validate-checks)
@@ -176,12 +176,12 @@ step type key (`ask:`, `jev:`, …) and optionally common properties:
 |---|---|---|---|---|
 | `id` | yes | Step name; the output (`steps.<id>`) and the directory in the run record are under it. Lowercase letters, digits, `_`, starts with a letter; unique across the whole file (also inside branches). Must not be a Python keyword (`and`, `or`, `not`, `in`, `is`, `if`, …), otherwise it could not be used in an expression. | `config` error. | `id: copy` |
 | `when` | no | Condition (an [expression](#expressions)). `false` → the step is skipped and the record has the reason `when: <expression> → false`. The result must be `true`/`false`, not text or a number. An error in `when` is an error of the step — the step's `on_error` covers it. | The step always runs. | `when: inputs.language == "en"` |
-| `timeout` | no | Maximum step duration, format `<number>s`, `m`, `h`. Exceeding it → error of class `timeout`. For `parallel` and `call` = time from the start to the end of the last step inside. | Default: `ask` 2m, `task` 15m, `jev` 30s, `image` 3m (**proposal**); for an agent at most its `limits.timeout`. The limit of the whole run always applies too. | `timeout: 90s` |
+| `timeout` | no | Maximum step duration, format `<number>s`, `m`, `h`. Exceeding it → error of class `timeout`. For `parallel` and `call` = time from the start to the end of the last step inside. | Default: `ask` 2m, `task` 15m, `jev` 30s, `image` 3m (**proposal**); `tool` none of its own — the server's `timeouts.handshake` and `timeouts.call` apply; for an agent at most its `limits.timeout`. The limit of the whole run always applies too. | `timeout: 90s` |
 | `budget_usd` | no | How many USD the step may cost (all calls including retries). For `parallel` and `call` = the sum of all steps inside. Checking rules: see [Budget](#budget). Exceeding it → error of class `budget`. | For `ask`/`task` the agent's budget; otherwise only the run budget. | `budget_usd: 0.10` |
-| `retry` | no | How many times **one API call** is retried on a `transient` or `schema` error (§5.1). For `task` it applies to each turn separately, and to the start of each MCP server (a `transient` handshake failure, same delay); retries do not count towards `max_turns`, only towards `budget_usd`. Delay 2 s, 4 s, 8 s…, or according to the `Retry-After` header. | `2` (**proposal**). | `retry: 0` |
+| `retry` | no | How many times **one API call** is retried on a `transient` or `schema` error (§5.1). For `task` it applies to each turn separately, and to the start of each MCP server (a `transient` handshake failure, same delay); retries do not count towards `max_turns`, only towards `budget_usd`. For `tool` it applies only to the start of the MCP server; the tool call itself is never repeated (it may have run). Delay 2 s, 4 s, 8 s…, or according to the `Retry-After` header. | `2` (**proposal**). | `retry: 0` |
 | `on_error` | no | `fail` = a step error ends the run. `continue` = the run continues, the step has the output `default` and the run summary has a **warning** (§5.1 item 4). | `fail`. | `on_error: continue` |
-| `default` | see text | Output of the step in case the step does not run (skipped via `when`, a `switch` branch not taken, failed with `on_error: continue`). Must contain **all** output fields of the step (for `jev` all questions; `details` is filled in as `{}` automatically); a missing field is a `validate` error. | If another step refers to the output of a step that might not run, it is a `validate` error (§5.4). | `default: { on_brand: 0 }` |
-| `dedupe_key` | no | Only for `task` (a step with a side effect, e.g. publishing). A template that produces text. Ensures the side effect happens at most once, even when the caller repeats the run — see [dedupe](#dedupe_key--once-and-only-once). (§5.2) | The step runs every time. | `dedupe_key: "ig-{{ inputs.post_id }}"` |
+| `default` | see text | Output of the step in case the step does not run (skipped via `when`, a `switch` branch not taken, failed with `on_error: continue`). Must contain **all** output fields of the step (for `jev` all questions; `details` is filled in as `{}` automatically); a missing field is a `validate` error. For `tool` any object: its output fields are known only at run time. | If another step refers to the output of a step that might not run, it is a `validate` error (§5.4). | `default: { on_brand: 0 }` |
+| `dedupe_key` | no | Only for `task` and `tool` (a step with a side effect, e.g. publishing). A template that produces text. Ensures the side effect happens at most once, even when the caller repeats the run — see [dedupe](#dedupe_key--once-and-only-once). (§5.2) | The step runs every time. | `dedupe_key: "ig-{{ inputs.post_id }}"` |
 | `schema` | no | Only for `ask` and `task`; written **inside** the step block. See [`ask`](#ask). | The output is text. | |
 
 Where each property makes sense (elsewhere it is a `config` error):
@@ -189,6 +189,7 @@ Where each property makes sense (elsewhere it is a `config` error):
 | | `when` | `timeout` | `budget_usd` | `retry` | `on_error` | `default` |
 |---|---|---|---|---|---|---|
 | `ask`, `task`, `jev`, `image` | yes | yes | yes | yes | yes | yes |
+| `tool` | yes | yes | — | yes | yes | yes |
 | `call` | yes | yes | yes | — | yes | yes |
 | `parallel` | yes | yes | yes | — | — | — |
 | `set` | yes | — | — | — | — | yes |
@@ -226,6 +227,8 @@ like `state`; OPEN-QUESTIONS 12):
   token), and its side effect is recorded only in `_dedupe-fake/`, so a
   later live run with the same key repeats it. Do not script `tool_calls`
   to a server with side effects (publishing, payments) in a fake run.
+  A [`tool`](#tool) step calls its tool without any script; with
+  `dedupe_key` it needs a scripted response in a fake run.
 
 ---
 
@@ -501,6 +504,98 @@ parameter lists `values`; it checks the `default` of an input in a single
 template `{{ inputs.x }}` the same way. Validation on its own does not
 support warnings; ignoring parameters of the chat API is reported only by
 the run. The scenario format stays `version: 1`.
+
+### `tool`
+
+A direct call of one MCP tool, without a model (since framework 0.20.0).
+For work a model should not do: a script that reads a web page, computes a
+score or renders a report, or an outside service such as an n8n workflow.
+The tool is a program of the project owner, registered in `mcp.yaml`; the
+scenario only names it.
+
+```yaml
+- id: facts
+  tool:
+    server: scripts
+    name: site_facts
+    args:
+      domain: "{{ inputs.domain }}"
+      pages: 5
+
+- id: visibility
+  timeout: 10m
+  tool:
+    server: geo
+    name: measure_visibility
+    json: true
+    args:
+      brand: "{{ inputs.brand }}"
+      queries: "{{ steps.seeds.queries }}"
+```
+
+The outputs are then read as `{{ steps.facts.robots_txt }}` and
+`{{ steps.visibility.overall_sov }}`.
+
+| Field | Required | What it does | When missing | Example |
+|---|---|---|---|---|
+| `server` | yes | Server from `mcp.yaml`. | `config` error. | `server: scripts` |
+| `name` | yes | The tool, as the server names it. It must be in the server's `direct` list ([config.md](config.md#mcpyaml--registry-of-mcp-servers)), otherwise a `config` error. | `config` error. | `name: site_facts` |
+| `args` | no | Arguments of the tool, a map. Every text in it, at any depth (also in lists and nested maps), is a [template](#templates--); a whole template keeps its type, so a list or an object from a step above goes in as it is. Other values are fixed. | `{}` | `domain: "{{ inputs.domain }}"` |
+| `json` | no | `true` = the tool answers with JSON in text (typical of an n8n workflow): the text of the result is read as a JSON object and its fields are the output. No effect when the result carries `structuredContent`. | The output is `text`. | `json: true` |
+
+Output (`steps.<id>`):
+
+- The result carries `structuredContent` (a tool that declares an
+  `outputSchema`, e.g. a FastMCP function with a return type) → the output
+  is that object: `steps.facts.robots_txt`.
+- Otherwise, with `json: true` → the object read from the text. Text that
+  is not one JSON object → error of class `tool`.
+- Otherwise `steps.<id>.text`: the text items of the result joined with a
+  newline.
+- Other content (images, audio, resources) is saved in the step directory
+  as `tool-01-<k>.<ext>` and named in `calls/01.tool.json`; it is not part
+  of the output in this version.
+- The output fields are not known before the run. `validate` checks that a
+  reference goes to a step above (with a `default` where the step might
+  not run), not the field itself; a field the output does not have is an
+  `expression` error at run time.
+
+How the call goes:
+
+- The server is the one `task` steps use: a stdio server starts once per
+  run, at the first `task` or `tool` step that needs it, and `parallel`
+  branches share it ([`task`](#task)). The call has the server's
+  `timeouts.call`.
+- Before the call, the filled-in `args` are checked against the tool's
+  `inputSchema` as the server reports it. A mismatch → the tool does not
+  run, `config` error listing what does not match.
+- The tool returns `isError` → the step fails with class `tool` and the
+  tool's text. No retry: the tool may have done part of its work.
+- A tool call timeout → `timeout`; a dropped connection → `config`. The
+  tool may have run in both cases, hence `dedupe_key` for a tool with a
+  side effect.
+- `retry` applies only to the start of the server (a `transient` handshake
+  failure), never to the tool call.
+- The step costs nothing (`cost_usd: 0`); `budget_usd` is not allowed.
+- No agent and no model take part, so the `mcp` and `tools` of agents do
+  not apply. The permission is the server's `direct` list, and its
+  `scenarios` when set. In a project registered through the API and not
+  yet trusted, a `tool` step is a `config` error, like a `task` with an
+  MCP server ([projects.md](projects.md#trust-projects-registered-through-the-api)).
+- `--dry-run` calls no tool. It starts the servers and marks a tool the
+  server does not offer, and fixed `args` that do not match the
+  `inputSchema` ([§7](#7-what-validate-checks)).
+- `--fake` fakes only the model, so a `tool` step calls the real tool,
+  unless the fake script has a response for the step: `result: {…}` (as
+  `structuredContent`) or `text: "…"`, optionally with `is_error: true`.
+  Then the server is not called for the step. A `tool` step with
+  `dedupe_key` and no scripted response fails in a fake run with `config`
+  before calling anything: the side effect would really happen, and only
+  `_dedupe-fake/` would know about it.
+
+The record ([run-record.md](run-record.md)) has `calls/01.tool.json` with
+the arguments and the result, the `tool_call` event (without `turn`) and
+`output.json`.
 
 ### `parallel`
 
@@ -968,6 +1063,7 @@ and the callback carries the error class, the step `id` and the message
 | `timeout` | the step or run `timeout` was exceeded; an MCP tool call timeout | ends, no retry |
 | `config` | an error in the scenario, agent or configuration — mainly from `validate` before the run (including the static check of expressions and templates, see [§5](#when-an-expression-error-is-detected)); at run time HTTP 400/401/403 (except content)/404, failure to start an MCP server (the process is not running, 401), `dedupe` in the `started` state, the image aspect ratio does not match `aspect_ratio`, `finish_reason: length` (cut off by the `max_tokens` limit; a retry will not help — raise the alias's `max_tokens` in `config.yaml`) | ends, no retry |
 | `expression` | an expression or template failed **at run time**: a missing key, a wrong value type, an index out of range, division by zero, `null` in a template (see [§5](#when-an-expression-error-is-detected)) | behaves like a `fail` step: no retry, ends (unless the step has `on_error: continue`) |
+| `tool` | a [`tool`](#tool) step: the tool returned an error (`isError`), or with `json: true` its text is not one JSON object (since framework 0.20.0) | no retry (the tool may have run), ends |
 | `fail` | a `fail` step (**proposal**) | ends |
 | `internal` | an error of the framework itself (**proposal**) — always with the full message in the record | ends |
 
@@ -1038,7 +1134,10 @@ class `config`:
   not list it in `agents`; a scenario outside the server's `scenarios`; a
   tool outside the server's `tools` → error (see
   [config.md](config.md#mcpyaml--registry-of-mcp-servers)),
-- since 0.18.0: a scenario whose `task` steps would use an MCP server, in
+- since 0.20.0: a `tool` step names a server and a tool from its `direct`
+  list, and the scenario is in the server's `scenarios` when the list is
+  set,
+- since 0.18.0: a scenario whose `task` (since 0.20.0 also `tool`) steps would use an MCP server, in
   a project that was registered through the API and not yet trusted by its
   owner → error naming `agencast projects trust <name>`
   ([projects.md](projects.md#trust-projects-registered-through-the-api)),
@@ -1070,4 +1169,7 @@ row and listed after the server's offer (`allowed but NOT OFFERED: …`) —
 the run would fail at that step with `config`. A server that does not
 start is listed with the reason: a missing variable (“missing environment
 variable X (MCP server s in mcp.yaml)”), or the error with the last lines
-of a local server's stderr.
+of a local server's stderr. Since 0.20.0 the plan also has the tool of each
+`tool` step, marked the same way when the server does not offer it, and
+fixed `args` that do not match the tool's `inputSchema` are listed with the
+step (templated values are known only at run time).

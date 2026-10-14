@@ -187,10 +187,11 @@ The caller sends the callback address with every request to start a run
 
 ## `mcp.yaml` — registry of MCP servers
 
-An agent may use only a server that is listed here, and only when the
-project owner allowed it here. **Permissions are held by the project
-owner** (DESIGN §5.2): agents and scenarios are files that others write
-too, so "who may do what" restrictions cannot live in them.
+An agent, or since 0.20.0 a [`tool`](scenario.md#tool) step, may use only a
+server that is listed here, and only when the project owner allowed it
+here. **Permissions are held by the project owner** (DESIGN §5.2): agents
+and scenarios are files that others write too, so "who may do what"
+restrictions cannot live in them.
 
 **The owner edits this file on disk.** A `command` is a program started on
 the host and a `url` with `bearer_token_env` sends a variable of the host
@@ -225,6 +226,19 @@ servers:
     scenarios: [ig-publish]
     tools: [create_media, publish_media]
     timeouts: { handshake: 10s, call: 120s }
+
+  scripts:
+    description: The owner's Python functions for tool steps
+    command: uv
+    args: ["run", "--script", "/srv/agencast/scripts/server.py"]
+    direct: [site_facts, render_report]
+
+  geo:
+    description: AI visibility measurement (an n8n workflow)
+    url: https://n8n.example.com/mcp/geo
+    bearer_token_env: GEO_MCP_TOKEN
+    direct: [measure_visibility]
+    timeouts: { call: 300s }
 ```
 
 | Field | Required | What it does | When missing | Example |
@@ -232,10 +246,11 @@ servers:
 | `version` | yes | Format version. | `config` error. | `version: 1` |
 | `servers.<name>` | — | Server name that agents refer to. Lowercase letters, digits, hyphen. | — | `instagram` |
 | `description` | yes | What the server is for (for humans and `--dry-run`). | `config` error. | |
-| `agents` | yes | Which agents may use the server. An agent with a server that does not list it here is a `config` error. | `config` error. | `agents: [publisher]` |
-| `scenarios` | no | Which scenarios may run (`task`) an agent with this server. A scenario outside the list → `config` error. Prevents an arbitrary scenario from using the publishing agent and bypassing the approval in the automation tool. | Any scenario. | `scenarios: [ig-publish]` |
+| `agents` | `agents` or `direct` (or both) | Which agents may use the server. An agent with a server that does not list it here is a `config` error. | No agent may use the server. Without `direct` as well → `config` error. | `agents: [publisher]` |
+| `direct` | `agents` or `direct` (or both) | Since 0.20.0: tools that [`tool`](scenario.md#tool) steps may call directly, without an agent and a model. Independent of `tools`, which limits agents. | No `tool` step may call the server. | `direct: [site_facts]` |
+| `scenarios` | no | Which scenarios may run (`task`) an agent with this server, or call its tools in a `tool` step. A scenario outside the list → `config` error. Prevents an arbitrary scenario from using the publishing agent and bypassing the approval in the automation tool. | Any scenario. | `scenarios: [ig-publish]` |
 | `tools` | no | Upper list of tools the project owner allows. An agent may have in `tools` only tools from this list, otherwise a `config` error. | Only the list in the agent. | `tools: [publish_media]` |
-| `command` | either `command` or `url` | Program of a local server (stdio). Started without a shell, **once per run** (at the first `task` that needs it). On a serverless host the package must be preinstalled in the image (D5: 0.7 s vs. 3.8 s). | — | `command: npx` |
+| `command` | either `command` or `url` | Program of a local server (stdio). Started without a shell, **once per run** (at the first `task` or `tool` step that needs it). On a serverless host the package must be preinstalled in the image (D5: 0.7 s vs. 3.8 s). | — | `command: npx` |
 | `args` | no | Program arguments, a list of strings. The only allowed substitution is `{run_dir}` = absolute path to the current run directory (so the server does not see other runs or `_dedupe`). Any other `{…}` is a `config` error. The root the server gets is the second permission layer (§5.8). | None. | `["…", "{run_dir}/work"]` |
 | `env` | no | Variables for the server process: `NAME_FOR_SERVER: NAME_ON_HOST`. The value is taken from the framework's environment. The server gets only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER` (the default set of the `mcp` SDK, DESIGN §5.8) and the variables from `env` — nothing else. The names `PATH`, `HOME`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, `NODE_OPTIONS`, `PYTHONPATH` are not allowed in `env`. | The server gets no secret. | `env: { GITHUB_TOKEN: GH_TOKEN }` |
 | `url` | either `command` or `url` | Address of a remote server: `https://…`, or `http://127.0.0.1` / `http://localhost` (a sidecar in the same container), optionally with a port. Plain `http://` with userinfo is rejected (`http://127.0.0.1:1@example.com/` — the host would be `example.com`). | — | |
@@ -260,7 +275,7 @@ run that is killed before it stops its servers has no stderr log.
 
 A server that does not start or does not answer the handshake fails the
 step — a `transient` failure only after it was retried according to the
-step's `retry` ([scenario.md](scenario.md), the `task` step; a remote
+step's `retry` ([scenario.md](scenario.md), the `task` and `tool` steps; a remote
 server's `Retry-After` header sets the delay). Network
 errors (connection refused, reset or closed without an answer, a timeout)
 and HTTP 408, 429 and 5xx are `transient`; everything

@@ -241,6 +241,9 @@
           "$ref": "#/$defs/image_step"
         },
         {
+          "$ref": "#/$defs/tool_step"
+        },
+        {
           "$ref": "#/$defs/parallel_step"
         },
         {
@@ -275,6 +278,9 @@
         },
         {
           "$ref": "#/$defs/image_step"
+        },
+        {
+          "$ref": "#/$defs/tool_step"
         },
         {
           "$ref": "#/$defs/parallel_step"
@@ -679,6 +685,60 @@
                   "pattern": "\\{\\{[\\s\\S]+\\}\\}"
                 }
               ]
+            }
+          }
+        }
+      }
+    },
+    "tool_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "tool"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "timeout": {
+          "$ref": "#/$defs/timeout"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "on_error": {
+          "$ref": "#/$defs/on_error"
+        },
+        "default": {
+          "$ref": "#/$defs/default"
+        },
+        "dedupe_key": {
+          "$ref": "#/$defs/template"
+        },
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "server",
+            "name"
+          ],
+          "properties": {
+            "server": {
+              "$ref": "#/$defs/kebab"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "type": "object"
+            },
+            "json": {
+              "type": "boolean"
             }
           }
         }

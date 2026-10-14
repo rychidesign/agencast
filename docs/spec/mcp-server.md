@@ -443,7 +443,7 @@ Result = `GET /projects/<p>` ([api.md](api.md#get-projectsp)) without `scenarios
 | `env` | `{VARIABLE: true \| false}` — whether each variable the project names is set (the server's environment or the project's `.env`, [Secrets and environment](#secrets-and-environment)); never a value |
 | `agents[]` | `{name, etag, description, model, model_id, skills, mcp, tools, errors}` |
 | `skills[]` | `{name, etag, description, errors}` |
-| `mcp_servers[]` | `{name, type, description, transport, agents, tools, scenarios, env_missing}` — never `command`, `args`, `url`, `env`, `bearer_token_env` |
+| `mcp_servers[]` | `{name, type, description, transport, agents, tools, scenarios, direct, env_missing}` (`direct` since 0.20.0: the tools a `tool` step may call, or `null`) — never `command`, `args`, `url`, `env`, `bearer_token_env` |
 | `errors` | project-level errors (`config.yaml`, `mcp.yaml`, registry) as objects |
 
 Errors: `not_found` (project), `config` (`config.yaml` unreadable).
@@ -693,7 +693,7 @@ never covers the paid one:
 
 | Tool | Provider | Cost | Registered |
 |---|---|---|---|
-| `fake_run` | fake: no model call, no key — every model answer is a placeholder that matches the step's schema (images are gray PNGs; Jev answers 0.5 / the first choice / score 0); MCP servers of `task` steps are **real**. On a `--fake SCRIPT` server the answers come from the script. | **free** | at level `run` |
+| `fake_run` | fake: no model call, no key — every model answer is a placeholder that matches the step's schema (images are gray PNGs; Jev answers 0.5 / the first choice / score 0); MCP servers of `task` steps are **real**, and so is the tool of a `tool` step without a scripted response. On a `--fake SCRIPT` server the answers come from the script. | **free** | at level `run` |
 | `run_scenario` | live: real models through the project's provider key | **costs money**, bounded by the project's limits | at level `run`, **not** on a `--fake` server |
 
 Description of `fake_run`: `Free — starts a run with placeholder model answers: no key,
