@@ -17,6 +17,7 @@ const TABS: Record<StepType, PanelTab[]> = {
   task: ["prompt", "response", "output", "calls", "tools", "files"],
   jev: ["response", "output", "calls", "files"],
   image: ["image", "prompt", "calls", "files"],
+  tool: ["output", "tools", "files"],
   call: ["output", "files"], set: ["output", "files"], output: ["output", "files"],
   fail: ["files"], parallel: ["files"], switch: ["output", "files"],
 };
@@ -113,7 +114,7 @@ function Tools({ events, files, live }: { events: RunEvent[]; files: string[]; l
             : typeof e.error === "string" && e.error ? e.error : e.is_error ? t("rpanel.toolError") : "";
           return (
             <li key={i} className={`rounded-control px-3 py-2 ${flag ? "bg-error/10" : "bg-nested"}`}>
-              <p className="font-mono">{t("rpanel.turn", { n: String(e.turn) })} · {String(e.server)}.{String(e.tool)}</p>
+              <p className="font-mono">{e.turn != null && `${t("rpanel.turn", { n: String(e.turn) })} · `}{String(e.server)}.{String(e.tool)}</p>
               <p className="break-words text-fg-muted">
                 {flag && <span className="text-error">{flag} · </span>}
                 {formatDuration(e.duration_s as number)}

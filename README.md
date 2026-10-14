@@ -92,8 +92,9 @@ run. Models executing workflow steps currently use OpenRouter; the connected cod
 - Scenarios in YAML, agents and skills in Markdown.
 - MCP and CLI interfaces for creating, checking and running workflows and reading results.
 - Model aliases configured by the owner, with workflow model calls through OpenRouter.
-- Ten step types: `ask`, `task`, `jev`, `image`, `parallel`, `switch`, `call`, `set`, `fail` and `output`.
-- `task` calls permitted MCP tools; `parallel`, `switch` and `call` compose branches and scenarios.
+- Eleven step types: `ask`, `task`, `jev`, `image`, `tool`, `parallel`, `switch`, `call`, `set`, `fail` and `output`.
+- `task` calls permitted MCP tools through an agent, `tool` calls one directly without a model; `parallel`, `switch`
+  and `call` compose branches and scenarios.
 - Images as inputs: `file` and `files` inputs (PNG, JPEG, WebP, GIF, AVIF) come from the CLI, the API, the GUI or an MCP
   client (from a directory the owner allows with `agencast mcp --input-dir`);
   `ask` and `task` can look at them, `image` can edit one or compose a new one from several.
@@ -325,7 +326,7 @@ choose the language in the GUI.
 
 ## Status and license
 
-The current runtime version is **0.19.4** (the 0.19.x line); the history of changes is in
+The current runtime version is **0.20.0** (the 0.20.x line); the history of changes is in
 the [changelog](framework/CHANGELOG.md). The project is available under the
 [WTFPL version 2](LICENSE) license.
 

@@ -544,6 +544,7 @@ def describe_project(root: Path, registered: Path | None = None) -> dict[str, An
     servers = [{"name": n, "type": "stdio" if "command" in s else "http", "description": s.get("description"),
                 "transport": "stdio" if "command" in s else s.get("transport", "streamable-http"),
                 "agents": s.get("agents"), "tools": s.get("tools"), "scenarios": s.get("scenarios"),
+                "direct": s.get("direct"),  # 0.20.0: tools a tool step may call
                 "env_missing": [v for v in secret_names({n: s}) if not os.environ.get(v)]} for n, s in mcp.items()]
     # variables from config.yaml (*_env) and mcp.yaml (env, bearer_token_env): presence only, never values
     env = {n: bool(os.environ.get(n)) for n in sorted({n for _, n in env_fields(cfg)} | set(secret_names(mcp)))}

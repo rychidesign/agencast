@@ -436,3 +436,28 @@ behaviours change for existing users and are marked **changed**.
 - Dry run (scenario.md §7): `plan.md` marks an allowed tool the server does not
   offer (`(NOT OFFERED by the server)`) and lists a server that does not start
   with the reason.
+
+## version 1 — backward-compatible addition (framework 0.20.0, the `tool` step)
+
+- [scenario.md](scenario.md#tool): the `tool` step calls one MCP tool directly,
+  without an agent and a model: `server`, `name`, `args` (templates at any depth)
+  and `json`. The output is the result's `structuredContent`, the object read from
+  its text with `json: true`, or `text`. `dedupe_key` is allowed on it, `budget_usd`
+  is not, and `retry` covers only the start of the server. A scenario without the
+  step runs as before.
+- A new error class `tool` (scenario.md §6): the tool returned `isError`, or with
+  `json: true` its text is not one JSON object. Only a `tool` step produces it, so
+  existing scenarios never see it.
+- [config.md](config.md#mcpyaml--registry-of-mcp-servers): a server in `mcp.yaml`
+  gets `direct`, the tools `tool` steps may call. `agents` is required only when
+  `direct` is missing (it was always required), so every valid file stays valid;
+  `scenarios` limits `tool` steps too. `mcp.schema.json` and `scenario.schema.json`
+  change accordingly.
+- Fake runs: a `tool` step takes a scripted response (`result`, `text`,
+  `is_error`) from the fake script, otherwise it calls the real tool; with
+  `dedupe_key` and no scripted response it fails with `config` before calling
+  anything.
+- [run-record.md](run-record.md): `calls/01.tool.json`, `tool-01-<k>.<ext>` and
+  the `tool_call` event without `turn` for a `tool` step.
+- The project description ([api.md](api.md), [mcp-server.md](mcp-server.md)) lists
+  `direct` with each MCP server.

@@ -7,7 +7,7 @@ import type { StepType } from "../types";
 import { btn } from "./ui";
 
 /** Groups separated by a hairline; `output` is not offered (it only goes at the end of the main list). */
-export const PICKER_GROUPS: StepType[][] = [["ask", "task", "jev", "image"], ["parallel", "switch", "call", "fail"], ["set"]];
+export const PICKER_GROUPS: StepType[][] = [["ask", "task", "jev", "image", "tool"], ["parallel", "switch", "call", "fail"], ["set"]];
 
 export type Pick = StepType | "paste";
 

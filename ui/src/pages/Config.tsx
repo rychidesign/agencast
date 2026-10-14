@@ -310,6 +310,7 @@ function McpServers({ project }: { project: Project }) {
               <p>{t("config.mcpAgents")}<br /><span className="text-fg-secondary">{s.agents?.join(", ") || "–"}</span></p>
               <p>{t("config.mcpTools")}<br /><span className="text-fg-secondary">{s.tools ? s.tools.join(", ") : t("mcp.unrestricted")}</span></p>
             </div>
+            {s.direct?.length ? <p className="font-mono text-xs text-fg-muted">{t("config.mcpDirect")}: {s.direct.join(", ")}</p> : null}
             {s.scenarios?.length ? <p className="font-mono text-xs text-fg-muted">{t("config.mcpScenarios")}: {s.scenarios.join(", ")}</p> : null}
             {/* a server without its token or variable cannot start: the same flag as in Variables, on its card */}
             {s.env_missing?.map((v) => (

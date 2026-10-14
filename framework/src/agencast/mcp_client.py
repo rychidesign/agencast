@@ -1,4 +1,4 @@
-"""MCP servers for the `task` step (DESIGN §5.8, config.md mcp.yaml).
+"""MCP servers for the `task` and `tool` steps (DESIGN §5.8, config.md mcp.yaml).
 
 - `load_mcp`: registry `workflows/mcp.yaml` (JSON Schema from the spec, only `{run_dir}`).
 - `api_name`, `provider_schema`, `arg_errors`: tool normalization for
@@ -19,7 +19,7 @@ import re
 import tempfile
 import time
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -162,11 +162,13 @@ def provider_schema(schema: dict) -> dict:
     return s
 
 
-def arg_errors(schema: dict, args) -> list[str]:
-    """Argument errors against the original tool schema (draft determined by `$schema`)."""
+def arg_errors(schema: dict, args, fixed_only: bool = False) -> list[str]:
+    """Argument errors against the original tool schema (draft determined by `$schema`). `fixed_only` = the `args`
+    of a `tool` step before the run: a value that is a template is known only at run time and is not judged."""
     cls = validators.validator_for(schema, default=Draft202012Validator)
     return [f"{'.'.join(map(str, e.absolute_path)) or 'root'}: {describe_error(e)}"
-            for e in cls(schema).iter_errors(args)]
+            for e in cls(schema).iter_errors(args)
+            if not (fixed_only and isinstance(e.instance, str) and "{{" in e.instance)]
 
 
 # --- run servers ---------------------------------------------------------------------
@@ -185,7 +187,9 @@ class Server:
 class ToolResult:
     is_error: bool
     text: str
-    images: list           # [(bytes, media_type)]
+    images: list           # [(bytes, media_type)]; with `files` (a `tool` step) also audio and resources
+    structured: dict | None = None  # structuredContent (0.20.0, the output of a `tool` step)
+    notes: list = field(default_factory=list)  # with `files`: content not saved, kept out of `text`
 
 
 def _leaves(e: BaseException) -> list:
@@ -423,9 +427,10 @@ class Pool:
             raise
 
     @staticmethod
-    async def call(server: Server, tool: str, args: dict) -> ToolResult:
+    async def call(server: Server, tool: str, args: dict, files: bool = False) -> ToolResult:
         """Call a tool. Both isError and server JSON-RPC errors = result for the model;
-        timeout = class `timeout` (the tool may have run), crashed server or invalid answer = `config`."""
+        timeout = class `timeout` (the tool may have run), crashed server or invalid answer = `config`.
+        `files` = a `tool` step: audio and resources are kept as files too, and `text` holds only text items."""
         try:
             async with asyncio.timeout(server.call_s + GUARD_S):
                 res = await server.client.call_tool(tool, args, read_timeout_seconds=server.call_s)
@@ -443,15 +448,23 @@ class Pool:
             return ToolResult(True, f"MCP error {e.code}: {INPUT.sub('', e.message)}", [])
         except Exception as e:  # e.g. a result that is no tool result: not the SDK's own text, which quotes the input
             raise AgencastError("config", f"tool {server.name}.{tool} failed: {describe(e)}") from None
-        texts, images = [], []
+        texts, images, notes = [], [], []
         for b in res.content:
             if b.type == "text":
                 texts.append(b.text)
-            elif b.type == "image":
+            elif b.type == "image" or files and b.type == "audio":
                 try:
                     images.append((base64.b64decode(b.data), b.mime_type))
                 except ValueError:  # an invalid answer of the server, not an error of the framework
-                    raise AgencastError("config", f"tool {server.name}.{tool} returned an image that is not base64") from None
+                    what = "an image" if b.type == "image" else "audio"
+                    raise AgencastError("config", f"tool {server.name}.{tool} returned {what} that is not base64") from None
+            elif files and b.type == "resource":
+                r = b.resource
+                try:
+                    data = base64.b64decode(r.blob) if hasattr(r, "blob") else r.text.encode()
+                except ValueError:
+                    raise AgencastError("config", f"tool {server.name}.{tool} returned a resource that is not base64") from None
+                images.append((data, r.mime_type or ("text/plain" if hasattr(r, "text") else "application/octet-stream")))
             else:
-                texts.append(f"[content of type {b.type} is not forwarded by the framework]")
-        return ToolResult(bool(res.is_error), "\n".join(texts), images)
+                (notes if files else texts).append(f"[content of type {b.type} is not forwarded by the framework]")
+        return ToolResult(bool(res.is_error), "\n".join(texts), images, res.structured_content, notes)

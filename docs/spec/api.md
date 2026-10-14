@@ -97,7 +97,7 @@ plus `"details": [...]` (for editing operations `"errors": [...]`, section
   "skills": [{"name": "lumen-voice", "etag": "…", "description": "…", "errors": []}],
   "mcp_servers": [{"name": "filesystem", "type": "stdio", "description": "Reading and writing in the run workspace",
                    "transport": "stdio", "agents": ["librarian"], "tools": ["read_text_file"], "scenarios": null,
-                   "env_missing": []}],
+                   "direct": null, "env_missing": []}],
   "links": {"scenario_agent": [["ig-post", "copywriter"]], "scenario_step_agent": [["ig-post", "copy", "copywriter"]],
             "scenario_scenario": [["demo-call", "tone-check"]],
             "agent_skill": [["copywriter", "lumen-voice"]], "agent_server": [["librarian", "filesystem"]]},
@@ -124,7 +124,8 @@ plus `"details": [...]` (for editing operations `"errors": [...]`, section
   `description`, `transport` (`stdio`, `streamable-http` or `sse`; `type` stays for older clients)
   and `env_missing` = the names (never the values) of the server's variables (`env`,
   `bearer_token_env`) that are not set in the environment of `agencast serve` (the same check as
-  the project-level `env`); `[]` = none missing.
+  the project-level `env`); `[]` = none missing. Since 0.20.0 also `direct` = the tools a
+  [`tool`](scenario.md#tool) step may call, `null` = none.
 - `links` = sorted [from, to] pairs: an `ask`/`task` step → agent,
   a `call` step → scenario, agent → skill, agent → MCP server. Since 0.7.0
   `scenario_step_agent` = [scenario, step id, agent] triples (including steps in

@@ -82,7 +82,7 @@ def test_env_flags_never_values(registry_server, monkeypatch):
     assert "sk-or-secret-value" not in r.text and SECRET not in r.text
     # the server card: what it is for, the real transport and which of its variables is missing — never the address
     assert r.json()["mcp_servers"] == [{"name": "web", "type": "http", "description": "Web", "transport": "sse", "agents": ["writer"],
-                                        "tools": None, "scenarios": None, "env_missing": ["WEB_TOKEN"]}]
+                                        "tools": None, "scenarios": None, "direct": None, "env_missing": ["WEB_TOKEN"]}]
     assert "mcp.example.com" not in r.text
 
 

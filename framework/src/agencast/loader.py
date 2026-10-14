@@ -16,7 +16,7 @@ from . import FORMAT_VERSIONS
 from .resources import resource_dir
 
 SPEC_SCHEMAS = resource_dir("docs") / "spec" / "schema"
-STEP_KINDS = ("ask", "task", "jev", "image", "parallel", "switch", "call", "set", "fail", "output")
+STEP_KINDS = ("ask", "task", "jev", "image", "tool", "parallel", "switch", "call", "set", "fail", "output")
 
 
 class Yaml12Loader(yaml.SafeLoader):

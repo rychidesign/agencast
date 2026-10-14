@@ -6,13 +6,13 @@ record (run record, report.html), mcp_client (MCP servers), task (task step,
 dedupe_key), projects (project registry, templates, GUI descriptions), server
 (webhook and read API), api (public API for wrappers), cli.
 """
-__version__ = "0.19.4"
+__version__ = "0.20.0"
 
 # Format versions the framework can read (DESIGN §5.9 item 6).
 FORMAT_VERSIONS = (1,)
 
 # Error classes defined in scenario.md §6.
-ERROR_CLASSES = ("transient", "schema", "content", "budget", "timeout", "config",
+ERROR_CLASSES = ("transient", "schema", "content", "budget", "timeout", "config", "tool",
                  "expression", "fail", "internal")
 
 

@@ -98,6 +98,7 @@ v1 (being implemented):
 | `task` | an autonomous agent with tools/MCP/skills, turn and budget limits |
 | `jev` | a decision through Jev (`noul` / `choice` / `score`), returns values and probabilities |
 | `image` | image generation through OpenRouter; the result is a file in the run folder |
+| `tool` | a direct MCP tool call without a model (since 0.20.0; the owner allows the tools in `mcp.yaml` `direct`) |
 | `parallel` | concurrent branches within one run, named outputs |
 | `switch` | branching by value; `default` is **mandatory** |
 | `call` | a nested run of another scenario (see §5.3) |
@@ -111,7 +112,7 @@ Step properties: `id`, `when` (every step); `retry`, `timeout`,
 `docs/spec/OPEN-QUESTIONS.md`.)
 
 Planned (implemented **only when a concrete scenario needs it**):
-`foreach`, `repeat`, `http`, `tool` (a direct MCP call without a model), `file`,
+`foreach`, `repeat`, `http`, `file`,
 `run` (only named commands from `commands.yaml`), `state` (memory between
 runs, atomic `claim`).
 
@@ -333,6 +334,8 @@ Everything else can be written by other people and agents.
   with an empty environment, validated arguments.
 - An agent defines the **maximum** of permissions (tools, MCP, limits); a step in a
   scenario can only **narrow** them, never widen.
+- A `tool` step calls a tool without an agent, so only the tools the owner lists in
+  the server's `direct` in `mcp.yaml` (since 0.20.0).
 - An incoming webhook requires a token; the callback is signed (HMAC), the caller verifies it.
 - Idempotence: the request key on the webhook (a repeated call does not start a second
   run) and `dedupe_key` on steps with a side effect (publication). The `started`
