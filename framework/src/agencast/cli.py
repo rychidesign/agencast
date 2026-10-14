@@ -272,14 +272,6 @@ def cmd_mcp(a) -> int:
                 raise ConfigErrors([f"cannot start server at {host}:{port}: {e.strerror or e}"]) from None
     except (ConfigErrors, LoadError) as e:
         return _fail_config(e.errors if isinstance(e, ConfigErrors) else [str(e)])
-    where, http = "stdio", ""
-    if a.http:
-        where = f"http://{f'[{host}]' if ':' in host else host}:{port}/mcp"
-        http = " · token from AGENCAST_MCP_TOKEN · hosts: " + ", ".join(names)
-    print(f"agencast mcp: {where} — {f'project {root}' if root else f'registry mode ({_projects.registry_path()})'} · "
-          f"allow {a.allow} · input dirs: {', '.join(map(str, dirs)) or 'none'}"
-          f"{' · fake provider' if fake is not None else ''}{http}", file=sys.stderr, flush=True)
-
     def stop(sig, _):
         """Runs are other processes and go on; only dry runs in flight are this process's to cancel, with the copies
         of file inputs it still owns (dry runs, run starts in flight). Then end killed by the signal — also while the
@@ -292,8 +284,18 @@ def cmd_mcp(a) -> int:
         finally:
             signal.signal(sig, signal.SIG_DFL)
             os.kill(os.getpid(), sig)
+    # before the banner: a client that signals as soon as it reads it must find the copies removed
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, stop)
+
+    where, http = "stdio", ""
+    if a.http:
+        where = f"http://{f'[{host}]' if ':' in host else host}:{port}/mcp"
+        http = " · token from AGENCAST_MCP_TOKEN · hosts: " + ", ".join(names)
+    print(f"agencast mcp: {where} — {f'project {root}' if root else f'registry mode ({_projects.registry_path()})'} · "
+          f"allow {a.allow} · input dirs: {', '.join(map(str, dirs)) or 'none'}"
+          f"{' · fake provider' if fake is not None else ''}{http}", file=sys.stderr, flush=True)
+
     if not a.http:
         server.run("stdio")  # returns when the client closes stdin; tool calls in flight finish
     else:  # uvicorn stops gracefully on a signal, then restores `stop` and raises the signal again

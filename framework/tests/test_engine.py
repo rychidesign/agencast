@@ -339,7 +339,8 @@ def test_image_api_generates_file_cost_and_image_budget(wf):
     assert r.values["steps"]["photo"]["file"].path.endswith("/image.png")
     assert (r.rec.dir / r.values["steps"]["photo"]["file"].path).is_file()
     call = events(r, "model_call")[0]
-    assert call["usage"]["cost_usd"] == r.image_cost == 0.04 and call["timeout_s"] == 180
+    assert call["usage"]["cost_usd"] == r.image_cost == 0.04
+    assert 179 < call["timeout_s"] <= 180  # the step's 180 s less the time to get there (a slow runner: 179.999)
     assert call["budget_exceeded_usd"] == 0.01
     assert events(r, "run_finished")[0]["image_cost_usd"] == 0.04
 
